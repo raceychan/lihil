@@ -1,0 +1,50 @@
+[project]
+dependencies = [
+  "can-ada>=2.0.0",
+  "ididi==1.5.2",
+  "msgspec>=0.19.0",
+  "starlette>=0.45.3",
+]
+description = "Add your description here"
+name = "lihil"
+readme = "README.md"
+requires-python = ">=3.12"
+version = "0.1.0"
+
+# [tool.lihil]
+# host = "127.0.0.1"
+# port = 8000
+
+# [tool.lihil.oas]
+# "/users/{user_id}" = { include_schema = true }
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.4",
+  "fastapi>=0.115.8",
+  "httptools>=0.6.4",
+  "granian>=1.7.6",
+  "uvicorn>=0.34.0",
+  "loguru>=0.7.3",
+  "pyinstrument>=5.0.1",
+  "py-spy>=0.4.0",
+  "pytest-asyncio>=0.25.3",
+  "ipython>=9.0.2",
+]
+
+[tool.pyright]
+exclude = ["tests"]
+include = ["lihil/*.py"]
+python_version = "3.12"
+typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --capture=no"
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+  "integration_test: marks tests as slow integration tests (deselect with '-m \"not integration_test\"')",
+  "debug: marks tests as debug tests (deselect with '-m \"not debug\"')",
+  "benchmark: marks tests as benchmark tests (deselect with '-m \"not benchmark\"')",
+]
+testpaths = ["tests"]
