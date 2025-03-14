@@ -24,6 +24,7 @@ version: str = "1"
 
 
 def is_lhl_dep(type_: type):
+    "Dependencies that should be injected and managed by lihil"
     return type_ in {Request}
 
 

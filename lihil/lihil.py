@@ -49,13 +49,13 @@ class Lihil[T: AppState]:
         app_config: AppConfig | None = None,
         lifespan: LifeSpan[T] | None = None,
     ):
-        self.graph = graph
+        self.graph = graph or Graph(self_inject=True)
         self.app_config = app_config or AppConfig()
         self._userls = lifespan_wrapper(lifespan)
         self._app_state: T
 
         self.workers = ThreadPoolExecutor()
-        self.root = Route("/", graph=graph)
+        self.root = Route("/", graph=self.graph)
         self.routes: list[Route] = [self.root]
         self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stack: ASGIApp
@@ -110,6 +110,10 @@ class Lihil[T: AppState]:
         for route in routes:
             if route.path in seen:
                 continue
+
+            self.graph.merge(route.graph)
+            route.graph = self.graph
+
             if route.path == "/":
                 if self.root.endpoints:
                     raise DuplicatedRouteError(route, self.root)

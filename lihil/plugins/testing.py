@@ -1,3 +1,4 @@
+from time import perf_counter
 from typing import Any, Literal, Optional, Union
 from urllib.parse import urlencode
 
@@ -7,6 +8,30 @@ from msgspec.json import encode as json_encode
 from lihil.endpoint import Endpoint
 from lihil.interface import ASGIApp, Base, Payload
 from lihil.routing import Route
+
+
+class Timer:
+    __slots__ = ("_precision", "_start", "_end", "_cost")
+
+    def __init__(self, precision: int = 6):
+        self._precision = precision
+        self._start, self._end, self._cost = 0, 0, 0
+
+    def __repr__(self):
+        return f"Timer(cost={self.cost}s, precison: {self._precision})"
+
+    async def __aenter__(self):
+        self._start = perf_counter()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        end = perf_counter()
+        self._cost = round(end - self._start, self._precision)
+        self._end = end
+
+    @property
+    def cost(self) -> float:
+        return self._cost
 
 
 class RequestResult(Base):
@@ -49,7 +74,11 @@ class RequestResult(Base):
 class LocalClient:
     """A client for testing ASGI applications."""
 
-    def __init__(self, client_type: Literal["http"] = "http"):
+    def __init__(
+        self,
+        client_type: Literal["http"] = "http",
+        headers: dict[str, str] | None = None,
+    ):
         """
         Initialize a test client for an ASGI application.
 
@@ -61,6 +90,8 @@ class LocalClient:
         self.base_headers: dict[str, str] = {
             "user-agent": "lihil-test-client",
         }
+        if headers:
+            self.base_headers.update(headers)
 
     async def request(
         self,
@@ -68,7 +99,7 @@ class LocalClient:
         method: str,
         path: str,
         path_params: dict[str, Any] | None = None,
-        query: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
         body: Optional[Union[bytes, str, dict[str, Any], Payload]] = None,
     ) -> RequestResult:
@@ -87,8 +118,8 @@ class LocalClient:
         """
         # Prepare query string
         query_string = b""
-        if query:
-            query_string = urlencode(query).encode("utf-8")
+        if query_params:
+            query_string = urlencode(query_params).encode("utf-8")
 
         # Prepare headers
         request_headers = self.base_headers.copy()
@@ -158,14 +189,14 @@ class LocalClient:
     async def call_endpoint(
         self,
         ep: Endpoint[Any],
-        path_params: dict[str, Any] | None = None,
+        path_params: dict[str, str] | None = None,
         query_params: dict[str, Any] | None = None,
         body: Any = None,
         headers: dict[str, str] | None = None,
     ) -> RequestResult:
 
         encoded_path = (
-            {k: json_encode(v) for k, v in path_params.items()} if path_params else {}
+            {k: str(v) for k, v in path_params.items()} if path_params else {}
         )
 
         resp = await self.request(
@@ -173,7 +204,7 @@ class LocalClient:
             method=ep.method,
             path=ep.path,
             path_params=encoded_path,
-            query=query_params,
+            query_params=query_params,
             headers=headers,
             body=body,
         )
@@ -218,30 +249,3 @@ class LocalClient:
     # ) -> RequestResult:
     #     """Make a DELETE request."""
     #     return await self.request("DELETE", path, query, headers)
-
-
-from time import perf_counter
-
-
-class Timer:
-    __slots__ = ("_precision", "_start", "_end", "_cost")
-
-    def __init__(self, precision: int = 6):
-        self._precision = precision
-        self._start, self._end, self._cost = 0, 0, 0
-
-    def __repr__(self):
-        return f"Timer(cost={self.cost}s, precison: {self._precision})"
-
-    async def __aenter__(self):
-        self._start = perf_counter()
-        return self
-
-    async def __aexit__(self, a, b, c):
-        end = perf_counter()
-        self._cost = round(end - self._start, self._precision)
-        self._end = end
-
-    @property
-    def cost(self) -> float:
-        return self._cost

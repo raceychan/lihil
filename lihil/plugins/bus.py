@@ -25,7 +25,7 @@ from typing import (
 )
 from weakref import ref
 
-from ididi import AsyncScope, Graph, INode, INodeConfig
+from ididi import Graph, INode, INodeConfig, Resolver
 from ididi.interfaces import GraphIgnore, TDecor
 
 from lihil.interface import MISSING, Maybe
@@ -311,7 +311,7 @@ class ManagerBase:
     def __init__(self, dg: Graph):
         self._dg = dg
 
-    async def _resolve_meta(self, meta: "FuncMeta[Any]", *, scope: AsyncScope):
+    async def _resolve_meta(self, meta: "FuncMeta[Any]", *, resolver: Resolver):
         handler = meta.handler
 
         if not meta.is_async:
@@ -320,7 +320,7 @@ class ManagerBase:
             handler = partial(to_thread, cast(Any, handler))
 
         if isinstance(meta, MethodMeta):
-            instance = await scope.resolve(meta.owner_type)
+            instance = await resolver.resolve(meta.owner_type)
             handler = MethodType(handler, instance)
         else:
             # TODO: EntryFunc
@@ -358,7 +358,7 @@ class HandlerManager(ManagerBase):
         msg_type: type[C],
         handler: Callable[..., Any],
         *,
-        scope: AsyncScope,
+        resolver: Resolver,
     ) -> CommandHandler[C]:
         command_guards = self._global_guards + self._guard_mapping[msg_type]
         if not command_guards:
@@ -366,7 +366,7 @@ class HandlerManager(ManagerBase):
 
         guards: list[IGuard] = [
             (
-                await scope.resolve(meta.guard)
+                await resolver.aresolve(meta.guard)
                 if isinstance(meta.guard, type)
                 else meta.guard
             )
@@ -394,15 +394,15 @@ class HandlerManager(ManagerBase):
     def get_guards(self, msg_type: type) -> list[IGuard | type[IGuard]]:
         return [meta.guard for meta in self._guard_mapping[msg_type]]
 
-    async def resolve_handler[C](self, msg_type: type[C], scope: AsyncScope):
+    async def resolve_handler[C](self, msg_type: type[C], resovler: Resolver):
         try:
             meta = self._handler_metas[msg_type]
         except KeyError:
             raise UnregisteredMessageError(msg_type)
 
-        resolved_handler = await self._resolve_meta(meta, scope=scope)
+        resolved_handler = await self._resolve_meta(meta, resolver=resovler)
         guarded_handler = await self._chain_guards(
-            msg_type, resolved_handler, scope=scope
+            msg_type, resolved_handler, resolver=resovler
         )
         return guarded_handler
 
@@ -437,7 +437,7 @@ class ListenerManager(ManagerBase):
     #    self._listener_metas[msg_type][idx] = FuncMeta.from_handler(msg_type, new)
 
     async def resolve_listeners[E](
-        self, msg_type: type[E], *, scope: AsyncScope
+        self, msg_type: type[E], *, resolver: Resolver
     ) -> EventListeners[E]:
         try:
             listener_metas = self._listener_metas[msg_type]
@@ -445,7 +445,8 @@ class ListenerManager(ManagerBase):
             raise UnregisteredMessageError(msg_type)
         else:
             resolved_listeners = [
-                await self._resolve_meta(meta, scope=scope) for meta in listener_metas
+                await self._resolve_meta(meta, resolver=resolver)
+                for meta in listener_metas
             ]
             return resolved_listeners
 
@@ -759,7 +760,33 @@ async def signup(user: User, service: Service, bus: MessageBus):
 """
 
 
-class MessageRoute:
+class EventBus:
+    def __init__(
+        self,
+        listener: ListenerManager,
+        strategy: PublishStrategy[IEvent],
+        resolver: Resolver,
+    ):
+        self.listeners = listener
+        self.strategy = strategy
+        self.resolver = resolver
+
+    async def publish(
+        self,
+        msg: IEvent,
+        *,
+        context: IEventContext | None = None,
+    ) -> None:
+        resolved_listeners = await self.listeners.resolve_listeners(
+            type(msg), resolver=self.resolver
+        )
+        return await self.strategy(msg, context, resolved_listeners)
+
+    def emit(self) -> None:
+        raise NotImplementedError
+
+
+class BusFactory:
     def __init__(
         self,
         *registries: MessageRegistry[Any, Any],
@@ -779,6 +806,9 @@ class MessageRoute:
         self.include(*registries)
         self._dg.register_singleton(self)
 
+    def create_event_bus(self, resolver: Resolver):
+        return EventBus(self._listener_manager, self._publisher, resolver)
+
     @property
     def sender(self) -> SendStrategy[Any]:
         return self._sender
@@ -793,30 +823,6 @@ class MessageRoute:
 
     def reset_graph(self) -> None:
         self._dg.reset(clear_nodes=True)
-
-    # async def __enter__(self):
-    #     """create an global scope and create resource"""
-    #     # scope = self._dg.scope("anywise")
-
-    # async def __aexit__(
-    #     self,
-    #     exc_type: type[Exception] | None,
-    #     exc: Exception | None,
-    #     exc_tb: Any | None,
-    # ): ...
-
-    def register(
-        self, message_type: type | None = None, *registee: tuple[Registee, ...]
-    ) -> None:
-        """
-        register a function, a class, a module, or a package.
-
-        anywise.register(create_user)
-        anywise.register(UserCommand, UserService)
-        anywise.register(UserCommand, user_service) # module / package
-
-        NOTE: a package is a module with __path__ attribute
-        """
 
     @property
     def inspect(self) -> Inspect:
@@ -840,41 +846,51 @@ class MessageRoute:
         self,
         msg: object,
         *,
+        resolver: Resolver,
         context: IContext | None = None,
-        scope: AsyncScope | None = None,
     ) -> Any:
-        if scope is None:
-            scope = await self._dg.ascope("message").__aenter__()
 
-        handler = await self._handler_manager.resolve_handler(type(msg), scope)
+        handler = await self._handler_manager.resolve_handler(type(msg), resolver)
         return await self._sender(msg, context, handler)
 
-    async def publish(
-        self,
-        msg: IEvent,
-        *,
-        context: IEventContext | None = None,
-        scope: AsyncScope | None = None,
-    ) -> None:
-        if scope is None:
-            scope = await self._dg.ascope("message").__aenter__()
+    async def sink(self, event: Any):
+        try:
+            await self._sink.sink(event)  # type: ignore
+        except AttributeError:
+            raise SinkUnsetError()
 
-        resolved_listeners = await self._listener_manager.resolve_listeners(
-            type(msg), scope=scope
-        )
-        return await self._publisher(msg, context, resolved_listeners)
+    # async def __enter__(self):
+    #     """create an global scope and create resource"""
+    #     # scope = self._dg.scope("anywise")
 
-    def emit(self):
-        ...
+    # async def __aexit__(
+    #     self,
+    #     exc_type: type[Exception] | None,
+    #     exc: Exception | None,
+    #     exc_tb: Any | None,
+    # ): ...
 
-    #def add_task[
+    # def register(
+    #     self, message_type: type | None = None, *registee: tuple[Registee, ...]
+    # ) -> None:
+    #     """
+    #     register a function, a class, a module, or a package.
+
+    #     anywise.register(create_user)
+    #     anywise.register(UserCommand, UserService)
+    #     anywise.register(UserCommand, user_service) # module / package
+
+    #     NOTE: a package is a module with __path__ attribute
+    #     """
+
+    # def add_task[
     #    **P, R
-    #](
+    # ](
     #    self,
     #    task_func: Callable[P, R],
     #    *args: P.args,
     #    **kwargs: P.kwargs,
-    #):
+    # ):
     #    # if kwargs:
     #    #     task_func = partial(task_func, **kwargs)
 
@@ -884,9 +900,3 @@ class MessageRoute:
     #        t.add_done_callback()
 
     #    # self.loop.call_soon(task_func, *args)
-
-    async def sink(self, event: Any):
-        try:
-            await self._sink.sink(event)  # type: ignore
-        except AttributeError:
-            raise SinkUnsetError()

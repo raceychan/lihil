@@ -1,14 +1,19 @@
 # lihil
 
-**lihil** [/ˈliːhaɪl/] is a performant, productive and professional web framework with a vision: making python the mainstream programming language for web development..
+**lihil** &nbsp;*/ˈliːhaɪl/* — a **performant**, **productive**, and **professional** web framework with a vision:
+
+> **Making Python the mainstream programming language for web development.**
 
 Lihil is
 
-- *Performant* 1-3x faster than other asgi frameworks in most benchmarks, event more with its own server.
-- *Productive* ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
-- *professional* Start small, move fast, achieve great, lihil follows industry standards (RFC9110, 9457, ...) and best practices(EDA, service choreography, etc) to deliver robust and scalable solutions.
+- **Performant** lihil is unpythonically fast, 1-3x faster than other asgi frameworks in most benchmarks, event more with its own server.
+
+- **Productive** ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
+
+- **professional** Start small, move fast, achieve great, lihil follows industry standards (RFC9110, 9457, ...) and best practices (EDA, service choreography, etc) to deliver robust and scalable solutions.
 
 ## Features
+
 - **Advanced dependency injection**, inject params, resources, plugins, extremly powerful and fast.
 - **OpenAPI docs** and json schema automatically generated with accurate type information, union type, json examples, problem detail(RFC-9457) and more.
 - **Great Testability**, lihil abstracts away web framework specifics objects such as `Response`, `content-type` via  annotations, you can test your endpoints like regular functions.

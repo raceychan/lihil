@@ -39,7 +39,7 @@ class Route:
         self.path = handle_path(path)
         self.path_regex: Pattern[str] | None = None
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
-        self.graph = graph or Graph()
+        self.graph = graph or Graph(self_inject=False)
         self.tag = tag or generate_route_tag(self.path)
         self.subroutes: list[Route] = []
         self.middle_factories: list[MiddlewareFactory[Any]] = []
