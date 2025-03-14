@@ -83,10 +83,56 @@ by default, lihil will generate a `Problem` with `Problem detail` based on your 
 #### Initialization
 
 - init at lifespan
+
+
+```python
+from lihil import Graph
+
+
+async def lifespan(app: Lihil):
+    yourplugin = await YourPlugin().__aenter__
+    app.graph.register_singleton(your_plugin)
+    yield
+    await YourPlugin().__aexit__()
+
+lhl = LIhil(lifespan=lifespan)
+```
+
+use it anywhere with DI
+
+
 - init at middleware
 
 plugin can be initialized and injected into middleware,
-middleware can be bind to differernt route,
-for example `Throttle`
+middleware can be bind to differernt route, for example `Throttle`
+
+```python
+# pseudo code
+class ThrottleMiddleware:
+    def __init__(self, app: Ignore[ASGIApp], redis: Redis):
+        self.app = app
+        self.redis = redis
+    async def __call__(self, app):
+        await self.redis.run_throttle_script
+        await self.app
+
+lihil.add_middleware(lambda app: app.graph.resolve(ThrottleMiddleware))
+```
+
 
 - init each request
+```python
+async def create_user(user_name: str, plugin: YourPlugin): ...
+```
+
+
+
+## Why not just FastAPI?
+
+I have been using FastAPI since october 2020, and have built dozens of apps using it, 
+I am greatly satisfied with its API design and DI system, however, due to its microframework nature,
+I found out myself doing the same thing over and over again.
+
+- DI is tightly coupled with endpoint and request, this limits its usability, a common need is to echo  external dependencies before app start, but then DI won't help us.
+
+<!-- - lack support for message system,  -->

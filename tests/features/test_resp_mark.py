@@ -1,8 +1,8 @@
 from types import UnionType
 
-from lihil import Graph, Payload, status
+from lihil import Payload, status
 from lihil.interface.marks import Json, Resp, is_resp_mark
-from lihil.routing import Endpoint, Route
+from lihil.routing import Route
 
 
 def test_validate_mark():

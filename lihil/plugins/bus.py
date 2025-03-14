@@ -773,16 +773,18 @@ class EventBus:
 
     async def publish(
         self,
-        msg: IEvent,
+        event: IEvent,
         *,
         context: IEventContext | None = None,
     ) -> None:
+        # share same scope as request
         resolved_listeners = await self.listeners.resolve_listeners(
-            type(msg), resolver=self.resolver
+            type(event), resolver=self.resolver
         )
-        return await self.strategy(msg, context, resolved_listeners)
+        return await self.strategy(event, context, resolved_listeners)
 
-    def emit(self) -> None:
+    def emit(self, event, callback=None) -> None:
+        # have a unique scope that does not affect
         raise NotImplementedError
 
 

@@ -20,8 +20,6 @@ async def listen_create(created: TodoCreated):
 
 
 bus_factory = BusFactory(registry)
-
-
 bus_route = Route("/bus", busmaker=bus_factory)
 
 
