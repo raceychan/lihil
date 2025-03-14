@@ -1,31 +1,17 @@
 from inspect import Parameter
 from types import UnionType
-from typing import Any, Callable, TypeAliasType, cast, get_args, get_origin
+from typing import Annotated, Any, Callable, TypeAliasType, get_args, get_origin
 
 from lihil.constant.status import code as get_status_code
+from lihil.errors import StatusConflictError
 from lihil.interface import MISSING, Base, IEncoder, Maybe, is_provided
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text, is_resp_mark
 from lihil.utils.phasing import encode_json, encode_text
 from lihil.utils.typing import flatten_annotated
 
 
-class CustomEncoder:
-    encode: Callable[[Any], bytes]
-
-
-class ReturnParam[T](Base):
-    encoder: IEncoder[T]
-    status: int
-    type_: Maybe[type[T]] | UnionType = MISSING
-    content_type: str = "application/json"
-    origin: Any = MISSING
-
-    def __repr__(self) -> str:
-        return f"Return({self.origin}, {self.status})"
-
-
 def parse_status(status: Any) -> int:
-    status_type = type(status)
+    status_type: type = type(status)
     if status_type is int:
         return status
     elif status_type is str:
@@ -44,9 +30,29 @@ def get_media(origin: Any):
     return content_type
 
 
-def analyze_markedret[R](annt: Any, origin: Any, status: Any):
-    status = parse_status(status)
-    if is_resp_mark(annt):
+class CustomEncoder:
+    encode: Callable[[Any], bytes]
+
+
+class ReturnParam[T](Base):
+    encoder: IEncoder[T]
+    status: int
+    type_: Maybe[type[T]] | UnionType | None = MISSING
+    content_type: str = "application/json"
+    annotation: Any = MISSING
+
+    def __post_init__(self):
+        if self.status < 200 or self.status in (204, 205, 304):
+            if is_provided(self.type_) and self.type_ is not None:
+                raise StatusConflictError(self.status, self.type_)
+
+    def __repr__(self) -> str:
+        return f"Return({self.annotation}, {self.status})"
+
+    @classmethod
+    def from_mark(
+        cls, annt: TypeAliasType, origin: Any, status: int
+    ) -> "ReturnParam[Any]":
         origin = get_origin(annt) or annt
         if origin is Text:
             content_type = get_media(origin)
@@ -54,10 +60,10 @@ def analyze_markedret[R](annt: Any, origin: Any, status: Any):
                 type_=bytes,
                 encoder=encode_text,
                 status=status,
-                origin=annt,
+                annotation=annt,
                 content_type=content_type,
             )
-            return cast(ReturnParam[R], rtp)
+            return rtp
         elif origin is HTML:
             raise NotImplementedError
         elif origin is Stream:
@@ -70,7 +76,7 @@ def analyze_markedret[R](annt: Any, origin: Any, status: Any):
                 type_=retype,
                 encoder=encode_json,
                 status=status,
-                origin=annt,
+                annotation=annt,
                 content_type=content_type,
             )
         elif origin is Resp:
@@ -79,64 +85,80 @@ def analyze_markedret[R](annt: Any, origin: Any, status: Any):
                 retype, status = resp  # type: ignore
             else:
                 retype = resp[0]  # type: ignore
-            return analyze_markedret(retype, retype, status)
+            return analyze_return(retype, status)
+        elif origin is Annotated:
+            return ReturnParam.from_annotated(annt, origin, status)
         else:
             raise NotImplementedError
-    else:
-        # TODO: this should be a recursive case
-        """
-        MP3 = Annotated[bytes, CustomEncoder(encode_mp3)]
-        async def get_mp3() -> Resp[MP3, 200]: ...
-        """
-        type_args = get_args(annt)
-        retype, *_ = type_args
+
+    @classmethod
+    def from_annotated(
+        cls, annt: Annotated[Any, "Annotated"], origin: Any, status: int
+    ) -> "ReturnParam[Any]":
         metas = flatten_annotated(annt)
-        for m in metas:
-            # CutsomReturnMark, include encoder, content_type
-            if isinstance(m, CustomEncoder):
-                return ReturnParam(
-                    type_=retype,
-                    encoder=m.encode,
-                    origin=annt,
-                    status=status,
-                )
+        encoder = encode_json
+        if len(metas) > 1:
+            ret_type, *rest = metas
+            for m in rest:
+                if isinstance(m, CustomEncoder):
+                    encoder = m.encode
+                    break
         else:
-            return ReturnParam(
-                type_=retype,
-                encoder=encode_json,
-                origin=annt,
-                status=status,
+            ret_type = annt
+        if is_resp_mark(ret_type):
+            # Annotated[Resp[MyType, status.OK], CustomEncoder(encode_mytype)]
+            rp = ReturnParam.from_mark(ret_type, origin, status)
+            rp.replace(encoder=encoder)
+            return rp
+        ret = ReturnParam(
+            type_=ret_type, encoder=encoder, annotation=annt, status=status
+        )
+        return ret
+
+    @classmethod
+    def from_generic(cls, annt: Any, origin: Any, status: int) -> "ReturnParam[Any]":
+        if is_resp_mark(annt):
+            return ReturnParam.from_mark(annt, origin, status)
+        elif origin is Annotated:
+            return ReturnParam.from_annotated(annt, origin, status)
+        else:  # vanilla case, dict[str, str], list[str], etc.
+            assert isinstance(origin, type)
+            ret = ReturnParam[Any](
+                type_=origin, encoder=encode_json, annotation=annt, status=status
             )
+            return ret
 
 
 def analyze_return[R](
-    annt: Maybe[type[R] | UnionType], status: int = 200
+    annt: Maybe[type[R] | UnionType | TypeAliasType], status: int = 200
 ) -> ReturnParam[R]:
-    annt = annt if annt is not Parameter.empty else MISSING
-
-    if not is_provided(annt):
+    if annt is Parameter.empty:
         return ReturnParam(encoder=encode_json, status=200)
 
     status = parse_status(status)
-
     if isinstance(annt, UnionType):
+        """
+        TODO:
+        we need to handle case of multiple return e.g
+        async def userfunc() -> Resp[User, 200] | Resp[Order, 201]
+        """
         annt_args = get_args(annt)
         if not any(is_resp_mark(arg) for arg in annt_args):
             ret = ReturnParam(
-                type_=annt, origin=annt, encoder=encode_json, status=status
+                type_=annt, annotation=annt, encoder=encode_json, status=status
             )
         else:
             raise NotImplementedError
-    elif origin := get_origin(annt):
-        ret = analyze_markedret(annt, origin, status)
-    elif is_resp_mark(annt):
-        # mark without generic var, Text, HTML, etc
-        ret = analyze_markedret(annt, annt, status)
+    elif origin := get_origin(annt) or is_resp_mark(annt):
+        # NOTE: we have to check both condition, since some resp marks are not generic
+        ret = ReturnParam.from_generic(annt, origin, status)
     else:
-        # default case, should be a single type, e.g. create_user() -> User: ...
+        # default case, should be a single non-generic type,
+        # e.g. User, str, bytes, etc.
+        assert isinstance(annt, type)
         ret = ReturnParam(
             type_=annt,
-            origin=annt,
+            annotation=annt,
             encoder=encode_json,
             status=status,
         )

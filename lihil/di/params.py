@@ -106,6 +106,18 @@ class ParsedParams(Base):
         return body_param
 
 
+def analyze_nodeparams(
+    node: DependentNode, graph: Graph, seen: set[str], path_keys: tuple[str]
+):
+    params: list[ParamPair | DependentNode] = [node]
+    for dep_name, dep in node.dependencies.items():
+        ptype, default = dep.param_type, dep.default_
+        ptype = cast(type, ptype)
+        sub_params = analyze_param(graph, dep_name, seen, path_keys, ptype, default)
+        params.extend(sub_params)
+    return params
+
+
 def analyze_markedparam(
     graph: Graph,
     name: str,
@@ -116,21 +128,12 @@ def analyze_markedparam(
     default: Any,
 ) -> list[ParamPair | DependentNode]:
     atype, *metas = flatten_annotated(type_)
-    params: list[ParamPair | DependentNode] = []
     if porigin is Annotated:
         if USE_FACTORY_MARK in metas:
             idx = metas.index(USE_FACTORY_MARK)
             factory, config = metas[idx + 1], metas[idx + 2]
             node = graph.analyze(factory, config=config)
-            params.append(node)
-            for dep_name, dep in node.dependencies.items():
-                ptype, default = dep.param_type, dep.default_
-                ptype = cast(type, ptype)
-                sub_params = analyze_param(
-                    graph, dep_name, seen, path_keys, ptype, default
-                )
-                params.extend(sub_params)
-            return params
+            return analyze_nodeparams(node, graph, seen, path_keys)
         elif new_origin := get_origin(atype):
             return analyze_markedparam(
                 graph, name, seen, path_keys, atype, new_origin, default
@@ -139,13 +142,7 @@ def analyze_markedparam(
             return analyze_param(graph, name, seen, path_keys, atype, default)
     elif porigin is Use:
         node = graph.analyze(atype)
-        params.append(node)
-        for dep_name, dep in node.dependencies.items():
-            ptype, default = dep.param_type, dep.default_
-            ptype = cast(type, ptype)
-            sub_params = analyze_param(graph, dep_name, seen, path_keys, ptype, default)
-            params.extend(sub_params)
-        return params
+        return analyze_nodeparams(node, graph, seen, path_keys)
     else:
         # Pure non-deps request params
         location: ParamLocation
@@ -250,6 +247,7 @@ def analyze_param(
         for dep_name, dep in node.dependencies.items():
             ptype, default = dep.param_type, dep.default_
             if ptype in graph.nodes:
+                # only add top level dependency, leave subs to ididi
                 continue
             ptype = cast(type, ptype)
             sub_params = analyze_param(graph, dep_name, seen, path_keys, ptype, default)
@@ -262,7 +260,6 @@ def analyze_param(
     elif is_lhl_dep(type_):
         # user should be able to menually init their plugin then register as a singleton
         return [(name, SingletonParam(type_=type_, name=name, default=default))]
-
     else:  # default case, treat as query
         decoder = textdecoder_factory(type_)
         req_param = RequestParam(

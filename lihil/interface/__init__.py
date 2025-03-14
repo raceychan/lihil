@@ -52,6 +52,8 @@ MISSING = _Missed()
 
 
 class ITextDecoder[T](Protocol):
+    "Headers, URL are strings"
+
     def __call__(self, content: bytes | str, /) -> T: ...
 class IDecoder[T](Protocol):
     def __call__(self, content: bytes | str, /) -> T: ...

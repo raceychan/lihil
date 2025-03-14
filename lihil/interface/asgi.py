@@ -1,6 +1,3 @@
-# TODO: rewrite this file, use msgspec
-
-
 from typing import (
     Any,
     Awaitable,

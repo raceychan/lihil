@@ -8,10 +8,11 @@ from ididi import Graph
 from loguru import logger
 
 from lihil.config import AppConfig
-from lihil.constant.resp import NOT_FOUND_RESP, generate_static_resp
+from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, generate_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError
 from lihil.interface import ASGIApp, Base, IReceive, IScope, ISend, MiddlewareFactory
-from lihil.middlewares import last_defense, problem_solver
+
+# from lihil.middlewares import last_defense, problem_solver
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
 from lihil.routing import Func, IEndPointConfig, Route
@@ -55,9 +56,8 @@ class Lihil[T: AppState]:
         self.root = Route("/", graph=graph)
         self.routes: list[Route] = [self.root]
         self.middle_factories: list[MiddlewareFactory[Any]] = []
-        self.call_stack: ASGIApp | None = None
+        self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
-        # self.bus = MessageBus(graph)
         self._static_cache: dict[str, bytes] = {}
         self._generate_doc_route()
 
@@ -74,10 +74,9 @@ class Lihil[T: AppState]:
         await receive()
         if not self._userls:
             return
-
         user_ls = self._userls(self)
-
         try:
+            self.call_stack = self.chainup_middlewares(self.call_route)
             app_state = await user_ls.__aenter__()
             await send({"type": "lifespan.startup.complete"})
         except BaseException:
@@ -86,7 +85,6 @@ class Lihil[T: AppState]:
         else:
             self._app_state = app_state
         await receive()
-
         try:
             await user_ls.__aexit__(None, None, None)
         except BaseException:
@@ -117,10 +115,10 @@ class Lihil[T: AppState]:
                 self.routes[0] = route
             else:
                 if route.is_direct_child_of(self.root):
-                    self.root.subs.append(route)
+                    self.root.subroutes.append(route)
                 self.routes.append(route)
             seen.add(route.path)
-            for sub in route.subs:
+            for sub in route.subroutes:
                 self.include_routes(sub, __seen__=seen)
 
     def static(
@@ -154,7 +152,8 @@ class Lihil[T: AppState]:
             return await NOT_FOUND_RESP(scope, receive, send)
 
     def chainup_middlewares(self, tail: ASGIApp) -> ASGIApp:
-        current = problem_solver(tail, self.err_registry)
+        # current = problem_solver(tail, self.err_registry)
+        current = tail
         for factory in reversed(self.middle_factories):
             try:
                 prev = factory(current)
@@ -162,16 +161,31 @@ class Lihil[T: AppState]:
                 logger.error(exc)
                 raise
             current = prev
-        return last_defense(current)
+        return current
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         if scope["type"] == "lifespan":
             await self.lifespan(scope, receive, send)
             return
 
-        if self.call_stack is None:
-            self.call_stack = self.chainup_middlewares(self.call_route)
-        await self.call_stack(scope, receive, send)
+        response_started = False
+
+        async def _send(message: dict[str, Any]) -> None:
+            nonlocal response_started, send
+
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+
+        # TODO: this is solvable if we use a channel object instead of methods.
+        # then we can check if chan.response_started
+
+        try:
+            await self.call_stack(scope, receive, _send)
+        except Exception:
+            if not response_started:
+                await InternalErrorResp(scope, receive, send)
+            raise
 
     def add_middleware[M: ASGIApp](
         self,

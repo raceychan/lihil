@@ -1,5 +1,5 @@
 from types import GenericAlias
-from typing import Annotated, Any, LiteralString, TypeAliasType, get_args, get_origin
+from typing import Annotated, Any, LiteralString, TypeAliasType, get_args, get_origin, TypeGuard
 
 from msgspec import Struct
 
@@ -30,7 +30,7 @@ def is_lihil_mark(m: Any, mark_prefix: str) -> bool:
         return False
 
 
-def is_resp_mark(m: Any) -> bool:
+def is_resp_mark(m: Any) -> TypeGuard[TypeAliasType]:
     """
     marks that usually show up in endpoint return annotation
     """
@@ -76,8 +76,9 @@ type Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
 HTML_RETURN_MARK = resp_mark("html")
 type HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
 
+
 STREAM_RETURN_MARK = resp_mark("stream")
-type Stream[T] = Annotated[T, STREAM_RETURN_MARK, "text/event-stream"]
+type Stream = Annotated[bytes, STREAM_RETURN_MARK, "text/event-stream"]
 
 JSON_RETURN_MARK = resp_mark("json")
 type Json[_] = Annotated[Any, JSON_RETURN_MARK, "application/json"]

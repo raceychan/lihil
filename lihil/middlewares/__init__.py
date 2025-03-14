@@ -15,20 +15,20 @@ we might need to redesign ASGI for this
 """
 
 
-# TODO: make these two functions
-
-
+# TODO: get rid of these, make them part of Lihil.__call__
 def last_defense(app: ASGIApp):
     async def call(scope: IScope, receive: IReceive, send: ISend):
         try:
             await app(scope, receive, send)
         except Exception as exc:
+            # TODO: don't response if response already started
             await InternalErrorResp(scope, receive, send)
             raise exc
 
     return call
 
 
+# TODO: make this part of the endpoint
 def problem_solver(app: ASGIApp, registry: ErrorRegistry):
     status_handlers: dict[int, ExceptionHandler[DetailBase[Any]]] = {}
     exc_handlers: dict[type[DetailBase[Any]], ExceptionHandler[DetailBase[Any]]] = {}

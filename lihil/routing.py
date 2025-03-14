@@ -41,7 +41,7 @@ class Route:
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self.graph = graph or Graph()
         self.tag = tag or generate_route_tag(self.path)
-        self.subs: list[Route] = []
+        self.subroutes: list[Route] = []
         self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
         self.oas_config = OASConfig(**oas_config)
@@ -75,9 +75,12 @@ class Route:
         rest = self.path.removeprefix(other.path)
         return rest.count("/") < 2
 
+    def build_stack(self):
+        for method, ep in self.endpoints.items():
+            self.call_stacks[method] = self.chainup_middlewares(ep)
+
     def chainup_middlewares(self, tail: ASGIApp) -> ASGIApp:
         # TODO: use graph to inject middleware factories
-
         current = tail
         for factory in reversed(self.middle_factories):
             prev = factory(current)
@@ -99,7 +102,7 @@ class Route:
         sub_path = handle_path(path)
         current_path = merge_path(self.path, sub_path)
         sub = Route(path=current_path, graph=self.graph)
-        self.subs.append(sub)
+        self.subroutes.append(sub)
         return sub
 
     def match(self, scope: IScope) -> IScope | None:
@@ -176,3 +179,5 @@ class Route:
         if func is None:
             return cast(Func[P, R], partial(self.delete, **epconfig))
         return self.add_endpoint("DELETE", func, **epconfig)
+
+

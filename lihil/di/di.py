@@ -54,6 +54,7 @@ class EndpointDeps[R](Base):
     def default_status(self) -> int:
         return self.return_param.status
 
+    # TODO:we shou rewrite this in cython, along with the request object
     def prepare_params(
         self,
         req_path: Mapping[str, Any] | None = None,
@@ -92,6 +93,7 @@ class EndpointDeps[R](Base):
                 else:
                     err = MissingRequestParam(param.location, name)
                     verrors.append(err)
+
         if self.body_param and body is not None:
             name, param = self.body_param
             if body == b"":  # empty bytes

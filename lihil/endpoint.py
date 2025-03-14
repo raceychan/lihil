@@ -122,15 +122,19 @@ class Endpoint[R]:
 
         for name, dep in self.deps.dependencies:
             params[name] = await resolver.aresolve(dep.dependent, **params)
-        return await self.func(**params)
+
+        raw_return = await self.func(**params)
+        return raw_return
 
     def parse_raw_return(self, scope: IScope, raw_return: Any) -> Response:
-        if isinstance(raw_return, ParseResult):
+        # TODO: check if status < 200 or is 204, 205, 304
+        if isinstance(raw_return, Response):
+            resp = raw_return
+        elif isinstance(raw_return, ParseResult):
+            # TODO: we might make InvalidRequestErrors an exception so that user can catch it
             errors = InvalidRequestErrors(detail=raw_return.errors)
             detail = errors.__problem_detail__(scope["path"])
             resp = ErrorResponse(detail, status_code=STATUS_CODE[UNPROCESSABLE_ENTITY])
-        elif isinstance(raw_return, Response):
-            resp = raw_return
         else:
             resp = Response(
                 content=self.encoder(raw_return), status_code=self.status_code

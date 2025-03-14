@@ -51,6 +51,7 @@ Transfer/sec:     10.07MB
 ```
 
 ## uvloop + asyncio + msgspec
+
 ```python
 import asyncio
 from asyncio import StreamReader, StreamWriter
