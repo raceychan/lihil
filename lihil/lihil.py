@@ -37,7 +37,9 @@ def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
 
-class AppState(Base): ...
+class AppState(Base):
+    # just a typing helper
+    ...
 
 
 class Lihil[T: AppState]:

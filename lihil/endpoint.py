@@ -118,6 +118,7 @@ class Endpoint[R]:
             for name, p in self.deps.singletons:
                 if p.type_ is Request:
                     params[name] = request
+                # Todo: message bus
                 else:
                     raise NotImplementedError
 
