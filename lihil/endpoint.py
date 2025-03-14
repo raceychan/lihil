@@ -12,6 +12,7 @@ from lihil.constant.status import STATUS_CODE, UNPROCESSABLE_ENTITY
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
 from lihil.oas.model import IOASConfig  # , OASConfig
+from lihil.plugins.bus import EventBus
 from lihil.problems import DetailBase, ErrorResponse, InvalidRequestErrors, get_solver
 
 
@@ -119,6 +120,8 @@ class Endpoint[R]:
                 if p.type_ is Request:
                     params[name] = request
                     # TODO: message bus
+                elif p.type_ is EventBus:
+                    raise NotImplementedError
                 else:
                     raise NotImplementedError
 

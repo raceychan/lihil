@@ -97,3 +97,4 @@ type Stream = Annotated[
 ]
 type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
 type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
+

@@ -5,6 +5,7 @@ from msgspec import convert
 from starlette.requests import Request
 
 from lihil.interface import FlatRecord
+from lihil.plugins.bus import EventBus
 
 """
 [tool.lihil.server]
@@ -25,7 +26,7 @@ version: str = "1"
 
 def is_lhl_dep(type_: type):
     "Dependencies that should be injected and managed by lihil"
-    return type_ in {Request}
+    return type_ in (Request, EventBus)
 
 
 class OASConfig(FlatRecord):

@@ -1,6 +1,14 @@
 from inspect import Parameter
 from types import UnionType
-from typing import Annotated, Any, Callable, TypeAliasType, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Literal,
+    TypeAliasType,
+    get_args,
+    get_origin,
+)
 
 from lihil.constant.status import code as get_status_code
 from lihil.errors import StatusConflictError
@@ -138,6 +146,10 @@ class ReturnParam[T](Base):
             return ret
 
 
+def is_py_singleton(t: Any) -> Literal[None, True, False]:
+    return t in {True, False, None, ...}
+
+
 def analyze_return[R](
     annt: Maybe[type[R] | UnionType | TypeAliasType], status: int = 200
 ) -> ReturnParam[R]:
@@ -164,7 +176,8 @@ def analyze_return[R](
     else:
         # default case, should be a single non-generic type,
         # e.g. User, str, bytes, etc.
-        assert isinstance(annt, type)
+        if not is_py_singleton(annt) and not isinstance(annt, type):
+            raise NotImplementedError(f"Unexpected case {annt=}, {origin=} received")
         ret = ReturnParam(
             type_=annt,
             annotation=annt,
