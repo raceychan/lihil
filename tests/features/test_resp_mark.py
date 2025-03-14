@@ -1,8 +1,8 @@
 from types import UnionType
 
-from lihil import Payload, status, Graph
+from lihil import Graph, Payload, status
 from lihil.interface.marks import Json, Resp, is_resp_mark
-from lihil.routing import Endpoint
+from lihil.routing import Endpoint, Route
 
 
 def test_validate_mark():
@@ -25,9 +25,10 @@ async def get_order(
 
 
 def test_endpoint_deps():
-    ep = Endpoint.from_func(get_order, Graph())
+    route = Route()
+    route.get(get_order)
+    ep = route.get_endpoint("GET")
     rt = ep.deps.return_param
-
     assert isinstance(rt.type_, UnionType)
     # assert str in rt.type_
     # assert Order in rt.type_

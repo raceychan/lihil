@@ -10,6 +10,7 @@ from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
 from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
 from lihil.interface.asgi import ASGIApp, MiddlewareFactory
 from lihil.oas.model import IOASConfig, OASConfig
+from lihil.plugins.bus import BusFactory
 from lihil.utils.parse import (
     build_path_regex,
     generate_route_tag,
@@ -33,6 +34,7 @@ class Route:
         path: str = "",
         *,
         graph: Graph | None = None,
+        busmaker: BusFactory | None = None,
         tag: str = "",
         **oas_config: Unpack[IOASConfig],
     ):
@@ -40,6 +42,8 @@ class Route:
         self.path_regex: Pattern[str] | None = None
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self.graph = graph or Graph(self_inject=False)
+        self.busmaker = busmaker or BusFactory()
+
         self.tag = tag or generate_route_tag(self.path)
         self.subroutes: list[Route] = []
         self.middle_factories: list[MiddlewareFactory[Any]] = []
@@ -130,6 +134,7 @@ class Route:
             path=self.path,
             tag=self.tag,
             func=func,
+            busmaker=self.busmaker,
             graph=self.graph,
             config=epconfig,
         )

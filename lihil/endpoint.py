@@ -12,7 +12,7 @@ from lihil.constant.status import STATUS_CODE, UNPROCESSABLE_ENTITY
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
 from lihil.oas.model import IOASConfig  # , OASConfig
-from lihil.plugins.bus import EventBus
+from lihil.plugins.bus import BusFactory, EventBus
 from lihil.problems import DetailBase, ErrorResponse, InvalidRequestErrors, get_solver
 
 
@@ -77,6 +77,7 @@ class Endpoint[R]:
         tag: str,
         func: Callable[..., R],
         graph: Graph,
+        busmaker: BusFactory,
         config: EndPointConfig,
     ):
         self.path = path
@@ -84,6 +85,7 @@ class Endpoint[R]:
         self.tag = tag
         self.func = async_wrapper(func, config.to_thread)
         self.graph = graph
+        self.busmaker = busmaker
         self.config = config
 
         self.name = func.__name__
@@ -121,7 +123,8 @@ class Endpoint[R]:
                     params[name] = request
                     # TODO: message bus
                 elif p.type_ is EventBus:
-                    raise NotImplementedError
+                    bus = self.busmaker.create_event_bus(resolver)
+                    params[name] = bus
                 else:
                     raise NotImplementedError
 
@@ -165,10 +168,10 @@ class Endpoint[R]:
             raw_return = await self.make_call(scope, receive, send, self.graph)
             await self.parse_raw_return(scope, raw_return)(scope, receive, send)
 
-    @classmethod
-    def from_func(
-        cls, func: Callable[..., R], graph: Graph, **iconfig: Unpack[IEndPointConfig]
-    ) -> "Endpoint[R]":
-        "A test helper"
-        config = EndPointConfig.from_unpack(**iconfig) if iconfig else EndPointConfig()
-        return cls(path="", method="GET", tag="", func=func, graph=graph, config=config)
+    # @classmethod
+    # def from_func(
+    #     cls, func: Callable[..., R], graph: Graph, **iconfig: Unpack[IEndPointConfig]
+    # ) -> "Endpoint[R]":
+    #     "A test helper"
+    #     config = EndPointConfig.from_unpack(**iconfig) if iconfig else EndPointConfig()
+    #     return cls(path="", method="GET", tag="", func=func, graph=graph, config=config)

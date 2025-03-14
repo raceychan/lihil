@@ -1,5 +1,5 @@
 from lihil import Payload, Resp, Route, status
-from lihil.plugins.bus import EventBus, MessageRegistry
+from lihil.plugins.bus import BusFactory, EventBus, MessageRegistry
 from lihil.plugins.testing import LocalClient
 
 
@@ -19,7 +19,10 @@ async def listen_create(created: TodoCreated):
     print(f"received {created}")
 
 
-bus_route = Route("/bus")
+bus_factory = BusFactory(registry)
+
+
+bus_route = Route("/bus", busmaker=bus_factory)
 
 
 @bus_route.post
