@@ -12,7 +12,13 @@ from lihil.constant.status import STATUS_CODE, UNPROCESSABLE_ENTITY
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
 from lihil.oas.model import IOASConfig  # , OASConfig
-from lihil.problems import DetailBase, ErrorResponse, InvalidRequestErrors
+from lihil.problems import (
+    DetailBase,
+    ErrorResponse,
+    HTTPException,
+    InvalidRequestErrors,
+    get_solver,
+)
 
 
 def async_wrapper[R](
@@ -101,30 +107,37 @@ class Endpoint[R]:
 
     async def make_call(
         self, scope: IScope, receive: IReceive, send: ISend, resolver: Resolver
-    ) -> R | ParseResult:
+    ) -> R | ParseResult | Response:
         request = Request(scope, receive, send)
 
-        if self.require_body:
-            parsed_result = await self.deps.parse_command(request)
-        else:
-            parsed_result = self.deps.parse_query(request)
-
-        if parsed_result.errors:
-            return parsed_result
-
-        params = parsed_result.params
-
-        for name, p in self.deps.singletons:
-            if p.type_ is Request:
-                params[name] = request
+        # TODO: problem solver
+        try:
+            if self.require_body:
+                parsed_result = await self.deps.parse_command(request)
             else:
-                raise NotImplementedError
+                parsed_result = self.deps.parse_query(request)
 
-        for name, dep in self.deps.dependencies:
-            params[name] = await resolver.aresolve(dep.dependent, **params)
+            if parsed_result.errors:
+                return parsed_result
 
-        raw_return = await self.func(**params)
-        return raw_return
+            params = parsed_result.params
+
+            for name, p in self.deps.singletons:
+                if p.type_ is Request:
+                    params[name] = request
+                else:
+                    raise NotImplementedError
+
+            for name, dep in self.deps.dependencies:
+                params[name] = await resolver.aresolve(dep.dependent, **params)
+
+            raw_return = await self.func(**params)
+            return raw_return
+        except Exception as exc:
+            solver = get_solver(exc)
+            if not solver:
+                raise
+            return solver(request, exc)
 
     def parse_raw_return(self, scope: IScope, raw_return: Any) -> Response:
         # TODO: check if status < 200 or is 204, 205, 304

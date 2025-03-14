@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import lru_cache
 from inspect import Parameter, signature
 from types import MappingProxyType, UnionType
 from typing import (
@@ -37,11 +38,12 @@ type ErrorRegistry = MappingProxyType[
 
 def __erresp_factory_registry():
     # TODO: handler can annoate return with Resp[Response, 404]
-    handlers: dict[type[DetailBase[Any]] | int, ExceptionHandler[Any]] = {}
+    exc_handlers: dict[type[DetailBase[Any]], ExceptionHandler[Any]] = {}
+    status_handlers: dict[int, ExceptionHandler[Any]] = {}
 
     def _extract_exception[Exc: DetailBase[Any]](
         handler: ExceptionHandler[Exc],
-    ) -> type[DetailBase[Any]] | int | UnionType | int:
+    ) -> type[DetailBase[Any]] | int | UnionType:
         sig = signature(handler)
         _, exc = sig.parameters.values()
         exc_annt = exc.annotation
@@ -50,27 +52,51 @@ def __erresp_factory_registry():
             raise ValueError(f"handler {handler} has no annotation for {exc.name}")
         return exc_type
 
-    def _catch[Exc: DetailBase[Any]](
+    def _solver[Exc: DetailBase[Any]](
         handler: ExceptionHandler[Exc],
     ) -> ExceptionHandler[Exc]:
         """\
-        >>> @catch
+        >>> 
+        @solver
         def any_error_handler(request: Request, exc: Exception | Literal[500]) -> ErrorResponse:
         """
 
-        nonlocal handlers
+        nonlocal exc_handlers, status_handlers
         exc_type = _extract_exception(handler)
-        exc_types = get_args(exc_type)
+        exctuples = get_args(exc_type)
 
-        if exc_types:
-            for exctype in exc_types:
-                handlers[exctype] = handler
+        if exctuples:
+            for exc in exctuples:
+                if isinstance(exc, int):
+                    status_handlers[exc] = handler
+                else:
+                    exc_handlers[exc] = handler
         else:
-            exc_type = cast(type[DetailBase[Any]] | int, exc_type)
-            handlers[exc_type] = handler
+            if isinstance(exc_type, int):
+                status_handlers[exc_type]
+            else:
+                exc_type = cast(type[DetailBase[Any]], exc_type)
+                exc_handlers[exc_type] = handler
         return handler
 
-    return MappingProxyType(handlers), _catch
+    @lru_cache
+    def get_solver(
+        exc: Exception,
+    ) -> ExceptionHandler[Exception] | None:
+        nonlocal status_handlers, exc_handlers
+        try:
+            code = exc.__status__  # type: ignore
+            return status_handlers[code]
+        except AttributeError:
+            pass
+        except KeyError:
+            pass
+
+        for base in type(exc).__mro__:
+            if res := exc_handlers.get(base):
+                return res
+
+    return MappingProxyType(exc_handlers), _solver, get_solver
 
 
 class ProblemDetail[T](FlatRecord):  # user can inherit this and extend it
@@ -209,11 +235,11 @@ class ErrorResponse[T](Response):
         )
 
 
-LIHIL_ERRESP_REGISTRY, catch = __erresp_factory_registry()
+LIHIL_ERRESP_REGISTRY, problem_solver, get_solver = __erresp_factory_registry()
 del __erresp_factory_registry
 
 
-@catch
+@problem_solver
 def default_error_catch(req: Request, exc: HTTPException[Any]) -> ErrorResponse[Any]:
     "User can override this to extend problem detail"
     detail = exc.__problem_detail__(req.url.path)
@@ -286,3 +312,30 @@ def collect_problems() -> list[type]:
 
     problems = list(all_subclasses(DetailBase))
     return problems
+
+
+def init_handlers():
+    status_handlers: dict[int, ExceptionHandler[DetailBase[Any]]] = {}
+    exc_handlers: dict[type[DetailBase[Any]], ExceptionHandler[DetailBase[Any]]] = {}
+
+    for target, handler in LIHIL_ERRESP_REGISTRY.items():
+        if isinstance(target, int):
+            status_handlers[target] = handler
+        else:
+            exc_handlers[target] = handler
+
+    @lru_cache
+    def get_handler(exc: DetailBase[Any]) -> ExceptionHandler[DetailBase[Any]] | None:
+        try:
+            code = exc.__status__
+            return status_handlers[code]
+        except AttributeError:
+            pass
+        except KeyError:
+            pass
+
+        for base in type(exc).__mro__:
+            if res := exc_handlers.get(base):
+                return res
+
+    return get_handler

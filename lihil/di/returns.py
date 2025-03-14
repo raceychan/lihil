@@ -89,7 +89,7 @@ class ReturnParam[T](Base):
         elif origin is Annotated:
             return ReturnParam.from_annotated(annt, origin, status)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"Unexpected case {annt=}, {origin=} received")
 
     @classmethod
     def from_annotated(
@@ -105,15 +105,17 @@ class ReturnParam[T](Base):
                     break
         else:
             ret_type = annt
+
         if is_resp_mark(ret_type):
-            # Annotated[Resp[MyType, status.OK], CustomEncoder(encode_mytype)]
+            # e.g.: Annotated[Resp[MyType, status.OK], CustomEncoder(encode_mytype)]
             rp = ReturnParam.from_mark(ret_type, origin, status)
             rp.replace(encoder=encoder)
             return rp
-        ret = ReturnParam(
-            type_=ret_type, encoder=encoder, annotation=annt, status=status
-        )
-        return ret
+        else:
+            ret = ReturnParam(
+                type_=ret_type, encoder=encoder, annotation=annt, status=status
+            )
+            return ret
 
     @classmethod
     def from_generic(cls, annt: Any, origin: Any, status: int) -> "ReturnParam[Any]":
