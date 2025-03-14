@@ -179,5 +179,3 @@ class Route:
         if func is None:
             return cast(Func[P, R], partial(self.delete, **epconfig))
         return self.add_endpoint("DELETE", func, **epconfig)
-
-

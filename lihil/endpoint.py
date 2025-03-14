@@ -1,31 +1,25 @@
-import inspect
 from asyncio import to_thread
+from inspect import isasyncgen, iscoroutinefunction, isgenerator
 from typing import Any, Awaitable, Callable, Sequence, Unpack
 
 from ididi import Graph
 from ididi.graph import Resolver
 from msgspec import field
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 
 from lihil.constant.status import STATUS_CODE, UNPROCESSABLE_ENTITY
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
 from lihil.oas.model import IOASConfig  # , OASConfig
-from lihil.problems import (
-    DetailBase,
-    ErrorResponse,
-    HTTPException,
-    InvalidRequestErrors,
-    get_solver,
-)
+from lihil.problems import DetailBase, ErrorResponse, InvalidRequestErrors, get_solver
 
 
 def async_wrapper[R](
     func: Callable[..., R], threaded: bool = True
 ) -> Callable[..., Awaitable[R]]:
     # TODO: use our own Threading workers
-    if inspect.iscoroutinefunction(func):
+    if iscoroutinefunction(func):
         return func
 
     async def inner(**params: Any) -> R:
@@ -121,7 +115,6 @@ class Endpoint[R]:
                 return parsed_result
 
             params = parsed_result.params
-
             for name, p in self.deps.singletons:
                 if p.type_ is Request:
                     params[name] = request
@@ -140,7 +133,7 @@ class Endpoint[R]:
             return solver(request, exc)
 
     def parse_raw_return(self, scope: IScope, raw_return: Any) -> Response:
-        # TODO: check if status < 200 or is 204, 205, 304
+        # TODO: if status < 200 or is 204, 205, 304, drop body, we should leave this to our server
         if isinstance(raw_return, Response):
             resp = raw_return
         elif isinstance(raw_return, ParseResult):
@@ -148,6 +141,11 @@ class Endpoint[R]:
             errors = InvalidRequestErrors(detail=raw_return.errors)
             detail = errors.__problem_detail__(scope["path"])
             resp = ErrorResponse(detail, status_code=STATUS_CODE[UNPROCESSABLE_ENTITY])
+        elif isgenerator(raw_return) or isasyncgen(raw_return):
+            # TODO: check generator here
+            return StreamingResponse(
+                raw_return, media_type="text/event-stream", status_code=self.status_code
+            )
         else:
             resp = Response(
                 content=self.encoder(raw_return), status_code=self.status_code

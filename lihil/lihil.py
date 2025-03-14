@@ -164,6 +164,10 @@ class Lihil[T: AppState]:
         return current
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
+        """
+        async def __call__(self, ctx: ConnecitonContext, chan: Channel)
+            await channel.receive
+        """
         if scope["type"] == "lifespan":
             await self.lifespan(scope, receive, send)
             return
@@ -172,14 +176,12 @@ class Lihil[T: AppState]:
 
         async def _send(message: dict[str, Any]) -> None:
             nonlocal response_started, send
-
             if message["type"] == "http.response.start":
                 response_started = True
             await send(message)
 
         # TODO: this is solvable if we use a channel object instead of methods.
         # then we can check if chan.response_started
-
         try:
             await self.call_stack(scope, receive, _send)
         except Exception:

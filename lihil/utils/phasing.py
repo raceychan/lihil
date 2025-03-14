@@ -31,7 +31,15 @@ def build_union_decoder(
     types: tuple[type], target_type: type[str | bytes]
 ) -> IDecoder[Any]:
     rest = tuple(t for t in types if t not in (bytes, str))
-    new_union = Union[*(rest)]  # type: ignore
+
+    if not rest:
+        raise TypeError("union of str and bytes not supported")
+
+    if len(rest) == 1:
+        new_union = rest[0]
+    else:
+        new_union = Union[*(rest)]  # type: ignore
+
     rest_decoder = decoder_factory(new_union)
     raw_decoder = str_decoder if target_type is str else bytes_decoder
 
@@ -42,7 +50,6 @@ def build_union_decoder(
             return raw_decoder(content)
 
     return decode_reunion
-
 
 def textdecoder_factory(t: type | UnionType) -> ITextDecoder[Any] | IDecoder[Any]:
     union_args = get_args(t)

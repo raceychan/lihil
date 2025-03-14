@@ -12,6 +12,7 @@ from lihil.oas import model as oasmodel
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
 from lihil.routing import Endpoint, Route
 from lihil.utils.parse import to_kebab_case, trimdoc
+
 # from lihil.utils.phasing import encode_json
 
 type SchemasDict = dict[str, oasmodel.Schema | oasmodel.Reference]
@@ -72,7 +73,7 @@ def type_to_content(
 
 
 def detail_base_to_content(
-    type_: type[DetailBase[Any]] | type[ProblemDetail],
+    type_: type[DetailBase[Any]] | type[ProblemDetail[Any]],
     problem_content: dict[str, oasmodel.MediaType],
     schemas: SchemasDict,
     content_type: str = PROBLEM_CONTENTTYPE,
@@ -84,7 +85,7 @@ def detail_base_to_content(
     if not issubclass(type_, DetailBase):
         return type_to_content(type_, schemas)
 
-    org_base = getattr(type_, "__orig_bases__", tuple())
+    org_base = getattr(type_, "__orig_bases__", ())
     for base in org_base:
         typevars = get_args(base)
         for var in typevars:
@@ -129,7 +130,7 @@ def detail_base_to_content(
 
 
 def _single_field_schema(
-    param: RequestParam, schemas: SchemasDict
+    param: RequestParam[Any], schemas: SchemasDict
 ) -> oasmodel.Parameter:
     output = json_schema(param.type_)
     param_schema = {
@@ -145,7 +146,7 @@ def _single_field_schema(
 
 
 def param_schema(
-    ep_deps: EndpointDeps, schemas: SchemasDict
+    ep_deps: EndpointDeps[Any], schemas: SchemasDict
 ) -> list[oasmodel.Parameter | oasmodel.Reference]:
     parameters: list[oasmodel.Parameter | oasmodel.Reference] = []
 
@@ -157,7 +158,7 @@ def param_schema(
 
 
 def body_schema(
-    ep_deps: EndpointDeps, schemas: SchemasDict
+    ep_deps: EndpointDeps[Any], schemas: SchemasDict
 ) -> oasmodel.RequestBody | None:
     if not (body_param := ep_deps.body_param):
         return None
@@ -167,7 +168,7 @@ def body_schema(
     return body
 
 
-def err_resp_schema(ep: Endpoint, schemas: SchemasDict, problem_path: str):
+def err_resp_schema(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
     problem_content = schemas.get(ProblemDetail.__name__, None) or type_to_content(
         ProblemDetail, schemas
     )
@@ -203,8 +204,8 @@ def err_resp_schema(ep: Endpoint, schemas: SchemasDict, problem_path: str):
             )
         else:
             # Multiple error types for this status code - use oneOf
-            one_of_schemas = []
-            error_descriptions = []
+            one_of_schemas: list[Any] = []
+            error_descriptions: list[str] = []
 
             for err_type in error_types:
                 err_name = err_type.__name__
@@ -274,7 +275,7 @@ def err_resp_schema(ep: Endpoint, schemas: SchemasDict, problem_path: str):
 
 
 def resp_schema(
-    ep: Endpoint, schemas: SchemasDict, problem_path: str
+    ep: Endpoint[Any], schemas: SchemasDict, problem_path: str
 ) -> dict[str, oasmodel.Response]:
     ep_return = ep.deps.return_param
     content_type = ep_return.content_type
@@ -300,13 +301,13 @@ def resp_schema(
     return resps
 
 
-def generate_param_schema(ep_deps: EndpointDeps, schemas: SchemasDict):
+def generate_param_schema(ep_deps: EndpointDeps[Any], schemas: SchemasDict):
     params = param_schema(ep_deps, schemas)
     body = body_schema(ep_deps, schemas)
     return params, body
 
 
-def generate_unique_id(ep: Endpoint) -> str:
+def generate_unique_id(ep: Endpoint[Any]) -> str:
     operation_id = f"{ep.name}{ep.path}"
     operation_id = re.sub(r"\W", "_", operation_id)
     operation_id = f"{operation_id}_{ep.method.lower()}"
@@ -314,7 +315,7 @@ def generate_unique_id(ep: Endpoint) -> str:
 
 
 def generate_op_from_ep(
-    ep: Endpoint, schemas: SchemasDict, problem_path: str
+    ep: Endpoint[Any], schemas: SchemasDict, problem_path: str
 ) -> oasmodel.Operation:
     tags = [ep.tag] if ep.tag else ["root"]
     summary = ep.name.replace("_", " ").title()
@@ -341,7 +342,7 @@ def generate_op_from_ep(
 def path_item_from_route(
     route: Route, schemas: SchemasDict, problem_path: str
 ) -> oasmodel.PathItem:
-    epoint_ops = {}
+    epoint_ops: dict[str, oasmodel.Operation] = {}
     for endpoint in route.endpoints.values():
         if not endpoint.config.in_schema:
             continue

@@ -2,7 +2,18 @@ from contextlib import asynccontextmanager
 
 from starlette.responses import Response
 
-from lihil import HTTPException, Json, Lihil, Payload, Resp, Route, Text, run, status
+from lihil import (
+    HTTPException,
+    Json,
+    Lihil,
+    Payload,
+    Resp,
+    Route,
+    Stream,
+    Text,
+    run,
+    status,
+)
 from lihil.lihil import AppState
 
 
@@ -44,14 +55,6 @@ async def create_user(
 rsubu = rusers.sub("{user_id}")
 
 
-class Engine: ...
-
-
-async def get_engine() -> Engine:
-    engine = Engine()
-    yield engine
-
-
 @rsubu.get
 async def get_user(user_id: str | int) -> Resp[Text, status.OK]:
     if user_id != "5":
@@ -60,20 +63,28 @@ async def get_user(user_id: str | int) -> Resp[Text, status.OK]:
     return "aloha"
 
 
-rprofile = Route("profile/{pid}")
-
-rprofile.graph.node(get_engine)
+rprofile = Route("profile")
 
 
 @rprofile.post
-async def profile(pid: str, q: int, user: User, engine: Engine) -> User:
+async def profile(user: User) -> User:
     return User(id=user.id, name=user.name, email=user.email)
+
+
+rstream = Route("stream")
+
+
+@rstream.get
+async def stream() -> Stream:
+    const = ["hello", "world"]
+    for c in const:
+        yield c
 
 
 lhl = Lihil(lifespan=lifespan)
 
 
-lhl.include_routes(rusers, rprofile)
+lhl.include_routes(rusers, rprofile, rstream)
 
 
 @lhl.get

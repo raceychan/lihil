@@ -1,5 +1,15 @@
 from types import GenericAlias
-from typing import Annotated, Any, LiteralString, TypeAliasType, get_args, get_origin, TypeGuard
+from typing import (
+    Annotated,
+    Any,
+    AsyncGenerator,
+    Generator,
+    LiteralString,
+    TypeAliasType,
+    TypeGuard,
+    get_args,
+    get_origin,
+)
 
 from msgspec import Struct
 
@@ -54,34 +64,36 @@ class Payload(Struct):
 # ================ Request ================
 
 QUERY_REQUEST_MARK = param_mark("query")
+HEADER_REQUEST_MARK = param_mark("header")
+BODY_REQUEST_MARK = param_mark("body")
+PATH_REQUEST_MARK = param_mark("path")
+USE_DEPENDENCY_MARK = param_mark("use")
+
 type Query[T] = Annotated[T, QUERY_REQUEST_MARK]
 
-HEADER_REQUEST_MARK = param_mark("header")
 type Header[T, K: LiteralString] = Annotated[T, K, HEADER_REQUEST_MARK]
 
-BODY_REQUEST_MARK = param_mark("body")
 type Body[T] = Annotated[T, BODY_REQUEST_MARK]
 
-PATH_REQUEST_MARK = param_mark("path")
 type Path[T] = Annotated[T, PATH_REQUEST_MARK]
 
-USE_DEPENDENCY_MARK = param_mark("use")
 type Use[T] = Annotated[T, USE_DEPENDENCY_MARK]
 
 # ================ Response ================
 
 TEXT_RETURN_MARK = resp_mark("text")
-type Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
-
 HTML_RETURN_MARK = resp_mark("html")
-type HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
-
-
 STREAM_RETURN_MARK = resp_mark("stream")
-type Stream = Annotated[bytes, STREAM_RETURN_MARK, "text/event-stream"]
-
 JSON_RETURN_MARK = resp_mark("json")
-type Json[_] = Annotated[Any, JSON_RETURN_MARK, "application/json"]
-
 RESP_RETURN_MARK = resp_mark("resp")
+
+# type TextType = str | bytes
+type Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
+type HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
+type Stream = Annotated[
+    AsyncGenerator[str | bytes, None] | Generator[bytes | str, None, None],
+    STREAM_RETURN_MARK,
+    "text/event-stream",
+]
+type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
 type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]

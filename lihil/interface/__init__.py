@@ -23,6 +23,7 @@ from lihil.interface.marks import Json as Json
 from lihil.interface.marks import Payload as Payload
 from lihil.interface.marks import Query as Query
 from lihil.interface.marks import Resp as Resp
+from lihil.interface.marks import Stream as Stream
 from lihil.interface.marks import Text as Text
 from lihil.interface.marks import Use as Use
 

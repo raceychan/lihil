@@ -5,6 +5,7 @@ from .interface import Json as Json
 from .interface import Payload as Payload
 from .interface import Resp as Resp
 from .interface import Text as Text
+from .interface import Stream as Stream
 from .interface import Use as Use
 from .lihil import Lihil as Lihil
 from .problems import HTTPException as HTTPException

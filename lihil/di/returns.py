@@ -67,7 +67,14 @@ class ReturnParam[T](Base):
         elif origin is HTML:
             raise NotImplementedError
         elif origin is Stream:
-            raise NotImplementedError
+            content_type = get_media(origin)
+            return ReturnParam(
+                type_=bytes,
+                encoder=encode_text,
+                status=status,
+                annotation=annt,
+                content_type=content_type,
+            )
         elif origin is Json:
             type_args = get_args(annt)
             retype, *_ = type_args
