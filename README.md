@@ -118,7 +118,13 @@ async def roses_are_red():
 by default, lihil will generate a `Problem` with `Problem detail` based on your raised `HTTPException`, 
 here is the generated doc for the endpoint `roses_are_red`
 
-![roses_are_red](/docs/roses_are_red.png)
+![roses_are_red](/docs/roses_are_red_link.png)
+
+click url under `External documentation` tab
+
+we will see the detailed problem page
+
+![problem page](/docs/roses_are_red_problempage.png)
 
 ### Plugins
 
