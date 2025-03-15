@@ -7,7 +7,9 @@ from typing import (
     Any,
     Callable,
     ClassVar,
+    Literal,
     Mapping,
+    TypeAliasType,
     cast,
     get_args,
     get_origin,
@@ -17,7 +19,7 @@ from msgspec import Meta
 from starlette.requests import Request
 from starlette.responses import Response
 
-from lihil.constant import status
+from lihil.constant import status as http_status
 from lihil.interface import FlatRecord, IEncoder, ParamLocation
 from lihil.utils.parse import to_kebab_case, trimdoc
 from lihil.utils.phasing import encoder_factory
@@ -32,7 +34,7 @@ If they want to do other things, do it with message bus
 
 type ExceptionHandler[Exc] = Callable[[Request, Exc], Response]
 type ErrorRegistry = MappingProxyType[
-    type[DetailBase[Any]] | int, ExceptionHandler[Any]
+    type[DetailBase[Any]] | http_status.Status, ExceptionHandler[Any]
 ]
 
 
@@ -41,18 +43,21 @@ def __erresp_factory_registry():
     exc_handlers: dict[type[DetailBase[Any]], ExceptionHandler[Any]] = {}
     status_handlers: dict[int, ExceptionHandler[Any]] = {}
 
-    def _extract_exception[Exc: DetailBase[Any]](
+    def _extract_exception[Exc: DetailBase[Any] | http_status.Status](
         handler: ExceptionHandler[Exc],
-    ) -> type[DetailBase[Any]] | int | UnionType:
+    ) -> type[DetailBase[Any]] | UnionType | http_status.Status:
         sig = signature(handler)
         _, exc = sig.parameters.values()
         exc_annt = exc.annotation
         exc_type = get_origin(exc_annt) or exc_annt
         if exc_type is Parameter.empty:
             raise ValueError(f"handler {handler} has no annotation for {exc.name}")
+
+        if exc_type is Literal:
+            return exc_annt.__args__[0]
         return exc_type
 
-    def _solver[Exc: DetailBase[Any]](
+    def _solver[Exc: DetailBase[Any] | http_status.Status](
         handler: ExceptionHandler[Exc],
     ) -> ExceptionHandler[Exc]:
         """\
@@ -69,11 +74,15 @@ def __erresp_factory_registry():
             for exc in exctuples:
                 if isinstance(exc, int):
                     status_handlers[exc] = handler
+                elif isinstance(exc_type, TypeAliasType):
+                    status_handlers[http_status.code(exc_type)] = handler
                 else:
                     exc_handlers[exc] = handler
         else:
             if isinstance(exc_type, int):
-                status_handlers[exc_type]
+                status_handlers[exc_type] = handler
+            elif isinstance(exc_type, TypeAliasType):
+                status_handlers[http_status.code(exc_type)] = handler
             else:
                 exc_type = cast(type[DetailBase[Any]], exc_type)
                 exc_handlers[exc_type] = handler
@@ -81,9 +90,19 @@ def __erresp_factory_registry():
 
     @lru_cache
     def get_solver(
-        exc: Exception,
+        exc: Exception | int | http_status.Status,
     ) -> ExceptionHandler[Exception] | None:
         nonlocal status_handlers, exc_handlers
+
+        if isinstance(exc, int):
+            return status_handlers.get(exc)
+        elif isinstance(exc, TypeAliasType):
+            return status_handlers.get(http_status.code(exc))
+
+        for base in type(exc).__mro__:
+            if res := exc_handlers.get(base):
+                return res
+
         try:
             code = exc.__status__  # type: ignore
             return status_handlers[code]
@@ -91,10 +110,6 @@ def __erresp_factory_registry():
             pass
         except KeyError:
             pass
-
-        for base in type(exc).__mro__:
-            if res := exc_handlers.get(base):
-                return res
 
     return MappingProxyType(exc_handlers), _solver, get_solver
 
@@ -149,7 +164,7 @@ class ProblemDetail[T](FlatRecord):  # user can inherit this and extend it
 
 class DetailBase[T]:
     __slots__: tuple[str, ...] = ()
-    __status__: ClassVar[status.Status]
+    __status__: ClassVar[http_status.Status]
     __problem_type__: ClassVar[str | None] = None
     __problem_title__: ClassVar[str | None] = None
 
@@ -177,20 +192,22 @@ class HTTPException[T](Exception, DetailBase[T]):
     The base HTTP Exception class
     """
 
-    __status__: ClassVar[status.Status] = status.code(status.UNPROCESSABLE_ENTITY)
+    __status__: ClassVar[http_status.Status] = http_status.code(
+        http_status.UNPROCESSABLE_ENTITY
+    )
 
     def __init__(
         self,
         detail: T = "MISSING",
         *,
-        problem_status: status.Status | None = None,
+        problem_status: http_status.Status | None = None,
         problem_detail_type: str | None = None,
         problem_detail_title: str | None = None,
     ):
         self.detail = detail
         self._problem_type = problem_detail_type
         self._problem_title = problem_detail_title
-        self._problem_status: status.Status = problem_status or self.__status__
+        self._problem_status: http_status.Status = problem_status or self.__status__
         super().__init__(detail)
 
     def __problem_detail__(self, instance: str) -> ProblemDetail[T]:

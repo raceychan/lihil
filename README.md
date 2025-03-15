@@ -100,9 +100,7 @@ lihil follows semantic versioning, where a version in x.y.z format,
 
 ## Error Hanlding
 
-use `catch` as decorator to register a error handler, error will be parsed as Problem Detail defined in RFC9457
-
-use `route.get(errors=[UserNotFound])` to declare a endpoint response
+- use `route.get(errors=VioletsAreBlue)` to declare a endpoint response
 
 ```python
 class VioletsAreBlue(HTTPException[str]):
@@ -115,11 +113,21 @@ async def roses_are_red():
     raise VioletsAreBlue("I am a pythonista")
 ```
 
+- use `lihil.problems.problem_solver` as decorator to register a error handler, error will be parsed as Problem Detail.
+
+```python
+from lihil.problems import problem_solver
+
+@problem_solver
+def handle_404(req: Request, exc: Literal[404]):
+    return Response("resource not found", status_code=404)
+```
+
 ### Exception-Problem mapping
 
 lihil automatically generates a response and documentation based on your HTTPException,
 
-- To alter the creation of the response, use `lihil.problems.solver` to register your solver.
+- To alter the creation of the response, use `lihil.problems.problem_solver` to register your solver.
 - To change the documentation, override `DetailBase.__json_example__` and `DetailBase.__problem_detail__`.
 - To extend the error detail, provide typevar when inheriting `HTTPException[T]`.
 
