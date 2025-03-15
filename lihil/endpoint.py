@@ -10,9 +10,10 @@ from starlette.responses import Response, StreamingResponse
 
 from lihil.constant.status import STATUS_CODE, UNPROCESSABLE_ENTITY
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
+from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
 from lihil.oas.model import IOASConfig  # , OASConfig
-from lihil.plugins.bus import BusFactory, EventBus
+from lihil.plugins.bus import Collector, EventBus
 from lihil.problems import DetailBase, ErrorResponse, InvalidRequestErrors, get_solver
 
 
@@ -77,7 +78,7 @@ class Endpoint[R]:
         tag: str,
         func: Callable[..., R],
         graph: Graph,
-        busmaker: BusFactory,
+        # busmaker: BusFactory,
         config: EndPointConfig,
     ):
         self.path = path
@@ -85,7 +86,7 @@ class Endpoint[R]:
         self.tag = tag
         self.func = async_wrapper(func, config.to_thread)
         self.graph = graph
-        self.busmaker = busmaker
+        # self.busmaker = busmaker
         self.config = config
 
         self.name = func.__name__
@@ -123,6 +124,7 @@ class Endpoint[R]:
                     params[name] = request
                     # TODO: message bus
                 elif p.type_ is EventBus:
+                    raise NotImplementedError
                     bus = self.busmaker.create_event_bus(resolver)
                     params[name] = bus
                 else:
@@ -149,9 +151,15 @@ class Endpoint[R]:
             detail = errors.__problem_detail__(scope["path"])
             resp = ErrorResponse(detail, status_code=STATUS_CODE[UNPROCESSABLE_ENTITY])
         elif isgenerator(raw_return) or isasyncgen(raw_return):
-            # TODO: check generator here
+            if isgenerator(raw_return) and not isasyncgen(raw_return):
+                encode_wrapper = syncgen_encode_wrapper(raw_return, self.encoder)
+            else:
+                encode_wrapper = agen_encode_wrapper(raw_return, self.encoder)
+
             return StreamingResponse(
-                raw_return, media_type="text/event-stream", status_code=self.status_code
+                encode_wrapper,
+                media_type="text/event-stream",
+                status_code=self.status_code,
             )
         else:
             resp = Response(

@@ -371,7 +371,7 @@ class IOASConfig(TypedDict, total=False):
     in_schema: bool
 
 
-class OASConfig(BaseStruct):
+class RouteOASConfig(BaseStruct):
     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]] = field(
         default_factory=tuple
     )

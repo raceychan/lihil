@@ -788,7 +788,7 @@ class EventBus:
         raise NotImplementedError
 
 
-class BusFactory:
+class Collector:
     def __init__(
         self,
         *registries: MessageRegistry[Any, Any],

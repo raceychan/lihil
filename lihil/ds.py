@@ -1,7 +1,4 @@
-# from starlette.requests import Request
-
-# from can_ada import URL
-
-
-from can_ada import URLSearchParams
-
+"""
+TODO:
+rewrite starlette.requests.Request object, preserve its interface but boost performance and usability
+"""

@@ -28,14 +28,19 @@ from lihil import Lihil, Text, HTTPException
 
 lhl = Lihil()
 
+# default to json serialization
 @lhl.get
 async def pingpong():
     return {"ping": "pong"}
 
+# use type Annotation to instruct serialization and status 
 @lhl.sub("/{king}").get
-def kingkong(king: str) -> Text:
+def kingkong(king: str) -> Resp[Text, 200]:
     return f"{king}, kong"
+```
 
+customized encoder
+```python
 llm = Route("llm/{model}")
 
 @llm
@@ -130,9 +135,33 @@ async def create_user(user_name: str, plugin: YourPlugin): ...
 ## Why not just FastAPI?
 
 I have been using FastAPI since october 2020, and have built dozens of apps using it, 
-I am greatly satisfied with its API design and DI system, however, due to its microframework nature,
-I found out myself doing the same thing over and over again.
+I am greatly satisfied with its API design and DI system, there a few architectual decisions I'd like to change and a few functionalities I'd like to have, specificially:
 
-- DI is tightly coupled with endpoint and request, this limits its usability, a common need is to echo  external dependencies before app start, but then DI won't help us.
+### DI (dependency injection)
 
-<!-- - lack support for message system,  -->
+NOTE: `Dependens` refers to fastapi's di system
+
+- Availability, `Depends` is simple and easy to use, but it is tightly coupled with routes and requests, which limits its usability, a DI system that can be used across different levels and components of my application is prefered to avoid creating duplicated resources.
+
+- performance, `Depends` is resolved in a giant function which slows down dependency resolution as it does not optimize for different kind of dependency.
+
+
+### Testclient
+
+I'd like to have a finer control of how my application works, take this endpoint as an example:
+
+```python
+@todo_route.post
+asyc def create_todo(data: CreateTodo, repo: TodoRepo, bus: EventBus) -> Resp[Todo, status.Created]:
+    todo =  Todo.from_data(CreateTodo)
+    await repo.add(todo)
+    awati bus.publish(TodoCreated.from_todo(todo))
+    return todo
+```
+
+I'd like to test:
+
+- the function `create_todo`, which requires all menually inject all three params and return a `Todo`
+- the endpoint `todo_route.post` which requires only `CreateTodo` without dependencies, returns a json serialized `Todo` in bytes.
+- the route `todo_route` with middlewares
+- the app with everything

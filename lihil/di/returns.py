@@ -3,7 +3,9 @@ from types import UnionType
 from typing import (
     Annotated,
     Any,
+    AsyncGenerator,
     Callable,
+    Generator,
     Literal,
     TypeAliasType,
     get_args,
@@ -40,6 +42,20 @@ def get_media(origin: Any):
 
 class CustomEncoder:
     encode: Callable[[Any], bytes]
+
+
+async def agen_encode_wrapper[T](
+    async_gen: AsyncGenerator[T, None], encoder: IEncoder[T]
+) -> AsyncGenerator[bytes, None]:
+    async for res in async_gen:
+        yield encoder(res)
+
+
+def syncgen_encode_wrapper[T](
+    sync_gen: Generator[T, None, None], encoder: IEncoder[T]
+) -> Generator[bytes, None, None]:
+    for res in sync_gen:
+        yield encoder(res)
 
 
 class ReturnParam[T](Base):

@@ -9,8 +9,9 @@ from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
 from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
 from lihil.interface.asgi import ASGIApp, MiddlewareFactory
-from lihil.oas.model import IOASConfig, OASConfig
-from lihil.plugins.bus import BusFactory
+from lihil.oas.model import RouteOASConfig
+
+# from lihil.plugins.bus import Collector
 from lihil.utils.parse import (
     build_path_regex,
     generate_route_tag,
@@ -34,22 +35,22 @@ class Route:
         path: str = "",
         *,
         graph: Graph | None = None,
-        busmaker: BusFactory | None = None,
+        # busmaker: BusFactory | None = None,
         tag: str = "",
-        **oas_config: Unpack[IOASConfig],
+        oas_config: RouteOASConfig | None = None,
     ):
         self.path = handle_path(path)
         self.path_regex: Pattern[str] | None = None
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self.graph = graph or Graph(self_inject=False)
         # TODO: back transfer when included
-        self.busmaker = busmaker or BusFactory()
+        # self.busmaker = busmaker or BusFactory()
 
         self.tag = tag or generate_route_tag(self.path)
         self.subroutes: list[Route] = []
         self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
-        self.oas_config = OASConfig(**oas_config)
+        self.oas_config = oas_config or RouteOASConfig()
 
     def __repr__(self):
         endpoints_repr = "".join(
@@ -135,7 +136,7 @@ class Route:
             path=self.path,
             tag=self.tag,
             func=func,
-            busmaker=self.busmaker,
+            # busmaker=self.busmaker,
             graph=self.graph,
             config=epconfig,
         )

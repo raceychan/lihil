@@ -90,11 +90,11 @@ RESP_RETURN_MARK = resp_mark("resp")
 # type TextType = str | bytes
 type Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
 type HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
-type Stream = Annotated[
-    AsyncGenerator[str | bytes, None] | Generator[bytes | str, None, None],
+# TODO: T
+type Stream[T] = Annotated[
+    AsyncGenerator[T, None] | Generator[T, None, None],
     STREAM_RETURN_MARK,
     "text/event-stream",
 ]
 type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
 type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
-
