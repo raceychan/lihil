@@ -2,14 +2,15 @@ from functools import partial
 from types import MethodType
 from typing import Any, Callable, Pattern, Sequence, Union, Unpack, cast
 
-from ididi import Graph, INodeConfig
+from ididi import Graph, INode, INodeConfig
 from ididi.interfaces import IDependent
 
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
 from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
 from lihil.interface.asgi import ASGIApp, MiddlewareFactory
-from lihil.oas.model import RouteOASConfig
+from lihil.oas.model import RouteConfig
+from lihil.plugins.bus import Collector, Event, EventListener, MessageRegistry
 
 # from lihil.plugins.bus import Collector
 from lihil.utils.parse import (
@@ -23,6 +24,8 @@ from lihil.utils.parse import (
 class Route:
     _flyweights: dict[str, "Route"] = {}
 
+    # collector:
+
     def __new__(cls, path: str = "", **_):
         p = handle_path(path)
         if p_route := cls._flyweights.get(p):
@@ -35,22 +38,23 @@ class Route:
         path: str = "",
         *,
         graph: Graph | None = None,
-        # busmaker: BusFactory | None = None,
+        registry: MessageRegistry[None, Event] | None = None,
         tag: str = "",
-        oas_config: RouteOASConfig | None = None,
+        route_config: RouteConfig | None = None,
     ):
         self.path = handle_path(path)
         self.path_regex: Pattern[str] | None = None
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self.graph = graph or Graph(self_inject=False)
-        # TODO: back transfer when included
-        # self.busmaker = busmaker or BusFactory()
+        self.registry = registry or MessageRegistry(event_base=Event)
+
+        self.collector: Collector | None = None
 
         self.tag = tag or generate_route_tag(self.path)
         self.subroutes: list[Route] = []
         self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
-        self.oas_config = oas_config or RouteOASConfig()
+        self.config = route_config or RouteConfig()
 
     def __repr__(self):
         endpoints_repr = "".join(
@@ -131,12 +135,15 @@ class Route:
         self, method: HTTP_METHODS, func: Func[P, R], **iconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         epconfig = EndPointConfig.from_unpack(**iconfig)
+        if self.collector is None:
+            self.collector = Collector(self.registry)
+
         endpoint = Endpoint(
             method=method,
             path=self.path,
             tag=self.tag,
             func=func,
-            # busmaker=self.busmaker,
+            busmaker=self.collector.create_event_bus,
             graph=self.graph,
             config=epconfig,
         )
@@ -158,6 +165,12 @@ class Route:
             self.middle_factories = list(middleware_factories) + self.middle_factories
         else:
             self.middle_factories.insert(0, middleware_factories)
+
+    def factory[**P, R](self, node: INode[P, R], **node_config: Unpack[INodeConfig]):
+        return self.graph.node(node, **node_config)
+
+    def listen[E](self, listener: EventListener[E]) -> None:
+        self.registry.register(listener)
 
     def get[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]

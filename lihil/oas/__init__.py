@@ -8,7 +8,7 @@ from typing import Any
 
 from lihil.config import OASConfig
 from lihil.problems import DetailBase
-from lihil.routing import Route, RouteOASConfig
+from lihil.routing import Route, RouteConfig
 from lihil.utils.phasing import encode_json
 from lihil.vendor_types import Response
 
@@ -25,7 +25,7 @@ def get_openapi_route(
         content = generate_oas(routes, oas_config, app_version)
         return Response(encode_json(content), media_type="application/json")
 
-    openapi_route = Route(oas_path, oas_config=RouteOASConfig(in_schema=False))
+    openapi_route = Route(oas_path, route_config=RouteConfig(in_schema=False))
     openapi_route.get(openapi)
     return openapi_route
 
@@ -37,7 +37,7 @@ def get_doc_route(oas_config: OASConfig) -> Route:
     async def swagger():
         return get_swagger_ui_html(openapi_url=oas_path, title=oas_config.title)
 
-    doc_route = Route(docs_path, oas_config=RouteOASConfig(in_schema=False))
+    doc_route = Route(docs_path, route_config=RouteConfig(in_schema=False))
     doc_route.get(swagger)
     return doc_route
 
@@ -50,6 +50,6 @@ def get_problem_route(
     async def problem_detail():
         return get_problem_ui_html(title="API Problem Details", problems=problems)
 
-    problem_route = Route(problem_path, oas_config=RouteOASConfig(in_schema=False))
+    problem_route = Route(problem_path, route_config=RouteConfig(in_schema=False))
     problem_route.get(problem_detail)
     return problem_route

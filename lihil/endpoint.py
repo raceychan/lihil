@@ -1,6 +1,6 @@
 from asyncio import to_thread
 from inspect import isasyncgen, iscoroutinefunction, isgenerator
-from typing import Any, Awaitable, Callable, Sequence, Unpack
+from typing import Any, Awaitable, Callable, Sequence, TypedDict, Unpack
 
 from ididi import Graph
 from ididi.graph import Resolver
@@ -12,8 +12,7 @@ from lihil.constant.status import STATUS_CODE, UNPROCESSABLE_ENTITY
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
-from lihil.oas.model import IOASConfig  # , OASConfig
-from lihil.plugins.bus import Collector, EventBus
+from lihil.plugins.bus import EventBus
 from lihil.problems import DetailBase, ErrorResponse, InvalidRequestErrors, get_solver
 
 
@@ -33,7 +32,9 @@ def async_wrapper[R](
     return inner if threaded else dummy
 
 
-class IEndPointConfig(IOASConfig, total=False):
+class IEndPointConfig(TypedDict, total=False):
+    errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
+    in_schema: bool
     to_thread: bool
 
 
@@ -78,7 +79,7 @@ class Endpoint[R]:
         tag: str,
         func: Callable[..., R],
         graph: Graph,
-        # busmaker: BusFactory,
+        busmaker: Callable[[Resolver], EventBus],
         config: EndPointConfig,
     ):
         self.path = path
@@ -86,7 +87,7 @@ class Endpoint[R]:
         self.tag = tag
         self.func = async_wrapper(func, config.to_thread)
         self.graph = graph
-        # self.busmaker = busmaker
+        self.busmaker = busmaker
         self.config = config
 
         self.name = func.__name__
@@ -124,8 +125,7 @@ class Endpoint[R]:
                     params[name] = request
                     # TODO: message bus
                 elif p.type_ is EventBus:
-                    raise NotImplementedError
-                    bus = self.busmaker.create_event_bus(resolver)
+                    bus = self.busmaker(resolver)
                     params[name] = bus
                 else:
                     raise NotImplementedError

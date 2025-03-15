@@ -83,7 +83,7 @@ class IEncoder[T](Protocol):
 
 @dataclass_transform(kw_only_default=True)
 class Base(Struct, kw_only=True):
-    "Base Model for all internal struct"
+    "Base Model for all internal struct, with Mapping interface implemented"
 
     def keys(self) -> tuple[str, ...]:
         return self.__struct_fields__

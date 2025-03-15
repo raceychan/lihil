@@ -28,7 +28,7 @@ from weakref import ref
 from ididi import Graph, INode, INodeConfig, Resolver
 from ididi.interfaces import GraphIgnore, TDecor
 
-from lihil.interface import MISSING, Maybe
+from lihil.interface import MISSING, Base, Maybe
 from lihil.utils.visitor import all_subclasses
 
 UNION_META = (UnionType, Union)
@@ -53,6 +53,9 @@ type FrozenContext[M: Mapping[Any, Any]] = Annotated[M, CTX_MARKER]
 type Registee = IPackage | ModuleType | type | CommandHandler[Any] | EventListener[Any]
 
 IGNORE_TYPES = (Context, FrozenContext)
+
+
+class Event(Base): ...
 
 
 class NormalizedEvent(TypedDict):
@@ -563,6 +566,7 @@ def get_methodmetas(msg_base: type, cls: type) -> list[MethodMeta[Any]]:
     return method_metas
 
 
+# TODO: separate EventRegistry and CommandRegistry
 class MessageRegistry[C, E]:
     @overload
     def __init__(
@@ -685,10 +689,7 @@ class MessageRegistry[C, E]:
             self._register_eventlisteners(handler)
             return handler
 
-        try:
-            self._register_eventlisteners(handler)
-        except HandlerRegisterFailError:
-            pass
+        self._register_eventlisteners(handler)
         return handler
 
     def register(
@@ -697,6 +698,7 @@ class MessageRegistry[C, E]:
         pre_hanldes: list[GuardFunc] | None = None,
         post_handles: list[PostHandle[Any]] | None = None,
     ) -> None:
+
         for handler in handlers:
             if inspect.isclass(handler):
                 if issubclass(handler, BaseGuard):
@@ -783,7 +785,7 @@ class EventBus:
         )
         return await self.strategy(event, context, resolved_listeners)
 
-    def emit(self, event, callback=None) -> None:
+    def emit(self, event: IEvent, callback: Callable | None = None) -> None:
         # have a unique scope that does not affect
         raise NotImplementedError
 
@@ -806,7 +808,6 @@ class Collector:
         self._sink = sink
 
         self.include(*registries)
-        self._dg.register_singleton(self)
 
     def create_event_bus(self, resolver: Resolver):
         return EventBus(self._listener_manager, self._publisher, resolver)

@@ -1,9 +1,6 @@
-from lihil import Payload, Resp, Route, status
-from lihil.plugins.bus import Collector, EventBus, MessageRegistry
+from lihil import Resp, Route, status
+from lihil.plugins.bus import EventBus, Event
 from lihil.plugins.testing import LocalClient
-
-
-class Event(Payload): ...
 
 
 class TodoCreated(Event):
@@ -11,17 +8,13 @@ class TodoCreated(Event):
     content: str
 
 
-registry = MessageRegistry(event_base=Event)
-
-
-@registry.register
 async def listen_create(created: TodoCreated):
     assert created.name
     assert created.content
 
 
-bus_factory = Collector(registry)
-bus_route = Route("/bus", busmaker=bus_factory)
+bus_route = Route("/bus")
+bus_route.listen(listen_create)
 
 
 @bus_route.post

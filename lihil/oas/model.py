@@ -366,12 +366,12 @@ class OpenAPI(BaseStruct, kw_only=True):
     # responses: dict[str, Response]
 
 
-class IOASConfig(TypedDict, total=False):
-    errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
-    in_schema: bool
+# class IOASConfig(TypedDict, total=False):
+#     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
+#     in_schema: bool
 
 
-class RouteOASConfig(BaseStruct):
+class RouteConfig(BaseStruct):
     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]] = field(
         default_factory=tuple
     )

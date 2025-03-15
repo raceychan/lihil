@@ -370,7 +370,7 @@ def generate_oas(
     components["schemas"] = schemas = {}
 
     for route in routes:
-        if not route.oas_config.in_schema:
+        if not route.config.in_schema:
             continue
         paths[route.path] = path_item_from_route(
             route, schemas, oas_config.problem_path

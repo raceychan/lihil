@@ -2,7 +2,7 @@ import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
-from typing import Any, AsyncContextManager, Callable, Sequence, Unpack
+from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast
 
 from ididi import Graph
 from loguru import logger
@@ -11,16 +11,12 @@ from lihil.config import AppConfig
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, generate_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError
 from lihil.interface import ASGIApp, Base, IReceive, IScope, ISend, MiddlewareFactory
-
-# from lihil.middlewares import last_defense, problem_solver
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
+from lihil.plugins.bus import Collector
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
 from lihil.routing import Func, IEndPointConfig, Route
 from lihil.utils.parse import is_plain_path
 from lihil.utils.phasing import encode_json
-
-# from lihil.vendor_types import Lifespan
-
 
 type LifeSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 
@@ -43,9 +39,12 @@ class AppState(Base):
 
 
 class Lihil[T: AppState]:
+    _userls: LifeSpan[T] | None
+
     def __init__(
         self,
         graph: Graph | None = None,
+        collector: Collector | None = None,
         app_config: AppConfig | None = None,
         lifespan: LifeSpan[T] | None = None,
     ):
@@ -53,6 +52,7 @@ class Lihil[T: AppState]:
         self.app_config = app_config or AppConfig()
         self._userls = lifespan_wrapper(lifespan)
         self._app_state: T
+        self.collector = collector or Collector()
 
         self.workers = ThreadPoolExecutor()
         self.root = Route("/", graph=self.graph)
@@ -74,7 +74,7 @@ class Lihil[T: AppState]:
     async def lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         # chainup app here
         await receive()
-        if not self._userls:
+        if self._userls is None:
             return
         user_ls = self._userls(self)
         try:
@@ -105,14 +105,20 @@ class Lihil[T: AppState]:
         problem_route = get_problem_route(oas_config, collect_problems())
         self.include_routes(openapi_route, doc_route, problem_route)
 
+    def sync_deps(self, route: Route):
+        self.graph.merge(route.graph)
+        self.collector.include(route.registry)
+
+        route.graph = self.graph
+        route.collector = self.collector
+
     def include_routes(self, *routes: Route, __seen__: set[str] | None = None):
         seen = __seen__ or set()
         for route in routes:
             if route.path in seen:
                 continue
 
-            self.graph.merge(route.graph)
-            route.graph = self.graph
+            self.sync_deps(route)
 
             if route.path == "/":
                 if self.root.endpoints:
@@ -189,7 +195,7 @@ class Lihil[T: AppState]:
         # TODO: this is solvable if we use a channel object instead of methods.
         # then we can check if chan.response_started
         try:
-            await self.call_stack(scope, receive, _send)
+            await self.call_stack(scope, receive, cast(ISend, _send))
         except Exception:
             if not response_started:
                 await InternalErrorResp(scope, receive, send)

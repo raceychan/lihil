@@ -39,12 +39,13 @@ def kingkong(king: str) -> Resp[Text, 200]:
     return f"{king}, kong"
 ```
 
-customized encoder
+return with customized encoder
+
 ```python
 llm = Route("llm/{model}")
 
 @llm
-async def stream(model: str="gpt-4o", question: str, client: OpenAI
+async def stream(model: str = "gpt-4o", question: str, client: OpenAI
 ) -> Annotated[Stream[Event], CustomEncoder(event_encoder)]:
     return client.responses.create(
         model=model,
@@ -93,9 +94,8 @@ by default, lihil will generate a `Problem` with `Problem detail` based on your 
 ```python
 from lihil import Graph
 
-
 async def lifespan(app: Lihil):
-    yourplugin = await YourPlugin().__aenter__
+    yourplugin = await YourPlugin().__aenter__()
     app.graph.register_singleton(your_plugin)
     yield
     await YourPlugin().__aexit__()
@@ -126,11 +126,10 @@ lihil.add_middleware(lambda app: app.graph.resolve(ThrottleMiddleware))
 
 
 - init each request
+
 ```python
 async def create_user(user_name: str, plugin: YourPlugin): ...
 ```
-
-
 
 ## Why not just FastAPI?
 
