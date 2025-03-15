@@ -89,11 +89,11 @@ git-push:
 # Build and publish operations
 build:
 	@echo "Building version $(VERSION)..."
-	@$(UV_CMD) hatch build
+	@uv build
 
 pypi-release:
 	@echo "Publishing to PyPI with skip-existing flag..."
-	@$(UV_CMD) hatch publish --skip-existing
+	@uv run hatch publish --skip-existing
 	@git branch -d $(BRANCH)
 	@git push origin --delete $(BRANCH)
 
