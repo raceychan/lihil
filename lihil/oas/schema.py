@@ -15,7 +15,7 @@ from lihil.utils.parse import to_kebab_case, trimdoc
 
 # from lihil.utils.phasing import encode_json
 
-type SchemasDict = dict[str, oasmodel.Schema | oasmodel.Reference]
+type SchemasDict = dict[str, oasmodel.SchemaOrBool]
 type ComponentsDict = dict[str, Any]
 
 
@@ -62,7 +62,6 @@ def json_schema(types: type | UnionType) -> SchemaOutput:
 def type_to_content(
     type_: Any, schemas: SchemasDict, content_type: str = "application/json"
 ) -> dict[str, oasmodel.MediaType]:
-
     output = json_schema(type_)
     if output.component:
         schemas.update(output.component)
@@ -73,30 +72,29 @@ def type_to_content(
 
 
 def detail_base_to_content(
-    type_: type[DetailBase[Any]] | type[ProblemDetail[Any]],
+    err_type: type[DetailBase[Any]] | type[ProblemDetail[Any]],
     problem_content: dict[str, oasmodel.MediaType],
     schemas: SchemasDict,
     content_type: str = PROBLEM_CONTENTTYPE,
 ) -> dict[str, oasmodel.MediaType]:
-    """
-    1. if it has str detail, just make it example
-    2. if it has a separate detail class, update it in schemas
-    """
-    if not issubclass(type_, DetailBase):
-        return type_to_content(type_, schemas)
+    if not issubclass(err_type, DetailBase):
+        return type_to_content(err_type, schemas)
 
-    org_base = getattr(type_, "__orig_bases__", ())
+    ref: oasmodel.Reference | None = None
+    org_base = getattr(err_type, "__orig_bases__", ())
     for base in org_base:
         typevars = get_args(base)
         for var in typevars:
-            if isinstance(var, str):
+            if var is str:
                 continue
             output = json_schema(var)
+            output = cast(ReferenceOutput, output)
+            ref = output.result
             schemas.update(output.component)
-            # raise NotImplementedError("update schema")
+            break
 
     pb_name = ProblemDetail.__name__
-    detail_name = type_.__name__
+    err_name = err_type.__name__
 
     # Get the problem schema from schemas
     problem_schema = schemas.get(pb_name)
@@ -106,36 +104,38 @@ def detail_base_to_content(
     # Create a new schema for this specific error type
     if isinstance(problem_schema, oasmodel.Schema):
         # Clone the problem schema properties
-        properties = (
-            problem_schema.properties.copy() if problem_schema.properties else {}
-        )
+        assert problem_schema.properties
+        properties = problem_schema.properties.copy()
+
+        if ref is not None:
+            properties["detail"] = ref
         # Add a link to the problems page for this error type
-        problem_link = f"/problems?search={detail_name}"
-        schemas[detail_name] = oasmodel.Schema(
+        problem_link = f"/problems?search={err_name}"
+        schemas[err_name] = oasmodel.Schema(
             type="object",
             properties=properties,
-            examples=[type_.__json_example__()],
-            description=trimdoc(type_.__doc__) or f"{detail_name}",
+            examples=[err_type.__json_example__()],
+            description=trimdoc(err_type.__doc__) or f"{err_name}",
             externalDocs=oasmodel.ExternalDocumentation(
-                description=f"Learn more about {detail_name}", url=problem_link
+                description=f"Learn more about {err_name}", url=problem_link
             ),
         )
 
         # Return a reference to this schema
         return {
             content_type: oasmodel.MediaType(
-                schema_=oasmodel.Reference(ref=f"#/components/schemas/{detail_name}")
+                schema_=oasmodel.Reference(ref=f"#/components/schemas/{err_name}")
             )
         }
-
-    return problem_content
+    else:
+        return problem_content
 
 
 def _single_field_schema(
     param: RequestParam[Any], schemas: SchemasDict
 ) -> oasmodel.Parameter:
     output = json_schema(param.type_)
-    param_schema = {
+    param_schema: dict[str, Any] = {
         "name": param.alias,
         "in_": param.location,
         "required": True,
@@ -157,6 +157,33 @@ def param_schema(
             ps = _single_field_schema(p, schemas)
             parameters.append(ps)
     return parameters
+
+
+def example_from_detail_base(
+    err_type: type[DetailBase[Any]], problem_path: str
+) -> oasmodel.Schema:
+    example = err_type.__json_example__()
+    err_name = err_type.__name__
+
+    # Create a schema for this specific error type
+    error_schema = oasmodel.Schema(
+        type="object",
+        title=err_name,  # Add title to make it show up in Swagger UI
+        properties={
+            "type": oasmodel.Schema(type="string", examples=[example["type_"]]),
+            "title": oasmodel.Schema(type="string", examples=[example["title"]]),
+            "status": oasmodel.Schema(type="integer", examples=[example["status"]]),
+            "detail": oasmodel.Schema(type="string", examples=["Example detail"]),
+            "instance": oasmodel.Schema(type="string", examples=["Example instance"]),
+        },
+        examples=[example],
+        description=trimdoc(err_type.__doc__) or f"{err_name}",
+        externalDocs=oasmodel.ExternalDocumentation(
+            description=f"Learn more about {err_name}",
+            url=f"{problem_path}?search={example["type_"]}",
+        ),
+    )
+    return error_schema
 
 
 def body_schema(
@@ -183,8 +210,7 @@ def err_resp_schema(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
     else:
         errors = (InvalidRequestErrors,)
 
-    # Group errors by status code
-    errors_by_status: dict[int, list[type[Any]]] = {}
+    errors_by_status: dict[int, list[type[DetailBase[Any]]]] = {}
 
     for err in errors:
         status_code = err.__status__
@@ -201,7 +227,7 @@ def err_resp_schema(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
             err_type = error_types[0]
             content = detail_base_to_content(err_type, problem_content, schemas)
             resps[status_str] = oasmodel.Response(
-                description=trimdoc(err_type.__doc__) or f"{err_type.__name__} error",
+                description=trimdoc(err_type.__doc__) or f"{err_type.__name__}",
                 content=content,
             )
         else:
@@ -212,38 +238,8 @@ def err_resp_schema(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
             for err_type in error_types:
                 err_name = err_type.__name__
                 if err_name not in schemas:
-                    # content = detail_base_to_content(err_type, problem_content, schemas)
-                    example = err_type.__json_example__()
-
-                    # Create a schema for this specific error type
-                    error_schema = oasmodel.Schema(
-                        type="object",
-                        title=err_name,  # Add title to make it show up in Swagger UI
-                        properties={
-                            "type": oasmodel.Schema(
-                                type="string", examples=[example["type_"]]
-                            ),
-                            "title": oasmodel.Schema(
-                                type="string", examples=[example["title"]]
-                            ),
-                            "status": oasmodel.Schema(
-                                type="integer", examples=[example["status"]]
-                            ),
-                            "detail": oasmodel.Schema(
-                                type="string", examples=["Example detail"]
-                            ),
-                            "instance": oasmodel.Schema(
-                                type="string", examples=["Example instance"]
-                            ),
-                        },
-                        examples=[example],
-                        description=trimdoc(err_type.__doc__) or f"{err_name} error",
-                        externalDocs=oasmodel.ExternalDocumentation(
-                            description=f"Learn more about {err_name}",
-                            url=f"{problem_path}?search={example["type_"]}",
-                        ),
-                    )
-                    schemas[err_name] = error_schema
+                    schemas[err_name] = example_from_detail_base(err_type, problem_path)
+                    content = detail_base_to_content(err_type, problem_content, schemas)
 
                 # Add reference to the oneOf list
                 one_of_schemas.append(
@@ -344,7 +340,7 @@ def generate_op_from_ep(
 def path_item_from_route(
     route: Route, schemas: SchemasDict, problem_path: str
 ) -> oasmodel.PathItem:
-    epoint_ops: dict[str, oasmodel.Operation] = {}
+    epoint_ops: dict[str, Any] = {}
     for endpoint in route.endpoints.values():
         if not endpoint.config.in_schema:
             continue
@@ -370,6 +366,7 @@ def generate_oas(
 
     components: ComponentsDict = {}
     components["schemas"] = schemas = {}
+    schemas: dict[str, Any]
 
     for route in routes:
         if not route.config.in_schema:

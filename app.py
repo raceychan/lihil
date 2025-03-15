@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from typing import Annotated
 
 from starlette.responses import Response
 
@@ -16,6 +15,7 @@ from lihil import (
     status,
 )
 from lihil.lihil import AppState
+from lihil.problems import HTTPException
 
 
 class User(Payload, kw_only=True, tag=True):
@@ -43,6 +43,8 @@ async def lifespan(app: Lihil[MyState]):
 class UserNotFoundError(HTTPException[str]):
     "Unable to find user with given user_id"
 
+    __status__ = 404
+
     ...
 
 
@@ -56,7 +58,16 @@ async def create_user(
 rsubu = rusers.sub("{user_id}")
 
 
-@rsubu.get
+class Unhappiness(Payload):
+    scale: int
+    is_mad: bool
+
+
+class UserNotHappyError(HTTPException[Unhappiness]):
+    "user is not happy with what you are doing"
+
+
+@rsubu.get(errors=[UserNotFoundError, UserNotHappyError])
 async def get_user(user_id: str | int) -> Resp[Text, status.OK]:
     if user_id != "5":
         raise UserNotFoundError("You can't see me!")

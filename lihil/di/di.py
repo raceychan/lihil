@@ -12,7 +12,6 @@ from lihil.interface import MISSING, Base, Record
 from lihil.problems import (
     InvalidDataType,
     InvalidJsonReceived,
-    InvalidRequestErrors,
     MissingRequestParam,
     ValidationProblem,
 )

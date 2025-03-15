@@ -19,11 +19,11 @@ Lihil is
 
 ## Features
 
-- **Advanced dependency injection**, inject params, resources, plugins, extremly powerful and fast.
+- **Data validation** using `msgspec`, which is about 12x faster than pydantic v2 for valiation and 25x memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html)
+- **Advanced dependency injection**, using `ididi` written in cython, inject params, resources, plugins, extremly powerful and fast.
 - **OpenAPI docs** and json schema automatically generated with accurate type information, union type, json examples, problem detail(RFC-9457) and more.
 - **Great Testability**, lihil abstracts away web framework specifics objects such as `Response`, `content-type` via  annotations, you can test your endpoints like regular functions.
 - **First class support for AI**, from api to architecture, lihi is built with AI in mind.
---- 
 
 ## Quick Start
 
@@ -73,15 +73,16 @@ uvicorn app:lhl
 ## Install
 
 ### pip
-```
+
+```bash
 pip install lihil
 ```
 
 ### uv
+
 ```bash
 uv add lihil
 ```
-
 
 ## versioning
 

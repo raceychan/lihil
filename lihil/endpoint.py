@@ -8,12 +8,11 @@ from msgspec import field
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
-from lihil.constant.status import STATUS_CODE, UNPROCESSABLE_ENTITY
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
 from lihil.plugins.bus import EventBus
-from lihil.problems import DetailBase, ErrorResponse, InvalidRequestErrors, get_solver
+from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
 
 
 def async_wrapper[R](
@@ -171,10 +170,3 @@ class Endpoint[R]:
             raw_return = await self.make_call(scope, receive, send, self.graph)
             await self.parse_raw_return(scope, raw_return)(scope, receive, send)
 
-    # @classmethod
-    # def from_func(
-    #     cls, func: Callable[..., R], graph: Graph, **iconfig: Unpack[IEndPointConfig]
-    # ) -> "Endpoint[R]":
-    #     "A test helper"
-    #     config = EndPointConfig.from_unpack(**iconfig) if iconfig else EndPointConfig()
-    #     return cls(path="", method="GET", tag="", func=func, graph=graph, config=config)

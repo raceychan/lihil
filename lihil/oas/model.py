@@ -167,24 +167,24 @@ class Schema(BaseStruct, kw_only=True):
     dynamicAnchor: Optional[str] = field(default=None, name="$dynamicAnchor")
     ref: Optional[str] = field(default=None, name="$ref")
     dynamicRef: Optional[str] = field(default=None, name="$dynamicRef")
-    defs: Optional[dict[str, "SchemaOrBool"]] = field(default=None, name="$defs")
+    defs: Optional[dict[str, "LenientSchema"]] = field(default=None, name="$defs")
     comment: Optional[str] = field(default=None, name="$comment")
-    allOf: Optional[list["SchemaOrBool"]] = None
-    anyOf: Optional[list["SchemaOrBool"]] = None
-    oneOf: Optional[list["SchemaOrBool"]] = None
-    not_: Optional["SchemaOrBool"] = field(default=None, name="not")
-    if_: Optional["SchemaOrBool"] = field(default=None, name="if")
-    then: Optional["SchemaOrBool"] = None
-    else_: Optional["SchemaOrBool"] = field(default=None, name="else")
-    dependentSchemas: Optional[dict[str, "SchemaOrBool"]] = None
-    prefixItems: Optional[list["SchemaOrBool"]] = None
-    contains: Optional["SchemaOrBool"] = None
-    properties: Optional[dict[str, "SchemaOrBool"]] = None
-    patternProperties: Optional[dict[str, "SchemaOrBool"]] = None
-    additionalProperties: Optional["SchemaOrBool"] = None
-    propertyNames: Optional["SchemaOrBool"] = None
-    unevaluatedItems: Optional["SchemaOrBool"] = None
-    unevaluatedProperties: Optional["SchemaOrBool"] = None
+    allOf: Optional[list["LenientSchema"]] = None
+    anyOf: Optional[list["LenientSchema"]] = None
+    oneOf: Optional[list["LenientSchema"]] = None
+    not_: Optional["LenientSchema"] = field(default=None, name="not")
+    if_: Optional["LenientSchema"] = field(default=None, name="if")
+    then: Optional["LenientSchema"] = None
+    else_: Optional["LenientSchema"] = field(default=None, name="else")
+    dependentSchemas: Optional[dict[str, "LenientSchema"]] = None
+    prefixItems: Optional[list["LenientSchema"]] = None
+    contains: Optional["LenientSchema"] = None
+    properties: Optional[dict[str, "LenientSchema"]] = None
+    patternProperties: Optional[dict[str, "LenientSchema"]] = None
+    additionalProperties: Optional["LenientSchema"] = None
+    propertyNames: Optional["LenientSchema"] = None
+    unevaluatedItems: Optional["LenientSchema"] = None
+    unevaluatedProperties: Optional["LenientSchema"] = None
     type: Optional[str] = None
     enum: Optional[list[Any]] = None
     const: Optional[Any] = None
@@ -208,7 +208,7 @@ class Schema(BaseStruct, kw_only=True):
     format: Optional[str] = None
     contentEncoding: Optional[str] = None
     contentMediaType: Optional[str] = None
-    contentSchema: Optional["SchemaOrBool"] = None
+    contentSchema: Optional["LenientSchema"] = None
     title: Optional[str] = None
     description: Optional[str] = None
     default: Optional[Any] = None
@@ -221,7 +221,7 @@ class Schema(BaseStruct, kw_only=True):
     externalDocs: Optional[ExternalDocumentation] = None
 
 
-SchemaOrBool = Union[Schema, bool]
+LenientSchema = Union[Schema, Reference, bool]
 
 
 class Example(TypedDict, total=False):

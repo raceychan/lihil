@@ -1,5 +1,7 @@
 from types import UnionType
 
+import pytest
+
 from lihil import HTTPException, Payload, Resp, Route, Text, status
 from lihil.config import OASConfig
 from lihil.oas.doc_ui import get_problem_ui_html
@@ -64,3 +66,38 @@ def test_generate_oas():
 def test_generate_problems():
     ui = get_problem_ui_html(title="API Problem Details", problems=collect_problems())
     assert ui
+
+
+class Unhappiness(Payload):
+    scale: int
+    is_mad: bool
+
+
+class UserNotHappyError(HTTPException[Unhappiness]):
+    "user is not happy with what you are doing"
+
+
+@pytest.fixture
+def complex_route():
+    return Route("user")
+
+
+def test_complex_route(complex_route: Route):
+
+    class UserNotFoundError(HTTPException[str]):
+        "You can't see me"
+
+        __status__ = 404
+
+    async def get_user(user_id: str | int) -> Resp[Text, status.OK]:
+        if user_id != "5":
+            raise UserNotFoundError("You can't see me!")
+
+        return "aloha"
+
+    complex_route.add_endpoint(
+        "GET", get_user, errors=[UserNotFoundError, UserNotHappyError]
+    )
+
+    oas = generate_oas([complex_route], oas_config, "0.1.0")
+    assert oas
