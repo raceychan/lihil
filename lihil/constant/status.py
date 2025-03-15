@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import Literal, TypeAliasType
 
 type CONTINUE = Literal[100]
@@ -261,6 +262,10 @@ STATUS_CODE: dict[TypeAliasType, Status] = {
     NOT_EXTENDED: 510,
     NETWORK_AUTHENTICATION_REQUIRED: 511,
 }
+
+
+def phrase(status: int) -> str:
+    return HTTPStatus(status).phrase
 
 
 def code(status: TypeAliasType) -> Status:

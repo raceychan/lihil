@@ -268,36 +268,11 @@ class InvalidDataType(ValidationProblem, tag=True):
 class InvalidRequestErrors(HTTPException[list[ValidationProblem]]):
 
     problem_encoder: ClassVar[IEncoder[Any]] = encoder_factory(list[ValidationProblem])
-    # __status__: ClassVar[int] = 422
-    # __problem_type__: ClassVar[str] = "invalid-request-errors"
-    # type: str = __problem_type__
-    # status: int = __status__
+
     title: str = "Check Your Params"
     instance: str = "uri of the entity"
 
     detail: list[ValidationProblem]
-
-    # @classmethod
-    # def __json_example__(cls) -> dict[str, Any]:
-    #     result = ProblemDetail(
-    #         type_=cls.type,
-    #         title=cls.title,
-    #         detail="Example Deatil",
-    #         status=cls.__status__,
-    #         instance=cls.instance,
-    #     ).asdict()
-    #     return result
-
-    # def __problem_detail__(
-    #     self, instance: str
-    # ) -> ProblemDetail[list[ValidationProblem]]:
-    #     return ProblemDetail(
-    #         type_=self.type,
-    #         title=self.title,
-    #         detail=self.detail,
-    #         status=self.__status__,
-    #         instance=instance,
-    #     )
 
 
 def collect_problems() -> list[type]:

@@ -6,6 +6,7 @@ from msgspec import Struct
 from msgspec.json import schema_components
 
 from lihil.config import OASConfig
+from lihil.constant.status import phrase
 from lihil.di import EndpointDeps, RequestParam
 from lihil.interface import is_provided
 from lihil.oas import model as oasmodel
@@ -15,7 +16,7 @@ from lihil.utils.parse import to_kebab_case, trimdoc
 
 # from lihil.utils.phasing import encode_json
 
-type SchemasDict = dict[str, oasmodel.SchemaOrBool]
+type SchemasDict = dict[str, oasmodel.LenientSchema]
 type ComponentsDict = dict[str, Any]
 
 
@@ -166,6 +167,7 @@ def example_from_detail_base(
     err_name = err_type.__name__
 
     # Create a schema for this specific error type
+    problem_url = f"{problem_path}/search?{example["type_"]}"
     error_schema = oasmodel.Schema(
         type="object",
         title=err_name,  # Add title to make it show up in Swagger UI
@@ -177,10 +179,9 @@ def example_from_detail_base(
             "instance": oasmodel.Schema(type="string", examples=["Example instance"]),
         },
         examples=[example],
-        description=trimdoc(err_type.__doc__) or f"{err_name}",
+        description=trimdoc(err_type.__doc__) or err_name,
         externalDocs=oasmodel.ExternalDocumentation(
-            description=f"Learn more about {err_name}",
-            url=f"{problem_path}?search={example["type_"]}",
+            description=f"Learn more about {err_name}", url=problem_url
         ),
     )
     return error_schema
@@ -214,9 +215,10 @@ def err_resp_schema(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
 
     for err in errors:
         status_code = err.__status__
-        if status_code not in errors_by_status:
-            errors_by_status[status_code] = []
-        errors_by_status[status_code].append(err)
+        if status_code in errors_by_status:
+            errors_by_status[status_code].append(err)
+        else:
+            errors_by_status[status_code] = [err]
 
     # Create response objects for each status code
     for status_code, error_types in errors_by_status.items():
@@ -225,46 +227,57 @@ def err_resp_schema(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
         if len(error_types) == 1:
             # Single error type for this status code
             err_type = error_types[0]
+            err_name = err_type.__name__
             content = detail_base_to_content(err_type, problem_content, schemas)
+
+            # Create link to problem documentation
             resps[status_str] = oasmodel.Response(
-                description=trimdoc(err_type.__doc__) or f"{err_type.__name__}",
+                description=phrase(status_code),
                 content=content,
             )
         else:
             # Multiple error types for this status code - use oneOf
             one_of_schemas: list[Any] = []
             error_descriptions: list[str] = []
+            error_names: list[str] = []
 
             for err_type in error_types:
                 err_name = err_type.__name__
+                error_names.append(err_name)
+
                 if err_name not in schemas:
                     schemas[err_name] = example_from_detail_base(err_type, problem_path)
                     content = detail_base_to_content(err_type, problem_content, schemas)
 
-                # Add reference to the oneOf list
-                one_of_schemas.append(
-                    oasmodel.Reference(ref=f"#/components/schemas/{err_name}")
+                # Create a schema with title that references the actual schema
+                schema_with_title = oasmodel.Schema(
+                    title=err_name,
+                    allOf=[oasmodel.Reference(ref=f"#/components/schemas/{err_name}")],
                 )
+
+                # Add the schema with title to the oneOf list
+                one_of_schemas.append(schema_with_title)
                 error_descriptions.append(err_name)
+
+            error_mapping = {
+                err_type.__problem_type__
+                or to_kebab_case(
+                    err_type.__name__
+                ): f"#/components/schemas/{err_type.__name__}"
+                for err_type in error_types
+            }
 
             one_of_schema = oasmodel.Schema(
                 oneOf=one_of_schemas,
                 discriminator=oasmodel.Discriminator(
-                    propertyName="type",
-                    mapping={
-                        err_type.__problem_type__
-                        or to_kebab_case(
-                            err_type.__name__
-                        ): f"#/components/schemas/{err_type.__name__}"
-                        for err_type in error_types
-                    },
+                    propertyName="type", mapping=error_mapping
                 ),
-                description=f"One of these error types: {', '.join(error_descriptions)}",
+                description=f"chek {problem_path} for further details",
             )
 
             # Add to responses
             resps[status_str] = oasmodel.Response(
-                description=f"Error response with status {status_code}: {', '.join(error_descriptions)}",
+                description=phrase(status_code),
                 content={
                     PROBLEM_CONTENTTYPE: oasmodel.MediaType(schema_=one_of_schema)
                 },
@@ -286,7 +299,7 @@ def resp_schema(
     if is_provided(return_type):
         if isinstance(return_type, UnionType):
             """
-            TODO: handle union f Resp
+            TODO: handle union Resp
             def create_user() -> Resp[User, 200] | Resp[UserNotFound, 404]
             """
             pass

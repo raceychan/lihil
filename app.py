@@ -107,8 +107,6 @@ async def stream() -> Stream:
 
 
 lhl = Lihil(lifespan=lifespan)
-
-
 lhl.include_routes(rusers, rprofile, rstream)
 
 
@@ -116,6 +114,14 @@ lhl.include_routes(rusers, rprofile, rstream)
 async def ping():
     return Response(b"pong")
 
+class VioletsAreBlue(HTTPException[str]):
+    "how about you?"
+    __status__ = 418
+
+
+@lhl.post(errors=VioletsAreBlue)
+async def roses_are_red():
+    raise VioletsAreBlue("I am a pythonista")
 
 if __name__ == "__main__":
     run(lhl)

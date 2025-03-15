@@ -62,7 +62,7 @@ async def stream(model: str = "gpt-4o", question: str, client: OpenAI
 
 ### Serve
 
-lihil is ASGI compatible, youcan run it with an ASGI server, such as uvicorn
+lihil is ASGI compatible, you can run it with an ASGI server, such as uvicorn
 
 start a server, default to port 8000
 
@@ -92,7 +92,7 @@ lihil follows semantic versioning, where a version in x.y.z format,
 - y: minor, feature updates
 - z: patch, bug fixes, typing updates
 
-**v0.1.1** is the first working version of lihil 
+**v0.1.1** is the first working version of lihil
 
 **v1.0.0** will be the first stable major version.
 
@@ -104,12 +104,13 @@ use `route.get(errors=[UserNotFound])` to declare a endpoint response
 
 ```python
 class VioletsAreBlue(HTTPException[str]):
-    "I am a pythonista"
+    "how about you?"
+    __status__ = 418
 
 
 @lhl.post(errors=VioletsAreBlue)
 async def roses_are_red():
-    raise VioletsAreBlue("and so are you")
+    raise VioletsAreBlue("I am a pythonista")
 ```
 
 ### Exception-Problem mapping
@@ -156,7 +157,6 @@ class ThrottleMiddleware:
 lihil.add_middleware(lambda app: app.graph.resolve(ThrottleMiddleware))
 ```
 
-
 - use it at your endpoints
 
 ```python
@@ -165,19 +165,24 @@ async def create_user(user_name: str, plugin: YourPlugin): ...
 
 ## Why not just FastAPI?
 
-I have been using FastAPI since october 2020, and have built dozens of apps using it, 
+I have been using FastAPI since october 2020, and have built dozens of apps using it.
 I am greatly satisfied with its API design and DI system, there a few architectual decisions I'd like to change and a few functionalities I'd like to have, specificially:
 
 ### DI (dependency injection)
 
-NOTE: `Dependens` refers to fastapi's di system
+NOTE: `Depends` refers to fastapi's di system
 
 - Availability, `Depends` is simple and easy to use, but it is tightly coupled with routes and requests, which limits its usability, a DI system that can be used across different levels and components of my application is prefered to avoid creating duplicated resources.
 
 - performance, `Depends` is resolved in a giant function which slows down dependency resolution as it does not optimize for different kind of dependency.
 
+### Data validation
 
-### Testclient
+From my project experiences, using msgspec over pydantic for data deserialization and validation brought more than 10x performance boost.
+
+`msgspec.Struct` is extremly performant, it is faster to create than a plain python class, and is often faster than a regular `dict` for non-trivial cases.
+
+### Testing
 
 I'd like to have a finer control of how my application works, take this endpoint as an example:
 

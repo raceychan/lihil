@@ -1,10 +1,8 @@
-import pytest
-
-from lihil import HTTPException, Payload, Resp, Route, Text, status
+from lihil import HTTPException
 from lihil.problems import collect_problems
 
 
-class CurentProblem(HTTPException):
+class CurentProblem(HTTPException[str]):
     "Aloha!"
 
     __status__ = 201
@@ -13,6 +11,3 @@ class CurentProblem(HTTPException):
 def test_collect_problems():
     problems = collect_problems()
     assert CurentProblem in problems
-
-
-
