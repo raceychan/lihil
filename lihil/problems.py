@@ -34,8 +34,38 @@ If they want to do other things, do it with message bus
 
 type ExceptionHandler[Exc] = Callable[[Request, Exc], Response]
 type ErrorRegistry = MappingProxyType[
-    type[DetailBase[Any]] | http_status.Status, ExceptionHandler[Any]
+    "type[DetailBase[Any]] | http_status.Status", ExceptionHandler[Any]
 ]
+
+
+def parse_exception(
+    exc: type["DetailBase[Any]"] | TypeAliasType | int,
+) -> type["DetailBase[Any]"] | int | list[type["DetailBase[Any]"] | int]:
+    if isinstance(exc, int):
+        return exc
+
+    exc_origin = get_origin(exc)
+
+    if exc_origin is None:
+        if isinstance(exc, TypeAliasType):
+            return http_status.code(exc)
+        return exc
+    elif exc_origin is Literal:
+        return get_args(exc)[0]
+    elif exc_origin is UnionType:
+        res: list[Any] = []
+        sub_excs = get_args(exc)
+        for e in sub_excs:
+            sub_r = parse_exception(e)
+            if isinstance(sub_r, list):
+                res.extend(sub_r)
+            else:
+                res.append(sub_r)
+        return res
+    elif issubclass(exc_origin, DetailBase) or issubclass(exc, DetailBase):
+        return exc
+    else:
+        raise NotImplementedError
 
 
 def __erresp_factory_registry():
@@ -45,17 +75,15 @@ def __erresp_factory_registry():
 
     def _extract_exception[Exc: DetailBase[Any] | http_status.Status](
         handler: ExceptionHandler[Exc],
-    ) -> type[DetailBase[Any]] | UnionType | http_status.Status:
+    ) -> type[DetailBase[Any]] | int | list[type[DetailBase[Any]] | int]:
         sig = signature(handler)
         _, exc = sig.parameters.values()
         exc_annt = exc.annotation
-        exc_type = get_origin(exc_annt) or exc_annt
-        if exc_type is Parameter.empty:
+
+        if exc_annt is Parameter.empty:
             raise ValueError(f"handler {handler} has no annotation for {exc.name}")
 
-        if exc_type is Literal:
-            return exc_annt.__args__[0]
-        return exc_type
+        return parse_exception(exc_annt)
 
     def _solver[Exc: DetailBase[Any] | http_status.Status](
         handler: ExceptionHandler[Exc],
@@ -68,23 +96,17 @@ def __erresp_factory_registry():
 
         nonlocal exc_handlers, status_handlers
         exc_type = _extract_exception(handler)
-        exctuples = get_args(exc_type)
 
-        if exctuples:
-            for exc in exctuples:
+        if isinstance(exc_type, list):
+            for exc in exc_type:
                 if isinstance(exc, int):
                     status_handlers[exc] = handler
-                elif isinstance(exc_type, TypeAliasType):
-                    status_handlers[http_status.code(exc_type)] = handler
                 else:
                     exc_handlers[exc] = handler
         else:
             if isinstance(exc_type, int):
                 status_handlers[exc_type] = handler
-            elif isinstance(exc_type, TypeAliasType):
-                status_handlers[http_status.code(exc_type)] = handler
             else:
-                exc_type = cast(type[DetailBase[Any]], exc_type)
                 exc_handlers[exc_type] = handler
         return handler
 
@@ -98,6 +120,9 @@ def __erresp_factory_registry():
             return status_handlers.get(exc)
         elif isinstance(exc, TypeAliasType):
             return status_handlers.get(http_status.code(exc))
+        elif get_origin(exc) is Literal:
+            scode: int = get_args(exc)[0]
+            return status_handlers.get(scode)
 
         for base in type(exc).__mro__:
             if res := exc_handlers.get(base):
