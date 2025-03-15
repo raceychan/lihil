@@ -11,7 +11,7 @@ from lihil import (
     Route,
     Stream,
     Text,
-    run,
+    # run,
     status,
 )
 from lihil.lihil import AppState
@@ -126,5 +126,5 @@ async def roses_are_red():
     raise VioletsAreBlue("I am a pythonista")
 
 
-if __name__ == "__main__":
-    run(lhl)
+# if __name__ == "__main__":
+#     run(lhl)

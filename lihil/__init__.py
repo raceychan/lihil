@@ -10,7 +10,7 @@ from .interface import Use as Use
 from .lihil import Lihil as Lihil
 from .problems import HTTPException as HTTPException
 from .routing import Route as Route
-from .server.runner import run as run
+# from .server.runner import run as run
 
 VERSION = "0.1.1"
 __version__ = VERSION
