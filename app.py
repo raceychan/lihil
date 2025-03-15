@@ -18,6 +18,29 @@ from lihil.lihil import AppState
 from lihil.problems import HTTPException
 
 
+class Unhappiness(Payload):
+    scale: int
+    is_mad: bool
+
+
+class UserNotHappyError(HTTPException[Unhappiness]):
+    "user is not happy with what you are doing"
+
+
+class VioletsAreBlue(HTTPException[str]):
+    "how about you?"
+
+    __status__ = 418
+
+
+class UserNotFoundError(HTTPException[str]):
+    "Unable to find user with given user_id"
+
+    __status__ = 404
+
+    ...
+
+
 class User(Payload, kw_only=True, tag=True):
     id: int
     name: str
@@ -40,14 +63,6 @@ async def lifespan(app: Lihil[MyState]):
     yield MyState()
 
 
-class UserNotFoundError(HTTPException[str]):
-    "Unable to find user with given user_id"
-
-    __status__ = 404
-
-    ...
-
-
 @rusers.post
 async def create_user(
     user: User, q: int, r: str
@@ -56,15 +71,6 @@ async def create_user(
 
 
 rsubu = rusers.sub("{user_id}")
-
-
-class Unhappiness(Payload):
-    scale: int
-    is_mad: bool
-
-
-class UserNotHappyError(HTTPException[Unhappiness]):
-    "user is not happy with what you are doing"
 
 
 @rsubu.get(errors=[UserNotFoundError, UserNotHappyError])
@@ -114,14 +120,11 @@ lhl.include_routes(rusers, rprofile, rstream)
 async def ping():
     return Response(b"pong")
 
-class VioletsAreBlue(HTTPException[str]):
-    "how about you?"
-    __status__ = 418
-
 
 @lhl.post(errors=VioletsAreBlue)
 async def roses_are_red():
     raise VioletsAreBlue("I am a pythonista")
+
 
 if __name__ == "__main__":
     run(lhl)

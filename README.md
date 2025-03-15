@@ -115,14 +115,16 @@ async def roses_are_red():
 
 ### Exception-Problem mapping
 
-by default, lihil will generate a `Problem` with `Problem detail` based on your raised `HTTPException`
+by default, lihil will generate a `Problem` with `Problem detail` based on your raised `HTTPException`, 
+here is the generated doc for the endpoint `roses_are_red`
+
+![roses_are_red](/docs/roses_are_red.png)
 
 ### Plugins
 
 #### Initialization
 
 - init at lifespan
-
 
 ```python
 from lihil import Graph
@@ -136,7 +138,6 @@ lhl = LIhil(lifespan=lifespan)
 ```
 
 use it anywhere with DI
-
 
 - init at middleware
 

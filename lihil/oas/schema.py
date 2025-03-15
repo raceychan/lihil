@@ -102,6 +102,8 @@ def detail_base_to_content(
     if not problem_schema:
         raise ValueError(f"Schema for {pb_name} not found in schemas")
 
+    example = err_type.__json_example__()
+
     # Create a new schema for this specific error type
     if isinstance(problem_schema, oasmodel.Schema):
         # Clone the problem schema properties
@@ -111,11 +113,11 @@ def detail_base_to_content(
         if ref is not None:
             properties["detail"] = ref
         # Add a link to the problems page for this error type
-        problem_link = f"/problems?search={err_name}"
+        problem_link = f"/problems?search={example["type_"]}"
         schemas[err_name] = oasmodel.Schema(
             type="object",
             properties=properties,
-            examples=[err_type.__json_example__()],
+            examples=[example],
             description=trimdoc(err_type.__doc__) or f"{err_name}",
             externalDocs=oasmodel.ExternalDocumentation(
                 description=f"Learn more about {err_name}", url=problem_link
@@ -346,7 +348,6 @@ def generate_op_from_ep(
     )
     for status, resp in resps.items():
         op.responses[status] = resp
-
     return op
 
 

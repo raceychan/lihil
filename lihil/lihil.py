@@ -102,7 +102,8 @@ class Lihil[T: AppState]:
             oas_config, self.routes, self.app_config.version
         )
         doc_route = get_doc_route(oas_config)
-        problem_route = get_problem_route(oas_config, collect_problems())
+        problems = collect_problems()
+        problem_route = get_problem_route(oas_config, problems)
         self.include_routes(openapi_route, doc_route, problem_route)
 
     def sync_deps(self, route: Route):
