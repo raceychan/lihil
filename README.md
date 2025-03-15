@@ -118,10 +118,13 @@ async def roses_are_red():
 ```python
 from lihil.problems import problem_solver
 
+# NOTE: you can use type union for exc, e.g. UserNotFound | status.NOT_FOUND
 @problem_solver
 def handle_404(req: Request, exc: Literal[404]):
     return Response("resource not found", status_code=404)
 ```
+
+A solver that handles a specific exception type (e.g., `UserNotFound`) takes precedence over a solver that handles the status code (e.g., `404`).
 
 ### Exception-Problem mapping
 
@@ -144,7 +147,6 @@ we will see the detailed problem page
 By default, every endpoint will have at least one response with code `422` for `InvalidRequestErrors`.
 
 Here is one example response of `InvalidRequestErrors`.
-
 
 ```json
 {

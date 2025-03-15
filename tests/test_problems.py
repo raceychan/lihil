@@ -39,7 +39,6 @@ def test_problem_solver_with_status():
     assert get_solver(418) is handle_418
 
 
-@pytest.mark.debug
 def test_problem_solver_with_exc():
 
     @problem_solver
