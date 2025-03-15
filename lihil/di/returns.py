@@ -59,6 +59,7 @@ def syncgen_encode_wrapper[T](
 
 
 class ReturnParam[T](Base):
+    # TODO: generate response from this
     encoder: IEncoder[T]
     status: int
     type_: Maybe[type[T]] | UnionType | None = MISSING
