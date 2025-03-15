@@ -4,7 +4,8 @@ run:
 
 .PHONY: dev
 dev:
-	uv run app.py
+	uv run uvicorn app:lhl --interface asgi3 --http httptools --no-access-log --log-level "warning" --reload
+
 
 .PHONY: fast
 fast:
@@ -14,9 +15,14 @@ fast:
 test:
 	uv run pytest tests/
 
+.PHONY: cov
+cov:
+	uv run pytest tests/ --cov=lihil --cov-report term-missing 
+
 .PHONY: debug
 debug:
 	uv run pytest -m debug tests/
+
 # ==========
 
 .PHONY: profile

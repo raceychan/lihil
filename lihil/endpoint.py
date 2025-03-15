@@ -108,16 +108,14 @@ class Endpoint[R]:
         self, scope: IScope, receive: IReceive, send: ISend, resolver: Resolver
     ) -> R | ParseResult | Response:
         request = Request(scope, receive, send)
-
-        # TODO: problem solver
         try:
             if self.require_body:
                 parsed_result = await self.deps.parse_command(request)
             else:
                 parsed_result = self.deps.parse_query(request)
 
-            if parsed_result.errors:
-                return parsed_result
+            if errors := parsed_result.errors:
+                raise InvalidRequestErrors(detail=errors)
 
             params = parsed_result.params
             for name, p in self.deps.singletons:
@@ -136,27 +134,21 @@ class Endpoint[R]:
             raw_return = await self.func(**params)
             return raw_return
         except Exception as exc:
-            solver = get_solver(exc)
-            if not solver:
-                raise
-            return solver(request, exc)
+            if solver := get_solver(exc):
+                return solver(request, exc)
+            raise
 
     def parse_raw_return(self, scope: IScope, raw_return: Any) -> Response:
-        # TODO: if status < 200 or is 204, 205, 304, drop body, we should leave this to our server
+        # TODO:
+        # self.deps.return_param.generate_response
         if isinstance(raw_return, Response):
             resp = raw_return
-        elif isinstance(raw_return, ParseResult):
-            # TODO: we might make InvalidRequestErrors an exception so that user can catch it
-            errors = InvalidRequestErrors(detail=raw_return.errors)
-            detail = errors.__problem_detail__(scope["path"])
-            resp = ErrorResponse(detail, status_code=STATUS_CODE[UNPROCESSABLE_ENTITY])
         elif isgenerator(raw_return) or isasyncgen(raw_return):
             if isgenerator(raw_return) and not isasyncgen(raw_return):
                 encode_wrapper = syncgen_encode_wrapper(raw_return, self.encoder)
             else:
                 encode_wrapper = agen_encode_wrapper(raw_return, self.encoder)
-
-            return StreamingResponse(
+            resp = StreamingResponse(
                 encode_wrapper,
                 media_type="text/event-stream",
                 status_code=self.status_code,
@@ -165,6 +157,9 @@ class Endpoint[R]:
             resp = Response(
                 content=self.encoder(raw_return), status_code=self.status_code
             )
+        if (status := resp.status_code) < 200 or status in (204, 205, 304):
+            # TODO: this should be done in the server layer
+            resp.body = b""
         return resp
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:

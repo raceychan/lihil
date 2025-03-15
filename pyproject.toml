@@ -30,6 +30,7 @@ dev = [
   "pytest-asyncio>=0.25.3",
   "ipython>=9.0.2",
   "hatch>=1.14.0",
+  "pytest-cov>=6.0.0",
 ]
 
 [tool.pyright]

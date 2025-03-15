@@ -30,7 +30,7 @@ Lihil is
 ### app.py
 
 ```python
-from lihil import Lihil, Text, HTTPException
+from lihil import Lihil, Route, Stream, Text, HTTPException
 
 lhl = Lihil()
 
@@ -45,12 +45,12 @@ def kingkong(king: str) -> Resp[Text, 200]:
     return f"{king}, kong"
 ```
 
-return with customized encoder
+server-sent event with customized encoder
 
 ```python
 llm = Route("llm/{model}")
 
-@llm
+@llm.get
 async def stream(model: str = "gpt-4o", question: str, client: OpenAI
 ) -> Annotated[Stream[Event], CustomEncoder(event_encoder)]:
     return client.responses.create(
@@ -72,13 +72,12 @@ uvicorn app:lhl
 
 ## Install
 
-pip
-
+### pip
 ```
 pip install lihil
 ```
 
-uv
+### uv
 ```bash
 uv add lihil
 ```
@@ -87,12 +86,14 @@ uv add lihil
 ## versioning
 
 lihil follows semantic versioning, where a version in x.y.z format,
-x: major, breaking change
-y: minor, feature updates
-z: patch, bug fixes, typing updates
 
-lihil starts with v0.1.0, and v1.0.0 will be the first stable major version.
+- x: major, breaking change
+- y: minor, feature updates
+- z: patch, bug fixes, typing updates
 
+**v0.1.1** is the first working version of lihil 
+
+**v1.0.0** will be the first stable major version.
 
 ## Error Hanlding
 
@@ -125,10 +126,9 @@ by default, lihil will generate a `Problem` with `Problem detail` based on your 
 from lihil import Graph
 
 async def lifespan(app: Lihil):
-    yourplugin = await YourPlugin().__aenter__()
-    app.graph.register_singleton(your_plugin)
-    yield
-    await YourPlugin().__aexit__()
+    async with YourPlugin() as up:
+        app.graph.register_singleton(up)
+        yield
 
 lhl = LIhil(lifespan=lifespan)
 ```
@@ -147,6 +147,7 @@ class ThrottleMiddleware:
     def __init__(self, app: Ignore[ASGIApp], redis: Redis):
         self.app = app
         self.redis = redis
+
     async def __call__(self, app):
         await self.redis.run_throttle_script
         await self.app
@@ -155,7 +156,7 @@ lihil.add_middleware(lambda app: app.graph.resolve(ThrottleMiddleware))
 ```
 
 
-- init each request
+- use it at your endpoints
 
 ```python
 async def create_user(user_name: str, plugin: YourPlugin): ...

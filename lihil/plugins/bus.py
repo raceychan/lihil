@@ -11,9 +11,11 @@ from typing import (
     AsyncGenerator,
     Awaitable,
     Callable,
+    ClassVar,
     Mapping,
     MutableMapping,
     Protocol,
+    Self,
     Sequence,
     TypedDict,
     Union,
@@ -28,9 +30,10 @@ from weakref import ref
 
 from ididi import Graph, INode, INodeConfig, Resolver
 from ididi.interfaces import GraphIgnore, TDecor
+from msgspec.json import Decoder
 
-from lihil.interface import MISSING, FlatRecord, Maybe, field
-from lihil.utils.visitor import all_subclasses
+from lihil.interface import MISSING, Base, Maybe, field
+from lihil.utils.visitor import all_subclasses, union_types
 
 UNION_META = (UnionType, Union)
 CTX_MARKER = "__anywise_context__"
@@ -53,8 +56,11 @@ type Context[M: MutableMapping[Any, Any]] = Annotated[M, CTX_MARKER]
 type FrozenContext[M: Mapping[Any, Any]] = Annotated[M, CTX_MARKER]
 type Registee = IPackage | ModuleType | type | CommandHandler[Any] | EventListener[Any]
 
+type BusMaker = Callable[[Resolver], EventBus]
+
 IGNORE_TYPES = (Context, FrozenContext)
 
+from datetime import datetime, timezone
 from uuid import uuid4
 
 
@@ -62,9 +68,46 @@ def uuid_factory() -> str:
     return str(uuid4())
 
 
+def ts_factory() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# class IEvent(Protocol):
+#     @property
+#     def event_id(self) -> str: ...
+
+#     @property
+#     def entity_id(self) -> str: ...
+
+#     @property
+#     def timestamp(self) -> str: ...
+
+#     @classmethod
+#     def __type_id__(cls) -> str: ...
+
+
+#     def __normalized__(self) -> "NormalizedEvent": ...
 @dataclass_transform(frozen_default=True)
-class Event(FlatRecord, tag_field="event_typeid", kw_only=True):
+class Event(
+    Base,
+    tag_field="typeid",
+    frozen=True,
+    cache_hash=True,
+    gc=False,
+    kw_only=True,
+    omit_defaults=True,
+):
+    source: ClassVar[str] = "Missing"
+    version: ClassVar[str] = "1"
+
     event_id: str = field(default_factory=uuid_factory)
+    timestamp: datetime = field(default_factory=ts_factory)
+
+    def build_decoder(self) -> Decoder["Self"]:
+        "Build a decoder that decodes all subclsses of current class"
+        subs = all_subclasses(self.__class__)
+        sub_union = union_types(subs)
+        return Decoder(sub_union)
 
 
 class NormalizedEvent(TypedDict):
@@ -80,22 +123,6 @@ class NormalizedEvent(TypedDict):
 
     # current fields
     event_body: dict[str, Any]
-
-
-class IEvent(Protocol):
-    @property
-    def event_id(self) -> str: ...
-
-    @property
-    def entity_id(self) -> str: ...
-
-    @property
-    def timestamp(self) -> str: ...
-
-    @classmethod
-    def __type_id__(cls) -> str: ...
-
-    def __normalized__(self) -> "NormalizedEvent": ...
 
 
 class IPackage(Protocol):
@@ -775,7 +802,7 @@ class EventBus:
     def __init__(
         self,
         listener: ListenerManager,
-        strategy: PublishStrategy[IEvent],
+        strategy: PublishStrategy[Event],
         resolver: Resolver,
     ):
         self.listeners = listener
@@ -784,7 +811,7 @@ class EventBus:
 
     async def publish(
         self,
-        event: IEvent,
+        event: Event,
         *,
         context: IEventContext | None = None,
     ) -> None:
@@ -794,7 +821,7 @@ class EventBus:
         )
         return await self.strategy(event, context, resolved_listeners)
 
-    def emit(self, event: IEvent, callback: Callable | None = None) -> None:
+    def emit(self, event: Event, callback: Callable[..., Any] | None = None) -> None:
         # have a unique scope that does not affect
         raise NotImplementedError
 
@@ -804,9 +831,9 @@ class Collector:
         self,
         *registries: MessageRegistry[Any, Any],
         graph: Graph | None = None,
-        sink: IEventSink[IEvent] | None = None,
+        sink: IEventSink[Event] | None = None,
         sender: SendStrategy[Any] = default_send,
-        publisher: PublishStrategy[IEvent] = default_publish,
+        publisher: PublishStrategy[Event] = default_publish,
     ):
         self._dg = graph or Graph()
         self._handler_manager = HandlerManager(self._dg)
@@ -826,7 +853,7 @@ class Collector:
         return self._sender
 
     @property
-    def publisher(self) -> PublishStrategy[IEvent]:
+    def publisher(self) -> PublishStrategy[Event]:
         return self._publisher
 
     @property

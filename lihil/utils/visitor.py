@@ -1,4 +1,10 @@
-def all_subclasses(cls: type, __seen__: set[type] | None = None) -> set[type]:
+from types import UnionType
+from typing import Any, Sequence, Union
+
+
+def all_subclasses[T](
+    cls: type[T], __seen__: set[type[Any]] | None = None
+) -> set[type[T]]:
     """
     Get all subclasses of a class recursively, avoiding repetition.
 
@@ -12,10 +18,18 @@ def all_subclasses(cls: type, __seen__: set[type] | None = None) -> set[type]:
     if __seen__ is None:
         __seen__ = set()
 
-    result = set()
+    result: set[type[T]] = set()
     for subclass in cls.__subclasses__():
         if subclass not in __seen__:
             __seen__.add(subclass)
             result.add(subclass)
             result.update(all_subclasses(subclass, __seen__))
     return result
+
+
+def union_types(subs: Sequence[type[Any]]) -> type | UnionType | None:
+    if not subs:
+        return None
+    elif len(subs) == 1:
+        return next(iter(subs))
+    return Union[*(subs)]  # type: ignore

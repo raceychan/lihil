@@ -91,6 +91,8 @@ def detail_base_to_content(
         for var in typevars:
             if isinstance(var, str):
                 continue
+            output = json_schema(var)
+            schemas.update(output.component)
             # raise NotImplementedError("update schema")
 
     pb_name = ProblemDetail.__name__
@@ -113,7 +115,7 @@ def detail_base_to_content(
             type="object",
             properties=properties,
             examples=[type_.__json_example__()],
-            description=trimdoc(type_.__doc__) or f"{detail_name} error",
+            description=trimdoc(type_.__doc__) or f"{detail_name}",
             externalDocs=oasmodel.ExternalDocumentation(
                 description=f"Learn more about {detail_name}", url=problem_link
             ),
