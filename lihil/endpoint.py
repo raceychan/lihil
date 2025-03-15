@@ -125,7 +125,7 @@ class Endpoint[R]:
                     bus = self.busmaker(resolver)
                     params[name] = bus
                 else:
-                    raise NotImplementedError
+                    raise NotImplementedError(f"unhandle lihil deps {p.type_}")
 
             for name, dep in self.deps.dependencies:
                 params[name] = await resolver.aresolve(dep.dependent, **params)

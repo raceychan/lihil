@@ -89,7 +89,14 @@ class ReturnParam[T](Base):
             )
             return rtp
         elif origin is HTML:
-            raise NotImplementedError
+            content_type = get_media(origin)
+            return ReturnParam(
+                type_=str,
+                encoder=encode_text,
+                status=status,
+                annotation=annt,
+                content_type=content_type,
+            )
         elif origin is Stream:
             content_type = get_media(origin)
             return ReturnParam(
@@ -185,7 +192,7 @@ def analyze_return[R](
                 type_=annt, annotation=annt, encoder=encode_json, status=status
             )
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"Unexpected case {annt=} received")
     elif origin := get_origin(annt) or is_resp_mark(annt):
         # NOTE: we have to check both condition, since some resp marks are not generic
         ret = ReturnParam.from_generic(annt, origin, status)

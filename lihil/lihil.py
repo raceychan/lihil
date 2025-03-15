@@ -142,7 +142,9 @@ class Lihil[T: AppState]:
         charset: str = "utf-8",
     ):
         if not is_plain_path(path):
-            raise NotImplementedError
+            raise NotImplementedError(
+                "staic resource with dynamic route is not supported"
+            )
         if isinstance(static_content, Callable):
             static_content = static_content()
         elif isinstance(static_content, str):
