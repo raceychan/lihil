@@ -19,6 +19,7 @@ from typing import (
     Union,
     Unpack,
     cast,
+    dataclass_transform,
     get_args,
     get_origin,
     overload,
@@ -28,7 +29,7 @@ from weakref import ref
 from ididi import Graph, INode, INodeConfig, Resolver
 from ididi.interfaces import GraphIgnore, TDecor
 
-from lihil.interface import MISSING, Base, Maybe
+from lihil.interface import MISSING, FlatRecord, Maybe, field
 from lihil.utils.visitor import all_subclasses
 
 UNION_META = (UnionType, Union)
@@ -54,8 +55,16 @@ type Registee = IPackage | ModuleType | type | CommandHandler[Any] | EventListen
 
 IGNORE_TYPES = (Context, FrozenContext)
 
+from uuid import uuid4
 
-class Event(Base): ...
+
+def uuid_factory() -> str:
+    return str(uuid4())
+
+
+@dataclass_transform(frozen_default=True)
+class Event(FlatRecord, tag_field="event_typeid", kw_only=True):
+    event_id: str = field(default_factory=uuid_factory)
 
 
 class NormalizedEvent(TypedDict):

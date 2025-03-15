@@ -1,9 +1,9 @@
 [project]
 dependencies = [
-  "can-ada>=2.0.0",
   "ididi==1.5.2",
   "msgspec>=0.19.0",
   "starlette>=0.45.3",
+  "uvicorn>=0.34.0",
 ]
 description = "Add your description here"
 name = "lihil"
@@ -23,8 +23,6 @@ dev = [
   "pytest>=8.3.4",
   "fastapi>=0.115.8",
   "httptools>=0.6.4",
-  "granian>=1.7.6",
-  "uvicorn>=0.34.0",
   "loguru>=0.7.3",
   "pyinstrument>=5.0.1",
   "py-spy>=0.4.0",

@@ -39,6 +39,7 @@ class Route:
         *,
         graph: Graph | None = None,
         registry: MessageRegistry[None, Event] | None = None,
+        listeners: list[Callable[..., Any]] | None = None,
         tag: str = "",
         route_config: RouteConfig | None = None,
     ):
@@ -47,6 +48,8 @@ class Route:
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self.graph = graph or Graph(self_inject=False)
         self.registry = registry or MessageRegistry(event_base=Event)
+        if listeners:
+            self.registry.register(*listeners)
 
         self.collector: Collector | None = None
 

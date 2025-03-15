@@ -8,8 +8,10 @@ from typing import (
     dataclass_transform,
 )
 
-from msgspec.structs import Struct
+from msgspec import Struct as Struct
+from msgspec import field as field
 from msgspec.structs import asdict as struct_asdict
+from msgspec.structs import fields as inspect_fields
 from msgspec.structs import replace as struct_replace
 
 from lihil.interface.asgi import HTTP_METHODS as HTTP_METHODS

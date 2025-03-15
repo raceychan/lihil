@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import Annotated
 
 from starlette.responses import Response
 
@@ -63,11 +64,24 @@ async def get_user(user_id: str | int) -> Resp[Text, status.OK]:
     return "aloha"
 
 
-rprofile = Route("profile")
+rprofile = Route("profile/{pid}")
+
+
+class Engine: ...
+
+
+def get_engine() -> Engine:
+    return Engine()
+
+
+rprofile.factory(get_engine)
 
 
 @rprofile.post
-async def profile(user: User) -> User:
+async def profile(pid: str, q: int, user: User, engine: Engine) -> User:
+    assert (
+        pid == "p" and q == 5 and isinstance(user, User) and isinstance(engine, Engine)
+    )
     return User(id=user.id, name=user.name, email=user.email)
 
 

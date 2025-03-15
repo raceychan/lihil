@@ -24,14 +24,14 @@ class Engine: ...
 
 
 async def get_engine() -> Engine:
-    engine = Engine()
-    yield engine
+    return Engine()
 
 
 @rprofile.post("/profile/{pid}")
 async def profile(
     pid: str, q: int, user: User, engine: Annotated[Engine, Depends(get_engine)]
 ) -> User:
+
     return User(id=user.id, name=user.name, email=user.email)
 
 

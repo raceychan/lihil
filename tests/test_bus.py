@@ -1,5 +1,5 @@
 from lihil import Resp, Route, status
-from lihil.plugins.bus import EventBus, Event
+from lihil.plugins.bus import Event, EventBus
 from lihil.plugins.testing import LocalClient
 
 
@@ -13,8 +13,12 @@ async def listen_create(created: TodoCreated):
     assert created.content
 
 
-bus_route = Route("/bus")
-bus_route.listen(listen_create)
+async def listen_twice(created: TodoCreated):
+    assert created.name
+    assert created.content
+
+
+bus_route = Route("/bus", listeners=[listen_create, listen_twice])
 
 
 @bus_route.post

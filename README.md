@@ -1,12 +1,13 @@
-# lihil
+![Lihil](docs/lihil_logo_transparent.png)
 
-**lihil** &nbsp;*/ˈliːhaɪl/* — a **performant**, **productive**, and **professional** web framework with a vision:
+# Lihil
+**Lihil** &nbsp;*/ˈliːhaɪl/* — a **performant**, **productive**, and **professional** web framework with a vision:
 
 > **Making Python the mainstream programming language for web development.**
 
 Lihil is
 
-- **Performant** lihil is unpythonically fast, 1-3x faster than other asgi frameworks in most benchmarks, event more with its own server.
+- **Performant** lihil is unpythonically fast, 1-3x faster than other asgi frameworks in most benchmarks, event more with its own server. [mini benchmark](docs/simple_bench.md)
 
 - **Productive** ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
 
