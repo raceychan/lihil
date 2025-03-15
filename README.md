@@ -5,6 +5,10 @@
 
 > **Making Python the mainstream programming language for web development.**
 
+GitHub Page: [lihil](https://github.com/raceychan/lihil)
+
+---
+
 Lihil is
 
 - **Performant** lihil is unpythonically fast, 1-3x faster than other asgi frameworks in most benchmarks, event more with its own server. [mini benchmark](docs/simple_bench.md)
@@ -19,6 +23,7 @@ Lihil is
 - **OpenAPI docs** and json schema automatically generated with accurate type information, union type, json examples, problem detail(RFC-9457) and more.
 - **Great Testability**, lihil abstracts away web framework specifics objects such as `Response`, `content-type` via  annotations, you can test your endpoints like regular functions.
 - **First class support for AI**, from api to architecture, lihi is built with AI in mind.
+--- 
 
 ## Quick Start
 
@@ -64,6 +69,30 @@ start a server, default to port 8000
 ```bash
 uvicorn app:lhl
 ```
+
+## Install
+
+pip
+
+```
+pip install lihil
+```
+
+uv
+```bash
+uv add lihil
+```
+
+
+## versioning
+
+lihil follows semantic versioning, where a version in x.y.z format,
+x: major, breaking change
+y: minor, feature updates
+z: patch, bug fixes, typing updates
+
+lihil starts with v0.1.0, and v1.0.0 will be the first stable major version.
+
 
 ## Error Hanlding
 

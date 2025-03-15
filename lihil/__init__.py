@@ -11,3 +11,6 @@ from .lihil import Lihil as Lihil
 from .problems import HTTPException as HTTPException
 from .routing import Route as Route
 from .server.runner import run as run
+
+VERSION = "0.1.0"
+__version__ = VERSION
