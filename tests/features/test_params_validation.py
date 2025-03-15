@@ -39,7 +39,6 @@ def create_user_dep() -> EndpointDeps[Any]:
     return dep
 
 
-@pytest.mark.debug
 def test_prepare_params(get_order_dep: EndpointDeps[Any]):
     user_id = "u11b22"
     order_id = "o22d33"

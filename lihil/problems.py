@@ -112,7 +112,7 @@ def __erresp_factory_registry():
 
     @lru_cache
     def get_solver(
-        exc: Exception | int | http_status.Status,
+        exc: DetailBase[Any] | int | http_status.Status,
     ) -> ExceptionHandler[Exception] | None:
         nonlocal status_handlers, exc_handlers
 

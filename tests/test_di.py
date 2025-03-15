@@ -47,7 +47,6 @@ async def test_call_endpoint():
     assert result == b"ok"
 
 
-@pytest.mark.debug
 async def test_non_use_dep():
     ep = route.get_endpoint(get_todo)
     deps = ep.deps.dependencies
