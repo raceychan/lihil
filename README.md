@@ -72,6 +72,8 @@ uvicorn app:lhl
 
 ## Install
 
+currently(v1.0.2), lihil requires python 3.12, but we will lower it to 3.9 or 3.10 in the next few patches.
+
 ### pip
 
 ```bash
@@ -115,8 +117,13 @@ async def roses_are_red():
 
 ### Exception-Problem mapping
 
-by default, lihil will generate a `Problem` with `Problem detail` based on your raised `HTTPException`, 
-here is the generated doc for the endpoint `roses_are_red`
+lihil automatically generates a response and documentation based on your HTTPException,
+
+- To alter the creation of the response, use `lihil.problems.solver` to register your solver.
+- To change the documentation, override `DetailBase.__json_example__` and `DetailBase.__problem_detail__`.
+- To extend the error detail, provide typevar when inheriting `HTTPException[T]`.
+
+Here is the generated doc for the endpoint `roses_are_red`
 
 ![roses_are_red](/docs/roses_are_red_link.png)
 
@@ -125,6 +132,34 @@ click url under `External documentation` tab
 we will see the detailed problem page
 
 ![problem page](/docs/roses_are_red_problempage.png)
+
+By default, every endpoint will have at least one response with code `422` for `InvalidRequestErrors`.
+
+Here is one example response of `InvalidRequestErrors`.
+
+
+```json
+{
+  "type_": "invalid-request-errors",
+  "status": 422,
+  "title": "Missing",
+  "detail": [
+    {
+      "type": "MissingRequestParam",
+      "location": "query",
+      "param": "q",
+      "message": "Param is Missing"
+    },
+    {
+      "type": "MissingRequestParam",
+      "location": "query",
+      "param": "r",
+      "message": "Param is Missing"
+    }
+  ],
+  "instance": "/users"
+}
+```
 
 ### Plugins
 
