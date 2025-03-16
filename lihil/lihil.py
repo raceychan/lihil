@@ -43,6 +43,8 @@ class Lihil[T: AppState]:
 
     def __init__(
         self,
+        *,
+        routes: list[Route] | None = None,
         graph: Graph | None = None,
         collector: Collector | None = None,
         app_config: AppConfig | None = None,
@@ -73,6 +75,9 @@ class Lihil[T: AppState]:
         self.err_registry = LIHIL_ERRESP_REGISTRY
         self._static_cache: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
         self._generate_doc_route()
+
+        if routes:
+            self.include_routes(*routes)
 
     @property
     def static_cache(self):

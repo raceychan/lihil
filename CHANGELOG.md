@@ -75,5 +75,11 @@ class MyConfig(AppConfig):
 config = MyConfig.from_file("myconfig.toml")
 ```
 
+### improvements
 
+- now user can directly import `Body` from lihil
+
+```python
+from lihil import Body
+```
 
