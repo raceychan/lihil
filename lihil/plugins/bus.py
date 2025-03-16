@@ -804,12 +804,12 @@ class EventBus:
         listener: ListenerManager,
         strategy: PublishStrategy[Event],
         resolver: Resolver,
-        queue: deque[Task[Any]],
+        tasks: set[Task[Any]],
     ):
         self.listeners = listener
         self.strategy = strategy
         self.resolver = resolver
-        self.queue = queue
+        self.tasks = tasks
 
     async def publish(
         self,
@@ -836,9 +836,14 @@ class EventBus:
                 )
                 await self.strategy(event, context, listener)
 
+        def icallback(task: Task[Any]):
+            self.tasks.discard(task)
+            if callback:
+                callback(task)
+
         task = create_task(event_task(event, context or {}))
-        task.add_done_callback(callback)
-        self.queue.append(task)
+        task.add_done_callback(icallback)
+        self.tasks.add(task)
 
 
 class Collector:
@@ -858,14 +863,12 @@ class Collector:
         self._publisher = publisher
         self._sink = sink
 
-        self._task_queue: deque[Task[Any]] = deque()
+        self._tasks: set[Task[Any]] = set()
 
         self.include(*registries)
 
     def create_event_bus(self, resolver: Resolver):
-        return EventBus(
-            self._listener_manager, self._publisher, resolver, self._task_queue
-        )
+        return EventBus(self._listener_manager, self._publisher, resolver, self._tasks)
 
     @property
     def sender(self) -> SendStrategy[Any]:
