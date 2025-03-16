@@ -1,19 +1,6 @@
 from contextlib import asynccontextmanager
 
-from starlette.responses import Response
-
-from lihil import (
-    HTTPException,
-    Json,
-    Lihil,
-    Payload,
-    Resp,
-    Route,
-    Stream,
-    Text,
-    # run,
-    status,
-)
+from lihil import HTTPException, Json, Lihil, Payload, Resp, Route, Stream, Text, status
 from lihil.lihil import AppState
 from lihil.problems import HTTPException
 
@@ -96,9 +83,6 @@ rprofile.factory(get_engine)
 
 @rprofile.post
 async def profile(pid: str, q: int, user: User, engine: Engine) -> User:
-    assert (
-        pid == "p" and q == 5 and isinstance(user, User) and isinstance(engine, Engine)
-    )
     return User(id=user.id, name=user.name, email=user.email)
 
 
@@ -106,7 +90,7 @@ rstream = Route("stream")
 
 
 @rstream.get
-async def stream() -> Stream:
+async def stream() -> Stream[str]:
     const = ["hello", "world"]
     for c in const:
         yield c
@@ -116,9 +100,7 @@ lhl = Lihil(lifespan=lifespan)
 lhl.include_routes(rusers, rprofile, rstream)
 
 
-@lhl.get
-async def ping():
-    return Response(b"pong")
+lhl.static("/ping", "pong")
 
 
 @lhl.post(errors=VioletsAreBlue)

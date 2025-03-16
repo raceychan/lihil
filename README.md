@@ -22,8 +22,8 @@ Lihil is
 - **Data validation** using `msgspec`, which is about 12x faster than pydantic v2 for valiation and 25x memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html)
 - **Advanced dependency injection**, using `ididi` written in cython, inject params, resources, plugins, extremly powerful and fast.
 - **OpenAPI docs** and json schema automatically generated with accurate type information, union type, json examples, problem detail(RFC-9457) and more.
-- **Great Testability**, lihil abstracts away web framework specifics objects such as `Response`, `content-type` via `Marks`, you can test your endpoints like regular functions.
-- **First class support for AI**, from api to architecture, lihi is built with AI in mind.
+- **Great Testability**, lihil is designed to be tested, however you want, web framework specifics objects such as `Response`, `content-type` is abstracted away(you can still use them) via `Marks`, you can test your endpoints like regular functions.
+- **Strong support for AI featuers**, lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
 ## Quick Start
 
@@ -51,7 +51,8 @@ server-sent event with customized encoder
 llm = Route("llm/{model}")
 
 @llm.get
-async def stream(model: str = "gpt-4o", question: str, client: OpenAI
+async def stream(
+    model: str = "gpt-4o", question: str, client: OpenAI
 ) -> Annotated[Stream[Event], CustomEncoder(event_encoder)]:
     return client.responses.create(
         model=model,
@@ -286,7 +287,9 @@ asyc def create_todo(data: CreateTodo, repo: TodoRepo, bus: EventBus) -> Resp[To
     return todo
 ```
 
-I'd like to test:
+Starlette/FastAPI provies a `TestClient`(which lihil also supports), that goes through your whole app, but it takes quite a lot of efforts to mock everything.
+
+You can test these with lihil
 
 - the function `create_todo`, which requires all menually inject all three params and return a `Todo`
 - the endpoint `todo_route.post` which requires only `CreateTodo` without dependencies, returns a json serialized `Todo` in bytes.

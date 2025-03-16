@@ -1,3 +1,5 @@
+from typing import Any
+
 from starlette.responses import PlainTextResponse
 
 from lihil.constant.status import METHOD_NOT_ALLOWED, NOT_FOUND, STATUS_CODE
@@ -51,12 +53,9 @@ async def ServiceUnavailableResp(send: ISend) -> None:
     await send(SERVICE_UNAVAILABLE_BODY)
 
 
-def generate_static_resp(content: bytes, content_type: str, charset: str) -> bytes:
+def lhlserver_static_resp(content: bytes, content_type: str, charset: str) -> bytes:
     """
-    generate a http response from content
-    that can directly be returned by `transport.write`
-
-    pretty much a simpler version of starlette.Response
+    a static route that requires our own server to run
     """
 
     status_line = b"HTTP/1.1 200 OK\r\n"
@@ -69,3 +68,19 @@ def generate_static_resp(content: bytes, content_type: str, charset: str) -> byt
 
     # Combine the status line, headers, and content to form the full response
     return status_line + headers + content
+
+
+def uvicorn_static_resp(
+    content: bytes, content_type: str, charset: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    "a static route that works with uvicorn"
+
+    content_length = str(len(content))
+    content_type = f"{content_type}; charset={charset}"
+    headers: list[tuple[bytes, bytes]] = [
+        (b"content-length", content_length.encode("latin-1")),
+        (b"content-type", content_type.encode("latin-1")),
+    ]
+    start_msg = {"type": "http.response.start", "status": 200, "headers": headers}
+    body_msg = {"type": "http.response.body", "body": content}
+    return start_msg, body_msg

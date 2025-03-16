@@ -1,10 +1,26 @@
+# Minibench
+
 This is a benchmark shows the performance difference between lihil and other asgi frameworks.
 
 Note thta This benchmark will be updated frequently and test results are subject to change.
 
+## Context
+
+### OS
+
+- Ubuntu 20.04.6 LTS
+
+### packages
+
+- python == 3.12
+- uvloop==0.21.0
+- lihil==0.1.1
+- fastapi==0.115.8
+- uvicorn==0.34.0
+
 ## Parsing path, query, body and inject dependency
 
-## lihil v0.1.0
+## lihil v0.1.1
 
 ```python
 profile_route = Route("profile/{pid}")
@@ -22,9 +38,6 @@ profile_route.factory(get_engine)
 
 @profile_route.post
 async def profile(pid: str, q: int, user: User, engine: Engine) -> User:
-    assert (
-        pid == "p" and q == 5 and isinstance(user, User) and isinstance(engine, Engine)
-    )
     return User(id=user.id, name=user.name, email=user.email)
 
 lhl = Lihil()
@@ -35,6 +48,7 @@ if __name__ == "__main__":
 ```
 
 ### result
+
 ```bash
 wrk -t4 -c64 'http://localhost:8000/profile/p?q=5' -s scripts/post.lua
 Running 10s test @ http://localhost:8000/profile/p?q=5
@@ -73,9 +87,8 @@ if __name__ == "__main__":
     uvicorn.run(app, access_log=None, log_level="warning")
 ```
 
-
-
 ### result
+
 ```bash
 Running 10s test @ http://localhost:8000/profile/p?q=5
   4 threads and 64 connections
