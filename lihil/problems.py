@@ -63,7 +63,8 @@ def parse_exception(
                 res.append(sub_r)
         return res
     elif issubclass(exc_origin, DetailBase) or issubclass(exc, DetailBase):
-        return exc_origin
+        # if exc is a subclass of DetailBase then tha
+        return cast(type["DetailBase[Any]"], exc_origin)
     else:
         raise NotImplementedError
 
