@@ -21,7 +21,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install pytest pytest-cov pytest-asyncio
+        run: pip install pytest pytest-cov pytest-asyncio typing_extensions
 
       - name: Install lihil
         run: pip install lihil
