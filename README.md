@@ -11,11 +11,11 @@ GitHub Page: [lihil](https://github.com/raceychan/lihil)
 
 Lihil is
 
-- **Performant** lihil is super fast, 1-3x faster than other asgi frameworks in most benchmarks, event more with its own server. see [mini benchmark](docs/simple_bench.md)
+- **Performant**: lihil is fast, 50%-100% faster than ASGI frameworks offering similar funcitonalities, even more with its own server. see [benchmarks](https://github.com/raceychan/lhl_bench)
 
-- **Productive** ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
+- **Productive**: ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
 
-- **professional** Start small, move fast, achieve great, lihil follows industry standards (RFC9110, 9457, ...) and best practices (EDA, service choreography, etc) to deliver robust and scalable solutions.
+- **professional**: Start small, move fast, achieve great, lihil follows industry standards (RFC9110, 9457, ...) and best practices (EDA, service choreography, etc) to deliver robust and scalable solutions.
 
 ## Features
 
@@ -106,7 +106,6 @@ lihil follows semantic versioning, where a version in x.y.z represents:
 - z: patch, bug fixes, typing updates
 
 **v0.1.3** is the first working version of lihil
-
 **v1.0.0** will be the first stable major version.
 
 ## Error Hanlding
@@ -140,11 +139,6 @@ A solver that handles a specific exception type (e.g., `UserNotFound`) takes pre
 ### Exception-Problem mapping
 
 lihil automatically generates a response and documentation based on your HTTPException,
-
-- To alter the creation of the response, use `lihil.problems.problem_solver` to register your solver.
-- To change the documentation, override `DetailBase.__json_example__` and `DetailBase.__problem_detail__`.
-- To extend the error detail, provide typevar when inheriting `HTTPException[T]`.
-
 Here is the generated doc for the endpoint `roses_are_red`
 
 ![roses_are_red](/docs/roses_are_red_link.png)
@@ -181,6 +175,11 @@ Here is one example response of `InvalidRequestErrors`.
   "instance": "/users"
 }
 ```
+
+- To alter the creation of the response, use `lihil.problems.problem_solver` to register your solver.
+- To change the documentation, override `DetailBase.__json_example__` and `DetailBase.__problem_detail__`.
+- To extend the error detail, provide typevar when inheriting `HTTPException[T]`.
+
 
 ### Extraordinary typing support
 
