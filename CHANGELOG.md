@@ -45,3 +45,35 @@ This is the very first version of lihil, but we already have a working version t
 ### Fix
 
 - a quick fix for not catching HttpException when sub-exception is a generic exception
+
+
+## version 0.1.5
+
+### Feature
+
+- User can now alter app behavior by assigning a config file
+
+```python
+lhl = Lihil(config_file="pyproject.toml")
+```
+Note: currently only toml file is supported
+
+or by inheriting `lihil.config.AppConfig` instance menually,
+
+```python
+lhl = Lihil(config_file=AppConfig(version="0.1.1"))
+```
+
+this is particularly useful if you want to inherit from AppConfig and extend it.
+
+```python
+from lihil.config import AppConfig
+
+class MyConfig(AppConfig):
+    app_name: str
+
+config = MyConfig.from_file("myconfig.toml")
+```
+
+
+

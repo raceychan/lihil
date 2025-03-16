@@ -94,7 +94,7 @@ async def stream() -> Stream[str]:
         yield c
 
 
-lhl = Lihil(lifespan=lifespan)
+lhl = Lihil(lifespan=lifespan, config_file="pyproject.toml")
 lhl.include_routes(rusers, rprofile, rstream)
 
 

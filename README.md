@@ -193,9 +193,6 @@ with its dedicated, insanely detailed typing support, lihil will give you someth
 ![typing2](/docs/good_typing2.png)
 
 
-
-
-
 ### Type-Based Message System
 
 Lihil has built-in support for both in-process message handling (Beta) and out-of-process message handling (implementing), it is recommended to use `EventBus` over `BackGroundTask` for event handling.
@@ -319,3 +316,43 @@ You can test these with lihil
 - the endpoint `todo_route.post` which requires only `CreateTodo` without dependencies, returns a json serialized `Todo` in bytes.
 - the route `todo_route` with middlewares
 - the app with everything
+
+
+
+---
+
+## Tutorials
+
+
+### Config
+
+since v0.1.5, user can alter app behavior by `lihil.config.AppConfig`
+
+#### via config file
+
+```python
+lhl = Lihil(config_file="pyproject.toml")
+```
+
+This will look for `tool.lihil` table in the `pyproject.toml` file
+extra/unkown keys will be forbidden to help prevent misconfiging
+
+Note: currently only toml file is supported
+
+
+#### build `lihil.config.AppConfig` instance menually,
+
+```python
+lhl = Lihil(config_file=AppConfig(version="0.1.1"))
+```
+
+this is particularly useful if you want to inherit from AppConfig and extend it.
+
+```python
+from lihil.config import AppConfig
+
+class MyConfig(AppConfig):
+    app_name: str
+
+config = MyConfig.from_file("myconfig.toml")
+```

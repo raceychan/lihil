@@ -2,13 +2,14 @@ import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
+from pathlib import Path
 from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast
 
 from ididi import Graph
 
 from lihil.config import AppConfig
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
-from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError
+from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
 from lihil.interface import ASGIApp, Base, IReceive, IScope, ISend, MiddlewareFactory
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import Collector
@@ -45,9 +46,20 @@ class Lihil[T: AppState]:
         graph: Graph | None = None,
         collector: Collector | None = None,
         app_config: AppConfig | None = None,
+        config_file: Path | str | None = None,
         lifespan: LifeSpan[T] | None = None,
     ):
         self.graph = graph or Graph(self_inject=True)
+
+        if config_file and app_config:
+            raise AppConfiguringError(
+                "Can't set both config_file and app_config, choose either one of them"
+            )
+        elif app_config:
+            self.app_config = app_config
+        else:
+            self.app_config = AppConfig.from_file(config_file)
+
         self.app_config = app_config or AppConfig()
         self._userls = lifespan_wrapper(lifespan)
         self._app_state: T | None = None
