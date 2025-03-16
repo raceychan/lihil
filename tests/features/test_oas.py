@@ -96,7 +96,7 @@ def test_complex_route(complex_route: Route):
         return "aloha"
 
     complex_route.add_endpoint(
-        "GET", get_user, errors=[UserNotFoundError, UserNotHappyError]
+        "GET", func=get_user, errors=[UserNotFoundError, UserNotHappyError]
     )
 
     oas = generate_oas([complex_route], oas_config, "0.1.0")

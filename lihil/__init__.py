@@ -14,5 +14,5 @@ from .vendor_types import Request as Request
 from .vendor_types import Response as Response
 # from .server.runner import run as run
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 __version__ = VERSION

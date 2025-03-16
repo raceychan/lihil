@@ -38,3 +38,10 @@ This is the very first version of lihil, but we already have a working version t
 ### Improvements
 
 - `static` now works with `uvicorn`
+
+
+## version 0.1.4
+
+### Fix
+
+- a quick fix for not catching HttpException when sub-exception is a generic exception

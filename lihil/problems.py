@@ -63,7 +63,7 @@ def parse_exception(
                 res.append(sub_r)
         return res
     elif issubclass(exc_origin, DetailBase) or issubclass(exc, DetailBase):
-        return exc
+        return exc_origin
     else:
         raise NotImplementedError
 
@@ -127,7 +127,6 @@ def __erresp_factory_registry():
         for base in type(exc).__mro__:
             if res := exc_handlers.get(base):
                 return res
-
         try:
             code = exc.__status__  # type: ignore
             return status_handlers[code]

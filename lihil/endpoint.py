@@ -169,4 +169,3 @@ class Endpoint[R]:
         else:
             raw_return = await self.make_call(scope, receive, send, self.graph)
             await self.parse_raw_return(scope, raw_return)(scope, receive, send)
-
