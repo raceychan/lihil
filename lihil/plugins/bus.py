@@ -1,7 +1,7 @@
 import inspect
 from abc import ABC
-from asyncio import TaskGroup, to_thread
-from collections import defaultdict
+from asyncio import Task, TaskGroup, create_task, to_thread
+from collections import defaultdict, deque
 from dataclasses import dataclass
 from functools import partial
 from types import MappingProxyType, MethodType, ModuleType, UnionType
@@ -804,10 +804,12 @@ class EventBus:
         listener: ListenerManager,
         strategy: PublishStrategy[Event],
         resolver: Resolver,
+        queue: deque[Task[Any]],
     ):
         self.listeners = listener
         self.strategy = strategy
         self.resolver = resolver
+        self.queue = queue
 
     async def publish(
         self,
@@ -821,9 +823,22 @@ class EventBus:
         )
         return await self.strategy(event, context, resolved_listeners)
 
-    def emit(self, event: Event, callback: Callable[..., Any] | None = None) -> None:
-        # have a unique scope that does not affect
-        raise NotImplementedError
+    def emit(
+        self,
+        event: Event,
+        context: dict[str, Any] | None = None,
+        callback: Callable[[Task[Any]], Any] | None = None,
+    ) -> None:
+        async def event_task(event: Event, context: dict[str, Any]):
+            async with self.resolver.ascope() as asc:
+                listener = await self.listeners.resolve_listeners(
+                    type(event), resolver=asc
+                )
+                await self.strategy(event, context, listener)
+
+        task = create_task(event_task(event, context or {}))
+        task.add_done_callback(callback)
+        self.queue.append(task)
 
 
 class Collector:
@@ -843,10 +858,14 @@ class Collector:
         self._publisher = publisher
         self._sink = sink
 
+        self._task_queue: deque[Task[Any]] = deque()
+
         self.include(*registries)
 
     def create_event_bus(self, resolver: Resolver):
-        return EventBus(self._listener_manager, self._publisher, resolver)
+        return EventBus(
+            self._listener_manager, self._publisher, resolver, self._task_queue
+        )
 
     @property
     def sender(self) -> SendStrategy[Any]:

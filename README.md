@@ -171,6 +171,45 @@ Here is one example response of `InvalidRequestErrors`.
 }
 ```
 
+### Type-Based Message System
+
+Lihil has built-in support for both in-process message handling (Beta) and out-of-process message handling (implementing), it is recommended to use `EventBus` over `BackGroundTask` for event handling.
+
+There are three primitives for event:
+
+1. publish: asynchronous and blocking event handling that shares the same scoep with caller.
+2. emit: non-blocking asynchrounous event hanlding, has its own scope.
+3. sink: a thin wrapper around external dependency for data persistence, such as message queue or database.
+
+```python
+from lihil import Resp, Route, status
+from lihil.plugins.bus import Event, EventBus
+from lihil.plugins.testing import LocalClient
+
+
+class TodoCreated(Event):
+    name: str
+    content: str
+
+
+async def listen_create(created: TodoCreated):
+    assert created.name
+    assert created.content
+
+
+async def listen_twice(created: TodoCreated):
+    assert created.name
+    assert created.content
+
+
+bus_route = Route("/bus", listeners=[listen_create, listen_twice])
+
+
+@bus_route.post
+async def create_todo(name: str, content: str, bus: EventBus) -> Resp[None, status.OK]:
+    await bus.publish(TodoCreated(name, content))
+```
+
 ### Plugins
 
 #### Initialization

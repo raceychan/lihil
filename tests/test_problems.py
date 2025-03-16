@@ -1,6 +1,4 @@
-from typing import Literal, get_origin
-
-import pytest
+from typing import Literal
 
 from lihil import HTTPException, Request, Response, status
 from lihil.problems import collect_problems, get_solver, problem_solver
@@ -42,7 +40,9 @@ def test_problem_solver_with_status():
 def test_problem_solver_with_exc():
 
     @problem_solver
-    def handle_422(req: Request, exc: CurentProblem | status.UNSUPPORTED_MEDIA_TYPE) -> Response:
+    def handle_422(
+        req: Request, exc: CurentProblem | status.UNSUPPORTED_MEDIA_TYPE
+    ) -> Response:
         return Response("resource not found", status_code=404)
 
     assert get_solver(415) is handle_422
