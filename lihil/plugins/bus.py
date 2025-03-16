@@ -1,27 +1,23 @@
 import inspect
 from abc import ABC
 from asyncio import Task, TaskGroup, create_task, to_thread
-from collections import defaultdict, deque
+from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
-from types import MappingProxyType, MethodType, ModuleType, UnionType
+from types import MappingProxyType, MethodType, UnionType
 from typing import (
     Annotated,
     Any,
     AsyncGenerator,
     Awaitable,
     Callable,
-    ClassVar,
     Mapping,
     MutableMapping,
     Protocol,
-    Self,
     Sequence,
-    TypedDict,
     Union,
     Unpack,
     cast,
-    dataclass_transform,
     get_args,
     get_origin,
     overload,
@@ -30,10 +26,10 @@ from weakref import ref
 
 from ididi import Graph, INode, INodeConfig, Resolver
 from ididi.interfaces import GraphIgnore, TDecor
-from msgspec.json import Decoder
 
-from lihil.interface import MISSING, Base, Maybe, field
-from lihil.utils.visitor import all_subclasses, union_types
+from lihil.ds import Event
+from lihil.interface import MISSING, Maybe
+from lihil.utils.visitor import all_subclasses
 
 UNION_META = (UnionType, Union)
 CTX_MARKER = "__anywise_context__"
@@ -54,79 +50,9 @@ type LifeSpan = Callable[..., AsyncGenerator[Any, None]]
 type GuardMapping = defaultdict[type, list[GuardMeta]]
 type Context[M: MutableMapping[Any, Any]] = Annotated[M, CTX_MARKER]
 type FrozenContext[M: Mapping[Any, Any]] = Annotated[M, CTX_MARKER]
-type Registee = IPackage | ModuleType | type | CommandHandler[Any] | EventListener[Any]
-
 type BusMaker = Callable[[Resolver], EventBus]
 
 IGNORE_TYPES = (Context, FrozenContext)
-
-from datetime import datetime, timezone
-from uuid import uuid4
-
-
-def uuid_factory() -> str:
-    return str(uuid4())
-
-
-def ts_factory() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-# class IEvent(Protocol):
-#     @property
-#     def event_id(self) -> str: ...
-
-#     @property
-#     def entity_id(self) -> str: ...
-
-#     @property
-#     def timestamp(self) -> str: ...
-
-#     @classmethod
-#     def __type_id__(cls) -> str: ...
-
-
-#     def __normalized__(self) -> "NormalizedEvent": ...
-@dataclass_transform(frozen_default=True)
-class Event(
-    Base,
-    tag_field="typeid",
-    frozen=True,
-    cache_hash=True,
-    gc=False,
-    kw_only=True,
-    omit_defaults=True,
-):
-    source: ClassVar[str] = "Missing"
-    version: ClassVar[str] = "1"
-
-    event_id: str = field(default_factory=uuid_factory)
-    timestamp: datetime = field(default_factory=ts_factory)
-
-    def build_decoder(self) -> Decoder["Self"]:
-        "Build a decoder that decodes all subclsses of current class"
-        subs = all_subclasses(self.__class__)
-        sub_union = union_types(subs)
-        return Decoder(sub_union)
-
-
-class NormalizedEvent(TypedDict):
-    # classfields
-    event_type: str
-    source: str
-    version: str
-
-    # base fields
-    event_id: str
-    entity_id: str
-    timestamp: str
-
-    # current fields
-    event_body: dict[str, Any]
-
-
-class IPackage(Protocol):
-    def __path__(self) -> list[str]: ...
 
 
 class IGuard(Protocol):
@@ -836,14 +762,15 @@ class EventBus:
                 )
                 await self.strategy(event, context, listener)
 
-        def icallback(task: Task[Any]):
+        def callback_wrapper(task: Task[Any]):
             self.tasks.discard(task)
             if callback:
                 callback(task)
 
         task = create_task(event_task(event, context or {}))
-        task.add_done_callback(icallback)
+        task.add_done_callback(callback_wrapper)
         self.tasks.add(task)
+        # perserve a strong ref to prevent task from being gc
 
 
 class Collector:
