@@ -135,25 +135,30 @@ class Route:
         raise NotImplementedError
 
     def add_endpoint[**P, R](
-        self, method: HTTP_METHODS, func: Func[P, R], **iconfig: Unpack[IEndPointConfig]
+        self,
+        *methods: HTTP_METHODS,
+        func: Func[P, R],
+        **iconfig: Unpack[IEndPointConfig],
     ) -> Func[P, R]:
         epconfig = EndPointConfig.from_unpack(**iconfig)
         if self.collector is None:
             self.collector = Collector(self.registry)
 
-        endpoint = Endpoint(
-            method=method,
-            path=self.path,
-            tag=self.tag,
-            func=func,
-            busmaker=self.collector.create_event_bus,
-            graph=self.graph,
-            config=epconfig,
-        )
-        self.endpoints[method] = endpoint
-        if self.path_regex is not None:
-            return func
-        self.path_regex = build_path_regex(self.path)
+        for method in methods:
+
+            endpoint = Endpoint(
+                method=method,
+                path=self.path,
+                tag=self.tag,
+                func=func,
+                busmaker=self.collector.create_event_bus,
+                graph=self.graph,
+                config=epconfig,
+            )
+            self.endpoints[method] = endpoint
+            if self.path_regex is not None:
+                return func
+            self.path_regex = build_path_regex(self.path)
         return func
 
     def add_middleware[T: ASGIApp](
@@ -180,25 +185,25 @@ class Route:
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
         if func is None:
             return cast(Func[P, R], partial(self.get, **epconfig))
-        return self.add_endpoint("GET", func, **epconfig)
+        return self.add_endpoint("GET", func=func, **epconfig)
 
     def put[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         if func is None:
             return cast(Func[P, R], partial(self.put, **epconfig))
-        return self.add_endpoint("PUT", func, **epconfig)
+        return self.add_endpoint("PUT", func=func, **epconfig)
 
     def post[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         if func is None:
             return cast(Func[P, R], partial(self.post, **epconfig))
-        return self.add_endpoint("POST", func, **epconfig)
+        return self.add_endpoint("POST", func=func, **epconfig)
 
     def delete[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         if func is None:
             return cast(Func[P, R], partial(self.delete, **epconfig))
-        return self.add_endpoint("DELETE", func, **epconfig)
+        return self.add_endpoint("DELETE", func=func, **epconfig)
