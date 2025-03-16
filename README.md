@@ -11,7 +11,7 @@ GitHub Page: [lihil](https://github.com/raceychan/lihil)
 
 Lihil is
 
-- **Performant** lihil is unpythonically fast, 1-3x faster than other asgi frameworks in most benchmarks, event more with its own server. [mini benchmark](docs/simple_bench.md)
+- **Performant** lihil is super fast, 1-3x faster than other asgi frameworks in most benchmarks, event more with its own server. see [mini benchmark](docs/simple_bench.md)
 
 - **Productive** ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
 
@@ -65,7 +65,7 @@ async def stream(
 
 lihil is ASGI compatible, you can run it with an ASGI server, such as uvicorn
 
-start a server, default to port 8000
+start a server with `app.py`, default to port 8000
 
 ```bash
 uvicorn app:lhl
@@ -73,7 +73,7 @@ uvicorn app:lhl
 
 ## Install
 
-currently(v1.0.2), lihil requires python 3.12, but we will lower it to 3.9 or 3.10 in the next few patches.
+currently(v0.1.3), lihil requires python 3.12, but we will lower it to 3.9 in next minor, v0.2.0
 
 ### pip
 
@@ -91,7 +91,7 @@ pip install lihil
 uv init project_name
 ```
 
-2.install lihil
+2. install lihil
 
 ```bash
 uv add lihil
@@ -99,13 +99,13 @@ uv add lihil
 
 ## versioning
 
-lihil follows semantic versioning, where a version in x.y.z format,
+lihil follows semantic versioning, where a version in x.y.z represents:
 
 - x: major, breaking change
 - y: minor, feature updates
 - z: patch, bug fixes, typing updates
 
-**v0.1.1** is the first working version of lihil
+**v0.1.3** is the first working version of lihil
 
 **v1.0.0** will be the first stable major version.
 
@@ -181,6 +181,21 @@ Here is one example response of `InvalidRequestErrors`.
   "instance": "/users"
 }
 ```
+
+### Extraordinary typing support
+
+typing plays a significant role in the world of `lihil`, lihil combines generics, function overriding, paramspec and other advanced typing features to give you the best typing support possible.
+
+with its dedicated, insanely detailed typing support, lihil will give you something to smile about.
+
+
+![typing](/docs/good_typing_status.png)
+
+![typing2](/docs/good_typing2.png)
+
+
+
+
 
 ### Type-Based Message System
 

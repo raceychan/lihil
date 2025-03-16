@@ -2,8 +2,6 @@
 
 # from lihil import HTTPException, Json, Lihil, Payload, Resp, Route, Stream, Text, status
 # from lihil.lihil import AppState
-# from lihil.problems import HTTPException
-
 
 # class Unhappiness(Payload):
 #     scale: int
@@ -110,13 +108,3 @@
 
 # # if __name__ == "__main__":
 # #     run(lhl)
-
-
-from lihil import Lihil
-
-lhl = Lihil()
-
-
-@lhl.get
-async def hello():
-    return "world"

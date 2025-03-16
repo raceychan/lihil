@@ -6,6 +6,14 @@ Note thta This benchmark will be updated frequently and test results are subject
 
 ## Context
 
+### Hardware
+
+AMD Ryzen 9 7950X 16-Core Processor  4.50 GHz
+
+RAM 64.0 GB (63.1 GB usable)
+
+internet ethernet controller i225v
+
 ### OS
 
 - Ubuntu 20.04.6 LTS
@@ -14,13 +22,13 @@ Note thta This benchmark will be updated frequently and test results are subject
 
 - python == 3.12
 - uvloop==0.21.0
-- lihil==0.1.1
-- fastapi==0.115.8
 - uvicorn==0.34.0
+- lihil==0.1.3
+- fastapi==0.115.8
 
 ## Parsing path, query, body and inject dependency
 
-## lihil v0.1.1
+## lihil v0.1.3
 
 ```python
 profile_route = Route("profile/{pid}")
