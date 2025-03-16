@@ -83,6 +83,16 @@ pip install lihil
 
 ### uv
 
+0. [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
+
+1. init project with `project_name`
+
+```bash
+uv init project_name
+```
+
+2.install lihil
+
 ```bash
 uv add lihil
 ```

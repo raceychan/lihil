@@ -5,7 +5,6 @@ from inspect import isasyncgenfunction
 from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast
 
 from ididi import Graph
-from loguru import logger
 
 from lihil.config import AppConfig
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
@@ -51,7 +50,7 @@ class Lihil[T: AppState]:
         self.graph = graph or Graph(self_inject=True)
         self.app_config = app_config or AppConfig()
         self._userls = lifespan_wrapper(lifespan)
-        self._app_state: T
+        self._app_state: T | None = None
         self.collector = collector or Collector()
 
         self.workers = ThreadPoolExecutor()
@@ -68,23 +67,24 @@ class Lihil[T: AppState]:
         return self._static_cache
 
     @property
-    def app_state(self) -> T:
+    def app_state(self) -> T | None:
         return self._app_state
 
-    async def lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
+    async def on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         await receive()
+
         if self._userls is None:
+            self._setup()
             return
+
         user_ls = self._userls(self)
         try:
             self._setup()
-            app_state = await user_ls.__aenter__()
+            self._app_state = await user_ls.__aenter__()
             await send({"type": "lifespan.startup.complete"})
         except BaseException:
             exc_text = traceback.format_exc()
             await send({"type": "lifespan.startup.failed", "message": exc_text})
-        else:
-            self._app_state = app_state
         await receive()
         try:
             await user_ls.__aexit__(None, None, None)
@@ -181,7 +181,6 @@ class Lihil[T: AppState]:
             try:
                 prev = factory(current)
             except Exception as exc:
-                logger.error(exc)
                 raise
             current = prev
         return current
@@ -192,7 +191,7 @@ class Lihil[T: AppState]:
             await channel.receive
         """
         if scope["type"] == "lifespan":
-            await self.lifespan(scope, receive, send)
+            await self.on_lifespan(scope, receive, send)
             return
 
         response_started = False
