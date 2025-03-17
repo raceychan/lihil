@@ -23,11 +23,8 @@ jobs:
       - name: Install dependencies
         run: pip install pytest pytest-cov pytest-asyncio typing_extensions
 
-      - name: Install lihil
-        run: pip install lihil
-
       - name: Run tests
-        run: pytest tests/ --cov=lihil --cov-report html
+        run: python -m pytest tests/ --cov=lihil --cov-report html
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4
