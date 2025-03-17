@@ -61,16 +61,6 @@ async def stream(
 )
 ```
 
-### Serve
-
-lihil is ASGI compatible, you can run it with an ASGI server, such as uvicorn
-
-start a server with `app.py`, default to port 8000
-
-```bash
-uvicorn app:lhl
-```
-
 ## Install
 
 currently(v0.1.3), lihil requires python 3.12, but we will lower it to 3.9 in next minor, v0.2.0
@@ -95,6 +85,20 @@ uv init project_name
 
 ```bash
 uv add lihil
+```
+
+### Serve your application
+
+lihil is ASGI compatible, you can run it with an ASGI server, such as uvicorn
+start a server with `app.py`, default to port 8000
+
+1. create `__main__.py` under your project root.
+2. use uvicorn to run you app in your `__main__.py`
+
+```python
+import uvicorn
+
+uvicorn.run(app)
 ```
 
 ## versioning
@@ -180,18 +184,15 @@ Here is one example response of `InvalidRequestErrors`.
 - To change the documentation, override `DetailBase.__json_example__` and `DetailBase.__problem_detail__`.
 - To extend the error detail, provide typevar when inheriting `HTTPException[T]`.
 
-
 ### Extraordinary typing support
 
 typing plays a significant role in the world of `lihil`, lihil combines generics, function overriding, paramspec and other advanced typing features to give you the best typing support possible.
 
 with its dedicated, insanely detailed typing support, lihil will give you something to smile about.
 
-
 ![typing](/docs/good_typing_status.png)
 
 ![typing2](/docs/good_typing2.png)
-
 
 ### Type-Based Message System
 
@@ -317,16 +318,13 @@ You can test these with lihil
 - the route `todo_route` with middlewares
 - the app with everything
 
-
-
 ---
 
 ## Tutorials
 
-
 ### Config
 
-since v0.1.5, user can alter app behavior by `lihil.config.AppConfig`
+You can alter app behavior by `lihil.config.AppConfig`
 
 #### via config file
 
@@ -338,7 +336,6 @@ This will look for `tool.lihil` table in the `pyproject.toml` file
 extra/unkown keys will be forbidden to help prevent misconfiging
 
 Note: currently only toml file is supported
-
 
 #### build `lihil.config.AppConfig` instance menually,
 
@@ -356,3 +353,11 @@ class MyConfig(AppConfig):
 
 config = MyConfig.from_file("myconfig.toml")
 ```
+
+You can override config with command line arguments:
+
+```example
+python app.py --oas.title "New Title" --is_prod true
+```
+
+use `.` to express nested fields

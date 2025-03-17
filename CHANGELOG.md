@@ -93,7 +93,6 @@ example:
 
 ```python
 python app.py --oas.title "New Title" --is_prod true
-
 ```
 
 would override `AppConfig.oas.title` and `AppConfig.is_prod`.
