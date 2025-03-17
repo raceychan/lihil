@@ -1,6 +1,6 @@
 from inspect import Parameter
-from types import UnionType
-from typing import Annotated, Any, Callable, Sequence, cast, get_args, get_origin
+from types import GenericAlias, UnionType
+from typing import Annotated, Any, Callable, Sequence, Union, cast, get_args, get_origin
 
 from ididi import DependentNode, Graph
 from ididi.config import USE_FACTORY_MARK
@@ -8,7 +8,15 @@ from msgspec import Meta as ParamMeta
 from msgspec import field
 
 from lihil.config import is_lhl_dep
-from lihil.interface import MISSING, Base, IDecoder, ITextDecoder, Maybe, ParamLocation
+from lihil.interface import (
+    MISSING,
+    Base,
+    IDecoder,
+    ITextDecoder,
+    Maybe,
+    ParamLocation,
+    is_provided,
+)
 from lihil.interface.marks import Body, Header, Path, Payload, Query, Use
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import decoder_factory, textdecoder_factory
@@ -21,7 +29,7 @@ type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]
 type RequiredParams = Sequence[ParamPair]
 
 
-class CustomDecoder:
+class CustomDecoder(Base):
     """
     class IType: ...
 
@@ -107,7 +115,7 @@ class ParsedParams(Base):
 
 
 def analyze_nodeparams(
-    node: DependentNode, graph: Graph, seen: set[str], path_keys: tuple[str]
+    node: DependentNode, graph: Graph, seen: set[str], path_keys: tuple[str, ...]
 ):
     params: list[ParamPair | DependentNode] = [node]
     for dep_name, dep in node.dependencies.items():
@@ -122,12 +130,29 @@ def analyze_markedparam(
     graph: Graph,
     name: str,
     seen: set[str],
-    path_keys: tuple[str],
-    type_: type[Any] | UnionType,
-    porigin: Query[Any] | Header[Any, Any] | Use[Any] | Annotated[Any, ...],
-    default: Any,
+    path_keys: tuple[str, ...],
+    type_: type[Any] | UnionType | GenericAlias,
+    porigin: Maybe[
+        Query[Any] | Header[Any, Any] | Use[Any] | Annotated[Any, ...]
+    ] = MISSING,
+    default: Any = MISSING,
 ) -> list[ParamPair | DependentNode]:
+    if not is_provided(porigin):
+        porigin = get_origin(type_)
+
     atype, *metas = flatten_annotated(type_)
+
+    if atype is type_:
+        raise NotImplementedError(f"{type_=}, {atype=}")
+    """
+    BUG:
+    when we have 
+    
+    Header[str]
+    we expect flatten_annotated[type_] return atype as str
+    but it returns Header
+    """
+
     if porigin is Annotated:
         if USE_FACTORY_MARK in metas:
             idx = metas.index(USE_FACTORY_MARK)
@@ -187,8 +212,8 @@ def analyze_param(
     graph: Graph,
     name: str,
     seen: set[str],
-    path_keys: tuple[str],
-    type_: type[Any] | UnionType,
+    path_keys: tuple[str, ...],
+    type_: type[Any] | UnionType | GenericAlias,  # or GenericAlias
     default: Any,
 ) -> list[ParamPair | DependentNode]:
     """
@@ -218,7 +243,7 @@ def analyze_param(
             location="body",
             default=default,
         )
-    elif isinstance(type_, UnionType):
+    elif isinstance(type_, UnionType) or get_origin(type_) is Union:
         type_args = get_args(type_)
         if any(issubclass(subt, Payload) for subt in type_args):
             decoder = decoder_factory(type_)
@@ -274,7 +299,7 @@ def analyze_param(
 
 
 def analyze_request_params(
-    func_params: tuple[Any, ...],
+    func_params: tuple[tuple[str, Parameter], ...],
     graph: Graph,
     seen_path: set[str],
     path_keys: tuple[str],

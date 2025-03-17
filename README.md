@@ -63,7 +63,7 @@ async def stream(
 
 ## Install
 
-currently(v0.1.3), lihil requires python 3.12, but we will lower it to 3.9 in next minor, v0.2.0
+lihil requires python 3.12
 
 ### pip
 

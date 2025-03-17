@@ -54,6 +54,9 @@ def build_union_decoder(
 
 def textdecoder_factory(t: type | UnionType) -> ITextDecoder[Any] | IDecoder[Any]:
     union_args = get_args(t)
+
+    # TODO: handle when len(union_args) == 1
+
     if not union_args:
         if t is str:
             return str_decoder

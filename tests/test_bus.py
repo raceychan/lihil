@@ -21,12 +21,13 @@ async def listen_twice(created: TodoCreated):
 bus_route = Route("/bus", listeners=[listen_create, listen_twice])
 
 
-@bus_route.post
-async def create_todo(name: str, content: str, bus: EventBus) -> Resp[None, status.OK]:
-    await bus.publish(TodoCreated(name, content))
-
-
 async def test_bus_is_singleton():
+    @bus_route.post
+    async def create_todo(
+        name: str, content: str, bus: EventBus
+    ) -> Resp[None, status.OK]:
+        await bus.publish(TodoCreated(name, content))
+
     ep = bus_route.get_endpoint("POST")
     assert ep.deps.singletons
     assert ep.deps.singletons[0][1].type_ is EventBus

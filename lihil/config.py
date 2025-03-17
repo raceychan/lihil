@@ -11,16 +11,6 @@ from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, FlatRecord, is_provided
 from lihil.plugins.bus import EventBus
 
-# class ServerConfig(ConfigBase):
-#     host: str = "127.0.0.1"
-#     port: int = 8000
-
-#     interface: str = "asgi3"
-#     asgi_version: str = "3.0"
-#     timeout_keep_alive: int = 5
-#     backlog: int = 2048
-#     root_path: str = ""
-
 StrDict = dict[str, Any]
 
 

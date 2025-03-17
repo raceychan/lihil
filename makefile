@@ -21,7 +21,7 @@ cov:
 
 .PHONY: debug
 debug:
-	uv run python -m pytest debug tests/
+	uv run python -m pytest -m debug tests/
 
 # ==========
 

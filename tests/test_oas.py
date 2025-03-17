@@ -26,22 +26,15 @@ class OrderNotFound(HTTPException[str]):
     "No Such Order!"
 
 
-@user_route.post(errors=OrderNotFound)
-async def get_order(
-    user_id: str | int, order_id: str, q: int | str, l: str, u: User
-) -> Order | User: ...
-
-
-@user_route.get
-async def get_hello(
-    user_id: str, order_id: str, q: int, l: str, u: User
-) -> Resp[Text, status.OK]: ...
-
-
 oas_config = OASConfig()
 
 
 def test_get_order_schema():
+    @user_route.post(errors=OrderNotFound)
+    async def get_order(
+        user_id: str | int, order_id: str, q: int | str, l: str, u: User
+    ) -> Order | User: ...
+
     current_ep = user_route.endpoints["POST"]
     ep_rt = current_ep.deps.return_param
     assert isinstance(ep_rt.type_, UnionType)
@@ -52,6 +45,11 @@ def test_get_order_schema():
 
 
 def test_get_hello_return():
+    @user_route.get
+    async def get_hello(
+        user_id: str, order_id: str, q: int, l: str, u: User
+    ) -> Resp[Text, status.OK]: ...
+
     current_ep = user_route.get_endpoint(get_hello)
     ep_rt = current_ep.deps.return_param
     assert ep_rt.type_ is bytes

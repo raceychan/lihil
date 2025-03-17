@@ -97,4 +97,29 @@ python app.py --oas.title "New Title" --is_prod true
 
 would override `AppConfig.oas.title` and `AppConfig.is_prod`.
 
-this comes handy when for overriding configs that are differernt according to the deployment environment. 
+this comes handy when for overriding configs that are differernt according to the deployment environment.
+
+### Fix
+
+- fix a bug with request param type being GenericAliasType
+
+we did not handle GenericAliasType case and treat it as `Annotated` with `flatten_annotated`.
+
+and we think if a type have less than 2 arguments then it is not `Annotated`,
+but thats not the case with GenericAlias
+
+- fix a bug with request param type optional type
+
+we used to check if a type is union type by checking
+
+```python
+isinstance(type, UnionType)
+```
+
+However, for type hint like this
+
+```python
+a: int | None
+```
+
+it will be interpreted as `Optional`, which is a derived type of `Union`
