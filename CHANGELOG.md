@@ -83,3 +83,19 @@ config = MyConfig.from_file("myconfig.toml")
 from lihil import Body
 ```
 
+## version 0.1.6
+
+### Feature
+
+- user can now override configuration with cli arguments.
+
+example:
+
+```python
+python app.py --oas.title "New Title" --is_prod true
+
+```
+
+would override `AppConfig.oas.title` and `AppConfig.is_prod`.
+
+this comes handy when for overriding configs that are differernt according to the deployment environment. 

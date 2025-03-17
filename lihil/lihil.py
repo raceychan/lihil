@@ -69,6 +69,7 @@ class Lihil[T: AppState]:
             max_workers=self.app_config.max_thread_workers
         )
         self.graph = graph or Graph(self_inject=True, workers=self.workers)
+        self.collector = collector or Collector()
         self.root = Route("/", graph=self.graph)
         self.routes: list[Route] = [self.root]
         if routes:
@@ -76,7 +77,6 @@ class Lihil[T: AppState]:
 
         self._userls = lifespan_wrapper(lifespan)
         self._app_state: T | None = None
-        self.collector = collector or Collector()
         self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
