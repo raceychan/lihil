@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
 from types import MappingProxyType, MethodType, UnionType
-from typing import Any, Union, cast, get_args, get_origin
+from typing import Annotated, Any, Union, cast, get_args, get_origin
 from weakref import ref
 
 from ididi import Graph, Resolver
@@ -242,7 +242,7 @@ class ManagerBase:
         if not meta.is_async:
             # TODO: manage ThreadExecutor ourselves to allow config max worker
             # by default is min(32, cpu_cores + 4)
-            handler = partial(to_thread, cast(Any, handler))
+            handler = partial(to_thread, handler)
 
         if isinstance(meta, MethodMeta):
             instance = await resolver.resolve(meta.owner_type)
