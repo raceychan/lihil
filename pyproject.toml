@@ -1,5 +1,5 @@
 [project]
-authors = [{ name = "raceychan", email = "raceychan@gmail.com" }]
+authors = [{name = "raceychan", email = "raceychan@gmail.com"}]
 dependencies = [
   "httptools>=0.6.4",
   "ididi==1.5.2",
@@ -26,7 +26,6 @@ is_prod = true
 
 [tool.lihil.oas]
 doc_path = "/docs"
-
 
 [dependency-groups]
 dev = [

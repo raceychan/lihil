@@ -50,29 +50,34 @@ class AppConfig(ConfigBase):
     oas: OASConfig = OASConfig()
 
     @classmethod
-    def from_toml(cls, file_path: Path):
+    def from_toml(cls, file_path: Path) -> Self:
         with open(file_path, "rb") as fp:
             toml = tomllib.load(fp)
 
-        lihil_config: dict[str, Any] = toml["tool"]["lihil"]
-        return convert(lihil_config, cls)
+        try:
+            lihil_config: dict[str, Any] = toml["tool"]["lihil"]
+        except KeyError:
+            raise AppConfiguringError(f"can't find table tool.lihil from {file_path}")
+
+        config = convert(lihil_config, cls)
+        return config
 
     @classmethod
     def from_file(cls, config_file: Path | str | None) -> Self:
-        if config_file:
-            if isinstance(config_file, str):
-                file_path = Path(config_file)
-            else:
-                file_path = config_file
+        if config_file is None:
+            return cls()  # everything default
 
-            if not file_path.exists():
-                raise AppConfiguringError(f"path {file_path} not exist")
-
-            file_ext = file_path.suffix[1:]
-
-            if file_ext == "toml":
-                return cls.from_toml(file_path)
-            else:
-                raise AppConfiguringError(f"Not supported file type {file_path}")
+        if isinstance(config_file, str):
+            file_path = Path(config_file)
         else:
-            return cls()  # default
+            file_path = config_file
+
+        if not file_path.exists():
+            raise AppConfiguringError(f"path {file_path} not exist")
+
+        file_ext = file_path.suffix[1:]
+
+        if file_ext == "toml":
+            return cls.from_toml(file_path)
+        else:
+            raise AppConfiguringError(f"Not supported file type {file_ext}")

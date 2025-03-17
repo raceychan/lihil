@@ -38,6 +38,19 @@ class AppState(Base):
     ...
 
 
+def read_config(
+    config_file: str | Path | None, app_config: AppConfig | None
+) -> AppConfig:
+    if config_file and app_config:
+        raise AppConfiguringError(
+            "Can't set both config_file and app_config, choose either one of them"
+        )
+    elif app_config:
+        return app_config
+    else:
+        return AppConfig.from_file(config_file)
+
+
 class Lihil[T: AppState]:
     _userls: LifeSpan[T] | None
 
@@ -51,28 +64,19 @@ class Lihil[T: AppState]:
         config_file: Path | str | None = None,
         lifespan: LifeSpan[T] | None = None,
     ):
-        if config_file and app_config:
-            raise AppConfiguringError(
-                "Can't set both config_file and app_config, choose either one of them"
-            )
-        elif app_config:
-            self.app_config = app_config
-        else:
-            self.app_config = AppConfig.from_file(config_file)
-
+        self.app_config = read_config(config_file, app_config)
         self.workers = ThreadPoolExecutor(
             max_workers=self.app_config.max_thread_workers
         )
         self.graph = graph or Graph(self_inject=True, workers=self.workers)
-
-        self._userls = lifespan_wrapper(lifespan)
-        self._app_state: T | None = None
-        self.collector = collector or Collector()
         self.root = Route("/", graph=self.graph)
         self.routes: list[Route] = [self.root]
         if routes:
             self.include_routes(*routes)
 
+        self._userls = lifespan_wrapper(lifespan)
+        self._app_state: T | None = None
+        self.collector = collector or Collector()
         self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY

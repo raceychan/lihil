@@ -11,9 +11,8 @@ z: patch, bug fixes, typing updates
 
 First release, provide a working solution to most cases
 
-- routing, request/response 
+- routing, request/response
 - dependency injection
 - lifespan event
 - openapi schema
 - message bus
-
