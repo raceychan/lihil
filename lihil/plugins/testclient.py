@@ -1,12 +1,12 @@
 from time import perf_counter
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, MutableMapping, Optional, Union
 from urllib.parse import urlencode
 
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
 
 from lihil.endpoint import Endpoint
-from lihil.interface import ASGIApp, Base, Payload
+from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload
 from lihil.routing import Route
 
 
@@ -166,7 +166,7 @@ class LocalClient:
                 "more_body": False,
             }
 
-        async def send(message: dict[str, Any]):
+        async def send(message: MutableMapping[str, Any]):
             nonlocal response_status, response_headers
 
             if message["type"] == "http.response.start":
@@ -210,7 +210,52 @@ class LocalClient:
         )
         return resp
 
-    async def call_route(self, route: Route): ...
+    async def call_route(
+        self,
+        route: Route,
+        method: HTTP_METHODS,
+        path_params: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | None = None,
+        body: Any = None,
+        headers: dict[str, str] | None = None,
+    ) -> RequestResult:
+        """
+        Call a route with the specified method and parameters.
+
+        Args:
+            route: The Route object to call
+            method: HTTP method to use (GET, POST, etc.)
+            path_params: Path parameters to use in the URL
+            query_params: Query parameters to add to the URL
+            body: Request body
+            headers: Additional headers for the request
+
+        Returns:
+            RequestResult object containing the response
+        """
+        # Ensure the route has the endpoint for the requested method
+        if method not in route.endpoints:
+            raise ValueError(f"Route does not support {method} method")
+
+        # Get the actual path with path parameters substituted
+        actual_path = route.path
+        if path_params:
+            # Replace path parameters in the URL
+            for param_name, param_value in path_params.items():
+                pattern = f"{{{param_name}}}"
+                actual_path = actual_path.replace(pattern, str(param_value))
+
+        # Make the request
+        resp = await self.request(
+            app=route,
+            method=method,
+            path=actual_path,
+            path_params=path_params,
+            query_params=query_params,
+            headers=headers,
+            body=body,
+        )
+        return resp
 
     # async def get(
     #     self,

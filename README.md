@@ -207,7 +207,7 @@ There are three primitives for event:
 ```python
 from lihil import Resp, Route, status
 from lihil.plugins.bus import Event, EventBus
-from lihil.plugins.testing import LocalClient
+from lihil.plugins.testclient import LocalClient
 
 
 class TodoCreated(Event):

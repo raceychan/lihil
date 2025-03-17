@@ -1,5 +1,5 @@
 from inspect import Parameter
-from types import UnionType
+from types import GenericAlias, UnionType
 from typing import (
     Annotated,
     Any,
@@ -8,6 +8,7 @@ from typing import (
     Generator,
     Literal,
     TypeAliasType,
+    Union,
     get_args,
     get_origin,
 )
@@ -62,7 +63,7 @@ class ReturnParam[T](Base):
     # TODO: generate response from this
     encoder: IEncoder[T]
     status: int
-    type_: Maybe[type[T]] | UnionType | None = MISSING
+    type_: Maybe[type[T]] | UnionType | GenericAlias | None = MISSING
     content_type: str = "application/json"
     annotation: Any = MISSING
 
@@ -76,7 +77,7 @@ class ReturnParam[T](Base):
 
     @classmethod
     def from_mark(
-        cls, annt: TypeAliasType, origin: Any, status: int
+        cls, annt: TypeAliasType | GenericAlias | UnionType, origin: Any, status: int
     ) -> "ReturnParam[Any]":
         origin = get_origin(annt) or annt
         if origin is Text:
@@ -132,8 +133,14 @@ class ReturnParam[T](Base):
 
     @classmethod
     def from_annotated(
-        cls, annt: Annotated[Any, "Annotated"], origin: Any, status: int
+        cls,
+        annt: Annotated[Any, "Annotated"],
+        origin: Maybe[Any] = MISSING,
+        status: int = 200,
     ) -> "ReturnParam[Any]":
+        if not is_provided(origin):
+            origin = get_origin(annt)
+
         metas = flatten_annotated(annt)
         encoder = encode_json
         if len(metas) > 1:
@@ -146,9 +153,9 @@ class ReturnParam[T](Base):
             ret_type = annt
 
         if is_resp_mark(ret_type):
-            # e.g.: Annotated[Resp[MyType, status.OK], CustomEncoder(encode_mytype)]
-            rp = ReturnParam.from_mark(ret_type, origin, status)
-            rp.replace(encoder=encoder)
+            rp = ReturnParam.from_mark(ret_type, origin, status).replace(
+                encoder=encoder
+            )
             return rp
         else:
             ret = ReturnParam(
@@ -175,13 +182,13 @@ def is_py_singleton(t: Any) -> Literal[None, True, False]:
 
 
 def analyze_return[R](
-    annt: Maybe[type[R] | UnionType | TypeAliasType], status: int = 200
+    annt: Maybe[type[R] | UnionType | TypeAliasType | GenericAlias], status: int = 200
 ) -> ReturnParam[R]:
-    if annt is Parameter.empty:
+    if annt is Parameter.empty or not is_provided(annt):
         return ReturnParam(encoder=encode_json, status=200)
 
     status = parse_status(status)
-    if isinstance(annt, UnionType):
+    if isinstance(annt, UnionType) or get_origin(annt) is Union:
         """
         TODO:
         we need to handle case of multiple return e.g

@@ -123,3 +123,8 @@ a: int | None
 ```
 
 it will be interpreted as `Optional`, which is a derived type of `Union`
+
+- fix a bug where `CustomerDecoder` won't be use
+previously whenever we deal with `Annotated[Path[int], ...]`
+
+we treat it as `Path[int]` and ignore its metadatas, where decoder will be placed, this is now fixed as we detect and perserve the decoder before discarding the matadata.

@@ -458,4 +458,75 @@ def test_analyze_param_union_no_payload():
     name, param = result[0]
     assert name == "value"
     assert isinstance(param, RequestParam)
-    assert param.location == "query"  # Should default to query for non-payload unions
+    assert param.location == "query"
+
+
+# Test for lines 237-238 - analyze_param with nested dependency in graph
+def test_analyze_param_with_nested_dependency():
+    graph = Graph()
+
+    # Create a more complex dependency chain
+    class DeepDependency:
+        def __init__(self, value: str = "deep"):
+            self.value = value
+
+    class MiddleDependency:
+        def __init__(self, deep: DeepDependency):
+            self.deep = deep
+
+    class TopDependency:
+        def __init__(self, middle: MiddleDependency):
+            self.middle = middle
+
+    # Register all dependencies in the graph
+    graph.node(DeepDependency)
+    graph.node(MiddleDependency)
+    graph.node(TopDependency)
+
+    seen = set()
+    path_keys = ()
+    top_node = graph.analyze(TopDependency)
+    result = analyze_param(graph, "top", seen, path_keys, TopDependency, MISSING)
+    assert len(result) >= 1
+    assert isinstance(result[0], DependentNode)
+    result = analyze_nodeparams(top_node, graph, seen, path_keys)
+    assert len(result) >= 1
+    assert result[0] == top_node
+
+    dep_types = [
+        (
+            type(node)
+            if isinstance(node, DependentNode)
+            else (
+                node[1].type_
+                if isinstance(node[1], (RequestParam, SingletonParam))
+                else None
+            )
+        )
+        for node in result
+    ]
+    assert TopDependency in dep_types or DependentNode in dep_types
+
+
+def test_analyze_param_union_with_payload():
+    graph = Graph()
+    seen = set()
+    path_keys = ()
+
+    # Create a Union type that includes a Payload class and a non-Payload type
+    union_type = Union[SamplePayload, int, None]
+
+    result = analyze_param(graph, "mixed_data", seen, path_keys, union_type, MISSING)
+
+    assert len(result) == 1
+    name, param = result[0]
+    assert name == "mixed_data"
+    assert isinstance(param, RequestParam)
+
+    # The key point: when a Union includes a Payload, it should be treated as a body parameter
+    assert param.location == "body"
+
+    # Test that the decoder can handle the union type
+    # This indirectly tests that the decoder was created correctly in lines 237-238
+    decoder = param.decoder
+    assert decoder is not None

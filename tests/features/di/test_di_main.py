@@ -1,8 +1,7 @@
-import pytest
 from starlette.requests import Request
 
-from lihil import Route, Text, Use
-from lihil.plugins.testing import LocalClient
+from lihil import Route, Text
+from lihil.plugins.testclient import LocalClient
 from lihil.utils.phasing import encode_text
 
 route = Route("/{p}")

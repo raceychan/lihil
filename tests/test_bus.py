@@ -1,6 +1,6 @@
 from lihil import Resp, Route, status
 from lihil.plugins.bus import Event, EventBus
-from lihil.plugins.testing import LocalClient
+from lihil.plugins.testclient import LocalClient
 
 
 class TodoCreated(Event):
@@ -22,11 +22,12 @@ bus_route = Route("/bus", listeners=[listen_create, listen_twice])
 
 
 async def test_bus_is_singleton():
-    @bus_route.post
     async def create_todo(
         name: str, content: str, bus: EventBus
     ) -> Resp[None, status.OK]:
         await bus.publish(TodoCreated(name, content))
+
+    bus_route.post(create_todo)
 
     ep = bus_route.get_endpoint("POST")
     assert ep.deps.singletons
