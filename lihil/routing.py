@@ -24,8 +24,6 @@ from lihil.utils.parse import (
 class Route:
     _flyweights: dict[str, "Route"] = {}
 
-    # collector:
-
     def __new__(cls, path: str = "", **_):
         p = handle_path(path)
         if p_route := cls._flyweights.get(p):
@@ -50,9 +48,7 @@ class Route:
         self.registry = registry or MessageRegistry(event_base=Event)
         if listeners:
             self.registry.register(*listeners)
-
         self.collector: Collector | None = None
-
         self.tag = tag or generate_route_tag(self.path)
         self.subroutes: list[Route] = []
         self.middle_factories: list[MiddlewareFactory[Any]] = []
@@ -145,7 +141,6 @@ class Route:
             self.collector = Collector(self.registry)
 
         for method in methods:
-
             endpoint = Endpoint(
                 method=method,
                 path=self.path,
@@ -177,8 +172,17 @@ class Route:
     def factory[**P, R](self, node: INode[P, R], **node_config: Unpack[INodeConfig]):
         return self.graph.node(node, **node_config)
 
-    def listen[E](self, listener: Callable[..., Any]) -> None:
+    def listen[E](self, listener: Callable[[E], Any]) -> None:
         self.registry.register(listener)
+
+    def has_listener(self, listener: Callable[..., Any]) -> bool:
+        event_metas = list(self.registry.event_mapping.values())
+
+        for metas in event_metas:
+            for meta in metas:
+                if meta.handler is listener:
+                    return True
+        return False
 
     def get[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]

@@ -1,8 +1,10 @@
 import pytest
 
 from lihil import Text
+from lihil.interface import ASGIApp, IReceive, IScope, ISend
 
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
+from lihil.plugins.bus import Event
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
 
@@ -190,8 +192,8 @@ async def test_route_middleware():
     route.get(handler)
 
     # Define middleware
-    def middleware_factory(app):
-        async def middleware(scope, receive, send):
+    def middleware_factory(app: ASGIApp):
+        async def middleware(scope: IScope, receive: IReceive, send: ISend):
             # Modify response
             original_send = send
 
@@ -273,3 +275,292 @@ async def test_route_sub():
 
     users_response = await client.call_route(users_route, "GET")
     assert (await users_response.json())["route"] == "users"
+
+
+async def test_route_build_stack():
+    route = Route("/test")
+
+    async def handler():
+        return "Test response"
+
+    route.get(handler)
+
+    # Initially call_stacks should be empty
+    assert not route.call_stacks
+
+    # Build the stack
+    route.build_stack()
+
+    # Now call_stacks should have the GET method
+    assert "GET" in route.call_stacks
+
+
+async def test_route_add_nodes():
+    route = Route("/test")
+
+    # Create a simple node
+    class TestNode:
+        def __call__(self, value: str):
+            return f"Processed: {value}"
+
+    # Add the node to the route
+    route.add_nodes(TestNode)
+
+    # Verify the node was added to the graph
+    assert len(route.graph._nodes) > 0
+
+
+async def test_route_factory():
+    route = Route("/test")
+
+    # Create a simple node
+    class TestNode:
+        def __call__(self, value: str):
+            return f"Processed: {value}"
+
+    # Use factory to create a node
+    node_factory = route.factory(TestNode)
+
+    # Verify the factory works
+    assert callable(node_factory)
+
+
+async def test_route_listen():
+    route = Route("/test")
+
+    # Create a simple listener
+    def test_listener(event: Event):
+        pass
+
+    # Register the listener
+    route.listen(test_listener)
+
+    assert route.has_listener(test_listener)
+
+    # Verify the listener was registered
+
+
+async def test_route_with_listeners_param():
+    # Create a simple listener
+    def test_listener(event: Event):
+        pass
+
+    # Create route with listeners
+    route = Route("/test", listeners=[test_listener])
+
+    # Verify the listener was registered
+    assert route.has_listener(test_listener)
+
+
+async def test_route_decorator_style():
+    route = Route("/test")
+
+    # Test decorator style for GET
+    async def get_handler() -> Text:
+        return "GET response"
+
+    # Test decorator style for POST
+    async def post_handler():
+        return "POST response"
+
+    route.get(get_handler)
+    route.post(post_handler)
+
+    # Test decorator style for PUT
+    async def put_handler():
+        return "PUT response"
+
+    route.put(put_handler)
+
+    # Test decorator style for DELETE
+    async def delete_handler():
+        return "DELETE response"
+
+    route.delete(delete_handler)
+
+    # Verify all endpoints were registered
+    assert "GET" in route.endpoints
+    assert "POST" in route.endpoints
+    assert "PUT" in route.endpoints
+    assert "DELETE" in route.endpoints
+
+    # Test with client
+    client = LocalClient()
+
+    get_response = await client.call_route(route, "GET")
+    assert await get_response.text() == "GET response"
+
+
+async def test_route_redirect_not_implemented():
+    route = Route("/test")
+
+    # Test the redirect method which is not implemented
+    with pytest.raises(NotImplementedError):
+        route.redirect(route.__call__, id="123")
+
+
+async def test_route_repr():
+    route = Route("/test")
+
+    # Test repr without endpoints
+    assert repr(route) == "Route('/test')"
+
+    # Add an endpoint
+    async def handler():
+        return "Test"
+
+    route.get(handler)
+
+    # Test repr with endpoints
+    assert "Route('/test', GET:" in repr(route)
+    assert handler.__name__ in repr(route)
+
+
+async def test_route_call_with_existing_call_stack():
+    route = Route("/test")
+
+    async def handler():
+        return "Test response"
+
+    route.get(handler)
+
+    # Make first request to build call stack
+    client = LocalClient()
+    response1 = await client.call_route(route, "GET")
+    assert response1.status_code == 200
+
+    # Make second request which should use existing call stack
+    response2 = await client.call_route(route, "GET")
+    assert response2.status_code == 200
+
+    # Verify call_stacks has the GET method
+    assert "GET" in route.call_stacks
+
+
+async def test_route_get_endpoint_not_found():
+    route = Route("/test")
+
+    async def handler():
+        return "Test"
+
+    route.get(handler)
+
+    # Try to get a non-existent endpoint by method
+    with pytest.raises(KeyError):
+        route.get_endpoint("POST")
+
+    # Try to get a non-existent endpoint by function
+    async def another_handler():
+        return "Another"
+
+    with pytest.raises(KeyError):
+        route.get_endpoint(another_handler)
+
+
+async def test_route_add_endpoint_with_existing_path_regex():
+    route = Route("/users/{user_id}")
+
+    # Add first endpoint to create path_regex
+    async def get_user(user_id: str):
+        return {"id": user_id, "method": "GET"}
+
+    route.get(get_user)
+
+    # Add second endpoint when path_regex already exists
+    async def update_user(user_id: str):
+        return {"id": user_id, "method": "PUT"}
+
+    route.put(update_user)
+
+    # Test both endpoints
+    client = LocalClient()
+
+    get_response = await client.call_route(route, "GET", path_params={"user_id": "123"})
+    get_result = await get_response.json()
+    assert get_result["method"] == "GET"
+
+    put_response = await client.call_route(route, "PUT", path_params={"user_id": "123"})
+    put_result = await put_response.json()
+    assert put_result["method"] == "PUT"
+
+
+async def test_route_add_middleware_sequence():
+    route = Route("/test")
+
+    async def handler():
+        return {"message": "Hello"}
+
+    route.get(handler)
+
+    # Define middleware factories
+    def middleware1(app):
+        async def mw(scope, receive, send):
+            # Modify response
+            original_send = send
+
+            async def custom_send(message):
+                if message["type"] == "http.response.body":
+                    body = message.get("body", b"")
+                    if body:
+                        import json
+
+                        data = json.loads(body)
+                        data["mw1"] = True
+                        message["body"] = json.dumps(data).encode()
+
+                await original_send(message)
+
+            await app(scope, receive, custom_send)
+
+        return mw
+
+    def middleware2(app):
+        async def mw(scope, receive, send):
+            # Modify response
+            original_send = send
+
+            async def custom_send(message):
+                if message["type"] == "http.response.body":
+                    body = message.get("body", b"")
+                    if body:
+                        import json
+
+                        data = json.loads(body)
+                        data["mw2"] = True
+                        message["body"] = json.dumps(data).encode()
+
+                await original_send(message)
+
+            await app(scope, receive, custom_send)
+
+        return mw
+
+    # Add middlewares as a sequence
+    route.add_middleware([middleware1, middleware2])
+
+    # Test with client
+    client = LocalClient()
+    response = await client.call_route(route, "GET")
+
+    result = await response.json()
+    assert result["message"] == "Hello"
+    assert result["mw1"] is True
+    assert result["mw2"] is True
+
+
+async def test_route_has_listener():
+    route = Route("/test")
+
+    # Create listeners
+    def listener1(event: Event):
+        pass
+
+    def listener2(event: Event):
+        pass
+
+    # Register only one listener
+    route.listen(listener1)
+
+    # Test has_listener
+    assert route.has_listener(listener1) is True
+    assert route.has_listener(listener2) is False

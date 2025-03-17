@@ -99,6 +99,10 @@ would override `AppConfig.oas.title` and `AppConfig.is_prod`.
 
 this comes handy when for overriding configs that are differernt according to the deployment environment.
 
+- add a test helper `Route.has_listener` to check if a listener is registered.
+
+- `LocalClient.call_route`, a test helper for testing routes.
+
 ### Fix
 
 - fix a bug with request param type being GenericAliasType
@@ -128,3 +132,16 @@ it will be interpreted as `Optional`, which is a derived type of `Union`
 previously whenever we deal with `Annotated[Path[int], ...]`
 
 we treat it as `Path[int]` and ignore its metadatas, where decoder will be placed, this is now fixed as we detect and perserve the decoder before discarding the matadata.
+
+- fix a bug where `Route.listen` will fail silently when listener does not match condition, meaning it has not type hint of derived event class.
+
+Example:
+
+```python
+async def listen_nothing(event):
+    ...
+
+Rotue.listen(listen_nothing) 
+```
+
+This would fail silently before this fix

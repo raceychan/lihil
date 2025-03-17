@@ -223,7 +223,7 @@ class Lihil[T: AppState]:
                 response_started = True
             await send(message)
 
-        # TODO: solve this with lhl_server
+        # TODO: solve this with lhl_server, not extra _send needed.
         try:
             await self.call_stack(scope, receive, cast(ISend, _send))
         except Exception:

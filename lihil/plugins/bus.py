@@ -424,6 +424,9 @@ def get_funcmetas(msg_base: Any, func: Any) -> list[Any]:
     is_contexted: bool = is_contextparam(rest)
     derived_msgtypes = gather_types(msg.annotation)
 
+    if not derived_msgtypes:
+        raise MessageHandlerNotFoundError(msg_base, func)
+
     for msg_type in derived_msgtypes:
         if not issubclass(msg_type, msg_base):
             raise InvalidHandlerError(msg_base, msg_type, func)
@@ -557,14 +560,19 @@ class MessageRegistry:
                 self.event_mapping[msg_type].append(meta)
 
     def _register(self, handler: Any):
-        try:
-            self._register_commandhanlders(handler)
-        except HandlerRegisterFailError:
+        if self.command_base:
+            try:
+                self._register_commandhanlders(handler)
+            except HandlerRegisterFailError:
+                if not self.event_base:
+                    raise
+                self._register_eventlisteners(handler)
+            return handler
+        elif self.event_base:
             self._register_eventlisteners(handler)
             return handler
-
-        self._register_eventlisteners(handler)
-        return handler
+        else:
+            raise HandlerRegisterFailError
 
     def register(
         self,
