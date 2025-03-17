@@ -13,7 +13,7 @@ fast:
 
 .PHONY: test
 test:
-	uv run python -m pytest tests/
+	uv run python -m pytest -svx tests/
 
 .PHONY: cov
 cov:

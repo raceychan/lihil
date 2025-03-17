@@ -1,7 +1,8 @@
 import argparse
 import tomllib
 from pathlib import Path
-from typing import Any, Self, Sequence
+from types import GenericAlias
+from typing import Any, Self, Sequence, cast
 
 from msgspec import convert, field
 from msgspec.structs import fields
@@ -37,7 +38,7 @@ def format_nested_dict(flat_dict: StrDict) -> StrDict:
     return result
 
 
-def is_lhl_dep(type_: type):
+def is_lhl_dep(type_: type | GenericAlias):
     "Dependencies that should be injected and managed by lihil"
     return type_ in (Request, EventBus)
 
@@ -70,7 +71,7 @@ def deep_update(original: StrDict, update_data: StrDict) -> StrDict:
             and isinstance(original[key], dict)
             and isinstance(value, dict)
         ):
-            deep_update(original[key], value)
+            deep_update(original[key], cast(Any, value))
         else:
             original[key] = value
     return original
@@ -92,7 +93,7 @@ class StoreTrueIfProvided(argparse.Action):
         # Set nargs to 0 for store_true action
         kwargs["nargs"] = 0
         kwargs["default"] = MISSING
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs) # type: ignore
 
 
 class AppConfig(ConfigBase):

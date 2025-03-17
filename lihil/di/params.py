@@ -43,7 +43,7 @@ class CustomDecoder(Base):
 
 
 class RequestParamBase[T](Base):
-    type_: type[T] | UnionType
+    type_: type[T] | UnionType | GenericAlias
     name: str
     default: Maybe[Any] = MISSING
     required: bool = False
@@ -136,22 +136,12 @@ def analyze_markedparam(
         Query[Any] | Header[Any, Any] | Use[Any] | Annotated[Any, ...]
     ] = MISSING,
     default: Any = MISSING,
+    decoder: IDecoder[Any] | None = None,
 ) -> list[ParamPair | DependentNode]:
     if not is_provided(porigin):
         porigin = get_origin(type_)
 
     atype, *metas = flatten_annotated(type_)
-
-    if atype is type_:
-        raise NotImplementedError(f"{type_=}, {atype=}")
-    """
-    BUG:
-    when we have 
-    
-    Header[str]
-    we expect flatten_annotated[type_] return atype as str
-    but it returns Header
-    """
 
     if porigin is Annotated:
         if USE_FACTORY_MARK in metas:
@@ -160,8 +150,14 @@ def analyze_markedparam(
             node = graph.analyze(factory, config=config)
             return analyze_nodeparams(node, graph, seen, path_keys)
         elif new_origin := get_origin(atype):
+            for meta in metas:
+                # BUG: this will never be intritged
+                if isinstance(meta, CustomDecoder):
+                    decoder = meta.decode
+                    break
+
             return analyze_markedparam(
-                graph, name, seen, path_keys, atype, new_origin, default
+                graph, name, seen, path_keys, atype, new_origin, default, decoder
             )
         else:
             return analyze_param(graph, name, seen, path_keys, atype, default)
@@ -172,12 +168,6 @@ def analyze_markedparam(
         # Pure non-deps request params
         location: ParamLocation
         alias = name
-        custom_decoder = None
-        for meta in metas:
-            if isinstance(meta, CustomDecoder):
-                custom_decoder = meta.decode
-                break
-
         if porigin is Header:
             location = "header"
             alias = parse_header_key(name, metas)
@@ -188,9 +178,7 @@ def analyze_markedparam(
         else:
             location = "query"
 
-        if custom_decoder:
-            decoder = custom_decoder
-        else:
+        if not decoder:
             if location == "body":
                 decoder = decoder_factory(atype)
             else:

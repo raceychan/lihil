@@ -11,7 +11,6 @@ from typing import (
 from msgspec import Struct as Struct
 from msgspec import field as field
 from msgspec.structs import asdict as struct_asdict
-from msgspec.structs import fields as inspect_fields
 from msgspec.structs import replace as struct_replace
 
 from lihil.interface.asgi import HTTP_METHODS as HTTP_METHODS
@@ -84,8 +83,7 @@ class IEncoder[T](Protocol):
 #     def instance(self) -> str: ...
 
 
-@dataclass_transform(kw_only_default=True)
-class Base(Struct, kw_only=True):
+class Base(Struct):
     "Base Model for all internal struct, with Mapping interface implemented"
 
     def keys(self) -> tuple[str, ...]:
@@ -101,13 +99,17 @@ class Base(Struct, kw_only=True):
         return struct_replace(self, **changes)
 
 
+@dataclass_transform(kw_only_default=True)
+class KWBase(Base, kw_only=True): ...
+
+
 class ParamBase[T](Base):
     type_: type
     decoder: IDecoder[T]
 
 
 @dataclass_transform(frozen_default=True)
-class Record(Base, frozen=True, cache_hash=True): ...
+class Record(Base, frozen=True, cache_hash=True): ...  # type: ignore
 
 
 @dataclass_transform(frozen_default=True)
