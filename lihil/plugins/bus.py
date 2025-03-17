@@ -714,16 +714,6 @@ class MessageRegistry[C, E]:
                 self.guard_mapping[target].append(meta)
 
 
-"""
-we need to create a bus where it has scope as resolver
-
-@route.post
-async def signup(user: User, service: Service, bus: MessageBus):
-    await service.create_user(user)
-    await bus.publish(user_created) # same scoep as 
-"""
-
-
 class EventBus:
     def __init__(
         self,
@@ -846,45 +836,3 @@ class Collector:
             await self._sink.sink(event)  # type: ignore
         except AttributeError:
             raise SinkUnsetError()
-
-    # async def __enter__(self):
-    #     """create an global scope and create resource"""
-    #     # scope = self._dg.scope("anywise")
-
-    # async def __aexit__(
-    #     self,
-    #     exc_type: type[Exception] | None,
-    #     exc: Exception | None,
-    #     exc_tb: Any | None,
-    # ): ...
-
-    # def register(
-    #     self, message_type: type | None = None, *registee: tuple[Registee, ...]
-    # ) -> None:
-    #     """
-    #     register a function, a class, a module, or a package.
-
-    #     anywise.register(create_user)
-    #     anywise.register(UserCommand, UserService)
-    #     anywise.register(UserCommand, user_service) # module / package
-
-    #     NOTE: a package is a module with __path__ attribute
-    #     """
-
-    # def add_task[
-    #    **P, R
-    # ](
-    #    self,
-    #    task_func: Callable[P, R],
-    #    *args: P.args,
-    #    **kwargs: P.kwargs,
-    # ):
-    #    # if kwargs:
-    #    #     task_func = partial(task_func, **kwargs)
-
-    #    if iscoroutinefunction(task_func):
-    #        # self._tg.create_task
-    #        t = create_task(task_func(*args, **kwargs))
-    #        t.add_done_callback()
-
-    #    # self.loop.call_soon(task_func, *args)

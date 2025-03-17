@@ -45,14 +45,12 @@ class Lihil[T: AppState]:
         self,
         *,
         routes: list[Route] | None = None,
+        app_config: AppConfig | None = None,
         graph: Graph | None = None,
         collector: Collector | None = None,
-        app_config: AppConfig | None = None,
         config_file: Path | str | None = None,
         lifespan: LifeSpan[T] | None = None,
     ):
-        self.graph = graph or Graph(self_inject=True)
-
         if config_file and app_config:
             raise AppConfiguringError(
                 "Can't set both config_file and app_config, choose either one of them"
@@ -62,22 +60,24 @@ class Lihil[T: AppState]:
         else:
             self.app_config = AppConfig.from_file(config_file)
 
-        self.app_config = app_config or AppConfig()
+        self.workers = ThreadPoolExecutor(
+            max_workers=self.app_config.max_thread_workers
+        )
+        self.graph = graph or Graph(self_inject=True, workers=self.workers)
+
         self._userls = lifespan_wrapper(lifespan)
         self._app_state: T | None = None
         self.collector = collector or Collector()
-
-        self.workers = ThreadPoolExecutor()
         self.root = Route("/", graph=self.graph)
         self.routes: list[Route] = [self.root]
+        if routes:
+            self.include_routes(*routes)
+
         self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
         self._static_cache: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
         self._generate_doc_route()
-
-        if routes:
-            self.include_routes(*routes)
 
     @property
     def static_cache(self):
@@ -197,7 +197,7 @@ class Lihil[T: AppState]:
         for factory in reversed(self.middle_factories):
             try:
                 prev = factory(current)
-            except Exception as exc:
+            except Exception:
                 raise
             current = prev
         return current

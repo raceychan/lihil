@@ -1,40 +1,13 @@
 import tomllib
-
-# from io import BufferedReader
 from pathlib import Path
 from typing import Any, Self
 
-from msgspec import convert
+from msgspec import convert, field
 from starlette.requests import Request
 
 from lihil.errors import AppConfiguringError
 from lihil.interface import FlatRecord
 from lihil.plugins.bus import EventBus
-
-"""
-[tool.lihil.server]
-timeout_keep_alive: int = 5
-backlog: int = 2048
-interface: str = "asgi3"
-asgi_version: str = "3.0"
-root_path: str = ""
-
-[tool.lihil.schema]
-
-[tool.lihil.api]
-host: str = "127.0.0.1"
-port: int = 8000
-version: str = "1"
-"""
-
-
-def is_lhl_dep(type_: type):
-    "Dependencies that should be injected and managed by lihil"
-    return type_ in (Request, EventBus)
-
-
-class ConfigBase(FlatRecord, forbid_unknown_fields=True): ...
-
 
 # class ServerConfig(ConfigBase):
 #     host: str = "127.0.0.1"
@@ -45,6 +18,21 @@ class ConfigBase(FlatRecord, forbid_unknown_fields=True): ...
 #     timeout_keep_alive: int = 5
 #     backlog: int = 2048
 #     root_path: str = ""
+
+
+def is_lhl_dep(type_: type):
+    "Dependencies that should be injected and managed by lihil"
+    return type_ in (Request, EventBus)
+
+
+class ConfigBase(FlatRecord, forbid_unknown_fields=True): ...
+
+
+def get_thread_cnt() -> int:
+    import os
+
+    default_max = os.cpu_count() or 1
+    return default_max
 
 
 class OASConfig(ConfigBase):
@@ -58,6 +46,7 @@ class OASConfig(ConfigBase):
 class AppConfig(ConfigBase):
     is_prod: bool = False
     version: str = "0.1.0"
+    max_thread_workers: int = field(default_factory=get_thread_cnt)
     oas: OASConfig = OASConfig()
 
     @classmethod
