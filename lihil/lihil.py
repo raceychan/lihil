@@ -3,9 +3,10 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
 from pathlib import Path
-from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast
+from typing import Any, AsyncContextManager, Callable, Generic, Sequence, TypeVar, cast
 
 from ididi import Graph
+from typing_extensions import ParamSpec, Unpack
 
 from lihil.config import AppConfig
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
@@ -18,10 +19,15 @@ from lihil.routing import Func, IEndPointConfig, Route
 from lihil.utils.parse import is_plain_path
 from lihil.utils.phasing import encode_json
 
-type LifeSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
+T = TypeVar("T")
+M = TypeVar("M")
+P = ParamSpec("P")
+R = TypeVar("R")
+
+LifeSpan = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 
 
-def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
+def lifespan_wrapper(lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
     if lifespan is None:
         return None
 
@@ -51,7 +57,7 @@ def read_config(
         return AppConfig.from_file(config_file)
 
 
-class Lihil[T: AppState]:
+class Lihil(Generic[T]):
     _userls: LifeSpan[T] | None
 
     def __init__(
@@ -231,7 +237,7 @@ class Lihil[T: AppState]:
                 await InternalErrorResp(scope, receive, send)
             raise
 
-    def add_middleware[M: ASGIApp](
+    def add_middleware(
         self,
         middleware_factories: MiddlewareFactory[M] | Sequence[MiddlewareFactory[M]],
     ) -> None:
@@ -248,22 +254,22 @@ class Lihil[T: AppState]:
         self.routes.append(route)
         return route
 
-    def get[**P, R](
+    def get(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
         return self.root.get(func, **epconfig)
 
-    def put[**P, R](
+    def put(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         return self.root.put(func, **epconfig)
 
-    def post[**P, R](
+    def post(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         return self.root.post(func, **epconfig)
 
-    def delete[**P, R](
+    def delete(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         return self.root.delete(func, **epconfig)

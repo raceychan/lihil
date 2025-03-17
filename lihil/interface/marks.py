@@ -4,14 +4,13 @@ from typing import (
     Any,
     AsyncGenerator,
     Generator,
-    LiteralString,
-    TypeAliasType,
-    TypeGuard,
+    TypeVar,
     get_args,
     get_origin,
 )
 
 from msgspec import Struct
+from typing_extensions import LiteralString, TypeAliasType, TypeGuard
 
 from lihil.constant.status import Status
 
@@ -69,15 +68,20 @@ BODY_REQUEST_MARK = param_mark("body")
 PATH_REQUEST_MARK = param_mark("path")
 USE_DEPENDENCY_MARK = param_mark("use")
 
-type Query[T] = Annotated[T, QUERY_REQUEST_MARK]
+T = TypeVar("T")
+K = TypeVar("K", bound=LiteralString)
 
-type Header[T, K: LiteralString] = Annotated[T, K, HEADER_REQUEST_MARK]
+S = TypeVar("S", bound=Status | int)
 
-type Body[T] = Annotated[T, BODY_REQUEST_MARK]
+Query = Annotated[T, QUERY_REQUEST_MARK]
 
-type Path[T] = Annotated[T, PATH_REQUEST_MARK]
+Header = Annotated[T, K, HEADER_REQUEST_MARK]
 
-type Use[T] = Annotated[T, USE_DEPENDENCY_MARK]
+Body = Annotated[T, BODY_REQUEST_MARK]
+
+Path = Annotated[T, PATH_REQUEST_MARK]
+
+Use = Annotated[T, USE_DEPENDENCY_MARK]
 
 # ================ Response ================
 
@@ -88,13 +92,13 @@ JSON_RETURN_MARK = resp_mark("json")
 RESP_RETURN_MARK = resp_mark("resp")
 
 # type TextType = str | bytes
-type Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
-type HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
+Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
+HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
 # TODO: T
-type Stream[T] = Annotated[
+Stream = Annotated[
     AsyncGenerator[T, None] | Generator[T, None, None],
     STREAM_RETURN_MARK,
     "text/event-stream",
 ]
-type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
-type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
+Json = Annotated[T, JSON_RETURN_MARK, "application/json"]
+Resp = Annotated[T, S, RESP_RETURN_MARK]

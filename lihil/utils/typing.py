@@ -1,8 +1,12 @@
 from types import UnionType
-from typing import Annotated, Any, cast, get_args, get_origin, TypeAliasType
+from typing import Annotated, Any, TypeVar, cast, get_args, get_origin
+
+from typing_extensions import TypeAliasType
+
+T = TypeVar("T")
 
 
-def flatten_annotated[T](
+def flatten_annotated(
     annt: Annotated[type[T], Any] | UnionType | TypeAliasType,
 ) -> tuple[type[T], ...]:
     "Annotated[Annotated[T, Ann1, Ann2], Ann3] -> [T, Ann1, Ann2, Ann3]"

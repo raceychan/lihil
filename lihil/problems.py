@@ -2,14 +2,15 @@
 from functools import lru_cache
 from inspect import Parameter, signature
 from types import MappingProxyType, UnionType
-from typing import (
+from typing import (  # TypeAliasType,
     Annotated,
     Any,
     Callable,
     ClassVar,
+    Generic,
     Literal,
     Mapping,
-    TypeAliasType,
+    TypeVar,
     cast,
     get_args,
     get_origin,
@@ -18,6 +19,7 @@ from typing import (
 from msgspec import Meta
 from starlette.requests import Request
 from starlette.responses import Response
+from typing_extensions import TypeAliasType
 
 from lihil.constant import status as http_status
 from lihil.interface import FlatRecord, IEncoder, ParamLocation
@@ -32,8 +34,10 @@ user should just return response, we don't put it in threadpool as well.
 If they want to do other things, do it with message bus
 """
 
-type ExceptionHandler[Exc] = Callable[[Request, Exc], Response]
-type ErrorRegistry = MappingProxyType[
+Exc = TypeVar("Exc", bound="DetailBase[Any] | http_status.Status")
+
+ExceptionHandler = Callable[[Request, Exc], Response]
+ErrorRegistry = MappingProxyType[
     "type[DetailBase[Any]] | http_status.Status", ExceptionHandler[Any]
 ]
 
@@ -74,7 +78,7 @@ def __erresp_factory_registry():
     exc_handlers: dict[type[DetailBase[Any]], ExceptionHandler[Any]] = {}
     status_handlers: dict[int, ExceptionHandler[Any]] = {}
 
-    def _extract_exception[Exc: DetailBase[Any] | http_status.Status](
+    def _extract_exception(
         handler: ExceptionHandler[Exc],
     ) -> type[DetailBase[Any]] | int | list[type[DetailBase[Any]] | int]:
         sig = signature(handler)
@@ -86,7 +90,7 @@ def __erresp_factory_registry():
 
         return parse_exception(exc_annt)
 
-    def _solver[Exc: DetailBase[Any] | http_status.Status](
+    def _solver(
         handler: ExceptionHandler[Exc],
     ) -> ExceptionHandler[Exc]:
         """\
@@ -138,8 +142,8 @@ def __erresp_factory_registry():
 
     return MappingProxyType(exc_handlers), _solver, get_solver
 
-
-class ProblemDetail[T](FlatRecord):  # user can inherit this and extend it
+T = TypeVar("T")
+class ProblemDetail(FlatRecord, Generic[T]):  # user can inherit this and extend it
     """
     ## Specification:
         - RFC 9457: https://www.rfc-editor.org/rfc/rfc9457.html
@@ -187,7 +191,7 @@ class ProblemDetail[T](FlatRecord):  # user can inherit this and extend it
     ]
 
 
-class DetailBase[T]:
+class DetailBase(Generic[T]):
     __slots__: tuple[str, ...] = ()
     __status__: ClassVar[http_status.Status]
     __problem_type__: ClassVar[str | None] = None
@@ -212,7 +216,7 @@ class DetailBase[T]:
         ).asdict()
 
 
-class HTTPException[T](Exception, DetailBase[T]):
+class HTTPException(Exception, DetailBase[T]):
     """
     The base HTTP Exception class
     """
@@ -261,7 +265,7 @@ class HTTPException[T](Exception, DetailBase[T]):
         )
 
 
-class ErrorResponse[T](Response):
+class ErrorResponse(Response, Generic[T]):
     problem_encoder = encoder_factory(ProblemDetail[T])
 
     def __init__(

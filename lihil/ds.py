@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
-from typing import ClassVar, Self, dataclass_transform
+from typing import ClassVar, TypeVar
 from uuid import uuid4
 
 from msgspec.json import Decoder
+from typing_extensions import Self, dataclass_transform
 
 from lihil.interface import Base, field
 from lihil.utils.visitor import all_subclasses, union_types
@@ -16,7 +17,10 @@ def ts_factory() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Envelope[Body](Base):
+Body = TypeVar("Body")
+
+
+class Envelope(Base):
     """
     a lihil-managed event meta class
 
@@ -30,7 +34,6 @@ class Envelope[Body](Base):
     source: str | None = None
     event_id: str = field(default_factory=uuid_factory)
     timestamp: datetime = field(default_factory=ts_factory)  # cloudevents name: time
-
 
     def build_decoder(self) -> Decoder["Self"]:
         "Build a decoder that decodes all subclsses of current class"

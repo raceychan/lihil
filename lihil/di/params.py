@@ -1,6 +1,16 @@
 from inspect import Parameter
 from types import UnionType
-from typing import Annotated, Any, Callable, Sequence, cast, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Generic,
+    Sequence,
+    TypeVar,
+    cast,
+    get_args,
+    get_origin,
+)
 
 from ididi import DependentNode, Graph
 from ididi.config import USE_FACTORY_MARK
@@ -16,9 +26,9 @@ from lihil.utils.typing import flatten_annotated
 
 # from starlette.requests import Request
 
-
-type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]
-type RequiredParams = Sequence[ParamPair]
+T = TypeVar("T")
+ParamPair = tuple[str, "RequestParam[Any]"] | tuple[str, "SingletonParam[Any]"]
+RequiredParams = Sequence[ParamPair]
 
 
 class CustomDecoder:
@@ -34,7 +44,7 @@ class CustomDecoder:
     decode: Callable[[bytes | str], Any]
 
 
-class RequestParamBase[T](Base):
+class RequestParamBase(Base, Generic[T]):
     type_: type[T] | UnionType
     name: str
     default: Maybe[Any] = MISSING
@@ -44,7 +54,7 @@ class RequestParamBase[T](Base):
         self.required = self.default is MISSING
 
 
-class RequestParam[T](RequestParamBase[T], kw_only=True):
+class RequestParam(RequestParamBase[T], kw_only=True):
     """
     maybe we would like to create a subclass RequestBody
     since RequestBody can have content-type
@@ -67,7 +77,7 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         return self.decoder(content)
 
 
-class SingletonParam[T](RequestParamBase[T]): ...
+class SingletonParam(RequestParamBase[T]): ...
 
 
 class ParsedParams(Base):

@@ -1,18 +1,11 @@
-from typing import (
-    Any,
-    Callable,
-    Literal,
-    Protocol,
-    Self,
-    TypeGuard,
-    dataclass_transform,
-)
+from typing import Any, Callable, Generic, Literal, Protocol, TypeGuard, TypeVar
 
 from msgspec import Struct as Struct
 from msgspec import field as field
 from msgspec.structs import asdict as struct_asdict
 from msgspec.structs import fields as inspect_fields
 from msgspec.structs import replace as struct_replace
+from typing_extensions import ParamSpec, Self, dataclass_transform
 
 from lihil.interface.asgi import HTTP_METHODS as HTTP_METHODS
 from lihil.interface.asgi import ASGIApp as ASGIApp
@@ -30,13 +23,18 @@ from lihil.interface.marks import Stream as Stream
 from lihil.interface.marks import Text as Text
 from lihil.interface.marks import Use as Use
 
-type ParamLocation = Literal["path", "query", "header", "body"]
-type Func[**P, R] = Callable[P, R]
+P = ParamSpec("P")
+R = TypeVar("R")
+T = TypeVar("T", covariant=True)
+C = TypeVar("C", contravariant=True)
 
-type Maybe[T] = T | "_Missed"
+ParamLocation = Literal["path", "query", "header", "body"]
+Func = Callable[P, R]
+
+Maybe = T | "_Missed"
 
 
-def is_provided[T](t: Maybe[T]) -> TypeGuard[T]:
+def is_provided(t: T) -> TypeGuard[T]:
     return t is not MISSING
 
 
@@ -55,16 +53,16 @@ class _Missed:
 MISSING = _Missed()
 
 
-class ITextDecoder[T](Protocol):
+class ITextDecoder(Protocol[T]):
     "Headers, URL are strings"
 
     def __call__(self, content: bytes | str, /) -> T: ...
-class IDecoder[T](Protocol):
+class IDecoder(Protocol[T]):
     def __call__(self, content: bytes | str, /) -> T: ...
 
 
-class IEncoder[T](Protocol):
-    def __call__(self, content: T, /) -> bytes: ...
+class IEncoder(Protocol[C]):
+    def __call__(self, content: C, /) -> bytes: ...
 
 
 # class IProblem[T](Protocol):
@@ -101,7 +99,7 @@ class Base(Struct, kw_only=True):
         return struct_replace(self, **changes)
 
 
-class ParamBase[T](Base):
+class ParamBase(Base, Generic[T]):
     type_: type
     decoder: IDecoder[T]
 

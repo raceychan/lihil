@@ -1,12 +1,13 @@
 from asyncio import to_thread
 from inspect import isasyncgen, iscoroutinefunction, isgenerator
-from typing import Any, Awaitable, Callable, Sequence, TypedDict, Unpack
+from typing import Any, Awaitable, Callable, Generic, Sequence, TypedDict, TypeVar
 
 from ididi import Graph
 from ididi.graph import Resolver
 from msgspec import field
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
+from typing_extensions import Unpack
 
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
@@ -14,8 +15,10 @@ from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
 from lihil.plugins.bus import EventBus
 from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
 
+R = TypeVar("R")
 
-def async_wrapper[R](
+
+def async_wrapper(
     func: Callable[..., R], threaded: bool = True
 ) -> Callable[..., Awaitable[R]]:
     # TODO: use our own Threading workers
@@ -61,7 +64,7 @@ class EndPointConfig(FlatRecord, kw_only=True):
         return cls(**iconfig)  # type: ignore
 
 
-class Endpoint[R]:
+class Endpoint(Generic[R]):
     method: HTTP_METHODS
     path: str
     tag: str

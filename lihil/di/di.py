@@ -1,10 +1,11 @@
 from inspect import signature
-from typing import Any, Awaitable, Callable, Mapping, Self, Sequence, cast
+from typing import Any, Awaitable, Callable, Mapping, Sequence, TypeVar, cast
 from warnings import warn
 
 from ididi import DependentNode, Graph
 from msgspec import DecodeError, ValidationError
 from starlette.requests import Request
+from typing_extensions import Self
 
 from lihil.di.params import RequestParam, SingletonParam, analyze_request_params
 from lihil.di.returns import ReturnParam, analyze_return
@@ -17,8 +18,9 @@ from lihil.problems import (
 )
 from lihil.utils.parse import find_path_keys
 
-type ParamPair = tuple[str, RequestParam[Any]]
-type RequiredParams = Sequence[ParamPair]
+ParamPair = tuple[str, RequestParam[Any]]
+RequiredParams = Sequence[ParamPair]
+R = TypeVar("R")
 
 
 class ParseResult(Record):
@@ -34,7 +36,7 @@ class ParseResult(Record):
         return self
 
 
-class EndpointDeps[R](Base):
+class EndpointDeps(Base, Generic[R]):
     route_path: str
 
     query_params: RequiredParams
@@ -130,7 +132,7 @@ class EndpointDeps[R](Base):
         return params
 
 
-def analyze_endpoint[R](
+def analyze_endpoint(
     graph: Graph, route_path: str, f: Callable[..., R | Awaitable[R]]
 ) -> "EndpointDeps[R]":
     path_keys = find_path_keys(route_path)

@@ -3,7 +3,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from contextvars import copy_context
 from functools import partial
-from typing import AsyncIterator, ContextManager
+from typing import Any, AsyncIterator, Callable, ContextManager
 
 
 @asynccontextmanager
@@ -23,3 +23,15 @@ async def sync_ctx_to_thread[T](
         raise
     finally:
         await loop.run_in_executor(workers, cm_exit, exc_type, exc, tb)
+
+
+async def sync_func_to_thread[T](
+    loop: AbstractEventLoop,
+    workers: ThreadPoolExecutor,
+    func: Callable[..., Any],
+    **kwargs,
+) -> T:
+    ctx = copy_context()
+
+    func_call = partial(ctx.run, func, **kwargs)
+    return await loop.run_in_executor(workers, func_call)

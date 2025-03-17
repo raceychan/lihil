@@ -1,8 +1,11 @@
 from types import UnionType
-from typing import Any, Sequence, Union
+from typing import Any, Sequence, Union, TypeVar
 
 
-def all_subclasses[T](
+T = TypeVar("T")
+
+
+def all_subclasses(
     cls: type[T], __seen__: set[type[Any]] | None = None
 ) -> set[type[T]]:
     """
@@ -32,4 +35,4 @@ def union_types(subs: Sequence[type[Any]]) -> type | UnionType | None:
         return None
     elif len(subs) == 1:
         return next(iter(subs))
-    return Union[*(subs)]  # type: ignore
+    return Union[subs]  # type: ignore

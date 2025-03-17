@@ -1,18 +1,18 @@
 import inspect
 from abc import ABC
-from asyncio import Task, TaskGroup, create_task, to_thread
+from asyncio import Task, create_task, to_thread
 from collections import defaultdict
-from dataclasses import dataclass
 from functools import partial
 from types import MappingProxyType, MethodType, UnionType
-from typing import Any, Union, cast, get_args, get_origin
+from typing import Annotated, Any, Union, cast, get_args, get_origin
 from weakref import ref
 
 from ididi import Graph, Resolver
 from ididi.interfaces import GraphIgnore
 
 from lihil.ds import Event
-from lihil.interface import MISSING, Protocol
+from lihil.interface import MISSING, FlatRecord
+from lihil.plugins.bus.errors import *
 from lihil.utils.visitor import all_subclasses
 
 UNION_META = (UnionType, Union)
@@ -22,27 +22,6 @@ BusMaker = Any
 Context = Any
 FrozenContext = Any
 IGNORE_TYPES = (Context, FrozenContext)
-
-
-class IGuard(Protocol):
-
-    @property
-    def next_guard(self) -> Any: ...
-
-    def chain_next(self, next_guard: Any, /) -> None:
-        """
-        self._next_guard = next_guard
-        """
-
-    async def __call__(self, command: Any, context: Any) -> Any: ...
-
-
-class IEventSink(Protocol):
-
-    async def sink(self, event: Any):
-        """
-        sink an event or a sequence of events to corresponding event sink
-        """
 
 
 class BaseGuard(ABC):
@@ -97,53 +76,6 @@ class Guard(BaseGuard):
         return response
 
 
-class AnyWiseError(Exception): ...
-
-
-class NotSupportedHandlerTypeError(AnyWiseError):
-    def __init__(self, handler: Any):
-        super().__init__(f"{handler} of type {type(handler)} is not supported")
-
-
-class HandlerRegisterFailError(AnyWiseError): ...
-
-
-class InvalidMessageTypeError(HandlerRegisterFailError):
-    def __init__(self, msg_type: Any):
-        super().__init__(f"{msg_type} is not a valid message type")
-
-
-class MessageHandlerNotFoundError(HandlerRegisterFailError):
-    def __init__(self, base_type: Any, handler: Any):
-        super().__init__(f"can't find param of type `{base_type}` in {handler}")
-
-
-class InvalidHandlerError(HandlerRegisterFailError):
-    def __init__(self, basetype: Any, msg_type: Any, handler: Any):
-        msg = f"{handler} is receiving {msg_type}, which is not a valid subclass of {basetype}"
-        super().__init__(msg)
-
-
-class UnregisteredMessageError(AnyWiseError):
-    def __init__(self, msg: Any):
-        super().__init__(f"Handler for message {msg} is not found")
-
-
-class DunglingGuardError(AnyWiseError):
-    def __init__(self, guard: Any):
-        super().__init__(f"Dangling guard {guard}, most likely a bug")
-
-
-class SinkUnsetError(AnyWiseError):
-    def __init__(self):
-        super().__init__("Sink is not set")
-
-
-Result = Any
-HandlerMapping = Any
-ListenerMapping = Any
-
-
 def gather_types(annotation: Any) -> set[Any]:
     """
     Recursively gather all types from a type annotation, handling:
@@ -191,16 +123,7 @@ async def default_publish(message: Any, context: Any, listeners: Any) -> None:
         await listener(message, context)
 
 
-async def concurrent_publish(msg: Any, context: Any, subscribers: Any) -> None:
-    if not context:
-        context = {}
-    async with TaskGroup() as tg:
-        for sub in subscribers:
-            tg.create_task(sub(msg, context))
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class FuncMeta:
+class FuncMeta(FlatRecord):
     """
     is_async: bool
     is_contexted:
@@ -214,13 +137,11 @@ class FuncMeta:
     ignore: GraphIgnore
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
 class MethodMeta(FuncMeta):
     owner_type: Any
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class GuardMeta:
+class GuardMeta(FlatRecord):
     guard_target: Any
     guard: Any
 
@@ -242,7 +163,7 @@ class ManagerBase:
         if not meta.is_async:
             # TODO: manage ThreadExecutor ourselves to allow config max worker
             # by default is min(32, cpu_cores + 4)
-            handler = partial(to_thread, cast(Any, handler))
+            handler = partial(to_thread, handler)
 
         if isinstance(meta, MethodMeta):
             instance = await resolver.resolve(meta.owner_type)
@@ -436,7 +357,7 @@ def get_funcmetas(msg_base: Any, func: Any) -> list[Any]:
             handler=func,
             is_async=is_async,
             is_contexted=is_contexted,
-            ignore=ignore,
+            ignore=ignore,  # type: ignore
         )
         for t in derived_msgtypes
     ]
@@ -687,13 +608,10 @@ class Collector:
         self._dg = graph or Graph()
         self._handler_manager = HandlerManager(self._dg)
         self._listener_manager = ListenerManager(self._dg)
-
         self._sender = sender
         self._publisher = publisher
         self._sink = sink
-
         self._tasks: set[Task[Any]] = set()
-
         self.include(*registries)
 
     def create_event_bus(self, resolver: Resolver):

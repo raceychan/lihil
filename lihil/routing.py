@@ -1,9 +1,10 @@
 from functools import partial
 from types import MethodType
-from typing import Any, Callable, Pattern, Sequence, Union, Unpack, cast
+from typing import Any, Callable, ParamSpec, Pattern, Sequence, TypeVar, Union, cast
 
 from ididi import Graph, INode, INodeConfig
 from ididi.interfaces import IDependent
+from typing_extensions import Unpack
 
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
@@ -19,6 +20,9 @@ from lihil.utils.parse import (
     handle_path,
     merge_path,
 )
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class Route:
@@ -125,7 +129,7 @@ class Route:
         scope["path_params"] = m.groupdict()
         return scope
 
-    def add_nodes[T](
+    def add_nodes(
         self, *nodes: Union[IDependent[T], tuple[IDependent[T], INodeConfig]]
     ) -> None:
         self.graph.add_nodes(*nodes)
@@ -134,7 +138,7 @@ class Route:
         # owner = method.__self__
         raise NotImplementedError
 
-    def add_endpoint[**P, R](
+    def add_endpoint(
         self,
         *methods: HTTP_METHODS,
         func: Func[P, R],
@@ -145,7 +149,6 @@ class Route:
             self.collector = Collector(self.registry)
 
         for method in methods:
-
             endpoint = Endpoint(
                 method=method,
                 path=self.path,
@@ -161,47 +164,43 @@ class Route:
             self.path_regex = build_path_regex(self.path)
         return func
 
-    def add_middleware[T: ASGIApp](
+    def add_middleware(
         self,
         middleware_factories: MiddlewareFactory[T] | Sequence[MiddlewareFactory[T]],
     ) -> None:
-        """
-        Accept one or a sequence of factories for ASGI middlewares
-        """
-
         if isinstance(middleware_factories, Sequence):
             self.middle_factories = list(middleware_factories) + self.middle_factories
         else:
             self.middle_factories.insert(0, middleware_factories)
 
-    def factory[**P, R](self, node: INode[P, R], **node_config: Unpack[INodeConfig]):
+    def factory(self, node: INode[P, R], **node_config: Unpack[INodeConfig]):
         return self.graph.node(node, **node_config)
 
-    def listen[E](self, listener: Callable[..., Any]) -> None:
+    def listen(self, listener: Callable[..., Any]) -> None:
         self.registry.register(listener)
 
-    def get[**P, R](
+    def get(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
         if func is None:
             return cast(Func[P, R], partial(self.get, **epconfig))
         return self.add_endpoint("GET", func=func, **epconfig)
 
-    def put[**P, R](
+    def put(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         if func is None:
             return cast(Func[P, R], partial(self.put, **epconfig))
         return self.add_endpoint("PUT", func=func, **epconfig)
 
-    def post[**P, R](
+    def post(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         if func is None:
             return cast(Func[P, R], partial(self.post, **epconfig))
         return self.add_endpoint("POST", func=func, **epconfig)
 
-    def delete[**P, R](
+    def delete(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         if func is None:

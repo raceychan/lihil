@@ -38,7 +38,7 @@ def build_union_decoder(
     if len(rest) == 1:
         rest_decoder = decoder_factory(rest[0])
     else:
-        new_union = Union[*(rest)]  # type: ignore
+        new_union = Union[(rest)]  # type: ignore
         rest_decoder = decoder_factory(new_union)
 
     raw_decoder = str_decoder if target_type is str else bytes_decoder
@@ -69,15 +69,21 @@ def textdecoder_factory(t: type | UnionType) -> ITextDecoder[Any] | IDecoder[Any
         return decoder_factory(t)
 
 
+from typing import TypeVar
+
+T = TypeVar("T")
+R = TypeVar("R")
+
+
 @lru_cache(256)
-def decoder_factory[T](t: type[T]) -> IDecoder[T]:
+def decoder_factory(t: type[T]) -> IDecoder[T]:
     if is_text_type(t):
         raise NotImplementedError("use textdecoder instead")
     return JsonDecoder(t).decode
 
 
 @lru_cache(256)
-def encoder_factory[R](enc_hook: Callable[[Any], R]) -> IEncoder[R]:
+def encoder_factory(enc_hook: Callable[[Any], R]) -> IEncoder[R]:
     return JsonEncoder(enc_hook=enc_hook).encode
 
 

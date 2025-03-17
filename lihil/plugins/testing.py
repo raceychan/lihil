@@ -24,7 +24,7 @@ class Timer:
         self._start = perf_counter()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type: type[Exception], exc: Exception, tb: Any):
         end = perf_counter()
         self._cost = round(end - self._start, self._precision)
         self._end = end
@@ -166,7 +166,7 @@ class LocalClient:
                 "more_body": False,
             }
 
-        async def send(message: dict[str, Any]):
+        async def send(message: dict[str, Any]) -> None:
             nonlocal response_status, response_headers
 
             if message["type"] == "http.response.start":

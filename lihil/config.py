@@ -1,11 +1,13 @@
 import argparse
-import tomllib
 from pathlib import Path
-from typing import Any, Self, Sequence
+from typing import Any, Sequence
 
+# import tomllib
+import tomli
 from msgspec import convert, field
 from msgspec.structs import fields
 from starlette.requests import Request
+from typing_extensions import ParamSpec, Self
 
 from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, FlatRecord, is_provided
@@ -20,6 +22,8 @@ from lihil.plugins.bus import EventBus
 #     timeout_keep_alive: int = 5
 #     backlog: int = 2048
 #     root_path: str = ""
+
+P = ParamSpec("P")
 
 StrDict = dict[str, Any]
 
@@ -98,7 +102,7 @@ class StoreTrueIfProvided(argparse.Action):
         # Set a flag to indicate this argument was provided
         setattr(namespace, f"{self.dest}_provided", True)
 
-    def __init__[**P](self, *args: P.args, **kwargs: P.kwargs):
+    def __init__(self, *args: P.args, **kwargs: P.kwargs):
         # Set nargs to 0 for store_true action
         kwargs["nargs"] = 0
         kwargs["default"] = MISSING
