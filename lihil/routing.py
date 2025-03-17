@@ -10,7 +10,7 @@ from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
 from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
 from lihil.interface.asgi import ASGIApp, MiddlewareFactory
 from lihil.oas.model import RouteConfig
-from lihil.plugins.bus import Collector, Event, EventListener, MessageRegistry
+from lihil.plugins.bus import Collector, Event, MessageRegistry
 
 # from lihil.plugins.bus import Collector
 from lihil.utils.parse import (
@@ -38,7 +38,7 @@ class Route:
         path: str = "",
         *,
         graph: Graph | None = None,
-        registry: MessageRegistry[None, Event] | None = None,
+        registry: MessageRegistry | None = None,
         listeners: list[Callable[..., Any]] | None = None,
         tag: str = "",
         route_config: RouteConfig | None = None,
@@ -177,7 +177,7 @@ class Route:
     def factory[**P, R](self, node: INode[P, R], **node_config: Unpack[INodeConfig]):
         return self.graph.node(node, **node_config)
 
-    def listen[E](self, listener: EventListener[E]) -> None:
+    def listen[E](self, listener: Callable[..., Any]) -> None:
         self.registry.register(listener)
 
     def get[**P, R](

@@ -5,85 +5,54 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
 from types import MappingProxyType, MethodType, UnionType
-from typing import (
-    Annotated,
-    Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Mapping,
-    MutableMapping,
-    Protocol,
-    Sequence,
-    Union,
-    Unpack,
-    cast,
-    get_args,
-    get_origin,
-    overload,
-)
+from typing import Any, Union, cast, get_args, get_origin
 from weakref import ref
 
-from ididi import Graph, INode, INodeConfig, Resolver
-from ididi.interfaces import GraphIgnore, TDecor
+from ididi import Graph, Resolver
+from ididi.interfaces import GraphIgnore
 
 from lihil.ds import Event
-from lihil.interface import MISSING, Maybe
+from lihil.interface import MISSING, Protocol
 from lihil.utils.visitor import all_subclasses
 
 UNION_META = (UnionType, Union)
 CTX_MARKER = "__anywise_context__"
 
-type Target = type | Callable[..., Any]
-type IContext = dict[Any, Any]
-type GuardFunc = Callable[[Any, IContext], Awaitable[Any]]
-type PostHandle[R] = Callable[[Any, IContext, R], Awaitable[R]]
-type IEventContext = Mapping[Any, Any]
-type CommandHandler[C] = Callable[[C, IContext], Any] | IGuard
-type EventListener[E] = Callable[[E, IEventContext], Any]
-type EventListeners[E] = Sequence[EventListener[E]]
-type SendStrategy[C] = Callable[[C, IContext | None, CommandHandler[C]], Any]
-type PublishStrategy[E] = Callable[
-    [Any, IEventContext | None, EventListeners[E]], Awaitable[None]
-]
-type LifeSpan = Callable[..., AsyncGenerator[Any, None]]
-type GuardMapping = defaultdict[type, list[GuardMeta]]
-type Context[M: MutableMapping[Any, Any]] = Annotated[M, CTX_MARKER]
-type FrozenContext[M: Mapping[Any, Any]] = Annotated[M, CTX_MARKER]
-type BusMaker = Callable[[Resolver], EventBus]
-
+BusMaker = Any
+Context = Any
+FrozenContext = Any
 IGNORE_TYPES = (Context, FrozenContext)
 
 
 class IGuard(Protocol):
 
     @property
-    def next_guard(self) -> GuardFunc | None: ...
+    def next_guard(self) -> Any: ...
 
-    def chain_next(self, next_guard: GuardFunc, /) -> None:
+    def chain_next(self, next_guard: Any, /) -> None:
         """
         self._next_guard = next_guard
         """
 
-    async def __call__(self, command: Any, context: IContext) -> Any: ...
+    async def __call__(self, command: Any, context: Any) -> Any: ...
 
 
-class IEventSink[EventType](Protocol):
+class IEventSink(Protocol):
 
-    async def sink(self, event: EventType | Sequence[EventType]):
+    async def sink(self, event: Any):
         """
         sink an event or a sequence of events to corresponding event sink
         """
 
 
 class BaseGuard(ABC):
-    _next_guard: GuardFunc | None
+    _next_guard: Any
 
-    def __init__(self, next_guard: GuardFunc | None = None):
+    def __init__(self, next_guard: Any = None):
         self._next_guard = next_guard
 
     @property
-    def next_guard(self) -> GuardFunc | None:
+    def next_guard(self) -> Any:
         return self._next_guard
 
     def __repr__(self):
@@ -93,10 +62,10 @@ class BaseGuard(ABC):
         base += ")"
         return base
 
-    def chain_next(self, next_guard: GuardFunc, /) -> None:
+    def chain_next(self, next_guard: Any, /) -> None:
         self._next_guard = next_guard
 
-    async def __call__(self, command: Any, context: IContext) -> Any:
+    async def __call__(self, command: Any, context: Any) -> Any:
         if not self._next_guard:
             raise DunglingGuardError(self)
         return await self._next_guard(command, context)
@@ -105,17 +74,17 @@ class BaseGuard(ABC):
 class Guard(BaseGuard):
     def __init__(
         self,
-        next_guard: GuardFunc | None = None,
+        next_guard: Any = None,
         /,
         *,
-        pre_handle: GuardFunc | None = None,
-        post_handle: PostHandle[Any] | None = None,
+        pre_handle: Any = None,
+        post_handle: Any = None,
     ):
         super().__init__(next_guard)
         self.pre_handle = pre_handle
         self.post_handle = post_handle
 
-    async def __call__(self, command: Any, context: IContext) -> Any:
+    async def __call__(self, command: Any, context: Any) -> Any:
         if self.pre_handle:
             await self.pre_handle(command, context)
 
@@ -140,7 +109,7 @@ class HandlerRegisterFailError(AnyWiseError): ...
 
 
 class InvalidMessageTypeError(HandlerRegisterFailError):
-    def __init__(self, msg_type: type):
+    def __init__(self, msg_type: Any):
         super().__init__(f"{msg_type} is not a valid message type")
 
 
@@ -150,7 +119,7 @@ class MessageHandlerNotFoundError(HandlerRegisterFailError):
 
 
 class InvalidHandlerError(HandlerRegisterFailError):
-    def __init__(self, basetype: type, msg_type: type, handler: Callable[..., Any]):
+    def __init__(self, basetype: Any, msg_type: Any, handler: Any):
         msg = f"{handler} is receiving {msg_type}, which is not a valid subclass of {basetype}"
         super().__init__(msg)
 
@@ -161,7 +130,7 @@ class UnregisteredMessageError(AnyWiseError):
 
 
 class DunglingGuardError(AnyWiseError):
-    def __init__(self, guard: IGuard):
+    def __init__(self, guard: Any):
         super().__init__(f"Dangling guard {guard}, most likely a bug")
 
 
@@ -170,19 +139,19 @@ class SinkUnsetError(AnyWiseError):
         super().__init__("Sink is not set")
 
 
-type Result[R, E] = Annotated[R, E]
-type HandlerMapping[Command] = dict[type[Command], "FuncMeta[Command]"]
-type ListenerMapping[Event] = dict[type[Event], list[FuncMeta[Event]]]
+Result = Any
+HandlerMapping = Any
+ListenerMapping = Any
 
 
-def gather_types(annotation: Any) -> set[type]:
+def gather_types(annotation: Any) -> set[Any]:
     """
     Recursively gather all types from a type annotation, handling:
     - Union types (|)
     - Annotated types
     - Direct types
     """
-    types: set[type] = set()
+    types: set[Any] = set()
 
     # Handle None case
     if annotation is inspect.Signature.empty:
@@ -208,20 +177,13 @@ def gather_types(annotation: Any) -> set[type]:
     return types
 
 
-async def default_send[C](
-    message: C, context: IContext | None, handler: CommandHandler[C]
-) -> Any:
+async def default_send(message: Any, context: Any, handler: Any) -> Any:
     if context is None:
         context = dict()
     return await handler(message, context)
 
 
-# TODO: dependency injection, maybe sink here?
-async def default_publish[E](
-    message: E,
-    context: IEventContext | None,
-    listeners: EventListeners[E],
-) -> None:
+async def default_publish(message: Any, context: Any, listeners: Any) -> None:
     if context is None:
         context = MappingProxyType({})
 
@@ -229,9 +191,7 @@ async def default_publish[E](
         await listener(message, context)
 
 
-async def concurrent_publish[E](
-    msg: E, context: IEventContext | None, subscribers: EventListeners[E]
-) -> None:
+async def concurrent_publish(msg: Any, context: Any, subscribers: Any) -> None:
     if not context:
         context = {}
     async with TaskGroup() as tg:
@@ -240,32 +200,32 @@ async def concurrent_publish[E](
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class FuncMeta[Message]:
+class FuncMeta:
     """
     is_async: bool
     is_contexted:
     whether the handler receives a context param
     """
 
-    message_type: type[Message]
-    handler: Callable[..., Any]
+    message_type: Any
+    handler: Any
     is_async: bool
     is_contexted: bool
     ignore: GraphIgnore
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class MethodMeta[Message](FuncMeta[Message]):
-    owner_type: type
+class MethodMeta(FuncMeta):
+    owner_type: Any
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class GuardMeta:
-    guard_target: type
-    guard: IGuard | type[IGuard]
+    guard_target: Any
+    guard: Any
 
 
-def context_wrapper(origin: Callable[[Any], Any]):
+def context_wrapper(origin: Any):
     async def inner(message: Any, _: Any):
         return await origin(message)
 
@@ -276,7 +236,7 @@ class ManagerBase:
     def __init__(self, dg: Graph):
         self._dg = dg
 
-    async def _resolve_meta(self, meta: "FuncMeta[Any]", *, resolver: Resolver):
+    async def _resolve_meta(self, meta: Any, *, resolver: Resolver):
         handler = meta.handler
 
         if not meta.is_async:
@@ -299,37 +259,33 @@ class ManagerBase:
 class HandlerManager(ManagerBase):
     def __init__(self, dg: Graph):
         super().__init__(dg)
-        self._handler_metas: dict[type, FuncMeta[Any]] = {}
-        self._guard_mapping: GuardMapping = defaultdict(list)
-        self._global_guards: list[GuardMeta] = []
+        self._handler_metas: dict[Any, Any] = {}
+        self._guard_mapping: Any = defaultdict(list)
+        self._global_guards: list[Any] = []
 
     @property
     def global_guards(self):
         return self._global_guards[:]
 
-    def include_handlers(self, command_mapping: HandlerMapping[Any]):
+    def include_handlers(self, command_mapping: Any):
         handler_mapping = {msg_type: meta for msg_type, meta in command_mapping.items()}
         self._handler_metas.update(handler_mapping)
 
-    def include_guards(self, guard_mapping: GuardMapping):
+    def include_guards(self, guard_mapping: Any):
         for origin_target, guard_meta in guard_mapping.items():
             if origin_target is Any or origin_target is object:
                 self._global_guards.extend(guard_meta)
             else:
                 self._guard_mapping[origin_target].extend(guard_meta)
 
-    async def _chain_guards[C](
-        self,
-        msg_type: type[C],
-        handler: Callable[..., Any],
-        *,
-        resolver: Resolver,
-    ) -> CommandHandler[C]:
+    async def _chain_guards(
+        self, msg_type: Any, handler: Any, *, resolver: Resolver
+    ) -> Any:
         command_guards = self._global_guards + self._guard_mapping[msg_type]
         if not command_guards:
             return handler
 
-        guards: list[IGuard] = [
+        guards: list[Any] = [
             (
                 await resolver.aresolve(meta.guard)
                 if isinstance(meta.guard, type)
@@ -348,7 +304,7 @@ class HandlerManager(ManagerBase):
         ptr.chain_next(handler)
         return head
 
-    def get_handler[C](self, msg_type: type[C]) -> CommandHandler[C] | None:
+    def get_handler(self, msg_type: Any) -> Any:
         try:
             meta = self._handler_metas[msg_type]
         except KeyError:
@@ -356,10 +312,10 @@ class HandlerManager(ManagerBase):
         else:
             return meta.handler
 
-    def get_guards(self, msg_type: type) -> list[IGuard | type[IGuard]]:
+    def get_guards(self, msg_type: Any) -> list[Any]:
         return [meta.guard for meta in self._guard_mapping[msg_type]]
 
-    async def resolve_handler[C](self, msg_type: type[C], resovler: Resolver):
+    async def resolve_handler(self, msg_type: Any, resovler: Resolver):
         try:
             meta = self._handler_metas[msg_type]
         except KeyError:
@@ -375,9 +331,9 @@ class HandlerManager(ManagerBase):
 class ListenerManager(ManagerBase):
     def __init__(self, dg: Graph):
         super().__init__(dg)
-        self._listener_metas: dict[type, list[FuncMeta[Any]]] = dict()
+        self._listener_metas: dict[Any, list[Any]] = dict()
 
-    def include_listeners(self, event_mapping: ListenerMapping[Any]):
+    def include_listeners(self, event_mapping: Any):
         listener_mapping = {
             msg_type: [meta for meta in metas]
             for msg_type, metas in event_mapping.items()
@@ -389,7 +345,7 @@ class ListenerManager(ManagerBase):
             else:
                 self._listener_metas[msg_type].extend(metas)
 
-    def get_listeners[E](self, msg_type: type[E]) -> EventListeners[E]:
+    def get_listeners(self, msg_type: Any) -> Any:
         try:
             listener_metas = self._listener_metas[msg_type]
         except KeyError:
@@ -401,9 +357,7 @@ class ListenerManager(ManagerBase):
     #    idx = self._listener_metas[msg_type].index(old)
     #    self._listener_metas[msg_type][idx] = FuncMeta.from_handler(msg_type, new)
 
-    async def resolve_listeners[E](
-        self, msg_type: type[E], *, resolver: Resolver
-    ) -> EventListeners[E]:
+    async def resolve_listeners(self, msg_type: Any, *, resolver: Resolver) -> Any:
         try:
             listener_metas = self._listener_metas[msg_type]
         except KeyError:
@@ -427,15 +381,15 @@ class Inspect:
         self._hm = ref(handler_manager)
         self._lm = ref(listener_manager)
 
-    def listeners[E](self, key: type[E]) -> EventListeners[E] | None:
+    def listeners(self, key: Any) -> Any:
         if (lm := self._lm()) and (listeners := lm.get_listeners(key)):
             return listeners
 
-    def handler[C](self, key: type[C]) -> CommandHandler[C] | None:
+    def handler(self, key: Any) -> Any:
         if (hm := self._hm()) and (handler := hm.get_handler(key)):
             return handler
 
-    def guards(self, key: type) -> Sequence[IGuard | type[IGuard]]:
+    def guards(self, key: Any) -> Any:
         hm = self._hm()
 
         if hm is None:
@@ -460,7 +414,7 @@ def is_contextparam(param: list[inspect.Parameter]) -> bool:
     return CTX_MARKER in metas
 
 
-def get_funcmetas[C](msg_base: type[C], func: Callable[..., Any]) -> list[FuncMeta[C]]:
+def get_funcmetas(msg_base: Any, func: Any) -> list[Any]:
     params = inspect.Signature.from_callable(func).parameters.values()
     if not params:
         raise MessageHandlerNotFoundError(msg_base, func)
@@ -477,7 +431,7 @@ def get_funcmetas[C](msg_base: type[C], func: Callable[..., Any]) -> list[FuncMe
     ignore = tuple(derived_msgtypes) + IGNORE_TYPES
 
     metas = [
-        FuncMeta[C](
+        FuncMeta(
             message_type=t,
             handler=func,
             is_async=is_async,
@@ -489,9 +443,9 @@ def get_funcmetas[C](msg_base: type[C], func: Callable[..., Any]) -> list[FuncMe
     return metas
 
 
-def get_methodmetas(msg_base: type, cls: type) -> list[MethodMeta[Any]]:
+def get_methodmetas(msg_base: type, cls: type) -> list[MethodMeta]:
     cls_members = inspect.getmembers(cls, predicate=inspect.isfunction)
-    method_metas: list[MethodMeta[Any]] = []
+    method_metas: list[MethodMeta] = []
     for name, func in cls_members:
         if name.startswith("_"):
             continue
@@ -510,7 +464,7 @@ def get_methodmetas(msg_base: type, cls: type) -> list[MethodMeta[Any]]:
         ignore = tuple(derived_msgtypes) + IGNORE_TYPES
 
         metas = [
-            MethodMeta[Any](
+            MethodMeta(
                 message_type=t,
                 handler=func,
                 is_async=is_async,
@@ -529,84 +483,48 @@ def get_methodmetas(msg_base: type, cls: type) -> list[MethodMeta[Any]]:
 
 
 # TODO: separate EventRegistry and CommandRegistry
-class MessageRegistry[C, E]:
-    @overload
+class MessageRegistry:
     def __init__(
         self,
         *,
-        command_base: type[C],
-        event_base: type[E] = type(MISSING),
-        graph: Maybe[Graph] = MISSING,
-    ) -> None: ...
-
-    @overload
-    def __init__(
-        self,
-        *,
-        event_base: type[E],
-        command_base: type[C] = type(MISSING),
-        graph: Maybe[Graph] = MISSING,
-    ) -> None: ...
-
-    def __init__(
-        self,
-        *,
-        command_base: Maybe[type[C]] = MISSING,
-        event_base: Maybe[type[E]] = MISSING,
-        graph: Maybe[Graph] = MISSING,
+        command_base: Any = MISSING,
+        event_base: Any = MISSING,
+        graph: Any = MISSING,
     ):
         self._command_base = command_base
         self._event_base = event_base
         self._graph = graph or Graph()
 
-        self.command_mapping: HandlerMapping[Any] = {}
-        self.event_mapping: ListenerMapping[Any] = {}
-        self.guard_mapping: GuardMapping = defaultdict(list)
+        self.command_mapping: Any = {}
+        self.event_mapping: Any = {}
+        self.guard_mapping: Any = defaultdict(list)
 
     @property
     def graph(self) -> Graph:
         return self._graph
 
     @property
-    def command_base(self) -> Maybe[type[C]]:
+    def command_base(self) -> Any:
         return self._command_base
 
     @property
-    def event_base(self) -> Maybe[type[E]]:
+    def event_base(self) -> Any:
         return self._event_base
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(command_base={self._command_base}, event_base={self._event_base})"
 
-    @overload
-    def __call__[T](self, handler: type[T]) -> type[T]: ...
-
-    @overload
-    def __call__[**P, R](self, handler: Callable[P, R]) -> Callable[P, R]: ...
-
-    def __call__[**P, R](
-        self, handler: type[R] | Callable[P, R]
-    ) -> type[R] | Callable[P, R]:
+    def __call__(self, handler: Any) -> Any:
         return self._register(handler)
 
-    @overload
-    def factory(self, **config: Unpack[INodeConfig]) -> TDecor: ...
-
-    @overload
-    def factory[**P, R](
-        self, factory: INode[P, R], **config: Unpack[INodeConfig]
-    ) -> INode[P, R]: ...
-
-    def factory[**P, R](
-        self, factory: INode[P, R] | None = None, **config: Unpack[INodeConfig]
-    ) -> INode[P, R]:
+    def factory(self, factory: Any = None, **config: Any) -> Any:
         if factory is None:
-            return cast(INode[P, R], partial(self.factory, **config))
+            return cast(Any, partial(self.factory, **config))
 
         self._graph.node(**config)(factory)
         return factory
 
-    def _register_commandhanlders(self, handler: Target) -> None:
+    def _register_commandhanlders(self, handler: Any) -> None:
         if not self._command_base:
             return
 
@@ -620,7 +538,7 @@ class MessageRegistry[C, E]:
         mapping = {meta.message_type: meta for meta in metas}
         self.command_mapping.update(mapping)
 
-    def _register_eventlisteners(self, listener: Target) -> None:
+    def _register_eventlisteners(self, listener: Any) -> None:
         if not self._event_base:
             return
 
@@ -638,13 +556,7 @@ class MessageRegistry[C, E]:
             else:
                 self.event_mapping[msg_type].append(meta)
 
-    @overload
-    def _register[T](self, handler: type[T]) -> type[T]: ...
-
-    @overload
-    def _register[**P, R](self, handler: Callable[P, R]) -> Callable[P, R]: ...
-
-    def _register(self, handler: Target):
+    def _register(self, handler: Any):
         try:
             self._register_commandhanlders(handler)
         except HandlerRegisterFailError:
@@ -656,9 +568,9 @@ class MessageRegistry[C, E]:
 
     def register(
         self,
-        *handlers: Callable[..., Any] | type[BaseGuard],
-        pre_hanldes: list[GuardFunc] | None = None,
-        post_handles: list[PostHandle[Any]] | None = None,
+        *handlers: Any,
+        pre_hanldes: Any = None,
+        post_handles: Any = None,
     ) -> None:
 
         for handler in handlers:
@@ -676,7 +588,7 @@ class MessageRegistry[C, E]:
             for post_handle in post_handles:
                 self.post_handle(post_handle)
 
-    def get_guardtarget(self, func: Callable[..., Any]) -> set[type]:
+    def get_guardtarget(self, func: Any) -> set[Any]:
 
         if inspect.isclass(func):
             func_params = list(inspect.signature(func.__call__).parameters.values())[1:]
@@ -692,21 +604,21 @@ class MessageRegistry[C, E]:
 
         return gather_types(cmd_type)
 
-    def pre_handle(self, func: GuardFunc) -> GuardFunc:
+    def pre_handle(self, func: Any) -> Any:
         targets = self.get_guardtarget(func)
         for target in targets:
             meta = GuardMeta(guard_target=target, guard=Guard(pre_handle=func))
             self.guard_mapping[target].append(meta)
         return func
 
-    def post_handle[R](self, func: PostHandle[R]) -> PostHandle[R]:
+    def post_handle(self, func: Any) -> Any:
         targets = self.get_guardtarget(func)
         for target in targets:
             meta = GuardMeta(guard_target=target, guard=Guard(post_handle=func))
             self.guard_mapping[target].append(meta)
         return func
 
-    def add_guards(self, *guards: IGuard | type[IGuard]) -> None:
+    def add_guards(self, *guards: Any) -> None:
         for guard in guards:
             targets = self.get_guardtarget(guard)
             for target in targets:
@@ -718,7 +630,7 @@ class EventBus:
     def __init__(
         self,
         listener: ListenerManager,
-        strategy: PublishStrategy[Event],
+        strategy: Any,
         resolver: Resolver,
         tasks: set[Task[Any]],
     ):
@@ -731,7 +643,7 @@ class EventBus:
         self,
         event: Event,
         *,
-        context: IEventContext | None = None,
+        context: Any = None,
     ) -> None:
         # share same scope as request
         resolved_listeners = await self.listeners.resolve_listeners(
@@ -742,10 +654,10 @@ class EventBus:
     def emit(
         self,
         event: Event,
-        context: dict[str, Any] | None = None,
-        callback: Callable[[Task[Any]], Any] | None = None,
+        context: Any = None,
+        callback: Any = None,
     ) -> None:
-        async def event_task(event: Event, context: dict[str, Any]):
+        async def event_task(event: Event, context: Any):
             async with self.resolver.ascope() as asc:
                 listener = await self.listeners.resolve_listeners(
                     type(event), resolver=asc
@@ -766,11 +678,11 @@ class EventBus:
 class Collector:
     def __init__(
         self,
-        *registries: MessageRegistry[Any, Any],
-        graph: Graph | None = None,
-        sink: IEventSink[Event] | None = None,
-        sender: SendStrategy[Any] = default_send,
-        publisher: PublishStrategy[Event] = default_publish,
+        *registries: Any,
+        graph: Any = None,
+        sink: Any = None,
+        sender: Any = default_send,
+        publisher: Any = default_publish,
     ):
         self._dg = graph or Graph()
         self._handler_manager = HandlerManager(self._dg)
@@ -788,11 +700,11 @@ class Collector:
         return EventBus(self._listener_manager, self._publisher, resolver, self._tasks)
 
     @property
-    def sender(self) -> SendStrategy[Any]:
+    def sender(self) -> Any:
         return self._sender
 
     @property
-    def publisher(self) -> PublishStrategy[Event]:
+    def publisher(self) -> Any:
         return self._publisher
 
     @property
@@ -809,7 +721,7 @@ class Collector:
             listener_manager=self._listener_manager,
         )
 
-    def include(self, *registries: MessageRegistry[Any, Any]) -> None:
+    def include(self, *registries: Any) -> None:
         for msg_registry in registries:
             self._dg.merge(msg_registry.graph)
             self._handler_manager.include_handlers(msg_registry.command_mapping)
@@ -817,7 +729,7 @@ class Collector:
             self._listener_manager.include_listeners(msg_registry.event_mapping)
         self._dg.analyze_nodes()
 
-    def scope(self, name: str | None = None):
+    def scope(self, name: Any = None):
         return self._dg.scope(name)
 
     async def send(
@@ -825,7 +737,7 @@ class Collector:
         msg: object,
         *,
         resolver: Resolver,
-        context: IContext | None = None,
+        context: Any = None,
     ) -> Any:
 
         handler = await self._handler_manager.resolve_handler(type(msg), resolver)
@@ -833,6 +745,6 @@ class Collector:
 
     async def sink(self, event: Any):
         try:
-            await self._sink.sink(event)  # type: ignore
+            await self._sink.sink(event)
         except AttributeError:
             raise SinkUnsetError()

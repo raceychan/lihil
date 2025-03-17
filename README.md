@@ -337,10 +337,10 @@ extra/unkown keys will be forbidden to help prevent misconfiging
 
 Note: currently only toml file is supported
 
-#### build `lihil.config.AppConfig` instance menually,
+#### build `lihil.config.AppConfig` instance menually
 
 ```python
-lhl = Lihil(config_file=AppConfig(version="0.1.1"))
+lhl = Lihil(app_config=AppConfig(version="0.1.1"))
 ```
 
 this is particularly useful if you want to inherit from AppConfig and extend it.
