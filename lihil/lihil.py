@@ -5,6 +5,7 @@ from inspect import isasyncgenfunction
 from pathlib import Path
 from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast
 
+import uvicorn
 from ididi import Graph
 
 from lihil.config import AppConfig
@@ -271,3 +272,29 @@ class Lihil[T: AppState]:
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         return self.root.delete(func, **epconfig)
+
+    def run(self, file_path: str):
+        """
+        app = Lihil()
+        app.run(__file__)
+        """
+        import inspect
+        from pathlib import Path
+
+        crf = inspect.currentframe()
+        assert crf
+        caller_frame = crf.f_back
+        assert caller_frame
+        code_ctx = inspect.getframeinfo(caller_frame).code_context
+        assert code_ctx
+
+        caller_source = code_ctx[0].strip()
+        instance_name, *_ = caller_source.split(".")
+
+        modname = Path(file_path).stem
+        app_str = f"{modname}:{instance_name}"
+
+        server_config = self.app_config.server
+        set_values = {k: v for k, v in server_config.asdict().items() if v is not None}
+
+        uvicorn.run(app_str, **set_values)

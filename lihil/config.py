@@ -1,11 +1,11 @@
 import argparse
 import tomllib
 from pathlib import Path
-from types import GenericAlias
-from typing import Any, Self, Sequence, cast
+from types import GenericAlias, UnionType
+from typing import Any, Self, Sequence, Union, cast, get_args, get_origin
 
 from msgspec import convert, field
-from msgspec.structs import fields
+from msgspec.structs import FieldInfo, fields
 from starlette.requests import Request
 
 from lihil.errors import AppConfiguringError
@@ -96,11 +96,35 @@ class OASConfig(ConfigBase):
     version: str = "3.1.0"
 
 
+class ServerConfig(ConfigBase):
+    host: str | None = None
+    port: int | None = None
+    workers: int | None = None
+    reload: bool | None = None
+    root_path: str | None = None
+
+
+def parse_filed_type(field: FieldInfo):
+    "Todo: parse Maybe[int] = MISSING"
+
+    ftype = field.type
+    origin = get_origin(ftype)
+
+    if origin is UnionType or origin is Union:
+        for targ in get_args(ftype):
+            if targ is None:
+                continue
+            return targ
+
+    return field.type
+
+
 class AppConfig(ConfigBase):
     is_prod: bool = False
     version: str = "0.1.0"
     max_thread_workers: int = field(default_factory=get_thread_cnt)
     oas: OASConfig = OASConfig()
+    server: ServerConfig = ServerConfig()
 
     @classmethod
     def build_parser(cls) -> argparse.ArgumentParser:
@@ -126,9 +150,10 @@ class AppConfig(ConfigBase):
                             help=f"Set {field_name} (default: {field_info.default})",
                         )
                     else:
+                        # TODO: parse_field_type
                         parser.add_argument(
                             arg_name,
-                            type=nested_field.type,
+                            type=parse_filed_type(nested_field),
                             default=MISSING,
                             help=f"Set {nested_name} (default: {nested_field.default})",
                         )

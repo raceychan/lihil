@@ -108,8 +108,5 @@ async def roses_are_red():
     raise VioletsAreBlue("I am a pythonista")
 
 
-from lihil import HTTPException, Lihil, Route, Stream, Text
-
-
-# if __name__ == "__main__":
-#     run(lhl)
+if __name__ == "__main__":
+    lhl.run(__file__)

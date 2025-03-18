@@ -6,6 +6,8 @@ from typing import (
     Self,
     TypeGuard,
     dataclass_transform,
+    get_args,
+    get_origin,
 )
 
 from msgspec import Struct as Struct
@@ -33,6 +35,13 @@ type ParamLocation = Literal["path", "query", "header", "body"]
 type Func[**P, R] = Callable[P, R]
 
 type Maybe[T] = T | "_Missed"
+
+
+def get_maybe_origin[T](m: Maybe[T]) -> T | None:
+    if m_origin := get_origin(m):
+        if m_origin is Maybe:
+            return get_args(m)[0]
+    return None
 
 
 def is_provided[T](t: Maybe[T]) -> TypeGuard[T]:
