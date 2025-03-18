@@ -805,6 +805,54 @@ async def test_root_delete():
 #     # Create a new route with path "/"
 #     new_root = Route("/")
 
+
 #     # This should raise DuplicatedRouteError
 #     with pytest.raises(DuplicatedRouteError):
 #         app.include_routes(new_root)
+async def test_a_problem_endpoint():
+    "create a route and an endpoin that would raise HttpException Use LocalClient to test it"
+    ...
+
+    from starlette.requests import Request
+
+    from lihil import Lihil
+    from lihil.constant import status
+    from lihil.plugins.testclient import LocalClient
+    from lihil.problems import HTTPException, problem_solver
+
+    app = Lihil()
+
+    class CustomError(HTTPException[str]):
+        __status__ = status.code(status.NOT_FOUND)
+        __problem_type__ = "custom-error"
+        __problem_title__ = "Custom Error Occurred"
+
+    async def error_endpoint():
+        raise CustomError("This is a custom error message")
+
+    app.sub("/error").get(error_endpoint)
+
+    def custom_error_handler(request: Request, exc: CustomError):
+        from lihil.problems import ErrorResponse
+
+        detail = exc.__problem_detail__(request.url.path)
+        return ErrorResponse(detail, status_code=detail.status)
+
+    problem_solver(custom_error_handler)
+
+    client = LocalClient()
+    await initialize_app_lifespan(app)
+
+    # Test the error endpoint
+    response = await client.request(app, method="GET", path="/error")
+
+    # Verify response status code
+    assert response.status_code == 404
+
+    # Verify response content
+    data = await response.json()
+    assert data["type_"] == "custom-error"
+    assert data["title"] == "Custom Error Occurred"
+    assert data["detail"] == "This is a custom error message"
+    assert data["instance"] == "/error"
+    assert data["status"] == 404

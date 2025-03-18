@@ -356,7 +356,6 @@ def test_analyze_request_params():
 # ... existing code ...
 
 
-@pytest.mark.debug
 def test_analyze_markedparam_with_custom_decoder():
     graph = Graph()
     seen = set()

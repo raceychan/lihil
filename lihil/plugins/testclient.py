@@ -24,7 +24,7 @@ class Timer:
         self._start = perf_counter()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type: type[Exception], exc: Exception, tb: Any):
         end = perf_counter()
         self._cost = round(end - self._start, self._precision)
         self._end = end
@@ -79,13 +79,6 @@ class LocalClient:
         client_type: Literal["http"] = "http",
         headers: dict[str, str] | None = None,
     ):
-        """
-        Initialize a test client for an ASGI application.
-
-        Args:
-            app: The ASGI application to test
-            client_type: The type of client (currently only "http" is supported)
-        """
         self.client_type = client_type
         self.base_headers: dict[str, str] = {
             "user-agent": "lihil-test-client",
@@ -103,19 +96,6 @@ class LocalClient:
         headers: Optional[dict[str, str]] = None,
         body: Optional[Union[bytes, str, dict[str, Any], Payload]] = None,
     ) -> RequestResult:
-        """
-        Make a request to the ASGI application.
-
-        Args:
-            method: HTTP method (GET, POST, etc.)
-            path: URL path
-            query: Query parameters
-            headers: HTTP headers
-            body: Request body
-
-        Returns:
-            RequestResult object containing the response
-        """
         # Prepare query string
         query_string = b""
         if query_params:
@@ -219,20 +199,6 @@ class LocalClient:
         body: Any = None,
         headers: dict[str, str] | None = None,
     ) -> RequestResult:
-        """
-        Call a route with the specified method and parameters.
-
-        Args:
-            route: The Route object to call
-            method: HTTP method to use (GET, POST, etc.)
-            path_params: Path parameters to use in the URL
-            query_params: Query parameters to add to the URL
-            body: Request body
-            headers: Additional headers for the request
-
-        Returns:
-            RequestResult object containing the response
-        """
         # Ensure the route has the endpoint for the requested method
         if method not in route.endpoints:
             raise ValueError(f"Route does not support {method} method")
@@ -257,40 +223,46 @@ class LocalClient:
         )
         return resp
 
-    # async def get(
-    #     self,
-    #     path: str,
-    #     query: Optional[dict[str, Any]] = None,
-    #     headers: Optional[dict[str, str]] = None,
-    # ) -> RequestResult:
-    #     """Make a GET request."""
-    #     return await self.request("GET", path, query, headers)
+    async def call_app(
+        self,
+        app: ASGIApp,
+        method: str,
+        path: str,
+        path_params: dict[str, Any] | None = None,
+        query_params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+        body: Optional[Union[bytes, str, dict[str, Any], Payload]] = None,
+    ) -> RequestResult:
+        await self._initialize_app_lifespan(app)
+        return await self.request(
+            app=app,
+            method=method,
+            path=path,
+            path_params=path_params,
+            query_params=query_params,
+            headers=headers,
+            body=body,
+        )
 
-    # async def post(
-    #     self,
-    #     path: str,
-    #     body: Any = None,
-    #     query: Optional[dict[str, Any]] = None,
-    #     headers: Optional[dict[str, str]] = None,
-    # ) -> RequestResult:
-    #     """Make a POST request."""
-    #     return await self.request("POST", path, query, headers, body)
+    async def _initialize_app_lifespan(self, app: ASGIApp) -> None:
+        """
+        Helper function to initialize a Lihil app by sending lifespan events.
+        This ensures the app's call_stack is properly set up before testing routes.
+        """
+        scope = {"type": "lifespan"}
+        receive_messages = [{"type": "lifespan.startup"}]
+        receive_index = 0
 
-    # async def put(
-    #     self,
-    #     path: str,
-    #     body: Any = None,
-    #     query: Optional[dict[str, Any]] = None,
-    #     headers: Optional[dict[str, str]] = None,
-    # ) -> RequestResult:
-    #     """Make a PUT request."""
-    #     return await self.request("PUT", path, query, headers, body)
+        async def receive():
+            nonlocal receive_index
+            if receive_index < len(receive_messages):
+                message = receive_messages[receive_index]
+                receive_index += 1
+                return message
+            return {"type": "lifespan.shutdown"}
 
-    # async def delete(
-    #     self,
-    #     path: str,
-    #     query: Optional[dict[str, Any]] = None,
-    #     headers: Optional[dict[str, str]] = None,
-    # ) -> RequestResult:
-    #     """Make a DELETE request."""
-    #     return await self.request("DELETE", path, query, headers)
+        sent_messages: list[dict[str, str]] = []
+
+        async def send(message: dict[str, str]) -> None:
+            sent_messages.append(message)
+        await app(scope, receive, send)
