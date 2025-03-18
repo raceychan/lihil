@@ -25,10 +25,12 @@ def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
     if lifespan is None:
         return None
 
-    if (wrapped := getattr(lifespan, "__wrapped__")) and isasyncgenfunction(wrapped):
-        return lifespan
-    elif isasyncgenfunction(lifespan):
+    if isasyncgenfunction(lifespan):
         return asynccontextmanager(lifespan)
+    elif (wrapped := getattr(lifespan, "__wrapped__", None)) and isasyncgenfunction(
+        wrapped
+    ):
+        return lifespan
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
@@ -141,15 +143,14 @@ class Lihil[T: AppState]:
         seen = __seen__ or set()
         for route in routes:
             if route.path in seen:
-                continue
+                raise DuplicatedRouteError(route, route)
 
             self.sync_deps(route)
 
             if route.path == "/":
                 if self.root.endpoints:
                     raise DuplicatedRouteError(route, self.root)
-                self.root = route
-                self.routes[0] = route
+                self.routes[0] = self.root = route
             else:
                 if route.is_direct_child_of(self.root):
                     self.root.subroutes.append(route)
@@ -177,7 +178,10 @@ class Lihil[T: AppState]:
         if isinstance(static_content, bytes):
             encoded = static_content
         else:
-            encoded = encode_json(static_content)
+            if isinstance(static_content, str) and content_type == "text/plain":
+                encoded = static_content.encode(charset)
+            else:
+                encoded = encode_json(static_content)
 
         content_resp = uvicorn_static_resp(encoded, content_type, charset)
         self._static_cache[path] = content_resp

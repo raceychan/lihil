@@ -7,7 +7,7 @@ import pytest
 
 from lihil.config import AppConfig, OASConfig
 from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
-from lihil.lihil import AppState, Lihil, lifespan_wrapper
+from lihil.lihil import AppState, Lihil, lifespan_wrapper, read_config
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
 
@@ -88,7 +88,7 @@ async def test_lifespan_wrapper_with_invalid():
 async def test_read_config_with_app_config():
     # Test read_config with app_config
     app_config = AppConfig(max_thread_workers=8)
-    result = lihil.read_config(None, app_config)
+    result = read_config(None, app_config)
     assert result is app_config
 
 
@@ -96,7 +96,7 @@ async def test_read_config_with_both():
     # Test read_config with both config_file and app_config
     app_config = AppConfig()
     with pytest.raises(AppConfiguringError):
-        lihil.read_config("config.json", app_config)
+        read_config("config.json", app_config)
 
 
 async def test_lihil_basic_routing():
@@ -244,7 +244,8 @@ async def test_lihil_static_route():
     # Test static route
     static_response = await client.request(app, "GET", "/static")
     assert await static_response.text() == "Static content"
-    assert static_response.headers.get("content-type") == "text/plain; charset=utf-8"
+    content_type = static_response.headers[b"content-type"]
+    assert content_type == b"text/plain; charset=utf-8"
 
 
 async def test_lihil_static_route_with_callable():
@@ -264,7 +265,9 @@ async def test_lihil_static_route_with_callable():
 
     # Test static route
     response = await client.request(app, "GET", "/generated")
-    assert await response.text() == "Generated content"
+
+    text = await response.text()
+    assert text == "Generated content"
 
 
 async def test_lihil_static_route_with_json():
@@ -283,7 +286,7 @@ async def test_lihil_static_route_with_json():
     # Test static route
     response = await client.request(app, "GET", "/json")
     assert (await response.json())["message"] == "JSON data"
-    assert "application/json" in response.headers.get("content-type", "")
+    assert b"application/json" in response.headers.get(b"content-type", "")
 
 
 async def test_lihil_static_route_with_invalid_path():
@@ -493,7 +496,7 @@ async def test_lihil_lifespan_shutdown_error():
         receive_index += 1
         return message
 
-    send_messages = []
+    send_messages: list[dict[str, str]] = []
 
     async def send(message):
         send_messages.append(message)
@@ -504,3 +507,304 @@ async def test_lihil_lifespan_shutdown_error():
 
     # Check that shutdown failed
     assert any(msg["type"] == "lifespan.shutdown.failed" for msg in send_messages)
+
+
+async def test_static_with_callable():
+    """Test line 78: static method with callable content"""
+    app = Lihil()
+
+    def get_content():
+        return "hello world"
+
+    app.static("/test-callable", get_content)
+    assert "/test-callable" in app.static_cache
+    header, body = app.static_cache["/test-callable"]
+    assert body["body"] == b"hello world"
+
+
+async def test_static_with_json_content():
+    """Test line 90: static method with JSON content"""
+    app = Lihil()
+    data = {"message": "hello world"}
+
+    app.static("/test-json", data, content_type="application/json")
+    assert "/test-json" in app.static_cache
+    header, body = app.static_cache["/test-json"]
+    assert json.loads(body["body"].decode()) == data
+    assert header["headers"][1][1].startswith(b"application/json")
+
+
+async def test_init_app_with_routes():
+    # Create separate routes
+    users_route = Route("/users")
+
+    async def get_users():
+        return {"message": "Users route"}
+
+    users_route.get(get_users)
+
+    posts_route = Route("/posts")
+
+    async def get_posts():
+        return {"message": "Posts route"}
+
+    posts_route.get(get_posts)
+
+    # Initialize app with routes
+    app = Lihil(routes=[users_route, posts_route])
+
+    # Initialize app lifespan
+    await initialize_app_lifespan(app)
+
+    # Test with client
+    client = LocalClient()
+
+    # Test users route
+    users_response = await client.request(app, "GET", "/users")
+    assert (await users_response.json())["message"] == "Users route"
+
+    # Test posts route
+    posts_response = await client.request(app, "GET", "/posts")
+    assert (await posts_response.json())["message"] == "Posts route"
+
+    # Verify routes are in app.routes
+    assert len(app.routes) >= 3  # root + users + posts (plus any doc routes)
+    assert any(route.path == "/users" for route in app.routes)
+    assert any(route.path == "/posts" for route in app.routes)
+
+
+async def test_include_same_route():
+    app = Lihil()
+
+    # Create a route
+    users_route = Route("/users")
+
+    async def get_users():
+        return {"message": "Users route"}
+
+    users_route.get(get_users)
+
+    with pytest.raises(DuplicatedRouteError):
+        app.include_routes(users_route, users_route)
+
+
+async def test_include_root_route_fail():
+    app = Lihil()
+
+    # Create a root route
+    root_route = Route("/")
+
+    async def root_handler():
+        return {"message": "Root route"}
+
+    root_route.get(root_handler)
+
+    # Include the root route
+    with pytest.raises(DuplicatedRouteError):
+        app.include_routes(root_route)
+
+    # Initialize app lifespan
+    await initialize_app_lifespan(app)
+
+    # Test with client
+    client = LocalClient()
+
+    # Test root route
+    response = await client.request(app, "GET", "/")
+    assert (await response.json())["message"] == "Root route"
+
+
+async def test_include_root_route_ok():
+    app = Lihil()
+
+    # Create a root route
+    root_route = Route("/")
+
+    # Include the root route
+    app.include_routes(root_route)
+
+    async def root_handler():
+        return {"message": "Root route"}
+
+    root_route.get(root_handler)
+
+    # Initialize app lifespan
+    await initialize_app_lifespan(app)
+
+    # Test with client
+    client = LocalClient()
+
+    # Test root route
+    response = await client.request(app, "GET", "/")
+    assert (await response.json())["message"] == "Root route"
+
+
+async def test_include_middleware_fail():
+    """raise exception in the middleware factory"""
+    app = Lihil()
+
+    # Define middleware factory that raises an exception
+    def failing_middleware_factory(app):
+        raise ValueError("Middleware factory error")
+
+    # Adding the failing middleware should propagate the exception
+    app.add_middleware(failing_middleware_factory)
+
+    with pytest.raises(ValueError):
+        await initialize_app_lifespan(app)
+
+
+async def test_a_fail_middleware():
+    """a middleware that would raise exception when called"""
+    app = Lihil()
+
+    async def handler():
+        return {"message": "Hello"}
+
+    app.get(handler)
+
+    # Define middleware that raises an exception when called
+    def error_middleware(app):
+        async def middleware(scope, receive, send):
+            raise ValueError("Middleware execution error")
+
+        return middleware
+
+    # Add the middleware
+    app.add_middleware(error_middleware)
+
+    # Initialize app lifespan
+    await initialize_app_lifespan(app)
+
+    # Test with client - should propagate the error
+    client = LocalClient()
+    with pytest.raises(ValueError):
+        await client.request(app, "GET", "/")
+
+
+async def test_root_put():
+    """test a put endpoint registered using lihil.put"""
+    app = Lihil()
+
+    # Add a PUT endpoint to the root
+    async def put_handler():
+        return {"method": "PUT"}
+
+    app.put(put_handler)
+
+    # Initialize app lifespan
+    await initialize_app_lifespan(app)
+
+    # Test with client
+    client = LocalClient()
+
+    # Test PUT endpoint
+    response = await client.request(app, "PUT", "/")
+    assert (await response.json())["method"] == "PUT"
+
+
+async def test_root_post():
+    """test a post endpoint registered using lihil.post"""
+    app = Lihil()
+
+    # Add a POST endpoint to the root
+    async def post_handler():
+        return {"method": "POST"}
+
+    app.post(post_handler)
+
+    # Initialize app lifespan
+    await initialize_app_lifespan(app)
+
+    # Test with client
+    client = LocalClient()
+
+    # Test POST endpoint
+    response = await client.request(app, "POST", "/")
+    assert (await response.json())["method"] == "POST"
+
+
+async def test_root_delete():
+    """test a delete endpoint registered using lihil.delete"""
+    app = Lihil()
+
+    # Add a DELETE endpoint to the root
+    async def delete_handler():
+        return {"method": "DELETE"}
+
+    app.delete(delete_handler)
+
+    # Initialize app lifespan
+    await initialize_app_lifespan(app)
+
+    # Test with client
+    client = LocalClient()
+
+    # Test DELETE endpoint
+    response = await client.request(app, "DELETE", "/")
+    assert (await response.json())["method"] == "DELETE"
+
+
+# async def test_add_middleware_sequence():
+#     """Test lines 208-209: add_middleware with sequence"""
+#     app = Lihil()
+
+#     def middleware1(app: ASGIApp) -> ASGIApp:
+#         return app
+
+#     def middleware2(app: ASGIApp) -> ASGIApp:
+#         return app
+
+#     app.add_middleware([middleware1, middleware2])
+#     assert len(app.middle_factories) == 2
+#     assert app.middle_factories[0] == middleware1
+#     assert app.middle_factories[1] == middleware2
+
+
+# async def test_http_method_decorators():
+#     """Test lines 233-236, 263, 268, 273: HTTP method decorators"""
+#     app = Lihil()
+
+#     # Test GET decorator
+#     async def get_handler():
+#         return {"message": "GET"}
+
+#     app.get(get_handler)
+
+#     # Test PUT decorator
+#     async def put_handler():
+#         return {"message": "PUT"}
+
+#     app.put(put_handler)
+
+#     # Test POST decorator
+#     async def post_handler():
+#         return {"message": "POST"}
+
+#     app.post(post_handler)
+
+#     # Test DELETE decorator
+#     async def delete_handler():
+#         return {"message": "DELETE"}
+
+#     app.delete(delete_handler)
+
+#     # Verify endpoints were added
+#     assert len(app.root.endpoints) == 4
+
+
+# async def test_include_routes_with_duplicate_root():
+#     """Test for DuplicatedRouteError when including routes with duplicate root"""
+#     app = Lihil()
+
+#     # Add an endpoint to root to make it non-empty
+#     async def root_handler():
+#         return {"message": "root"}
+
+#     app.get(root_handler)
+#     # Create a new route with path "/"
+#     new_root = Route("/")
+
+#     # This should raise DuplicatedRouteError
+#     with pytest.raises(DuplicatedRouteError):
+#         app.include_routes(new_root)

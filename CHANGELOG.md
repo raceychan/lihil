@@ -145,3 +145,5 @@ Rotue.listen(listen_nothing)
 ```
 
 This would fail silently before this fix
+
+- Fix a bug with `Lihil.static` where if content is instance of str, and content type is `text` it will still be encoded as json
