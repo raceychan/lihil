@@ -1,4 +1,4 @@
-![Lihil](docs/lihil_logo_transparent.png)
+![Lihil](docs/images/lihil_logo_transparent.png)
 
 # Lihil
 **Lihil** &nbsp;*/ˈliːhaɪl/* — a **performant**, **productive**, and **professional** web framework with a vision:
@@ -151,13 +151,13 @@ A solver that handles a specific exception type (e.g., `UserNotFound`) takes pre
 lihil automatically generates a response and documentation based on your HTTPException,
 Here is the generated doc for the endpoint `roses_are_red`
 
-![roses_are_red](/docs/roses_are_red_link.png)
+![roses_are_red](/docs/images/roses_are_red_link.png)
 
 click url under `External documentation` tab
 
 we will see the detailed problem page
 
-![problem page](/docs/roses_are_red_problempage.png)
+![problem page](/docs/images/roses_are_red_problempage.png)
 
 By default, every endpoint will have at least one response with code `422` for `InvalidRequestErrors`.
 
@@ -196,9 +196,9 @@ typing plays a significant role in the world of `lihil`, lihil combines generics
 
 with its dedicated, insanely detailed typing support, lihil will give you something to smile about.
 
-![typing](/docs/good_typing_status.png)
+![typing](/docs/images/good_typing_status.png)
 
-![typing2](/docs/good_typing2.png)
+![typing2](/docs/images/good_typing2.png)
 
 ### Type-Based Message System
 
