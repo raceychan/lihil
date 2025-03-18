@@ -38,6 +38,7 @@ dev = [
   "ipython>=9.0.2",
   "hatch>=1.14.0",
   "pytest-cov>=6.0.0",
+  "twine>=6.1.0",
 ]
 
 [tool.pyright]
