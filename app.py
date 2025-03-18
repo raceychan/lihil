@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from lihil import HTTPException, Json, Lihil, Payload, Resp, Route, Stream, Text, status
 from lihil.lihil import AppState
 
+
 class Unhappiness(Payload):
     scale: int
     is_mad: bool
@@ -94,10 +95,11 @@ async def stream() -> Stream[str]:
         yield c
 
 
-lhl = Lihil(lifespan=lifespan, config_file="pyproject.toml")
-lhl.include_routes(rusers, rprofile, rstream)
-
-
+lhl = Lihil(
+    routes=[rusers, rprofile, rstream],
+    lifespan=lifespan,
+    config_file="pyproject.toml",
+)
 lhl.static("/ping", "pong")
 
 

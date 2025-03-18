@@ -10,6 +10,7 @@ from typing import (
     Literal,
     Mapping,
     TypeAliasType,
+    Union,
     cast,
     get_args,
     get_origin,
@@ -41,31 +42,31 @@ type ErrorRegistry = MappingProxyType[
 def parse_exception(
     exc: type["DetailBase[Any]"] | TypeAliasType | int,
 ) -> type["DetailBase[Any]"] | int | list[type["DetailBase[Any]"] | int]:
-    if isinstance(exc, int):
-        return exc
-
     exc_origin = get_origin(exc)
 
     if exc_origin is None:
         if isinstance(exc, TypeAliasType):
             return http_status.code(exc)
-        return exc
+        if issubclass(exc, HTTPException):
+            return exc
+        raise NotImplementedError
     elif exc_origin is Literal:
         return get_args(exc)[0]
-    elif exc_origin is UnionType:
+    elif exc_origin in (UnionType, Union):
         res: list[Any] = []
         sub_excs = get_args(exc)
         for e in sub_excs:
             sub_r = parse_exception(e)
-            if isinstance(sub_r, list):
-                res.extend(sub_r)
-            else:
-                res.append(sub_r)
+            res.append(sub_r)
         return res
-    elif issubclass(exc_origin, DetailBase) or issubclass(exc, DetailBase):
-        # if exc is a subclass of DetailBase then tha
-        return cast(type["DetailBase[Any]"], exc_origin)
+
     else:
+        try:
+            if issubclass(exc_origin, DetailBase) or issubclass(exc, DetailBase):
+                # if exc is a subclass of DetailBase then tha
+                return cast(type["DetailBase[Any]"], exc_origin)
+        except TypeError:
+            raise NotImplementedError
         raise NotImplementedError
 
 
@@ -135,6 +136,15 @@ def __erresp_factory_registry():
             pass
         except KeyError:
             pass
+
+    def default_error_catch(
+        req: Request, exc: HTTPException[Any]
+    ) -> ErrorResponse[Any]:
+        "User can override this to extend problem detail"
+        detail = exc.__problem_detail__(req.url.path)
+        return ErrorResponse[Any](detail, status_code=detail.status)
+
+    _solver(default_error_catch)
 
     return MappingProxyType(exc_handlers), _solver, get_solver
 
@@ -279,13 +289,6 @@ class ErrorResponse[T](Response):
 
 LIHIL_ERRESP_REGISTRY, problem_solver, get_solver = __erresp_factory_registry()
 del __erresp_factory_registry
-
-
-@problem_solver
-def default_error_catch(req: Request, exc: HTTPException[Any]) -> ErrorResponse[Any]:
-    "User can override this to extend problem detail"
-    detail = exc.__problem_detail__(req.url.path)
-    return ErrorResponse[Any](detail, status_code=detail.status)
 
 
 class ValidationProblem(FlatRecord):

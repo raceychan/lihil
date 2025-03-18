@@ -60,3 +60,5 @@ def test_annotated_generic():
     rusers.put(update_user)
     ep = rusers.get_endpoint(update_user)
     assert ep.deps.return_param.type_ == dict[str, str]
+
+

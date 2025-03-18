@@ -25,10 +25,12 @@ def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
     if lifespan is None:
         return None
 
-    if (wrapped := getattr(lifespan, "__wrapped__")) and isasyncgenfunction(wrapped):
-        return lifespan
-    elif isasyncgenfunction(lifespan):
+    if isasyncgenfunction(lifespan):
         return asynccontextmanager(lifespan)
+    elif (wrapped := getattr(lifespan, "__wrapped__", None)) and isasyncgenfunction(
+        wrapped
+    ):
+        return lifespan
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
@@ -38,36 +40,45 @@ class AppState(Base):
     ...
 
 
+def read_config(
+    config_file: str | Path | None, app_config: AppConfig | None
+) -> AppConfig:
+    if config_file and app_config:
+        raise AppConfiguringError(
+            "Can't set both config_file and app_config, choose either one of them"
+        )
+    elif app_config:
+        return app_config
+    else:
+        return AppConfig.from_file(config_file)
+
+
 class Lihil[T: AppState]:
     _userls: LifeSpan[T] | None
 
     def __init__(
         self,
+        *,
+        routes: list[Route] | None = None,
+        app_config: AppConfig | None = None,
         graph: Graph | None = None,
         collector: Collector | None = None,
-        app_config: AppConfig | None = None,
         config_file: Path | str | None = None,
         lifespan: LifeSpan[T] | None = None,
     ):
-        self.graph = graph or Graph(self_inject=True)
-
-        if config_file and app_config:
-            raise AppConfiguringError(
-                "Can't set both config_file and app_config, choose either one of them"
-            )
-        elif app_config:
-            self.app_config = app_config
-        else:
-            self.app_config = AppConfig.from_file(config_file)
-
-        self.app_config = app_config or AppConfig()
-        self._userls = lifespan_wrapper(lifespan)
-        self._app_state: T | None = None
+        self.app_config = read_config(config_file, app_config)
+        self.workers = ThreadPoolExecutor(
+            max_workers=self.app_config.max_thread_workers
+        )
+        self.graph = graph or Graph(self_inject=True, workers=self.workers)
         self.collector = collector or Collector()
-
-        self.workers = ThreadPoolExecutor()
         self.root = Route("/", graph=self.graph)
         self.routes: list[Route] = [self.root]
+        if routes:
+            self.include_routes(*routes)
+
+        self._userls = lifespan_wrapper(lifespan)
+        self._app_state: T | None = None
         self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
@@ -132,15 +143,14 @@ class Lihil[T: AppState]:
         seen = __seen__ or set()
         for route in routes:
             if route.path in seen:
-                continue
+                raise DuplicatedRouteError(route, route)
 
             self.sync_deps(route)
 
             if route.path == "/":
                 if self.root.endpoints:
                     raise DuplicatedRouteError(route, self.root)
-                self.root = route
-                self.routes[0] = route
+                self.routes[0] = self.root = route
             else:
                 if route.is_direct_child_of(self.root):
                     self.root.subroutes.append(route)
@@ -168,7 +178,10 @@ class Lihil[T: AppState]:
         if isinstance(static_content, bytes):
             encoded = static_content
         else:
-            encoded = encode_json(static_content)
+            if isinstance(static_content, str) and content_type == "text/plain":
+                encoded = static_content.encode(charset)
+            else:
+                encoded = encode_json(static_content)
 
         content_resp = uvicorn_static_resp(encoded, content_type, charset)
         self._static_cache[path] = content_resp
@@ -192,7 +205,7 @@ class Lihil[T: AppState]:
         for factory in reversed(self.middle_factories):
             try:
                 prev = factory(current)
-            except Exception as exc:
+            except Exception:
                 raise
             current = prev
         return current
@@ -214,7 +227,7 @@ class Lihil[T: AppState]:
                 response_started = True
             await send(message)
 
-        # TODO: solve this with lhl_server
+        # TODO: solve this with lhl_server, not extra _send needed.
         try:
             await self.call_stack(scope, receive, cast(ISend, _send))
         except Exception:

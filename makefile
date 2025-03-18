@@ -13,15 +13,15 @@ fast:
 
 .PHONY: test
 test:
-	uv run pytest tests/
+	uv run python -m pytest -svx tests/
 
 .PHONY: cov
 cov:
-	uv run pytest tests/ --cov=lihil --cov-report term-missing 
+	uv run python -m pytest tests/ --cov=lihil --cov-report term-missing 
 
 .PHONY: debug
 debug:
-	uv run pytest -m debug tests/
+	uv run python -m pytest -m debug tests/
 
 # ==========
 

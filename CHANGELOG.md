@@ -61,7 +61,7 @@ Note: currently only toml file is supported
 or by inheriting `lihil.config.AppConfig` instance menually,
 
 ```python
-lhl = Lihil(config_file=AppConfig(version="0.1.1"))
+lhl = Lihil(app_config=AppConfig(version="0.1.1"))
 ```
 
 this is particularly useful if you want to inherit from AppConfig and extend it.
@@ -75,5 +75,75 @@ class MyConfig(AppConfig):
 config = MyConfig.from_file("myconfig.toml")
 ```
 
+### improvements
 
+- now user can directly import `Body` from lihil
 
+```python
+from lihil import Body
+```
+
+## version 0.1.6
+
+### Feature
+
+- user can now override configuration with cli arguments.
+
+example:
+
+```python
+python app.py --oas.title "New Title" --is_prod true
+```
+
+would override `AppConfig.oas.title` and `AppConfig.is_prod`.
+
+this comes handy when for overriding configs that are differernt according to the deployment environment.
+
+- add a test helper `Route.has_listener` to check if a listener is registered.
+
+- `LocalClient.call_route`, a test helper for testing routes.
+
+### Fix
+
+- fix a bug with request param type being GenericAliasType
+
+we did not handle GenericAliasType case and treat it as `Annotated` with `flatten_annotated`.
+
+and we think if a type have less than 2 arguments then it is not `Annotated`,
+but thats not the case with GenericAlias
+
+- fix a bug with request param type optional type
+
+we used to check if a type is union type by checking
+
+```python
+isinstance(type, UnionType)
+```
+
+However, for type hint like this
+
+```python
+a: int | None
+```
+
+it will be interpreted as `Optional`, which is a derived type of `Union`
+
+- fix a bug where `CustomerDecoder` won't be use
+previously whenever we deal with `Annotated[Path[int], ...]`
+
+we treat it as `Path[int]` and ignore its metadatas, where decoder will be placed, this is now fixed as we detect and perserve the decoder before discarding the matadata.
+
+- fix a bug where `Route.listen` will fail silently when listener does not match condition, meaning it has not type hint of derived event class.
+
+Example:
+
+```python
+async def listen_nothing(event):
+    ...
+
+Rotue.listen(listen_nothing) 
+```
+
+This would fail silently before this fix
+
+- Fix a bug with `Lihil.static` where if content is instance of str, and content type is `text` it will still be encoded as json

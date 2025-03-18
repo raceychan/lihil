@@ -20,14 +20,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install package dependencies
+        run: pip install ididi==1.5.2 msgspec>=0.19.0 starlette>=0.45.3
+
+      - name: Install test dependencies
         run: pip install pytest pytest-cov pytest-asyncio typing_extensions
 
-      - name: Install lihil
-        run: pip install lihil
-
       - name: Run tests
-        run: pytest tests/ --cov=lihil --cov-report html
+        run: python -m pytest tests/ --cov=lihil --cov-report html
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4

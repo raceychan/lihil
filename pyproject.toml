@@ -1,5 +1,5 @@
 [project]
-authors = [{ name = "raceychan", email = "raceychan@gmail.com" }]
+authors = [{name = "raceychan", email = "raceychan@gmail.com"}]
 dependencies = [
   "httptools>=0.6.4",
   "ididi==1.5.2",
@@ -27,7 +27,6 @@ is_prod = true
 [tool.lihil.oas]
 doc_path = "/docs"
 
-
 [dependency-groups]
 dev = [
   "pytest>=8.3.4",
@@ -39,6 +38,7 @@ dev = [
   "ipython>=9.0.2",
   "hatch>=1.14.0",
   "pytest-cov>=6.0.0",
+  "twine>=6.1.0",
 ]
 
 [tool.pyright]
@@ -57,3 +57,8 @@ markers = [
   "benchmark: marks tests as benchmark tests (deselect with '-m \"not benchmark\"')",
 ]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+omit = [
+  "lihil/plugins/*",
+]
