@@ -19,10 +19,9 @@
 
 ## Docs
 
-### Place Holder
----
+### http://docs.lihil.cc
 
-<!-- start snippet: introduction -->
+---
 
 Lihil is
 
@@ -76,10 +75,7 @@ async def stream(
 )
 ```
 
-<!-- end snippet: introduction -->
 
-
-<!-- start snippet: installation -->
 
 ## Install
 

@@ -23,6 +23,12 @@ cov:
 debug:
 	uv run python -m pytest -m debug tests/
 
+# ====== dev========
+
+.PHONY: docs
+docs:
+	uv run mkdocs serve
+
 # ==========
 
 .PHONY: profile
