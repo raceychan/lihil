@@ -147,3 +147,52 @@ Rotue.listen(listen_nothing)
 This would fail silently before this fix
 
 - Fix a bug with `Lihil.static` where if content is instance of str, and content type is `text` it will still be encoded as json
+
+
+## version 0.1.7
+
+### Feature
+
+
+#### `Lihil.run` (beta)
+
+use `Lihil.run` instead of uvicorn.run so that user can pass command line arguments to `AppConfig`
+
+```python
+from lihil import Lihil
+
+lihil = Lilhil()
+
+if __name__ == "__main__":
+    lhl.run(__file__)
+```
+
+#### ServerConfig
+
+- `lihil.config.AppConfig.server`
+
+```python
+class ServerConfig(ConfigBase):
+    host: str | None = None
+    port: int | None = None
+    workers: int | None = None
+    reload: bool | None = None
+    root_path: str | None = None
+```
+
+if set, these config will be passed to uvicorn
+
+##### Usage
+
+```bash
+uv run python -m app --server.port=8005 --server.workers=4 
+```
+
+```bash
+INFO:     Uvicorn running on http://127.0.0.1:8005 (Press CTRL+C to quit)
+INFO:     Started parent process [16243]
+INFO:     Started server process [16245]
+INFO:     Started server process [16247]
+INFO:     Started server process [16246]
+INFO:     Started server process [16248]
+```
