@@ -1,5 +1,9 @@
 # Tutorial
 
+## Param Parsing & Marks
+
+...TBC
+
 ## Config Your App
 
 You can alter app behavior by `lihil.config.AppConfig`
@@ -240,4 +244,15 @@ Lihil provide you a test helper `LocalClient` to call `Lihil` instance, `Route`,
 ```python
 from lihil.plugins.testclient import LocalClient
 
+...TBC
 ```
+
+
+
+## openapi docs
+
+default ot `/docs`, change it via `AppConfig.oas`
+
+## problem page
+
+default to `/problems`, change it via `AppConfig.oas`

@@ -33,11 +33,12 @@ Lihil is
 
 ## Features
 
-- **Data validation** using `msgspec`, which is about 12x faster than pydantic v2 for valiation and 25x memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html)
-- **Advanced dependency injection**, using `ididi` written in cython, inject params, resources, plugins, extremly powerful and fast.
-- **OpenAPI docs** and json schema automatically generated with accurate type information, union type, json examples, problem detail(RFC-9457) and more.
-- **Great Testability**, lihil is designed to be tested, however you want, web framework specifics objects such as `Response`, `content-type` is abstracted away(you can still use them) via `Marks`, you can test your endpoints like regular functions.
-- **Strong support for AI featuers**, lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
+- **Data validation&Param Parsing**: using `msgspec`, which is about 12x faster than pydantic v2 for valiation and 25x memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html)
+- **Dependency injection**: inject factories, functions, sync/async, scoped/singletons based on type hints, blazingly fast. 
+- **OpenAPI docs**: create smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported. 
+- **Problems Page**: transform your exceptions into nicely documented ProblemDetails, where client can search via your response. 
+- **Great Testability**: bulit-in `LocalClient` to easily test your endpoints, routes, middlewares, app, everything.  
+- **Strong support for AI featuers**: lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
 ## Quick Start
 
@@ -73,7 +74,7 @@ async def stream(
    bus: EventBus,
    chat_id: str, 
    data: CreateMessage
-) -> Annotated[Resp[Stream[str], 201], CustomEncoder(answer_encoder)]:
+) -> Annotated[Stream[Event], CustomEncoder(event_encoder)]:
     chat = service.get_user_chat(token.sub)
     chat.add_message(data)
     answer = service.ask(chat, model=data.model)
@@ -87,7 +88,7 @@ async def stream(
 
 ## Install
 
-lihil requires python>=3.12
+lihil(currently) requires python>=3.12
 
 ### pip
 
@@ -97,21 +98,21 @@ pip install lihil
 
 ### uv
 
-0. [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
+uv is the recommended way of using this project, you can install it with a single command [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
 
-1. init project with `project_name`
+1. init your web project with `project_name`
 
 ```bash
 uv init project_name
 ```
 
-2. install lihil
+2. install lihil via uv, this will solve all dependencies for your in a dedicated venv.
 
 ```bash
 uv add lihil
 ```
 
-### Serve your application
+## serve your application
 
 lihil is ASGI compatible, you can run it with an ASGI server, such as uvicorn
 start a server with `app.py`, default to port 8000
@@ -125,7 +126,6 @@ import uvicorn
 uvicorn.run(app)
 ```
 
-
 ## versioning
 
 lihil follows semantic versioning, where a version in x.y.z represents:
@@ -134,6 +134,16 @@ lihil follows semantic versioning, where a version in x.y.z represents:
 - y: minor, feature updates
 - z: patch, bug fixes, typing updates
 
-**v0.1.3** is the first working version of lihil
 **v1.0.0** will be the first stable major version.
+
+## Tutorials
+
+check detailed tutorials at https://lihil.cc/lihil/tutorial, covering
+
+- Configuring your app via `pyproject.toml`, or via command line arguments.
+- Dependency Injection & Plugins
+- Testing
+- Type-Based Message System, Event listeners, atomic event handling, etc.
+- Error Handling
+- ...and much more
 

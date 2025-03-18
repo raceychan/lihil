@@ -100,7 +100,7 @@ pip install lihil
 
 ### uv
 
-0. [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
+uv is the recommended way of using this project, [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
 
 1. init project with `project_name`
 

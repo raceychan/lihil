@@ -15,6 +15,13 @@ from lihil.plugins.bus import EventBus
 StrDict = dict[str, Any]
 
 
+def get_thread_cnt() -> int:
+    import os
+
+    default_max = os.cpu_count() or 1
+    return default_max
+
+
 def format_nested_dict(flat_dict: StrDict) -> StrDict:
     """
     Convert a flat dictionary with dot notation keys to a nested dictionary.
@@ -36,29 +43,6 @@ def format_nested_dict(flat_dict: StrDict) -> StrDict:
         else:
             result[key] = value
     return result
-
-
-def is_lhl_dep(type_: type | GenericAlias):
-    "Dependencies that should be injected and managed by lihil"
-    return type_ in (Request, EventBus)
-
-
-class ConfigBase(FlatRecord, forbid_unknown_fields=True): ...
-
-
-def get_thread_cnt() -> int:
-    import os
-
-    default_max = os.cpu_count() or 1
-    return default_max
-
-
-class OASConfig(ConfigBase):
-    oas_path: str = "/openapi"
-    doc_path: str = "/docs"
-    problem_path: str = "/problems"
-    title: str = "lihil-OpenAPI"
-    version: str = "3.1.0"
 
 
 def deep_update(original: StrDict, update_data: StrDict) -> StrDict:
@@ -93,7 +77,23 @@ class StoreTrueIfProvided(argparse.Action):
         # Set nargs to 0 for store_true action
         kwargs["nargs"] = 0
         kwargs["default"] = MISSING
-        super().__init__(*args, **kwargs) # type: ignore
+        super().__init__(*args, **kwargs)  # type: ignore
+
+
+def is_lhl_dep(type_: type | GenericAlias):
+    "Dependencies that should be injected and managed by lihil"
+    return type_ in (Request, EventBus)
+
+
+class ConfigBase(FlatRecord, forbid_unknown_fields=True): ...
+
+
+class OASConfig(ConfigBase):
+    oas_path: str = "/openapi"
+    doc_path: str = "/docs"
+    problem_path: str = "/problems"
+    title: str = "lihil-OpenAPI"
+    version: str = "3.1.0"
 
 
 class AppConfig(ConfigBase):
