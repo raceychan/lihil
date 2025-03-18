@@ -112,7 +112,27 @@ uv init project_name
 uv add lihil
 ```
 
-## serve your application
+## serve your application 
+
+### serve with lihil
+
+```python
+from lihil import Lihil
+
+lhl = Lihil()
+
+lhl.run(__file__)
+```
+
+then in command line
+
+```python
+uv run python -m myproject.app --server.port=8080
+```
+
+This provides you the advantage to override configuration using command line arguments.
+
+### serve with uvicorn
 
 lihil is ASGI compatible, you can run it with an ASGI server, such as uvicorn
 start a server with `app.py`, default to port 8000
@@ -125,6 +145,8 @@ import uvicorn
 
 uvicorn.run(app)
 ```
+
+
 
 ## versioning
 
