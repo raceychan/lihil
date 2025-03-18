@@ -5,7 +5,6 @@ from inspect import isasyncgenfunction
 from pathlib import Path
 from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast
 
-import uvicorn
 from ididi import Graph
 
 from lihil.config import AppConfig
@@ -280,6 +279,8 @@ class Lihil[T: AppState]:
         """
         import inspect
         from pathlib import Path
+
+        import uvicorn
 
         crf = inspect.currentframe()
         assert crf
