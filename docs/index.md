@@ -17,11 +17,11 @@
 
 ## Source
 
-### https://github.com/raceychan/lihil
+### [lihil-source](https://github.com/raceychan/lihil)
 
 ## Docs
 
-### http://docs.lihil.cc
+### [lihil-docs](http://lihil.cc/lihil)
 
 ---
 
