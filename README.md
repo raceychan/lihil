@@ -7,9 +7,9 @@
 
 [![codecov](https://codecov.io/gh/raceychan/lihil/graph/badge.svg?token=KOK5S1IGVX)](https://codecov.io/gh/raceychan/lihil)
 [![PyPI version](https://badge.fury.io/py/lihil.svg)](https://badge.fury.io/py/lihil)
-[![Python Version](https://img.shields.io/pypi/pyversions/ididi.svg)](https://pypi.org/project/lihil/)
-[![License](https://img.shields.io/github/license/raceychan/ididi)](https://github.com/raceychan/lihil/blob/master/LICENSE)
-[![Downloads](https://img.shields.io/pypi/dm/ididi.svg)](https://pypistats.org/packages/lihil)
+[![Python Version](https://img.shields.io/pypi/pyversions/lihil.svg)](https://pypi.org/project/lihil/)
+[![License](https://img.shields.io/github/license/raceychan/lihil)](https://github.com/raceychan/lihil/blob/master/LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/lihil.svg)](https://pypistats.org/packages/lihil)
 
 GitHub Page: [lihil](https://github.com/raceychan/lihil)
 
