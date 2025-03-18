@@ -44,38 +44,47 @@ Lihil is
 
 ## Quick Start
 
-### app.py
-
 ```python
-from lihil import Lihil, Route, Stream, Text, HTTPException
+from lihil import Lihil
 
 lhl = Lihil()
 
-# default to json serialization
 @lhl.get
-async def pingpong():
-    return {"ping": "pong"}
-
-# use type Annotation to instruct serialization and status 
-@lhl.sub("/{king}").get
-def kingkong(king: str) -> Resp[Text, 200]:
-    return f"{king}, kong"
+async def hello():
+    return {"hello": "world!"}
 ```
 
-server-sent event with customized encoder
+a more realistic examples would be
 
 ```python
-llm = Route("llm/{model}")
+from lihil import Lihil, Route, use, EventBus
 
-@llm.get
+chat_route = Route("/chats/{chat_id}")
+message_route = chat_route / "messages"
+ParsedToken = NewType("ParsedToken", str)
+
+@chat_route.factory
+def parse_access_token(
+    service: UserService, token: UserToken
+) -> AccessToken:
+    return service.decrypt_access_token(token)
+
+@message.post
 async def stream(
-    model: str = "gpt-4o", question: str, client: OpenAI
+   service: ChatService,  
+   token: ParsedToken, 
+   bus: EventBus,
+   chat_id: str, 
+   data: CreateMessage
 ) -> Annotated[Stream[Event], CustomEncoder(event_encoder)]:
-    return client.responses.create(
-        model=model,
-        input=question,
-        stream=True,
-)
+    chat = service.get_user_chat(token.sub)
+    chat.add_message(data)
+    answer = service.ask(chat, model=data.model)
+    buffer = []
+    async for word in answer:
+        buffer.append(word)
+        yield word
+    await bus.publish(NewMessageCreated(chat, buffer))
 ```
 
 
