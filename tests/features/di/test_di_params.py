@@ -1,5 +1,5 @@
 from inspect import Parameter, Signature
-from typing import Annotated, Any, Optional, Union, get_origin
+from typing import Annotated, Union, get_origin
 
 import pytest
 from ididi import DependentNode, Graph
