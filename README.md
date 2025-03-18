@@ -17,7 +17,7 @@ GitHub Page: [lihil](https://github.com/raceychan/lihil)
 
 Lihil is
 
-- **Performant**: lihil is fast, 50%-100% faster than ASGI frameworks offering similar funcitonalities, even more with its own server. see [benchmarks](https://github.com/raceychan/lhl_bench)
+- **Performant**: lihil is fast, 50%-100% faster than ASGI frameworks offering similar functionalities, even more with its own server. see [benchmarks](https://github.com/raceychan/lhl_bench)
 
 - **Productive**: ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
 
@@ -367,3 +367,4 @@ python app.py --oas.title "New Title" --is_prod true
 ```
 
 use `.` to express nested fields
+
