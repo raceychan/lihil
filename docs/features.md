@@ -1,3 +1,29 @@
+# Feature
+
+## Param Parsing
+
+TBC
+
+## Data Validation
+
+TBC
+
+## Dependency Injection
+
+TBC
+
+## OpenAPI schemas
+
+TBC
+
+## Problem Page
+
+TBC
+
+## Message System
+
+TBC
+
 ## typing support
 
 typing plays a significant role in the world of `lihil`, lihil combines generics, function overriding, paramspec and other advanced typing features to give you the best typing support possible.

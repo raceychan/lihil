@@ -1,8 +1,7 @@
-# lihil
+#
 
 ![Lihil](./images/lihil_logo_transparent.png)
 
-# Lihil
 **Lihil** &nbsp;*/ˈliːhaɪl/* — a **performant**, **productive**, and **professional** web framework with a vision:
 
 > **Making Python the mainstream programming language for web development.**
@@ -12,18 +11,6 @@
 [![License](https://img.shields.io/github/license/raceychan/lihil)](https://github.com/raceychan/lihil/blob/master/LICENSE)
 [![Downloads](https://img.shields.io/pypi/dm/lihil.svg)](https://pypistats.org/packages/lihil)
 [![Python Version](https://img.shields.io/pypi/pyversions/lihil.svg)](https://pypi.org/project/lihil/)
-
----
-
-## Source
-
-### [lihil-source](https://github.com/raceychan/lihil)
-
-## Docs
-
-### [lihil-docs](http://lihil.cc/lihil)
-
----
 
 Lihil is
 
@@ -41,6 +28,31 @@ Lihil is
 - **Great Testability**, lihil is designed to be tested, however you want, web framework specifics objects such as `Response`, `content-type` is abstracted away(you can still use them) via `Marks`, you can test your endpoints like regular functions.
 - **Strong support for AI featuers**, lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
+## Install
+
+lihil requires python>=3.12
+
+### pip
+
+```bash
+pip install lihil
+```
+
+### uv
+
+uv is the recommended way of using this project, [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
+
+1. init project with `project_name`
+
+```bash
+uv init project_name
+```
+
+2.install lihil
+
+```bash
+uv add lihil
+```
 
 ## Quick Start
 
@@ -54,7 +66,7 @@ async def hello():
     return {"hello": "world!"}
 ```
 
-a more realistic examples would be
+a more realistic examples would be something like
 
 ```python
 from lihil import Lihil, Route, use, EventBus
@@ -76,7 +88,7 @@ async def stream(
    bus: EventBus,
    chat_id: str, 
    data: CreateMessage
-) -> Annotated[Stream[Event], CustomEncoder(event_encoder)]:
+) -> Annotated[Stream[GPTMessage], CustomEncoder(gpt_encoder)]:
     chat = service.get_user_chat(token.sub)
     chat.add_message(data)
     answer = service.ask(chat, model=data.model)
@@ -85,31 +97,4 @@ async def stream(
         buffer.append(word)
         yield word
     await bus.publish(NewMessageCreated(chat, buffer))
-```
-
-
-## Install
-
-lihil requires python 3.12
-
-### pip
-
-```bash
-pip install lihil
-```
-
-### uv
-
-uv is the recommended way of using this project, [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
-
-1. init project with `project_name`
-
-```bash
-uv init project_name
-```
-
-2. install lihil
-
-```bash
-uv add lihil
 ```

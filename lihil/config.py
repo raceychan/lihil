@@ -138,7 +138,6 @@ class AppConfig(ConfigBase):
                 lihil_config: StrDict = toml["lihil"]
             except KeyError:
                 raise AppConfiguringError(f"can't find table lihil from {file_path}")
-
         return lihil_config
 
 

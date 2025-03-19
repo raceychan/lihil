@@ -55,9 +55,6 @@ markdown_extensions:
 nav:
   - lihil: index.md
   - Tutorial: tutorials.md
+  - MiniCourse: minicourse.md
   - Features: features.md
   - Benchmark: benchmark.md
-  
-
-  # - Architecture: architecture.md
-  # - Roadmap: roadmap.md

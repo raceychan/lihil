@@ -1,14 +1,15 @@
 from functools import partial
 from types import MethodType
-from typing import Any, Callable, Pattern, Sequence, Union, Unpack, cast, overload
+from typing import Any, Callable, Pattern, Union, Unpack, cast, overload
 
 from ididi import Graph, INode, INodeConfig
 from ididi.interfaces import IDependent
 
+from lihil.asgi import ASGIBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
 from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
-from lihil.interface.asgi import ASGIApp, MiddlewareFactory
+from lihil.interface.asgi import ASGIApp
 from lihil.oas.model import RouteConfig
 from lihil.plugins.bus import Collector, Event, MessageRegistry
 
@@ -22,36 +23,6 @@ from lihil.utils.parse import (
 
 # TODO: we should abstract an interface shared between route and lihil app
 # make lihil a special route, the root route, we can then reduce a lot of code duplication
-
-
-class ASGIBase:
-    call_stack: ASGIApp
-
-    def __init__(self):
-        self.middle_factories: list[MiddlewareFactory[Any]] = []
-
-    def add_middleware[M: ASGIApp](
-        self,
-        middleware_factories: MiddlewareFactory[M] | Sequence[MiddlewareFactory[M]],
-    ) -> None:
-        """
-        Accept one or more factories for ASGI middlewares
-        """
-        if isinstance(middleware_factories, Sequence):
-            self.middle_factories = list(middleware_factories) + self.middle_factories
-        else:
-            self.middle_factories.insert(0, middleware_factories)
-
-    def chainup_middlewares(self, tail: ASGIApp) -> ASGIApp:
-        # current = problem_solver(tail, self.err_registry)
-        current = tail
-        for factory in reversed(self.middle_factories):
-            try:
-                prev = factory(current)
-            except Exception:
-                raise
-            current = prev
-        return current
 
 
 class Route(ASGIBase):
@@ -110,8 +81,6 @@ class Route(ASGIBase):
             await self.call_stacks[http_method](scope, receive, send)
         except KeyError:
             return await METHOD_NOT_ALLOWED_RESP(scope, receive, send)
-
-    async def handle_request(self): ...
 
     def is_direct_child_of(self, other: "Route") -> bool:
         if not self.path.startswith(other.path):
