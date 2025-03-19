@@ -242,6 +242,16 @@ class Lihil[T: AppState](ASGIBase):
 
         from uvicorn import run as uvi_run
 
+        server_config = self.app_config.server
+        set_values = {k: v for k, v in server_config.asdict().items() if v is not None}
+
+        worker_num = server_config.workers
+
+        use_app_str = (worker_num and worker_num > 1) or server_config.reload
+        if use_app_str:
+            uvi_run(self, **set_values)
+            return
+
         crf = inspect.currentframe()
         assert crf
         caller_frame = crf.f_back
@@ -254,9 +264,6 @@ class Lihil[T: AppState](ASGIBase):
 
         modname = Path(file_path).stem
         app_str = f"{modname}:{instance_name}"
-
-        server_config = self.app_config.server
-        set_values = {k: v for k, v in server_config.asdict().items() if v is not None}
 
         uvi_run(app_str, **set_values)
 

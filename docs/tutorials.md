@@ -4,9 +4,9 @@
 
 ### Routing
 
-When you define a route, you expose a resource through a specific **path** that clients can request. you then define `endpoints` on the route to determin what clients can do with the resource. 
+When you define a route, you expose a resource through a specific **path** that clients can request. you then define `endpoints` on the route to determin what clients can do with the resource.
 
-in our previous example, `https://lihil.cc/documentation`, then path `/documentation` expose the resource `documentation`.  
+take url `https://lihil.cc/documentation` as an example, path `/documentation` would locate resource `documentation`.
 
 #### Define an route in lihil
 
@@ -18,12 +18,12 @@ orders_route = Route("/users/{user_id}/orders")
 
 ### Endpoint
 
-endpoints always live under a route, an endpoint defines what clients can do with the resource exposed by the route. in a nutshell, endpoint = route + httpmethod
+endpoints always live under a route, an endpoint defines what clients can do with the resource exposed by the route. in a nutshell, an endpoint is the combination of a route and a http method.
 
 ```python
 @orders_route.get
 async def search_order(nums: int):
-    ..
+    ...
 ```
 
 #### Marks
@@ -79,7 +79,6 @@ In this example:
 
 only `user_id` needs to be provided by the client request, rest will be resolved by lihil.
 
-
 #### Param Parsing
 
 if you would like to have a great control on how your params are parsed, you can use `CustomDecoder` to provide your decoder for the param type.
@@ -89,7 +88,6 @@ if you would like to have a great control on how your params are parsed, you can
 async def update_user(random: Annotated[str, Customer]):
     ...
 ```
-
 
 ## Config Your App
 
@@ -244,7 +242,7 @@ async def create_todo(name: str, content: str, bus: EventBus) -> Resp[None, stat
 
 ## Plugins
 
-#### Initialization
+### Initialization
 
 - init at lifespan
 
@@ -305,7 +303,6 @@ async def get_user(token: UserToken) -> Ignore[User]: ...
 
 - if your function is a sync generator, it will be solved within a separate thread.
 
-
 ### Data validation
 
 lihil provide you data validation functionalities out of the box using msgspec, you can also use your own customized encoder/decoder for request params and function return.  
@@ -321,19 +318,15 @@ async def create_user(
     return user_id
 ```
 
-
 ### Testing
 
 Lihil provide you a test helper `LocalClient` to call `Lihil` instance, `Route`, and `endpoint` locally,  
-
 
 ```python
 from lihil.plugins.testclient import LocalClient
 
 ...TBC
 ```
-
-
 
 ## openapi docs
 

@@ -284,6 +284,7 @@ def err_resp_schema(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
                     PROBLEM_CONTENTTYPE: oasmodel.MediaType(schema_=one_of_schema)
                 },
             )
+
     return resps
 
 

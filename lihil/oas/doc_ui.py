@@ -180,6 +180,23 @@ def get_problem_ui_html(
     if problem_ui_parameters:
         current_problem_ui_parameters.update(problem_ui_parameters)
 
+    # === Temp
+    # This is only needed because uvicorn with n multiprocess will generate same type n times
+    seen_pb: set[str] = set()
+    unique_problems: list[type[DetailBase[Any]]] = []
+
+    for pb in problems:
+        pbn = pb.__name__
+
+        if (pbn) not in seen_pb:
+            seen_pb.add(pbn)
+            unique_problems.append(pb)
+        else:
+            continue
+
+    problems = unique_problems
+    # === Temp
+
     # Convert problems to JSON-serializable format
     problem_examples: list[dict[str, Any]] = []
     for problem_class in problems:
