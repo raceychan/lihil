@@ -3,14 +3,14 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
 from pathlib import Path
-from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast, overload
+from typing import Any, AsyncContextManager, Callable, Unpack, cast, overload
 
 from ididi import Graph
 
 from lihil.config import AppConfig, config_from_file
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
-from lihil.interface import ASGIApp, Base, IReceive, IScope, ISend, MiddlewareFactory
+from lihil.interface import ASGIApp, Base, IReceive, IScope, ISend
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import Collector
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
@@ -122,6 +122,8 @@ class Lihil[T: AppState](ASGIBase):
     def _setup(self) -> None:
         # Todo: chain routes here too
         self.call_stack = self.chainup_middlewares(self.call_route)
+        for route in self.routes:
+            route.build_stack()
 
     def _generate_doc_route(self):
         oas_config = self.app_config.oas

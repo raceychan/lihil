@@ -107,14 +107,9 @@ class Route(ASGIBase):
         http_method = scope["method"]
         # TODO: chainup middlewares at lifespan
         try:
-            cs = self.call_stacks[http_method]
+            await self.call_stacks[http_method](scope, receive, send)
         except KeyError:
-            try:
-                ep = self.endpoints[http_method]
-            except KeyError:
-                return await METHOD_NOT_ALLOWED_RESP(scope, receive, send)
-            self.call_stacks[http_method] = cs = self.chainup_middlewares(ep)
-        await cs(scope, receive, send)
+            return await METHOD_NOT_ALLOWED_RESP(scope, receive, send)
 
     async def handle_request(self): ...
 
