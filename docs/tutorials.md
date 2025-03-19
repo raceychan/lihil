@@ -79,8 +79,6 @@ if a param is not declared with param marks, the following rule would apply:
 - `HTML` for response with content-type `text/html`
 - `Resp[T, 200]` for response with status code `200`
 
-
-
 Example:
 
 ```python

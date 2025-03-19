@@ -4,6 +4,7 @@ on:
     branches:
       - master
       - docs
+      - version/**  # Matches any branch that starts with "version/"
 
 permissions:
   contents: write
