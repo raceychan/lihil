@@ -54,6 +54,7 @@ def read_config(
 
 
 class Lihil[T: AppState]:
+    # TODO: make Lihil the root route
     _userls: LifeSpan[T] | None
 
     def __init__(
@@ -109,6 +110,7 @@ class Lihil[T: AppState]:
             exc_text = traceback.format_exc()
             await send({"type": "lifespan.startup.failed", "message": exc_text})
         await receive()
+
         try:
             await user_ls.__aexit__(None, None, None)
         except BaseException:

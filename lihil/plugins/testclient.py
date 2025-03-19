@@ -174,6 +174,13 @@ class LocalClient:
         body: Any = None,
         headers: dict[str, str] | None = None,
     ) -> RequestResult:
+        """
+        # TODO: override ep dependencies
+        1. make a new graph, merge ep.graph
+        2. override in the new graph
+        3. set ep.graph = new graph
+        4. reset ep.graph to old graph
+        """
 
         encoded_path = (
             {k: str(v) for k, v in path_params.items()} if path_params else {}
@@ -199,19 +206,20 @@ class LocalClient:
         body: Any = None,
         headers: dict[str, str] | None = None,
     ) -> RequestResult:
-        # Ensure the route has the endpoint for the requested method
-        if method not in route.endpoints:
-            raise ValueError(f"Route does not support {method} method")
+        """
+        # TODO: override route dependencies
+        1. make a new graph, merge route.graph
+        2. override in the new graph
+        3. set route.graph = new graph
+        4. reset route.graph to old graph
+        """
 
-        # Get the actual path with path parameters substituted
         actual_path = route.path
         if path_params:
-            # Replace path parameters in the URL
             for param_name, param_value in path_params.items():
                 pattern = f"{{{param_name}}}"
                 actual_path = actual_path.replace(pattern, str(param_value))
 
-        # Make the request
         resp = await self.request(
             app=route,
             method=method,
@@ -233,7 +241,7 @@ class LocalClient:
         headers: Optional[dict[str, str]] = None,
         body: Optional[Union[bytes, str, dict[str, Any], Payload]] = None,
     ) -> RequestResult:
-        await self._initialize_app_lifespan(app)
+        await self.send_app_lifespan(app)
         return await self.request(
             app=app,
             method=method,
@@ -244,7 +252,7 @@ class LocalClient:
             body=body,
         )
 
-    async def _initialize_app_lifespan(self, app: ASGIApp) -> None:
+    async def send_app_lifespan(self, app: ASGIApp) -> None:
         """
         Helper function to initialize a Lihil app by sending lifespan events.
         This ensures the app's call_stack is properly set up before testing routes.
@@ -265,4 +273,5 @@ class LocalClient:
 
         async def send(message: dict[str, str]) -> None:
             sent_messages.append(message)
+
         await app(scope, receive, send)

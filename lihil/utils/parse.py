@@ -57,7 +57,7 @@ def is_plain_path(path: str) -> bool:
     return bool(DYNAMIC_PATH.match(path))
 
 
-def handle_path(path: str) -> str:
+def trim_path(path: str) -> str:
     path = path.replace(" ", "")
 
     if len(path) > 1 and path.endswith("/"):

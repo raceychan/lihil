@@ -372,7 +372,8 @@ class OpenAPI(BaseStruct, kw_only=True):
 
 
 class RouteConfig(BaseStruct):
+    tag: str = ""
+    in_schema: bool = True
     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]] = field(
         default_factory=tuple
     )
-    in_schema: bool = True

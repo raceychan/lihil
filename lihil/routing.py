@@ -16,16 +16,19 @@ from lihil.plugins.bus import Collector, Event, MessageRegistry
 from lihil.utils.parse import (
     build_path_regex,
     generate_route_tag,
-    handle_path,
     merge_path,
+    trim_path,
 )
+
+# TODO: we should abstract an interface shared between route and lihil app
+# make lihil a special route, the root route, we can then reduce a lot of code duplication
 
 
 class Route:
     _flyweights: dict[str, "Route"] = {}
 
     def __new__(cls, path: str = "", **_):
-        p = handle_path(path)
+        p = trim_path(path)
         if p_route := cls._flyweights.get(p):
             return p_route
         cls._flyweights[p] = route = super().__new__(cls)
@@ -38,10 +41,11 @@ class Route:
         graph: Graph | None = None,
         registry: MessageRegistry | None = None,
         listeners: list[Callable[..., Any]] | None = None,
-        tag: str = "",
         route_config: RouteConfig | None = None,
     ):
-        self.path = handle_path(path)
+        # TODO: route lifespan
+
+        self.path = trim_path(path)
         self.path_regex: Pattern[str] | None = None
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self.graph = graph or Graph(self_inject=False)
@@ -49,11 +53,11 @@ class Route:
         if listeners:
             self.registry.register(*listeners)
         self.collector: Collector | None = None
-        self.tag = tag or generate_route_tag(self.path)
         self.subroutes: list[Route] = []
         self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
         self.config = route_config or RouteConfig()
+        self.tag = self.config.tag or generate_route_tag(self.path)
 
     def __repr__(self):
         endpoints_repr = "".join(
@@ -64,6 +68,10 @@ class Route:
 
     def __truediv__(self, path: str) -> "Route":
         return self.sub(path)
+
+    async def on_lifespan(self):
+        for method, ep in self.endpoints.items():
+            self.call_stacks[method] = self.chainup_middlewares(ep)
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
         http_method = scope["method"]
@@ -77,6 +85,8 @@ class Route:
                 return await METHOD_NOT_ALLOWED_RESP(scope, receive, send)
             self.call_stacks[http_method] = cs = self.chainup_middlewares(ep)
         await cs(scope, receive, send)
+
+    async def handle_request(self): ...
 
     def is_direct_child_of(self, other: "Route") -> bool:
         if not self.path.startswith(other.path):
@@ -108,7 +118,7 @@ class Route:
             raise KeyError(f"{method_func} is not in current route")
 
     def sub(self, path: str) -> "Route":
-        sub_path = handle_path(path)
+        sub_path = trim_path(path)
         current_path = merge_path(self.path, sub_path)
         sub = Route(path=current_path, graph=self.graph)
         self.subroutes.append(sub)

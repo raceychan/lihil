@@ -96,10 +96,6 @@ class Endpoint[R]:
         self.scoped: bool = self.deps.scoped
         self.encoder = self.deps.return_param.encoder
 
-    def override(self, **deps: Any) -> None:
-        # TODO: support endpoint-specific dependencies override
-        raise NotImplementedError
-
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.method}: {self.path!r} {self.func})"
 
