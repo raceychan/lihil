@@ -1,6 +1,53 @@
 # Tutorial
 
-## Param Parsing & Marks
+## Basics
+
+### Terms
+
+Before we dive into how to define an endpoint, let's first clarify some terms:
+
+#### `Resource`:  **Any identifiable entity that can be accessed via a URL.**
+
+Don't overthink it—if you don’t like the term resource, think of it as an object.
+
+#### URI (Uniform Resource Identifier): **A string that uniquely identifies a resource.** a uri can be a url, a urn, or both. a url follows the format:
+
+> `protocol://domain/path?query#fragment`
+
+Example:
+
+`https://myhost.com/users/lhl/orders?created_at=20250319#listing`
+
+When you see a RESTful API with a URI like this, even without prior knowledge, you can infer that:
+
+- It is a website hosted at `myhost.com`, using the `https` protocol.
+- It is accessing a resource named `orders`, which belongs to a specific user `lhl`.
+- It includes a query parameter, `created_at`, with the value `20250319`.
+- It references a sub-section or fragment within the resource, identified as `listing`.
+
+`URL` (Uniform Resource Locator): A type of URI that not only identifies a resource but also provides a way to access it. URLs generally include a scheme (protocol), domain, path, query parameters, and optionally a fragment.
+
+
+### Routing
+
+When you define a route, you expose a resource through a specific **path** that clients can request. you then define `endpoints` on the route to determin what clients can do with the resource. 
+
+in our previous example, `https://lihil.cc/documentation`, then path `/documentation` expose the resource `documentation`.  
+
+#### Define an route in lihil
+
+```python
+from lihil import Route
+
+order_route = Route("/users/{user_id}/orders")
+```
+
+### Endpoint
+
+#### Marks
+
+#### Param Parsing
+
 
 ...TBC
 
@@ -77,13 +124,13 @@ A solver that handles a specific exception type (e.g., `UserNotFound`) takes pre
 lihil automatically generates a response and documentation based on your HTTPException,
 Here is the generated doc for the endpoint `roses_are_red`
 
-![roses_are_red](/docs/images/roses_are_red_link.png)
+![roses_are_red](./images/roses_are_red_link.png)
 
 click url under `External documentation` tab
 
 we will see the detailed problem page
 
-![problem page](/docs/images/roses_are_red_problempage.png)
+![problem page](./images/roses_are_red_problempage.png)
 
 By default, every endpoint will have at least one response with code `422` for `InvalidRequestErrors`.
 
@@ -115,7 +162,6 @@ Here is one example response of `InvalidRequestErrors`.
 - To alter the creation of the response, use `lihil.problems.problem_solver` to register your solver.
 - To change the documentation, override `DetailBase.__json_example__` and `DetailBase.__problem_detail__`.
 - To extend the error detail, provide typevar when inheriting `HTTPException[T]`.
-
 
 ## Type-Based Message System
 

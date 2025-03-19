@@ -59,7 +59,7 @@ async def create_user(
 rsubu = rusers.sub("{user_id}")
 
 
-@rsubu.get(errors=[UserNotFoundError, UserNotHappyError])
+@rsubu.get
 async def get_user(user_id: str | int) -> Resp[Text, status.OK]:
     if user_id != "5":
         raise UserNotFoundError("You can't see me!")

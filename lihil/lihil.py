@@ -7,7 +7,7 @@ from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast
 
 from ididi import Graph
 
-from lihil.config import AppConfig
+from lihil.config import AppConfig, config_from_file
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
 from lihil.interface import ASGIApp, Base, IReceive, IScope, ISend, MiddlewareFactory
@@ -50,7 +50,7 @@ def read_config(
     elif app_config:
         return app_config
     else:
-        return AppConfig.from_file(config_file)
+        return config_from_file(config_file)
 
 
 class Lihil[T: AppState]:

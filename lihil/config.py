@@ -2,7 +2,7 @@ import argparse
 import tomllib
 from pathlib import Path
 from types import GenericAlias, UnionType
-from typing import Any, Self, Sequence, Union, cast, get_args, get_origin
+from typing import Any, Sequence, Union, cast, get_args, get_origin
 
 from msgspec import convert, field
 from msgspec.structs import FieldInfo, fields
@@ -104,7 +104,7 @@ class ServerConfig(ConfigBase):
     root_path: str | None = None
 
 
-def parse_filed_type(field: FieldInfo):
+def parse_field_type(field: FieldInfo):
     "Todo: parse Maybe[int] = MISSING"
 
     ftype = field.type
@@ -127,77 +127,6 @@ class AppConfig(ConfigBase):
     server: ServerConfig = ServerConfig()
 
     @classmethod
-    def build_parser(cls) -> argparse.ArgumentParser:
-        parser = argparse.ArgumentParser(description="lihil application configuration")
-        cls_fields = fields(cls)
-
-        for field_info in cls_fields:
-            field_name = field_info.name
-            field_type = field_info.type
-
-            if isinstance(field_info.default, ConfigBase):
-                nested_cls = field_type
-                nested_fields = fields(nested_cls)
-                for nested_field in nested_fields:
-                    nested_name = f"{field_name}.{nested_field.name}"
-                    arg_name = f"--{nested_name}"
-
-                    if field_type == bool:
-                        parser.add_argument(
-                            arg_name,
-                            action=StoreTrueIfProvided,
-                            default=MISSING,
-                            help=f"Set {field_name} (default: {field_info.default})",
-                        )
-                    else:
-                        # TODO: parse_field_type
-                        parser.add_argument(
-                            arg_name,
-                            type=parse_filed_type(nested_field),
-                            default=MISSING,
-                            help=f"Set {nested_name} (default: {nested_field.default})",
-                        )
-
-            else:
-                arg_name = f"--{field_name}"
-                if field_type == bool:
-                    parser.add_argument(
-                        arg_name,
-                        action=StoreTrueIfProvided,
-                        default=MISSING,
-                        help=f"Set {field_name} (default: {field_info.default})",
-                    )
-                elif field_info.required:
-                    default_value = field_info.default_factory()
-                    parser.add_argument(
-                        arg_name,
-                        type=field_type,
-                        default=MISSING,
-                        help=f"Set {field_name} (default: {default_value})",
-                    )
-                else:
-                    parser.add_argument(
-                        arg_name,
-                        type=field_type,
-                        default=MISSING,
-                        help=f"Set {field_name} (default: {field_info.default})",
-                    )
-        return parser
-
-    @classmethod
-    def config_from_cli(cls) -> StrDict | None:
-        parser = cls.build_parser()
-        known_args = parser.parse_known_args()[0]
-        args = known_args.__dict__
-
-        cli_args: StrDict = {k: v for k, v in args.items() if is_provided(v)}
-        if not cli_args:
-            return None
-
-        config_dict = format_nested_dict(cli_args)
-        return config_dict
-
-    @classmethod
     def from_toml(cls, file_path: Path) -> StrDict:
         with open(file_path, "rb") as fp:
             toml = tomllib.load(fp)
@@ -212,28 +141,100 @@ class AppConfig(ConfigBase):
 
         return lihil_config
 
-    @classmethod
-    def from_file(cls, config_file: Path | str | None) -> Self:
-        if config_file is None:
-            return cls()  # everything default
 
-        if isinstance(config_file, str):
-            file_path = Path(config_file)
+def build_parser(config_type: type[AppConfig]) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="lihil application configuration")
+    cls_fields = fields(config_type)
+
+    for field_info in cls_fields:
+        field_name = field_info.name
+        field_type = field_info.type
+
+        if isinstance(field_info.default, ConfigBase):
+            nested_cls = field_type
+            nested_fields = fields(nested_cls)
+            for nested_field in nested_fields:
+                nested_name = f"{field_name}.{nested_field.name}"
+                arg_name = f"--{nested_name}"
+
+                if field_type == bool:
+                    parser.add_argument(
+                        arg_name,
+                        action=StoreTrueIfProvided,
+                        default=MISSING,
+                        help=f"Set {field_name} (default: {field_info.default})",
+                    )
+                else:
+                    parser.add_argument(
+                        arg_name,
+                        type=parse_field_type(nested_field),
+                        default=MISSING,
+                        help=f"Set {nested_name} (default: {nested_field.default})",
+                    )
+
         else:
-            file_path = config_file
+            arg_name = f"--{field_name}"
+            if field_type == bool:
+                parser.add_argument(
+                    arg_name,
+                    action=StoreTrueIfProvided,
+                    default=MISSING,
+                    help=f"Set {field_name} (default: {field_info.default})",
+                )
+            elif field_info.required:
+                default_value = field_info.default_factory()
+                parser.add_argument(
+                    arg_name,
+                    type=field_type,
+                    default=MISSING,
+                    help=f"Set {field_name} (default: {default_value})",
+                )
+            else:
+                parser.add_argument(
+                    arg_name,
+                    type=field_type,
+                    default=MISSING,
+                    help=f"Set {field_name} (default: {field_info.default})",
+                )
+    return parser
 
-        if not file_path.exists():
-            raise AppConfiguringError(f"path {file_path} not exist")
 
-        file_ext = file_path.suffix[1:]
+def config_from_cli(config_type: type[AppConfig]) -> StrDict | None:
+    parser = build_parser(config_type)
+    known_args = parser.parse_known_args()[0]
+    args = known_args.__dict__
 
-        if file_ext == "toml":
-            config_dict = cls.from_toml(file_path)
-        else:
-            raise AppConfiguringError(f"Not supported file type {file_ext}")
+    cli_args: StrDict = {k: v for k, v in args.items() if is_provided(v)}
+    if not cli_args:
+        return None
 
-        cli_config = cls.config_from_cli()
-        if cli_config:
-            deep_update(config_dict, cli_config)
-        config = convert(config_dict, cls)
-        return config
+    config_dict = format_nested_dict(cli_args)
+    return config_dict
+
+
+def config_from_file(
+    config_file: Path | str | None, *, config_type: type[AppConfig] = AppConfig
+) -> AppConfig:
+    if config_file is None:
+        return config_type()  # everything default
+
+    if isinstance(config_file, str):
+        file_path = Path(config_file)
+    else:
+        file_path = config_file
+
+    if not file_path.exists():
+        raise AppConfiguringError(f"path {file_path} not exist")
+
+    file_ext = file_path.suffix[1:]
+
+    if file_ext == "toml":
+        config_dict = config_type.from_toml(file_path)
+    else:
+        raise AppConfiguringError(f"Not supported file type {file_ext}")
+
+    cli_config = config_from_cli(config_type)
+    if cli_config:
+        deep_update(config_dict, cli_config)
+    config = convert(config_dict, config_type)
+    return config

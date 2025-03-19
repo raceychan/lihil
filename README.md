@@ -147,7 +147,6 @@ uvicorn.run(app)
 ```
 
 
-
 ## versioning
 
 lihil follows semantic versioning, where a version in x.y.z represents:

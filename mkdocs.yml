@@ -54,7 +54,9 @@ markdown_extensions:
 
 nav:
   - lihil: index.md
-  - Tutorial: tutorial.md
-  # - Features: features.md
+  - Tutorial: tutorials.md
+  - Features: features.md
+  
+
   # - Architecture: architecture.md
   # - Roadmap: roadmap.md
