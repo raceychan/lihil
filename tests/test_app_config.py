@@ -2,7 +2,15 @@ import argparse
 from unittest.mock import patch
 
 from lihil import Lihil
-from lihil.config import MISSING, AppConfig, StoreTrueIfProvided, format_nested_dict
+from lihil.config import (
+    MISSING,
+    AppConfig,
+    StoreTrueIfProvided,
+    build_parser,
+    config_from_cli,
+    config_from_file,
+    format_nested_dict,
+)
 
 # from lihil.config import AppConfig
 
@@ -58,7 +66,7 @@ def test_store_true_if_provided_action():
 
 def test_app_config_build_parser():
     """Test that AppConfig.build_parser creates a parser with expected arguments."""
-    parser = AppConfig.build_parser()
+    parser = build_parser(AppConfig)
 
     # Check that some expected arguments exist
     actions = {action.dest: action for action in parser._actions}
@@ -75,7 +83,7 @@ def test_app_config_build_parser():
 @patch("sys.argv", ["prog", "--version", "2.0.0", "--oas.title", "Custom API"])
 def test_config_from_cli():
     """Test that config_from_cli correctly parses command line arguments."""
-    config_dict = AppConfig.config_from_cli()
+    config_dict = config_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
     assert config_dict["version"] == "2.0.0"
@@ -85,7 +93,7 @@ def test_config_from_cli():
 @patch("sys.argv", ["prog", "--is_prod"])
 def test_config_from_cli_boolean_flag():
     """Test that boolean flags are correctly handled."""
-    config_dict = AppConfig.config_from_cli()
+    config_dict = config_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
     assert config_dict["is_prod"] is True
@@ -94,14 +102,14 @@ def test_config_from_cli_boolean_flag():
 @patch("sys.argv", ["prog"])
 def test_config_from_cli_no_args():
     """Test that config_from_cli returns None when no arguments are provided."""
-    config_dict = AppConfig.config_from_cli()
+    config_dict = config_from_cli(config_type=AppConfig)
     assert config_dict is None
 
 
 @patch("sys.argv", ["prog", "--unknown-arg", "value"])
 def test_config_from_cli_unknown_args():
     """Test that config_from_cli ignores unknown arguments."""
-    config_dict = AppConfig.config_from_cli()
+    config_dict = config_from_cli(config_type=AppConfig)
     assert config_dict is None  # No recognized arguments
 
 
