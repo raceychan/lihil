@@ -87,7 +87,7 @@ when such exception is raised from endpoint, client would receive a response lik
 
 ## Message System
 
-TBC
+publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
 
 ## typing support
 

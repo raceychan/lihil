@@ -155,12 +155,15 @@ uv add lihil
 
 ### serve with lihil
 
+#### app.py
+
 ```python
 from lihil import Lihil
 
 lhl = Lihil()
 
-lhl.run(__file__)
+if __name__ == "__main__":
+    lhl.run(__file__)
 ```
 
 then in command line
@@ -184,7 +187,6 @@ import uvicorn
 
 uvicorn.run(app)
 ```
-
 
 ## versioning
 
