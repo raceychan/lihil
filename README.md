@@ -26,10 +26,8 @@
 Lihil is
 
 - **Performant**: lihil is fast, 50%-100% faster than ASGI frameworks offering similar functionalities, even more with its own server. see [benchmarks](https://github.com/raceychan/lhl_bench)
-
 - **Productive**: ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
-
-- **professional**: Start small, move fast, achieve great, lihil follows industry standards (RFC9110, 9457, ...) and best practices (EDA, service choreography, etc) to deliver robust and scalable solutions.
+- **Professional**: lihil is designed for enterprise web development, deliver robust&scalable solutions with best practices in microservice architecture and related patterns.
 
 ## Features
 
@@ -48,9 +46,11 @@ async def list_users(users: Annotated[list[User], use(get_users)], is_active: bo
     return [u for u in users if u.is_active == is_active]
 ```
 
-- **Error Response Generator**
+- **OpenAPI docs & Error Response Generator**
 
-lihil maps your expcetion to a `Problem` and genrate detailed response based on your exception.
+lihil creates smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
+
+your exception classes are also automatically transformed to a `Problem` and genrate detailed response accordingly.
 
 ```python
 class OutOfStockError(HTTPException[str]):
@@ -68,13 +68,15 @@ when such exception is raised from endpoint, client would receive a response lik
 
 - **Problems Page**: declare exceptions using route decorator and they will be displayed as route response at openapi schemas & problem page
 
-- **OpenAPI docs**: create smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
-
-- **Great Testability**: bulit-in `LocalClient` to easily test your endpoints, routes, middlewares, app, everything.  
+![problem page](/docs/images/order_out_of_stock_problem_page.png)
 
 - **Data validation&Param Parsing**: using `msgspec`, which is about 12x faster than pydantic v2 for valiation and 25x memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html)
 
 ![msgspec_vs_others](/docs/images/msgspec_others.png)
+
+- **Message System Bulitin**: publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
+
+- **Great Testability**: bulit-in `LocalClient` to easily test your endpoints, routes, middlewares, app, everything.  
 
 - **Strong support for AI featuers**: lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
