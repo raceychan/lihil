@@ -1,5 +1,5 @@
 from functools import lru_cache
-from types import UnionType
+from types import GenericAlias, UnionType
 from typing import Any, Callable, Union, get_args
 
 from msgspec import DecodeError
@@ -52,7 +52,9 @@ def build_union_decoder(
     return decode_reunion
 
 
-def textdecoder_factory(t: type | UnionType) -> ITextDecoder[Any] | IDecoder[Any]:
+def textdecoder_factory(
+    t: type | UnionType | GenericAlias,
+) -> ITextDecoder[Any] | IDecoder[Any]:
     union_args = get_args(t)
 
     # TODO: handle when len(union_args) == 1

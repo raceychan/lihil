@@ -3,7 +3,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
 from pathlib import Path
-from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast
+from typing import Any, AsyncContextManager, Callable, Sequence, Unpack, cast, overload
 
 from ididi import Graph
 
@@ -252,26 +252,6 @@ class Lihil[T: AppState]:
         self.routes.append(route)
         return route
 
-    def get[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
-    ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
-        return self.root.get(func, **epconfig)
-
-    def put[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
-    ) -> Func[P, R]:
-        return self.root.put(func, **epconfig)
-
-    def post[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
-    ) -> Func[P, R]:
-        return self.root.post(func, **epconfig)
-
-    def delete[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
-    ) -> Func[P, R]:
-        return self.root.delete(func, **epconfig)
-
     def run(self, file_path: str):
         """
         app = Lihil()
@@ -280,7 +260,7 @@ class Lihil[T: AppState]:
         import inspect
         from pathlib import Path
 
-        import uvicorn
+        from uvicorn import run as uvi_run
 
         crf = inspect.currentframe()
         assert crf
@@ -298,4 +278,96 @@ class Lihil[T: AppState]:
         server_config = self.app_config.server
         set_values = {k: v for k, v in server_config.asdict().items() if v is not None}
 
-        uvicorn.run(app_str, **set_values)
+        uvi_run(app_str, **set_values)
+
+    # ============ Http Methods ================
+    @overload
+    def get[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def get[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    def get[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
+        return self.root.get(func, **epconfig)
+
+    @overload
+    def put[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def put[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    def put[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        return self.root.put(func, **epconfig)
+
+    @overload
+    def post[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def post[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    def post[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        return self.root.post(func, **epconfig)
+
+    @overload
+    def delete[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def delete[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    def delete[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        return self.root.delete(func, **epconfig)
+
+    @overload
+    def patch[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def patch[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    def patch[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        return self.root.patch(func, **epconfig)
+
+    @overload
+    def head[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def head[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    def head[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        return self.root.head(func, **epconfig)
+
+    @overload
+    def options[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def options[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    def options[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        return self.root.options(func, **epconfig)

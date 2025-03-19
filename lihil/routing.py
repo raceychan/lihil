@@ -1,6 +1,6 @@
 from functools import partial
 from types import MethodType
-from typing import Any, Callable, Pattern, Sequence, Union, Unpack, cast
+from typing import Any, Callable, Pattern, Sequence, Union, Unpack, cast, overload
 
 from ididi import Graph, INode, INodeConfig
 from ididi.interfaces import IDependent
@@ -184,12 +184,40 @@ class Route:
                     return True
         return False
 
+    # ============ Http Methods ================
+
+    @overload
+    def get[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def get[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    @overload
+    def get[**P, R](
+        self, func: Func[P, R] | None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]: ...
+
     def get[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
         if func is None:
             return cast(Func[P, R], partial(self.get, **epconfig))
         return self.add_endpoint("GET", func=func, **epconfig)
+
+    @overload
+    def put[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def put[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    @overload
+    def put[**P, R](
+        self, func: Func[P, R] | None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]: ...
 
     def put[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
@@ -198,6 +226,19 @@ class Route:
             return cast(Func[P, R], partial(self.put, **epconfig))
         return self.add_endpoint("PUT", func=func, **epconfig)
 
+    @overload
+    def post[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def post[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    @overload
+    def post[**P, R](
+        self, func: Func[P, R] | None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]: ...
+
     def post[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
@@ -205,9 +246,82 @@ class Route:
             return cast(Func[P, R], partial(self.post, **epconfig))
         return self.add_endpoint("POST", func=func, **epconfig)
 
+    @overload
+    def delete[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def delete[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    @overload
+    def delete[**P, R](
+        self, func: Func[P, R] | None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]: ...
+
     def delete[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         if func is None:
             return cast(Func[P, R], partial(self.delete, **epconfig))
         return self.add_endpoint("DELETE", func=func, **epconfig)
+
+    @overload
+    def patch[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def patch[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    @overload
+    def patch[**P, R](
+        self, func: Func[P, R] | None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]: ...
+
+    def patch[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        if func is None:
+            return cast(Func[P, R], partial(self.patch, **epconfig))
+        return self.add_endpoint("PATCH", func=func, **epconfig)
+
+    @overload
+    def head[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def head[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    @overload
+    def head[**P, R](
+        self, func: Func[P, R] | None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]: ...
+
+    def head[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        if func is None:
+            return cast(Func[P, R], partial(self.head, **epconfig))
+        return self.add_endpoint("HEAD", func=func, **epconfig)
+
+    @overload
+    def options[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def options[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    @overload
+    def options[**P, R](
+        self, func: Func[P, R] | None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]: ...
+
+    def options[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        if func is None:
+            return cast(Func[P, R], partial(self.options, **epconfig))
+        return self.add_endpoint("OPTIONS", func=func, **epconfig)

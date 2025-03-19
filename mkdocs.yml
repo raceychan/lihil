@@ -56,6 +56,7 @@ nav:
   - lihil: index.md
   - Tutorial: tutorials.md
   - Features: features.md
+  - Benchmark: benchmark.md
   
 
   # - Architecture: architecture.md
