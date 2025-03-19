@@ -66,6 +66,7 @@ class Lihil[T: AppState](ASGIBase):
         config_file: Path | str | None = None,
         lifespan: LifeSpan[T] | None = None,
     ):
+        super().__init__()
         self.app_config = read_config(config_file, app_config)
         self.workers = ThreadPoolExecutor(
             max_workers=self.app_config.max_thread_workers
@@ -198,17 +199,6 @@ class Lihil[T: AppState](ASGIBase):
                 return await route(scope, receive, send)
         else:
             return await NOT_FOUND_RESP(scope, receive, send)
-
-    def chainup_middlewares(self, tail: ASGIApp) -> ASGIApp:
-        # current = problem_solver(tail, self.err_registry)
-        current = tail
-        for factory in reversed(self.middle_factories):
-            try:
-                prev = factory(current)
-            except Exception:
-                raise
-            current = prev
-        return current
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         """

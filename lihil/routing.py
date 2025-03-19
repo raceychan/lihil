@@ -42,6 +42,17 @@ class ASGIBase:
         else:
             self.middle_factories.insert(0, middleware_factories)
 
+    def chainup_middlewares(self, tail: ASGIApp) -> ASGIApp:
+        # current = problem_solver(tail, self.err_registry)
+        current = tail
+        for factory in reversed(self.middle_factories):
+            try:
+                prev = factory(current)
+            except Exception:
+                raise
+            current = prev
+        return current
+
 
 class Route(ASGIBase):
     _flyweights: dict[str, "Route"] = {}
@@ -63,6 +74,7 @@ class Route(ASGIBase):
         route_config: RouteConfig | None = None,
     ):
         # TODO: route lifespan
+        super().__init__()
 
         self.path = trim_path(path)
         self.path_regex: Pattern[str] | None = None
@@ -115,14 +127,6 @@ class Route(ASGIBase):
     def build_stack(self):
         for method, ep in self.endpoints.items():
             self.call_stacks[method] = self.chainup_middlewares(ep)
-
-    def chainup_middlewares(self, tail: ASGIApp) -> ASGIApp:
-        # TODO: use graph to inject middleware factories
-        current = tail
-        for factory in reversed(self.middle_factories):
-            prev = factory(current)
-            current = prev
-        return current
 
     def get_endpoint(
         self, method_func: HTTP_METHODS | Callable[..., Any]

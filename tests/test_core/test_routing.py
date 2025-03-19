@@ -92,9 +92,9 @@ async def test_route_call_with_invalid_method():
     route.get(test_handler)
 
     # Test client with POST (not supported)
-    with pytest.raises(ValueError, match="Route does not support POST method"):
-        client = LocalClient()
-        await client.call_route(route, "POST")
+    client = LocalClient()
+    result = await client.call_route(route, "POST")
+    assert (await result.text()) == ("Method Not Allowed")
 
 
 async def test_route_call_method_not_allowed():
