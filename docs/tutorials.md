@@ -14,16 +14,17 @@ Don't overthink it—if you don’t like the term resource, think of it as an ob
 
 > `protocol://domain/path?query#fragment`
 
+`#fragment` is commonly used for client-side navigation, usually you do not need it writing server side application.
+
 Example:
 
-`https://myhost.com/users/lhl/orders?created_at=20250319#listing`
+`https://myhost.com/users/lhl/orders?nums=3`
 
 When you see a RESTful API with a URI like this, even without prior knowledge, you can infer that:
 
 - It is a website hosted at `myhost.com`, using the `https` protocol.
 - It is accessing a resource named `orders`, which belongs to a specific user `lhl`.
-- It includes a query parameter, `created_at`, with the value `20250319`.
-- It references a sub-section or fragment within the resource, identified as `listing`.
+- It includes a query parameter, `nums`, with the value `3`.
 
 `URL` (Uniform Resource Locator): A type of URI that not only identifies a resource but also provides a way to access it. URLs generally include a scheme (protocol), domain, path, query parameters, and optionally a fragment.
 
@@ -39,17 +40,85 @@ in our previous example, `https://lihil.cc/documentation`, then path `/documenta
 ```python
 from lihil import Route
 
-order_route = Route("/users/{user_id}/orders")
+orders_route = Route("/users/{user_id}/orders")
 ```
 
 ### Endpoint
 
+endpoints always live under a route, an endpoint defines what clients can do with the resource exposed by the route. in a nutshell, endpoint = route + httpmethod
+
+```python
+@orders_route.get
+async def search_order(nums: int):
+    ..
+```
+
 #### Marks
+
+when defining endpoints, you can use marks provide meta data for your params.
+
+##### Params
+
+- `Query` for query param, the default case
+- `Path` for path param
+- `Header` for header param
+- `Body` for body param
+- `Use` for dependency
+
+if a param is not declared with param marks, the following rule would apply:
+
+- if the param name appears in route path, it is interpreted as a path param.
+- if the param type is a subclass of `Payload`, it is interpreted as a body param.
+- if the param type is registered in the route graph, or is a lihil-builtin type, it will be interpered as a dependency and will be resolved by lihil
+- otherise, it is interpreted as a query param.
+
+##### Returns
+
+- `Json` for response with content-type `application/json`, the default case
+- `Text` for response with content-type `text/plain`
+- `HTML` for response with content-type `text/html`
+- `Resp[T, 200]` for response with status code `200`
+
+
+
+Example:
+
+```python
+from lihil import Route, Payload, Use, EventBus
+
+user_route = Route("/users/{user_id}")
+
+class UserUpdate(Payload): ...
+class Engine: ...
+class Cache: ...
+
+user_route.factory(Cache)
+
+@user_route.put
+async def update_user(user_id: str, engine: Use[Engine], cache: Cache, bus: EventBus):
+    ...
+```
+
+In this example:
+
+- `user_id` appears in the route path, so it is a path param
+- `engine` is annotated with the `Use` mark, so it is a dependency
+- `cache` is registered in the user_route, so it is also a dependency
+- `bus` is a lihil-builtin type, it is therefore a dependency as well.
+
+only `user_id` needs to be provided by the client request, rest will be resolved by lihil.
+
 
 #### Param Parsing
 
+if you would like to have a great control on how your params are parsed, you can use `CustomDecoder` to provide your decoder for the param type.
 
-...TBC
+```python
+@user_route.put
+async def update_user(random: Annotated[str, Customer]):
+    ...
+```
+
 
 ## Config Your App
 
