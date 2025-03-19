@@ -24,7 +24,26 @@ from lihil.utils.parse import (
 # make lihil a special route, the root route, we can then reduce a lot of code duplication
 
 
-class Route:
+class ASGIBase:
+    call_stack: ASGIApp
+
+    def __init__(self):
+        self.middle_factories: list[MiddlewareFactory[Any]] = []
+
+    def add_middleware[M: ASGIApp](
+        self,
+        middleware_factories: MiddlewareFactory[M] | Sequence[MiddlewareFactory[M]],
+    ) -> None:
+        """
+        Accept one or more factories for ASGI middlewares
+        """
+        if isinstance(middleware_factories, Sequence):
+            self.middle_factories = list(middleware_factories) + self.middle_factories
+        else:
+            self.middle_factories.insert(0, middleware_factories)
+
+
+class Route(ASGIBase):
     _flyweights: dict[str, "Route"] = {}
 
     def __new__(cls, path: str = "", **_):
@@ -54,7 +73,6 @@ class Route:
             self.registry.register(*listeners)
         self.collector: Collector | None = None
         self.subroutes: list[Route] = []
-        self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
         self.config = route_config or RouteConfig()
         self.tag = self.config.tag or generate_route_tag(self.path)
@@ -165,19 +183,6 @@ class Route:
                 return func
             self.path_regex = build_path_regex(self.path)
         return func
-
-    def add_middleware[T: ASGIApp](
-        self,
-        middleware_factories: MiddlewareFactory[T] | Sequence[MiddlewareFactory[T]],
-    ) -> None:
-        """
-        Accept one or a sequence of factories for ASGI middlewares
-        """
-
-        if isinstance(middleware_factories, Sequence):
-            self.middle_factories = list(middleware_factories) + self.middle_factories
-        else:
-            self.middle_factories.insert(0, middleware_factories)
 
     def factory[**P, R](self, node: INode[P, R], **node_config: Unpack[INodeConfig]):
         return self.graph.node(node, **node_config)

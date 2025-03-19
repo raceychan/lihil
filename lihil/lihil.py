@@ -14,7 +14,7 @@ from lihil.interface import ASGIApp, Base, IReceive, IScope, ISend, MiddlewareFa
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import Collector
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
-from lihil.routing import Func, IEndPointConfig, Route
+from lihil.routing import ASGIBase, Func, IEndPointConfig, Route
 from lihil.utils.parse import is_plain_path
 from lihil.utils.phasing import encode_json
 
@@ -53,8 +53,7 @@ def read_config(
         return config_from_file(config_file)
 
 
-class Lihil[T: AppState]:
-    # TODO: make Lihil the root route
+class Lihil[T: AppState](ASGIBase):
     _userls: LifeSpan[T] | None
 
     def __init__(
@@ -80,7 +79,6 @@ class Lihil[T: AppState]:
 
         self._userls = lifespan_wrapper(lifespan)
         self._app_state: T | None = None
-        self.middle_factories: list[MiddlewareFactory[Any]] = []
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
         self._static_cache: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
@@ -236,18 +234,6 @@ class Lihil[T: AppState]:
             if not response_started:
                 await InternalErrorResp(scope, receive, send)
             raise
-
-    def add_middleware[M: ASGIApp](
-        self,
-        middleware_factories: MiddlewareFactory[M] | Sequence[MiddlewareFactory[M]],
-    ) -> None:
-        """
-        Accept one or more factories for ASGI middlewares
-        """
-        if isinstance(middleware_factories, Sequence):
-            self.middle_factories = list(middleware_factories) + self.middle_factories
-        else:
-            self.middle_factories.insert(0, middleware_factories)
 
     def sub(self, path: str) -> "Route":
         route = self.root.sub(path)
