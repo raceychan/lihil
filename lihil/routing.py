@@ -2,7 +2,7 @@ from functools import partial
 from types import MethodType
 from typing import Any, Callable, Pattern, Union, Unpack, cast, overload
 
-from ididi import Graph, INode, INodeConfig, Resolver
+from ididi import Graph, INode, INodeConfig
 from ididi.interfaces import IDependent
 
 from lihil.asgi import ASGIBase
@@ -11,7 +11,7 @@ from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
 from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
 from lihil.interface.asgi import ASGIApp
 from lihil.oas.model import RouteConfig
-from lihil.plugins.bus import BusTerminal, Event, EventBus, MessageRegistry
+from lihil.plugins.bus import BusTerminal, Event, MessageRegistry
 
 # from lihil.plugins.bus import Collector
 from lihil.utils.parse import (

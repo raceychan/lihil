@@ -117,7 +117,6 @@ class Lihil[T](ASGIBase):
             await send({"type": "lifespan.shutdown.complete"})
 
     def _setup(self) -> None:
-        # Todo: chain routes here too
         self.call_stack = self.chainup_middlewares(self.call_route)
         for route in self.routes:
             route.setup()
@@ -135,7 +134,6 @@ class Lihil[T](ASGIBase):
     def sync_deps(self, route: Route):
         self.graph.merge(route.graph)
         self.busterm.include(route.registry)
-
         route.sync_deps(self.graph, self.busterm)
 
     def include_routes(self, *routes: Route, __seen__: set[str] | None = None):

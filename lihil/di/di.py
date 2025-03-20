@@ -28,12 +28,7 @@ class ParseResult(Record):
     def __getitem__(self, key: str):
         return self.params[key]
 
-    # def __ior__(self, other: "ParseResult") -> Self:
-    #     self.params.update(other.params)
-    #     self.errors.extend(other.errors)
-    #     return self
-
-
+# TODO: separate param parsing and dependency injection
 class EndpointDeps[R](Base):
     route_path: str
 
@@ -157,3 +152,4 @@ def analyze_endpoint[R](
         scoped=scoped,
     )
     return info
+

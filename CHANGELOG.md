@@ -195,8 +195,13 @@ INFO:     Started server process [16246]
 INFO:     Started server process [16248]
 ```
 
-
 ## version 0.1.8
+
+### Improvements
 
 - check if body is a subclass of `Struct` instead of `Payload`
 - `Payload` is now frozen and gc-free by default.
+
+### Fix
+
+- fix a bug where when endpoint might endpoint having different graph as route
