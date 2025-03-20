@@ -53,7 +53,7 @@ typeCheckingMode = "strict"
 [tool.pytest.ini_options]
 addopts = "--strict-markers --capture=no"
 asyncio_mode = "auto"
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning:lihil.di.di"]
 markers = [
   "integration_test: marks tests as slow integration tests (deselect with '-m \"not integration_test\"')",
   "debug: marks tests as debug tests (deselect with '-m \"not debug\"')",

@@ -1,12 +1,14 @@
-from typing import Annotated
+from typing import Annotated, Generator
 
 import pytest
 from ididi import Ignore, use
 from starlette.requests import Request
 
-from lihil import Json, Payload, Resp, Route
+from lihil import Json, Payload, Resp, Route, Text
 from lihil.constant import status
 from lihil.errors import StatusConflictError
+from lihil.plugins.testclient import LocalClient
+from lihil.utils.threading import async_wrapper
 
 
 class User(Payload, kw_only=True):
@@ -34,13 +36,6 @@ async def create_user(
     return User(id=user.id, name=user.name, email=user.email)
 
 
-async def get_user(user_id: str) -> Annotated[Resp[str, status.NO_CONTENT], "hello"]:
-    return "hello"
-
-
-async def update_user(user_id: str) -> Annotated[dict[str, str], "aloha"]: ...
-
-
 def test_return_status():
     rusers.post(create_user)
     ep = rusers.get_endpoint(create_user)
@@ -52,13 +47,85 @@ def test_return_status():
 
 
 def test_status_conflict():
+
+    async def get_user(
+        user_id: str,
+    ) -> Annotated[Resp[str, status.NO_CONTENT], "hello"]:
+        return "hello"
+
     with pytest.raises(StatusConflictError):
         rusers.get(get_user)
 
 
 def test_annotated_generic():
+
+    async def update_user(user_id: str) -> Annotated[dict[str, str], "aloha"]: ...
+
     rusers.put(update_user)
     ep = rusers.get_endpoint(update_user)
+    repr(ep)
     assert ep.deps.return_param.type_ == dict[str, str]
 
 
+def sync_func():
+    return "ok"
+
+
+async def test_async_wrapper():
+    awrapped = async_wrapper(sync_func)
+    assert await awrapped() == "ok"
+
+
+async def test_async_wrapper_dummy():
+    awrapped = async_wrapper(sync_func, threaded=False)
+    assert await awrapped() == "ok"
+
+
+async def test_ep_raise_httpexc():
+    client = LocalClient()
+
+    class UserNotFound(Exception): ...
+
+    async def update_user(user_id: str) -> Annotated[dict[str, str], "aloha"]:
+        raise UserNotFound()
+
+    rusers = Route("users/{user_id}")
+    rusers.put(update_user)
+
+    ep = rusers.get_endpoint(update_user)
+    with pytest.raises(UserNotFound):
+        await client.call_endpoint(ep, path_params=dict(user_id=5))
+
+
+async def test_sync_generator_endpoint():
+    """Test an endpoint that returns a sync generator"""
+
+    def stream_data() -> Generator[Text, None, None]:
+        """Return a stream of text data"""
+        yield "Hello, "
+        yield "World!"
+        yield " This "
+        yield "is "
+        yield "a "
+        yield "test."
+
+    client = LocalClient()
+
+    # Make the request
+    route = Route("/stream")
+    route.get(stream_data)
+
+    ep = route.get_endpoint("GET")
+    response = await client.call_endpoint(ep)
+
+    # Check response status
+    assert response.status_code == 200
+
+    # Check content type
+    assert response.headers["content-type"] == "text/plain; charset=utf-8"
+
+    # Check that Transfer-Encoding is chunked
+    assert response.headers.get("transfer-encoding") == "chunked"
+
+    # Check the full response content
+    assert response.text == "Hello, World! This is a test."

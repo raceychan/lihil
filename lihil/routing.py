@@ -1,4 +1,5 @@
 from functools import partial
+from inspect import iscoroutinefunction
 from types import MethodType
 from typing import Any, Callable, Pattern, Union, Unpack, cast, overload
 
@@ -110,7 +111,12 @@ class Route(ASGIBase):
         self, method_func: HTTP_METHODS | Callable[..., Any]
     ) -> Endpoint[Any]:
         if isinstance(method_func, str):
-            return self.endpoints[method_func]
+            methodname = cast(HTTP_METHODS, method_func.upper())
+            return self.endpoints[methodname]
+
+        if not iscoroutinefunction(method_func):
+            raise TypeError("only async function can be used to lookup endpint")
+
         for ep in self.endpoints.values():
             if ep.func is method_func:
                 return ep

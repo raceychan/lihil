@@ -1,7 +1,7 @@
 # from dataclasses import dataclass
 from functools import lru_cache
 from inspect import Parameter, signature
-from types import MappingProxyType, UnionType
+from types import MappingProxyType
 from typing import (
     Annotated,
     Any,
@@ -10,7 +10,6 @@ from typing import (
     Literal,
     Mapping,
     TypeAliasType,
-    Union,
     cast,
     get_args,
     get_origin,

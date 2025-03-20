@@ -26,3 +26,7 @@ def flatten_annotated[T](
 
 def is_union_type(t: type | UnionType | GenericAlias | TypeAliasType):
     return get_origin(t) in (Union, UnionType)
+
+
+#def isasyncfunc():
+#    return iscoroutinefunction

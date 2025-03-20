@@ -1,5 +1,4 @@
-from asyncio import to_thread
-from inspect import isasyncgen, iscoroutinefunction, isgenerator
+from inspect import isasyncgen, isgenerator
 from typing import Any, Awaitable, Callable, Sequence, TypedDict, Unpack
 
 from ididi import Graph
@@ -13,22 +12,7 @@ from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
 from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
-
-
-def async_wrapper[R](
-    func: Callable[..., R], threaded: bool = True
-) -> Callable[..., Awaitable[R]]:
-    # TODO: use our own Threading workers
-    if iscoroutinefunction(func):
-        return func
-
-    async def inner(**params: Any) -> R:
-        return await to_thread(func, **params)
-
-    async def dummy(**params: Any) -> R:
-        return func(**params)
-
-    return inner if threaded else dummy
+from lihil.utils.threading import async_wrapper
 
 
 class IEndPointConfig(TypedDict, total=False):
@@ -84,7 +68,7 @@ class Endpoint[R]:
         self.path = path
         self.method = method
         self.tag = tag
-        self.func = async_wrapper(func, config.to_thread)
+        self.func = async_wrapper(func, threaded=config.to_thread)
         self.graph = graph
         self.busterm = busterm
         self.config = config
@@ -116,12 +100,10 @@ class Endpoint[R]:
             for name, p in self.deps.singletons:
                 if p.type_ is Request:
                     params[name] = request
-                    # TODO: message bus
                 elif p.type_ is EventBus:
                     bus = self.busterm.create_event_bus(resolver)
                     params[name] = bus
-                else:
-                    raise NotImplementedError(f"unhandle lihil deps {p.type_}")
+
 
             for name, dep in self.deps.dependencies:
                 params[name] = await resolver.aresolve(dep.dependent, **params)

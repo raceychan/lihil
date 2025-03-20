@@ -206,4 +206,18 @@ INFO:     Started server process [16248]
 
 - fix a bug where when endpoint might endpoint having different graph as route
 
-- fix a bug where if param is a union of types return value would be None.
+- fix a bug where if param type is a union of types return value would be None.
+
+- fix a bug where a param type is a generic type then it will be treated as text type
+
+```python
+def _(a: dict[str, str]):
+    ...
+```
+
+here a will be treated as:
+
+```python
+def _(a: str):
+    ...
+```
