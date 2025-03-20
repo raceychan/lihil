@@ -220,7 +220,7 @@ class LocalClient:
                 pattern = f"{{{param_name}}}"
                 actual_path = actual_path.replace(pattern, str(param_value))
 
-        route.build_stack()
+        route.setup()
 
         resp = await self.request(
             app=route,

@@ -3,7 +3,6 @@ from typing import Any, Sequence
 from lihil.interface.asgi import ASGIApp, MiddlewareFactory
 
 
-# from lihil.plugins.bus import Collector
 class ASGIBase:
     call_stack: ASGIApp
 

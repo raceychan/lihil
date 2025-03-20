@@ -2,7 +2,7 @@ from functools import partial
 from types import MethodType
 from typing import Any, Callable, Pattern, Union, Unpack, cast, overload
 
-from ididi import Graph, INode, INodeConfig
+from ididi import Graph, INode, INodeConfig, Resolver
 from ididi.interfaces import IDependent
 
 from lihil.asgi import ASGIBase
@@ -11,7 +11,7 @@ from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
 from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
 from lihil.interface.asgi import ASGIApp
 from lihil.oas.model import RouteConfig
-from lihil.plugins.bus import Collector, Event, MessageRegistry
+from lihil.plugins.bus import BusTerminal, Event, EventBus, MessageRegistry
 
 # from lihil.plugins.bus import Collector
 from lihil.utils.parse import (
@@ -58,10 +58,10 @@ class Route(ASGIBase):
         self.path_regex: Pattern[str] | None = None
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self.graph = graph or Graph(self_inject=False)
-        self.registry = registry or MessageRegistry(event_base=Event)
+        self.registry = registry or MessageRegistry(event_base=Event, graph=graph)
         if listeners:
             self.registry.register(*listeners)
-        self.collector: Collector | None = None
+        self.busterm = BusTerminal(self.registry, graph=graph)
         self.subroutes: list[Route] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
         self.config = route_config or RouteConfig()
@@ -94,9 +94,17 @@ class Route(ASGIBase):
         rest = self.path.removeprefix(other.path)
         return rest.count("/") < 2
 
-    def build_stack(self):
+    def setup(self):
         for method, ep in self.endpoints.items():
             self.call_stacks[method] = self.chainup_middlewares(ep)
+
+    def sync_deps(self, graph: Graph, busterm: BusTerminal):
+        self.graph = graph
+        self.busterm = busterm
+
+        for ep in self.endpoints.values():
+            ep.graph = graph
+            ep.busterm = busterm
 
     def get_endpoint(
         self, method_func: HTTP_METHODS | Callable[..., Any]
@@ -139,16 +147,13 @@ class Route(ASGIBase):
         **iconfig: Unpack[IEndPointConfig],
     ) -> Func[P, R]:
         epconfig = EndPointConfig.from_unpack(**iconfig)
-        if self.collector is None:
-            self.collector = Collector(self.registry)
-
         for method in methods:
             endpoint = Endpoint(
                 method=method,
                 path=self.path,
                 tag=self.tag,
                 func=func,
-                busmaker=self.collector.create_event_bus,
+                busterm=self.busterm,
                 graph=self.graph,
                 config=epconfig,
             )

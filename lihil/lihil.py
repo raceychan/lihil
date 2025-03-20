@@ -14,7 +14,7 @@ from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_stati
 from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
 from lihil.interface import ASGIApp, IReceive, IScope, ISend
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
-from lihil.plugins.bus import Collector
+from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
 from lihil.routing import ASGIBase, Func, IEndPointConfig, Route
 from lihil.utils.parse import is_plain_path
@@ -59,7 +59,7 @@ class Lihil[T](ASGIBase):
         routes: list[Route] | None = None,
         app_config: AppConfig | None = None,
         graph: Graph | None = None,
-        collector: Collector | None = None,
+        busterm: BusTerminal | None = None,
         config_file: Path | str | None = None,
         lifespan: LifeSpan[T] | None = None,
     ):
@@ -69,7 +69,7 @@ class Lihil[T](ASGIBase):
             max_workers=self.app_config.max_thread_workers
         )
         self.graph = graph or Graph(self_inject=True, workers=self.workers)
-        self.collector = collector or Collector()
+        self.busterm = busterm or BusTerminal()
         self.root = Route("/", graph=self.graph)
         self.routes: list[Route] = [self.root]
         if routes:
@@ -120,7 +120,7 @@ class Lihil[T](ASGIBase):
         # Todo: chain routes here too
         self.call_stack = self.chainup_middlewares(self.call_route)
         for route in self.routes:
-            route.build_stack()
+            route.setup()
 
     def _generate_doc_route(self):
         oas_config = self.app_config.oas
@@ -134,10 +134,9 @@ class Lihil[T](ASGIBase):
 
     def sync_deps(self, route: Route):
         self.graph.merge(route.graph)
-        self.collector.include(route.registry)
+        self.busterm.include(route.registry)
 
-        route.graph = self.graph
-        route.collector = self.collector
+        route.sync_deps(self.graph, self.busterm)
 
     def include_routes(self, *routes: Route, __seen__: set[str] | None = None):
         seen = __seen__ or set()

@@ -289,7 +289,7 @@ async def test_route_build_stack():
     assert not route.call_stacks
 
     # Build the stack
-    route.build_stack()
+    route.setup()
 
     # Now call_stacks should have the GET method
     assert "GET" in route.call_stacks

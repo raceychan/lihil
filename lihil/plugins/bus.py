@@ -683,7 +683,7 @@ class EventBus:
         # perserve a strong ref to prevent task from being gc
 
 
-class Collector:
+class BusTerminal:
     def __init__(
         self,
         *registries: Any,

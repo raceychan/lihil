@@ -11,7 +11,7 @@ from starlette.responses import Response, StreamingResponse
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
-from lihil.plugins.bus import EventBus
+from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
 
 
@@ -78,7 +78,7 @@ class Endpoint[R]:
         tag: str,
         func: Callable[..., R],
         graph: Graph,
-        busmaker: Callable[[Resolver], EventBus],
+        busterm: BusTerminal,
         config: EndPointConfig,
     ):
         self.path = path
@@ -86,7 +86,7 @@ class Endpoint[R]:
         self.tag = tag
         self.func = async_wrapper(func, config.to_thread)
         self.graph = graph
-        self.busmaker = busmaker
+        self.busterm = busterm
         self.config = config
 
         self.name = func.__name__
@@ -118,7 +118,7 @@ class Endpoint[R]:
                     params[name] = request
                     # TODO: message bus
                 elif p.type_ is EventBus:
-                    bus = self.busmaker(resolver)
+                    bus = self.busterm.create_event_bus(resolver)
                     params[name] = bus
                 else:
                     raise NotImplementedError(f"unhandle lihil deps {p.type_}")

@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from msgspec.json import Decoder
 
-from lihil.interface import Base, field
+from lihil.interface import FlatRecord, field
 from lihil.utils.visitor import all_subclasses, union_types
 
 
@@ -16,7 +16,7 @@ def ts_factory() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Envelope[Body](Base):
+class Envelope[Body](FlatRecord):
     """
     a lihil-managed event meta class
 
@@ -31,24 +31,15 @@ class Envelope[Body](Base):
     event_id: str = field(default_factory=uuid_factory)
     timestamp: datetime = field(default_factory=ts_factory)  # cloudevents name: time
 
-
     def build_decoder(self) -> Decoder["Self"]:
         "Build a decoder that decodes all subclsses of current class"
         subs = all_subclasses(self.__class__)
-        sub_union = union_types(subs)
+        sub_union = union_types(list(subs))
         return Decoder(sub_union)
 
 
 @dataclass_transform(frozen_default=True)
-class Event(
-    Base,
-    tag_field="typeid",
-    frozen=True,
-    cache_hash=True,
-    gc=False,
-    kw_only=True,
-    omit_defaults=True,
-):
+class Event(FlatRecord, tag_field="typeid", omit_defaults=True):
 
     # TODO: generate a event page to inspect source
     """
@@ -56,6 +47,8 @@ class Event(
     """
     version: ClassVar[str] = "1"
 
+
+# TODO: Command
 
 """
 async def publish(event: Event, subject: str, source: str | None = None):
