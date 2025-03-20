@@ -17,7 +17,7 @@ from lihil.interface import (
     ParamLocation,
     is_provided,
 )
-from lihil.interface.marks import Body, Header, Path, Payload, Query, Use
+from lihil.interface.marks import Body, Header, Path, Query, Struct, Use
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import decoder_factory, textdecoder_factory
 from lihil.utils.typing import flatten_annotated
@@ -221,7 +221,7 @@ def analyze_param(
             location="path",
             default=default,
         )
-    elif isinstance(type_, type) and issubclass(type_, Payload):
+    elif isinstance(type_, type) and issubclass(type_, Struct):
         decoder = decoder_factory(type_)
         req_param = RequestParam(
             type_=type_,
@@ -233,7 +233,7 @@ def analyze_param(
         )
     elif isinstance(type_, UnionType) or get_origin(type_) is Union:
         type_args = get_args(type_)
-        if any(issubclass(subt, Payload) for subt in type_args):
+        if any(issubclass(subt, Struct) for subt in type_args):
             decoder = decoder_factory(type_)
             req_param = RequestParam(
                 type_=type_,

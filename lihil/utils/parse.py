@@ -72,7 +72,7 @@ def merge_path(parent_path: str, sub_path: str) -> str:
     """
     parent_path = "/users"
     sub_path = "/{user_id}"
-    merge_path(parent_path, sub_path) == "uesrs/{user_id}"
+    merge_path(parent_path, sub_path) == "/uesrs/{user_id}"
     """
 
     current_path = (

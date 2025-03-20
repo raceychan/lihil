@@ -29,6 +29,14 @@ class Route(ASGIBase):
     _flyweights: dict[str, "Route"] = {}
 
     def __new__(cls, path: str = "", **_):
+        """
+        TODO?: we need something more sophisticated
+
+        Route("/users/{user_id}/orders/{order_id}")
+        we should know check if `Route(/users/{user_id}/orders)` is in _flyweight,
+        if parent exists, make new route a sub route of it.
+        if not, pass
+        """
         p = trim_path(path)
         if p_route := cls._flyweights.get(p):
             return p_route
@@ -44,7 +52,6 @@ class Route(ASGIBase):
         listeners: list[Callable[..., Any]] | None = None,
         route_config: RouteConfig | None = None,
     ):
-        # TODO: route lifespan
         super().__init__()
 
         self.path = trim_path(path)
@@ -76,7 +83,6 @@ class Route(ASGIBase):
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
         http_method = scope["method"]
-        # TODO: chainup middlewares at lifespan
         try:
             await self.call_stacks[http_method](scope, receive, send)
         except KeyError:

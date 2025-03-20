@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 
 from lihil import HTTPException, Json, Lihil, Payload, Resp, Route, Stream, Text, status
-from lihil.lihil import AppState
 
 
 class Unhappiness(Payload):
@@ -41,7 +40,7 @@ class Order(Payload, tag=True):
 rusers = Route("users")
 
 
-class MyState(AppState): ...
+class MyState(Payload): ...
 
 
 @asynccontextmanager

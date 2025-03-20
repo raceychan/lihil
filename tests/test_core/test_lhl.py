@@ -1,18 +1,18 @@
 import json
 from contextlib import asynccontextmanager
-from pathlib import Path
-from typing import Any, AsyncGenerator, Callable
+from typing import Any
 
 import pytest
 
-from lihil.config import AppConfig, OASConfig
+from lihil.config import AppConfig
 from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
-from lihil.lihil import AppState, Lihil, lifespan_wrapper, read_config
+from lihil.interface import Base
+from lihil.lihil import Lihil, lifespan_wrapper, read_config
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
 
 
-class CustomAppState(AppState):
+class CustomAppState(Base):
     counter: int = 0
 
 

@@ -148,11 +148,9 @@ This would fail silently before this fix
 
 - Fix a bug with `Lihil.static` where if content is instance of str, and content type is `text` it will still be encoded as json
 
-
 ## version 0.1.7
 
 ### Feature
-
 
 #### `Lihil.run` (beta)
 
@@ -196,3 +194,9 @@ INFO:     Started server process [16247]
 INFO:     Started server process [16246]
 INFO:     Started server process [16248]
 ```
+
+
+## version 0.1.8
+
+- check if body is a subclass of `Struct` instead of `Payload`
+- `Payload` is now frozen and gc-free by default.

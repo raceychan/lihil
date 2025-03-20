@@ -54,10 +54,9 @@ def is_param_mark(m: Any) -> bool:
     return is_lihil_mark(m, LIHIL_PARAM_MARK)
 
 
-class Payload(Struct):
+class Payload(Struct, frozen=True, gc=False):
     """
-    a structural type for request payloads
-    we can have HeaderPayload, BodyPayload, etc.
+    a pre-configured struct that is frozen, gc_free, tagged with "typeid"
     """
 
 

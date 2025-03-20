@@ -3,14 +3,14 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
 from pathlib import Path
-from typing import Any, AsyncContextManager, Callable, Unpack, cast, overload
+from typing import Any, AsyncContextManager, Callable, Unpack, overload
 
 from ididi import Graph
 
 from lihil.config import AppConfig, config_from_file
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
-from lihil.interface import ASGIApp, Base, IReceive, IScope, ISend
+from lihil.interface import ASGIApp, IReceive, IScope, ISend
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import Collector
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
@@ -35,11 +35,6 @@ def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
 
-class AppState(Base):
-    # just a typing helper
-    ...
-
-
 def read_config(
     config_file: str | Path | None, app_config: AppConfig | None
 ) -> AppConfig:
@@ -53,7 +48,7 @@ def read_config(
         return config_from_file(config_file)
 
 
-class Lihil[T: AppState](ASGIBase):
+class Lihil[T](ASGIBase):
     _userls: LifeSpan[T] | None
 
     def __init__(
@@ -219,9 +214,9 @@ class Lihil[T: AppState](ASGIBase):
                 response_started = True
             await send(message)
 
-        # TODO: solve this with lhl_server, not extra _send needed.
+        # TODO: solve this with lhl_server, no extra _send needed.
         try:
-            await self.call_stack(scope, receive, cast(ISend, _send))
+            await self.call_stack(scope, receive, _send)  # type: ignore
         except Exception:
             if not response_started:
                 await InternalErrorResp(scope, receive, send)
