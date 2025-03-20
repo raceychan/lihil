@@ -19,10 +19,34 @@ from lihil.interface import (
 )
 from lihil.interface.marks import Body, Header, Path, Query, Struct, Use
 from lihil.utils.parse import parse_header_key
-from lihil.utils.phasing import decoder_factory, textdecoder_factory
-from lihil.utils.typing import flatten_annotated
+from lihil.utils.phasing import (
+    build_union_decoder,
+    bytes_decoder,
+    decoder_factory,
+    str_decoder,
+)
+from lihil.utils.typing import flatten_annotated, is_union_type
+
 
 # from starlette.requests import Request
+def textdecoder_factory(
+    t: type | UnionType | GenericAlias,
+) -> ITextDecoder[Any] | IDecoder[Any]:
+    # BUG:
+    if is_union_type(t):
+        union_args = get_args(t)
+        if str in union_args:
+            return build_union_decoder(union_args, str)
+        if bytes in union_args:
+            return build_union_decoder(union_args, bytes)
+        else:
+            return decoder_factory(t)
+
+    if t is str:
+        return str_decoder
+    elif t is bytes:
+        return bytes_decoder
+    return decoder_factory(t)
 
 
 type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]

@@ -1,5 +1,5 @@
 from types import GenericAlias, UnionType
-from typing import Annotated, Any, TypeAliasType, cast, get_args, get_origin
+from typing import Annotated, Any, TypeAliasType, Union, cast, get_args, get_origin
 
 
 def flatten_annotated[T](
@@ -22,3 +22,7 @@ def flatten_annotated[T](
             else:
                 flattened_metadata.append(item)
         return tuple(flattened_metadata)
+
+
+def is_union_type(t: type | UnionType | GenericAlias | TypeAliasType):
+    return get_origin(t) in (Union, UnionType)

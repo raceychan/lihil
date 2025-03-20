@@ -1,6 +1,6 @@
 from functools import lru_cache
 from types import GenericAlias, UnionType
-from typing import Any, Callable, Union, get_args
+from typing import Any, Callable, Union, get_args, get_origin
 
 from msgspec import DecodeError
 from msgspec.json import Decoder as JsonDecoder
@@ -8,6 +8,7 @@ from msgspec.json import Encoder as JsonEncoder
 from msgspec.json import encode as json_encode
 
 from lihil.interface import IDecoder, IEncoder, ITextDecoder
+from lihil.utils.typing import is_union_type
 
 
 def str_decoder(content: str | bytes) -> str:
@@ -17,14 +18,18 @@ def str_decoder(content: str | bytes) -> str:
 
 
 def bytes_decoder(content: str | bytes) -> bytes:
-    return content.encode() if isinstance(content, str) else content
+    if isinstance(content, str):
+        return content.encode()
+    return content
 
 
 def is_text_type(t: type) -> bool:
-    union_args = get_args(t)
-    if not union_args:
-        return t in (str, bytes)
-    return any(u in (str, bytes) for u in union_args)
+
+    if is_union_type(t):
+        union_args = get_args(t)
+        return any(u in (str, bytes) for u in union_args)
+
+    return t in (str, bytes)
 
 
 def build_union_decoder(
@@ -51,25 +56,6 @@ def build_union_decoder(
         return res
 
     return decode_reunion
-
-
-def textdecoder_factory(
-    t: type | UnionType | GenericAlias,
-) -> ITextDecoder[Any] | IDecoder[Any]:
-    union_args = get_args(t)
-    if not union_args:
-        if t is str:
-            return str_decoder
-        elif t is bytes:
-            return bytes_decoder
-        else:
-            return decoder_factory(t)
-    elif str in union_args:
-        return build_union_decoder(union_args, str)
-    elif bytes in union_args:
-        return build_union_decoder(union_args, bytes)
-    else:
-        return decoder_factory(t)
 
 
 @lru_cache(256)

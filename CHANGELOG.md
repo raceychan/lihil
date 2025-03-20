@@ -205,3 +205,5 @@ INFO:     Started server process [16248]
 ### Fix
 
 - fix a bug where when endpoint might endpoint having different graph as route
+
+- fix a bug where if param is a union of types return value would be None.

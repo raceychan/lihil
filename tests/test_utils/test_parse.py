@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Dict, List, Optional, Union
 
 import pytest
 
@@ -25,7 +25,6 @@ def test_byte_str_union():
         build_union_decoder((bytes, str), target_type=str)
 
 
-@pytest.mark.debug
 def test_build_union_decoder_with_complex_types():
     """Test union decoder with more complex types"""
     # Create a union decoder for Union[list, dict, str]
@@ -72,3 +71,4 @@ def test_build_union_decoder_priority():
     invalid_json = '{"key": value}'  # missing quotes around value
     assert union_decoder(invalid_json) == invalid_json
     assert isinstance(union_decoder(invalid_json), str)
+

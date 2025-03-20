@@ -1,5 +1,5 @@
-from inspect import Parameter, Signature
-from typing import Annotated, Union, get_origin
+from inspect import Parameter
+from typing import Annotated, Union
 
 import pytest
 from ididi import DependentNode, Graph
@@ -15,8 +15,9 @@ from lihil.di.params import (
     analyze_nodeparams,
     analyze_param,
     analyze_request_params,
+    textdecoder_factory,
 )
-from lihil.interface import MISSING, ParamLocation, Payload
+from lihil.interface import MISSING, Payload
 from lihil.interface.marks import Body, Header, Path, Query, Use
 
 
@@ -529,3 +530,130 @@ def test_analyze_param_union_with_payload():
     # This indirectly tests that the decoder was created correctly in lines 237-238
     decoder = param.decoder
     assert decoder is not None
+
+
+def test_textdecoder_factory_basic_types():
+    """Test textdecoder_factory with basic types"""
+    # Test with str
+    str_decoder_func = textdecoder_factory(str)
+    assert str_decoder_func("hello") == "hello"
+
+    # Test with bytes
+    bytes_decoder_func = textdecoder_factory(bytes)
+    assert bytes_decoder_func(b"hello") == b"hello"
+
+    # Test with int
+    int_decoder_func = textdecoder_factory(int)
+    assert int_decoder_func("42") == 42
+    with pytest.raises(TypeError):
+        assert int_decoder_func(42) == 42
+
+    # Test with bool
+    bool_decoder_func = textdecoder_factory(bool)
+    assert bool_decoder_func("true") is True
+    with pytest.raises(TypeError):
+        assert bool_decoder_func(True) is True
+
+
+def test_textdecoder_factory_with_bytes():
+    """Test textdecoder_factory specifically with bytes type"""
+    decoder = textdecoder_factory(bytes)
+
+    # Test with bytes input
+    assert decoder(b"hello world") == b"hello world"
+
+    # Test with string input (should be converted to bytes)
+    assert decoder("hello world") == b"hello world"
+
+
+def test_textdecoder_factory_with_union_containing_bytes():
+    """Test textdecoder_factory with unions containing bytes"""
+    # Union of bytes and dict
+    union_decoder = textdecoder_factory(Union[bytes, dict])
+
+    # Should decode valid JSON as dict
+    assert union_decoder(b'{"key": "value"}') == {"key": "value"}
+
+    # Should keep invalid JSON as bytes
+    assert union_decoder(b"not a json") == b"not a json"
+
+    # Union of bytes, list and int
+    complex_decoder = textdecoder_factory(Union[bytes, list, int])
+
+    # Should decode valid JSON as list
+    assert complex_decoder(b"[1, 2, 3]") == [1, 2, 3]
+
+    # Should decode valid int
+    assert complex_decoder(b"42") == 42
+
+    # Should keep other content as bytes
+    assert complex_decoder(b"hello") == b"hello"
+
+
+def test_textdecoder_factory_with_union_types():
+    """Test textdecoder_factory with various union types"""
+    # Union with str
+    str_union_decoder = textdecoder_factory(Union[str, int])
+    assert str_union_decoder("42") == 42
+    assert str_union_decoder("hello") == "hello"
+
+    # Union with bytes
+    bytes_union_decoder = textdecoder_factory(Union[bytes, dict])
+    assert bytes_union_decoder(b'{"a": 1}') == {"a": 1}
+    assert bytes_union_decoder(b"not json") == b"not json"
+
+    # Complex union without str/bytes
+    complex_decoder = textdecoder_factory(Union[int, list, dict])
+    assert complex_decoder("42") == 42
+    assert complex_decoder("[1, 2]") == [1, 2]
+    assert complex_decoder('{"a": 1}') == {"a": 1}
+
+
+def test_textdecoder_factory_with_python_3_10_union_syntax():
+    """Test textdecoder_factory with Python 3.10+ union syntax (if supported)"""
+    # Skip if UnionType is not available (Python < 3.10)
+    if not hasattr(pytest, "skip_if"):
+        try:
+            # Python 3.10+ union syntax
+            type_expr = eval("int | str")
+
+            # Test with the new union syntax
+            union_decoder = textdecoder_factory(type_expr)
+            assert union_decoder("42") == 42
+            assert union_decoder("hello") == "hello"
+        except SyntaxError:
+            pytest.skip("Python 3.10+ union syntax not supported")
+
+
+def test_textdecoder_factory_with_optional():
+    """Test textdecoder_factory with Optional types (Union[T, None])"""
+    # Optional[int] is Union[int, None]
+    optional_decoder = textdecoder_factory(int | None)
+
+    assert optional_decoder("42") == 42
+    assert optional_decoder("null") is None
+
+    # Optional[bytes]
+    optional_bytes_decoder = textdecoder_factory(bytes | None)
+
+    assert optional_bytes_decoder(b"hello") == b"hello"
+    assert optional_bytes_decoder("null") is None
+
+@pytest.mark.debug
+def test_textdecoder_factory_with_complex_types():
+    """Test textdecoder_factory with more complex types"""
+    # List type
+    list_decoder = textdecoder_factory(list[int])
+    assert list_decoder("[1, 2, 3]") == [1, 2, 3]
+
+    # Dict type
+    dict_decoder = textdecoder_factory(dict[str, int])
+
+    result = dict_decoder('{"a": 1, "b": 2}')
+
+
+    assert result == {"a": 1, "b": 2}
+
+    # Nested type
+    nested_decoder = textdecoder_factory(list[dict[str, int]])
+    assert nested_decoder('[{"a": 1}, {"b": 2}]') == [{"a": 1}, {"b": 2}]

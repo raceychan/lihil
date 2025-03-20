@@ -24,6 +24,7 @@ from lihil.constant import status as http_status
 from lihil.interface import FlatRecord, IEncoder, ParamLocation
 from lihil.utils.parse import to_kebab_case, trimdoc
 from lihil.utils.phasing import encoder_factory
+from lihil.utils.typing import is_union_type
 from lihil.utils.visitor import all_subclasses
 
 """
@@ -54,7 +55,7 @@ def parse_exception(
 
     elif exc_origin is Literal:
         return get_args(exc)[0]
-    elif exc_origin in (UnionType, Union):
+    elif is_union_type(exc):
         res: list[Any] = []
         sub_excs = get_args(exc)
         for e in sub_excs:
