@@ -1,5 +1,5 @@
 from inspect import signature
-from typing import Any, Awaitable, Callable, Mapping, Self, Sequence, cast
+from typing import Any, Awaitable, Callable, Mapping, Sequence, cast
 from warnings import warn
 
 from ididi import DependentNode, Graph
@@ -28,10 +28,10 @@ class ParseResult(Record):
     def __getitem__(self, key: str):
         return self.params[key]
 
-    def __ior__(self, other: "ParseResult") -> Self:
-        self.params.update(other.params)
-        self.errors.extend(other.errors)
-        return self
+    # def __ior__(self, other: "ParseResult") -> Self:
+    #     self.params.update(other.params)
+    #     self.errors.extend(other.errors)
+    #     return self
 
 
 class EndpointDeps[R](Base):
@@ -47,12 +47,15 @@ class EndpointDeps[R](Base):
     return_param: ReturnParam[R]  # | UnionType
     scoped: bool
 
-    def override(self) -> None:
-        raise NotImplementedError
+    def override(self) -> None: ...
 
     @property
     def default_status(self) -> int:
         return self.return_param.status
+
+    @property
+    def return_encoder(self):
+        return self.return_param.encoder
 
     # TODO:we shou rewrite this in cython, along with the request object
     def prepare_params(

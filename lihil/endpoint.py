@@ -92,9 +92,9 @@ class Endpoint[R]:
         self.name = func.__name__
         self.deps = analyze_endpoint(graph=self.graph, route_path=self.path, f=func)
         self.require_body: bool = self.deps.body_param is not None
-        self.status_code = self.deps.return_param.status
+        self.status_code = self.deps.default_status
         self.scoped: bool = self.deps.scoped
-        self.encoder = self.deps.return_param.encoder
+        self.encoder = self.deps.return_encoder
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.method}: {self.path!r} {self.func})"
