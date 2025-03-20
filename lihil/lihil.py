@@ -238,7 +238,7 @@ class Lihil[T](ASGIBase):
         worker_num = server_config.workers
 
         use_app_str = (worker_num and worker_num > 1) or server_config.reload
-        if use_app_str:
+        if not use_app_str:
             runner(self, **set_values)
             return
 

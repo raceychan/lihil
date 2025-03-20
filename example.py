@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from lihil import HTTPException, Json, Lihil, Payload, Resp, Route, Stream, Text, status
-from lihil.lihil import AppState
 
 
 class Item(Payload):

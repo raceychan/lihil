@@ -863,12 +863,10 @@ async def test_a_problem_endpoint():
 
 
 async def test_lihil_run():
-    mod_path = __file__.split("/")[-1][:-3]
+    lhl = Lihil[str]()
 
     def mock_run(server_str: str):
-        assert server_str == f"{mod_path}:lhl"
-
-    lhl = Lihil[str]()
+        assert server_str == lhl
 
     lhl.run(__file__, runner=mock_run)
 
@@ -879,8 +877,8 @@ async def test_lihil_run_with_workers():
 
     lhl = Lihil[str](app_config=config)
 
-    def mock_run(str_or_app: str, workers: int):
+    def mock_run(str_app: str, workers: int):
         assert workers == 2
-        assert str_or_app is lhl
+        assert str_app == "test_lhl:lhl"
 
     lhl.run(__file__, runner=mock_run)

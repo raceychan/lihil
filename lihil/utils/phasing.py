@@ -38,16 +38,17 @@ def build_union_decoder(
     if len(rest) == 1:
         rest_decoder = decoder_factory(rest[0])
     else:
-        new_union = Union[*(rest)]  # type: ignore
+        new_union = Union[rest]  # type: ignore
         rest_decoder = decoder_factory(new_union)
 
     raw_decoder = str_decoder if target_type is str else bytes_decoder
 
     def decode_reunion(content: bytes | str):
         try:
-            rest_decoder(content)
+            res = rest_decoder(content)
         except DecodeError:
             return raw_decoder(content)
+        return res
 
     return decode_reunion
 
@@ -56,9 +57,6 @@ def textdecoder_factory(
     t: type | UnionType | GenericAlias,
 ) -> ITextDecoder[Any] | IDecoder[Any]:
     union_args = get_args(t)
-
-    # TODO: handle when len(union_args) == 1
-
     if not union_args:
         if t is str:
             return str_decoder

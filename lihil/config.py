@@ -203,7 +203,11 @@ def config_from_cli(config_type: type[AppConfig]) -> StrDict | None:
     known_args = parser.parse_known_args()[0]
     args = known_args.__dict__
 
-    cli_args: StrDict = {k: v for k, v in args.items() if is_provided(v)}
+    # Filter out _provided flags and keep only provided values
+    cli_args: StrDict = {
+        k: v for k, v in args.items() if is_provided(v) and not k.endswith("_provided")
+    }
+
     if not cli_args:
         return None
 
@@ -235,5 +239,6 @@ def config_from_file(
     cli_config = config_from_cli(config_type)
     if cli_config:
         deep_update(config_dict, cli_config)
+
     config = convert(config_dict, config_type)
     return config

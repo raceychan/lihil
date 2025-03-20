@@ -339,30 +339,3 @@ def collect_problems() -> list[type]:
 
     problems = list(all_subclasses(DetailBase))
     return problems
-
-
-def init_handlers():
-    status_handlers: dict[int, ExceptionHandler[DetailBase[Any]]] = {}
-    exc_handlers: dict[type[DetailBase[Any]], ExceptionHandler[DetailBase[Any]]] = {}
-
-    for target, handler in LIHIL_ERRESP_REGISTRY.items():
-        if isinstance(target, int):
-            status_handlers[target] = handler
-        else:
-            exc_handlers[target] = handler
-
-    @lru_cache
-    def get_handler(exc: DetailBase[Any]) -> ExceptionHandler[DetailBase[Any]] | None:
-        try:
-            code = exc.__status__
-            return status_handlers[code]
-        except AttributeError:
-            pass
-        except KeyError:
-            pass
-
-        for base in type(exc).__mro__:
-            if res := exc_handlers.get(base):
-                return res
-
-    return get_handler

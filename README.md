@@ -200,7 +200,7 @@ lihil follows semantic versioning, where a version in x.y.z represents:
 
 ## Tutorials
 
-check detailed tutorials at https://lihil.cc/lihil/tutorial, covering
+check detailed tutorials at https://lihil.cc/lihil/tutorials/, covering
 
 - Configuring your app via `pyproject.toml`, or via command line arguments.
 - Dependency Injection & Plugins
