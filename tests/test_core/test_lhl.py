@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 
-from lihil.config import AppConfig
+from lihil.config import AppConfig, ServerConfig
 from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
-from lihil.interface import Base
+from lihil.interface import ASGIApp, Base
 from lihil.lihil import Lihil, lifespan_wrapper, read_config
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
@@ -745,70 +745,74 @@ async def test_root_delete():
     assert (await response.json())["method"] == "DELETE"
 
 
-# async def test_add_middleware_sequence():
-#     """Test lines 208-209: add_middleware with sequence"""
-#     app = Lihil()
+async def test_add_middleware_sequence():
+    """Test lines 208-209: add_middleware with sequence"""
+    app = Lihil()
 
-#     def middleware1(app: ASGIApp) -> ASGIApp:
-#         return app
+    def middleware1(app: ASGIApp) -> ASGIApp:
+        return app
 
-#     def middleware2(app: ASGIApp) -> ASGIApp:
-#         return app
+    def middleware2(app: ASGIApp) -> ASGIApp:
+        return app
 
-#     app.add_middleware([middleware1, middleware2])
-#     assert len(app.middle_factories) == 2
-#     assert app.middle_factories[0] == middleware1
-#     assert app.middle_factories[1] == middleware2
-
-
-# async def test_http_method_decorators():
-#     """Test lines 233-236, 263, 268, 273: HTTP method decorators"""
-#     app = Lihil()
-
-#     # Test GET decorator
-#     async def get_handler():
-#         return {"message": "GET"}
-
-#     app.get(get_handler)
-
-#     # Test PUT decorator
-#     async def put_handler():
-#         return {"message": "PUT"}
-
-#     app.put(put_handler)
-
-#     # Test POST decorator
-#     async def post_handler():
-#         return {"message": "POST"}
-
-#     app.post(post_handler)
-
-#     # Test DELETE decorator
-#     async def delete_handler():
-#         return {"message": "DELETE"}
-
-#     app.delete(delete_handler)
-
-#     # Verify endpoints were added
-#     assert len(app.root.endpoints) == 4
+    app.add_middleware([middleware1, middleware2])
+    assert len(app.middle_factories) == 2
+    assert app.middle_factories[0] == middleware1
+    assert app.middle_factories[1] == middleware2
 
 
-# async def test_include_routes_with_duplicate_root():
-#     """Test for DuplicatedRouteError when including routes with duplicate root"""
-#     app = Lihil()
+async def test_http_method_decorators():
+    """Test lines 233-236, 263, 268, 273: HTTP method decorators"""
+    app = Lihil()
 
-#     # Add an endpoint to root to make it non-empty
-#     async def root_handler():
-#         return {"message": "root"}
+    # Test GET decorator
+    async def get_handler():
+        return {"message": "GET"}
 
-#     app.get(root_handler)
-#     # Create a new route with path "/"
-#     new_root = Route("/")
+    app.get(get_handler)
+
+    # Test PUT decorator
+    async def put_handler():
+        return {"message": "PUT"}
+
+    app.put(put_handler)
+
+    # Test POST decorator
+    async def post_handler():
+        return {"message": "POST"}
+
+    app.post(post_handler)
+
+    # Test DELETE decorator
+    async def delete_handler():
+        return {"message": "DELETE"}
+
+    app.delete(delete_handler)
+
+    @app.patch
+    @app.head
+    @app.options
+    async def multiple_handler(): ...
+
+    assert len(app.root.endpoints) == 7
 
 
-#     # This should raise DuplicatedRouteError
-#     with pytest.raises(DuplicatedRouteError):
-#         app.include_routes(new_root)
+async def test_include_routes_with_duplicate_root():
+    """Test for DuplicatedRouteError when including routes with duplicate root"""
+    app = Lihil()
+
+    # Add an endpoint to root to make it non-empty
+    async def root_handler():
+        return {"message": "root"}
+
+    new_root = Route("/")
+    new_root.add_endpoint("GET", func=root_handler)
+
+    # This should raise DuplicatedRouteError
+    with pytest.raises(DuplicatedRouteError):
+        app.include_routes(new_root)
+
+
 async def test_a_problem_endpoint():
     "create a route and an endpoin that would raise HttpException Use LocalClient to test it"
     ...
@@ -856,3 +860,27 @@ async def test_a_problem_endpoint():
     assert data["detail"] == "This is a custom error message"
     assert data["instance"] == "/error"
     assert data["status"] == 404
+
+
+async def test_lihil_run():
+    mod_path = __file__.split("/")[-1][:-3]
+
+    def mock_run(server_str: str):
+        assert server_str == f"{mod_path}:lhl"
+
+    lhl = Lihil[str]()
+
+    lhl.run(__file__, runner=mock_run)
+
+
+async def test_lihil_run_with_workers():
+
+    config = AppConfig(server=ServerConfig(workers=2))
+
+    lhl = Lihil[str](app_config=config)
+
+    def mock_run(str_or_app: str, workers: int):
+        assert workers == 2
+        assert str_or_app is lhl
+
+    lhl.run(__file__, runner=mock_run)

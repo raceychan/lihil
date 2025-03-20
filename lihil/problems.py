@@ -40,7 +40,7 @@ type ErrorRegistry = MappingProxyType[
 
 
 def parse_exception(
-    exc: type["DetailBase[Any]"] | TypeAliasType | int,
+    exc: type["DetailBase[Any]"] | TypeAliasType,
 ) -> type["DetailBase[Any]"] | int | list[type["DetailBase[Any]"] | int]:
     exc_origin = get_origin(exc)
 
@@ -49,7 +49,9 @@ def parse_exception(
             return http_status.code(exc)
         if issubclass(exc, HTTPException):
             return exc
-        raise NotImplementedError
+
+        raise TypeError(f"Invalid exception type {exc}")
+
     elif exc_origin is Literal:
         return get_args(exc)[0]
     elif exc_origin in (UnionType, Union):
@@ -59,15 +61,19 @@ def parse_exception(
             sub_r = parse_exception(e)
             res.append(sub_r)
         return res
-
     else:
-        try:
-            if issubclass(exc_origin, DetailBase) or issubclass(exc, DetailBase):
-                # if exc is a subclass of DetailBase then tha
-                return cast(type["DetailBase[Any]"], exc_origin)
-        except TypeError:
-            raise NotImplementedError
-        raise NotImplementedError
+        if not isinstance(exc_origin, type):
+            raise TypeError(f"Invalid exception type {exc}")
+
+        if not isinstance(exc, type):
+            exc_local = exc_origin
+        else:
+            exc_local = exc
+
+        if issubclass(exc_origin, DetailBase) or issubclass(exc_local, DetailBase):
+            # if exc is a subclass of DetailBase then tha
+            return cast(type["DetailBase[Any]"], exc_origin)
+        raise TypeError(f"Invalid exception type {exc}")
 
 
 def __erresp_factory_registry():
@@ -114,7 +120,7 @@ def __erresp_factory_registry():
 
     @lru_cache
     def get_solver(
-        exc: DetailBase[Any] | int | http_status.Status,
+        exc: DetailBase[Any] | int | http_status.Status | TypeAliasType,
     ) -> ExceptionHandler[Exception] | None:
         nonlocal status_handlers, exc_handlers
 

@@ -1,3 +1,4 @@
+import inspect
 import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -6,6 +7,7 @@ from pathlib import Path
 from typing import Any, AsyncContextManager, Callable, Unpack, overload
 
 from ididi import Graph
+from uvicorn import run as uvi_run
 
 from lihil.config import AppConfig, config_from_file
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
@@ -227,15 +229,11 @@ class Lihil[T](ASGIBase):
         self.routes.append(route)
         return route
 
-    def run(self, file_path: str):
+    def run(self, file_path: str, runner: Callable[..., None] = uvi_run):
         """
         app = Lihil()
         app.run(__file__)
         """
-        import inspect
-        from pathlib import Path
-
-        from uvicorn import run as uvi_run
 
         server_config = self.app_config.server
         set_values = {k: v for k, v in server_config.asdict().items() if v is not None}
@@ -244,7 +242,7 @@ class Lihil[T](ASGIBase):
 
         use_app_str = (worker_num and worker_num > 1) or server_config.reload
         if use_app_str:
-            uvi_run(self, **set_values)
+            runner(self, **set_values)
             return
 
         crf = inspect.currentframe()
@@ -260,7 +258,7 @@ class Lihil[T](ASGIBase):
         modname = Path(file_path).stem
         app_str = f"{modname}:{instance_name}"
 
-        uvi_run(app_str, **set_values)
+        runner(app_str, **set_values)
 
     # ============ Http Methods ================
     @overload

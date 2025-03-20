@@ -107,7 +107,7 @@ def test_unhanlde_exc_type():
             status_code=500,
         )
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError):
         problem_solver(handle_random_class)
 
 
@@ -234,18 +234,16 @@ def test_parse_exception_not_implemented_error():
     class RegularClass:
         pass
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError):
         parse_exception(RegularClass)
 
     # Case 2: When exc_origin is not None and not one of the supported types
     # Using List, Dict, Set as examples of unsupported origin types
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError):
         parse_exception(List[str])
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError):
         parse_exception(dict[str, int])
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError):
         parse_exception(set[int])
-
-

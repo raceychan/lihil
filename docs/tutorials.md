@@ -41,7 +41,7 @@ when defining endpoints, you can use marks provide meta data for your params.
 if a param is not declared with param marks, the following rule would apply:
 
 - if the param name appears in route path, it is interpreted as a path param.
-- if the param type is a subclass of `Payload`, it is interpreted as a body param.
+- if the param type is a subclass of `msgspec.Struct`, it is interpreted as a body param.
 - if the param type is registered in the route graph, or is a lihil-builtin type, it will be interpered as a dependency and will be resolved by lihil
 - otherise, it is interpreted as a query param.
 

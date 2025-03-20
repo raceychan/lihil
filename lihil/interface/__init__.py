@@ -24,7 +24,6 @@ from lihil.interface.asgi import MiddlewareFactory as MiddlewareFactory
 from lihil.interface.marks import Body as Body
 from lihil.interface.marks import Header as Header
 from lihil.interface.marks import Json as Json
-from lihil.interface.marks import Payload as Payload
 from lihil.interface.marks import Query as Query
 from lihil.interface.marks import Resp as Resp
 from lihil.interface.marks import Stream as Stream
@@ -123,3 +122,10 @@ class Record(Base, frozen=True, cache_hash=True): ...  # type: ignore
 
 @dataclass_transform(frozen_default=True)
 class FlatRecord(Record, frozen=True, cache_hash=True, gc=False): ...
+
+@dataclass_transform(frozen_default=True)
+class Payload(Record, frozen=True, gc=False):
+    """
+    a pre-configured struct that is frozen, gc_free, tagged with "typeid"
+    """
+

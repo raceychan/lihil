@@ -54,12 +54,6 @@ def is_param_mark(m: Any) -> bool:
     return is_lihil_mark(m, LIHIL_PARAM_MARK)
 
 
-class Payload(Struct, frozen=True, gc=False):
-    """
-    a pre-configured struct that is frozen, gc_free, tagged with "typeid"
-    """
-
-
 # ================ Request ================
 
 QUERY_REQUEST_MARK = param_mark("query")
