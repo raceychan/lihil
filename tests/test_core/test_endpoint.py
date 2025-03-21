@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 import pytest
 from ididi import Ignore, use
@@ -19,9 +19,15 @@ class User(Payload, kw_only=True):
 
 # class Engine: ...
 
+
 @pytest.fixture
-async def rusers()->Route:
+async def rusers() -> Route:
     return Route("users/{user_id}")
+
+
+@pytest.fixture
+async def lc() -> LocalClient:
+    return LocalClient()
 
 
 def add_q(q: str, user_id: str) -> Ignore[str]:
@@ -58,7 +64,7 @@ def test_status_conflict(rusers: Route):
         rusers.get(get_user)
 
 
-def test_annotated_generic(rusers:Route):
+def test_annotated_generic(rusers: Route):
 
     async def update_user(user_id: str) -> Annotated[dict[str, str], "aloha"]: ...
 
@@ -134,3 +140,41 @@ async def test_sync_generator_endpoint():
     assert ans == "Hello, World! This is a test."
 
 
+async def test_endpoint_return_agen(rusers: Route, lc: LocalClient):
+    async def get():
+        yield
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    await lc.call_endpoint(ep)
+
+
+async def test_scoped_endpoint(rusers: Route, lc: LocalClient):
+    class Engine: ...
+
+    def get_engine() -> Engine:
+        yield Engine()
+
+    rusers.factory(get_engine)
+
+    async def get(engine: Engine):
+        yield
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    await lc.call_endpoint(ep)
+
+
+async def test_ep_drop_body(rusers: Route, lc: LocalClient):
+
+    async def get() -> Resp[None, 204]:
+        return "asdf"
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    res = await lc.call_endpoint(ep)
+
+    assert await res.body() == b""
