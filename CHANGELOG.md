@@ -221,3 +221,20 @@ here a will be treated as:
 def _(a: str):
     ...
 ```
+
+- fix a bug where if return type is Annotated with resp mark, it will always be encoded as json unless custom encoder is provided, example
+
+```python
+async def new_todo() -> Annotated[Text, "1"]:
+    ...
+```
+
+before v0.1.8, here return value will be encoded as json.
+
+same thing goes with Generator
+
+
+```python
+async def new_todo() -> Generator[Text, None, None]:
+    ...
+```

@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from msgspec.json import Decoder
 
-from lihil.interface import FlatRecord, field
+from lihil.interface import Record, field
 from lihil.utils.visitor import all_subclasses, union_types
 
 
@@ -16,7 +16,7 @@ def ts_factory() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Envelope[Body](FlatRecord):
+class Envelope[Body](Record):
     """
     a lihil-managed event meta class
 
@@ -39,7 +39,7 @@ class Envelope[Body](FlatRecord):
 
 
 @dataclass_transform(frozen_default=True)
-class Event(FlatRecord, tag_field="typeid", omit_defaults=True):
+class Event(Record, tag_field="typeid", omit_defaults=True):
 
     # TODO: generate a event page to inspect source
     """

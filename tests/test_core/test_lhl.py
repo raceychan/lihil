@@ -244,8 +244,8 @@ async def test_lihil_static_route():
     # Test static route
     static_response = await client.request(app, "GET", "/static")
     assert await static_response.text() == "Static content"
-    content_type = static_response.headers[b"content-type"]
-    assert content_type == b"text/plain; charset=utf-8"
+    content_type = static_response.headers["content-type"]
+    assert content_type == "text/plain; charset=utf-8"
 
 
 async def test_lihil_static_route_with_callable():
@@ -286,7 +286,7 @@ async def test_lihil_static_route_with_json():
     # Test static route
     response = await client.request(app, "GET", "/json")
     assert (await response.json())["message"] == "JSON data"
-    assert b"application/json" in response.headers.get(b"content-type", "")
+    assert "application/json" in response.headers.get("content-type", "")
 
 
 async def test_lihil_static_route_with_invalid_path():

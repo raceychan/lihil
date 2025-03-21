@@ -16,8 +16,8 @@ from lihil.di.returns import (
     syncgen_encode_wrapper,
 )
 from lihil.errors import StatusConflictError
-from lihil.interface.marks import HTML, Json, Resp, Stream, Text
 from lihil.interface import MISSING
+from lihil.interface.marks import HTML, Json, Resp, Stream, Text
 
 
 # Test parse_status function (lines 28, 32-35)
@@ -177,7 +177,6 @@ def test_is_py_singleton():
     assert is_py_singleton("string") is False
 
 
-
 def test_analyze_return_with_union_type():
     result = analyze_return(Union[str, int])
     assert result.status == 200
@@ -195,3 +194,8 @@ def test_analyze_return_with_union_type():
     # Test with a non-type value that's not a singleton
     with pytest.raises(NotImplementedError):
         analyze_return("not a type")
+
+
+def test_analyze_return_with_union_type():
+    result = analyze_return(Stream[Text, None, None])
+    assert result.encoder is (analyze_return(Text).encoder)

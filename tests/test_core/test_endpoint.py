@@ -4,7 +4,7 @@ import pytest
 from ididi import Ignore, use
 from starlette.requests import Request
 
-from lihil import Json, Payload, Resp, Route, Text
+from lihil import Json, Payload, Resp, Route, Stream
 from lihil.constant import status
 from lihil.errors import StatusConflictError
 from lihil.plugins.testclient import LocalClient
@@ -100,7 +100,7 @@ async def test_ep_raise_httpexc():
 async def test_sync_generator_endpoint():
     """Test an endpoint that returns a sync generator"""
 
-    def stream_data() -> Generator[Text, None, None]:
+    def stream_data() -> Stream[str]:
         """Return a stream of text data"""
         yield "Hello, "
         yield "World!"
@@ -122,10 +122,12 @@ async def test_sync_generator_endpoint():
     assert response.status_code == 200
 
     # Check content type
-    assert response.headers["content-type"] == "text/plain; charset=utf-8"
+    assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
 
-    # Check that Transfer-Encoding is chunked
-    assert response.headers.get("transfer-encoding") == "chunked"
+    ans = ""
+
+    async for res in response.stream():
+        ans += res.decode()
 
     # Check the full response content
-    assert response.text == "Hello, World! This is a test."
+    assert ans == "Hello, World! This is a test."

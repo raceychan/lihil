@@ -9,7 +9,7 @@ from starlette.responses import Response, StreamingResponse
 
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
-from lihil.interface import HTTP_METHODS, FlatRecord, IReceive, IScope, ISend
+from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend, Record
 from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
 from lihil.utils.threading import async_wrapper
@@ -21,7 +21,7 @@ class IEndPointConfig(TypedDict, total=False):
     to_thread: bool
 
 
-class EndPointConfig(FlatRecord, kw_only=True):
+class EndPointConfig(Record, kw_only=True):
     """
     # TODO: implement this through ep decorator
     [tool.lihil.oas]
@@ -104,7 +104,6 @@ class Endpoint[R]:
                     bus = self.busterm.create_event_bus(resolver)
                     params[name] = bus
 
-
             for name, dep in self.deps.dependencies:
                 params[name] = await resolver.aresolve(dep.dependent, **params)
 
@@ -125,6 +124,7 @@ class Endpoint[R]:
                 encode_wrapper = syncgen_encode_wrapper(raw_return, self.encoder)
             else:
                 encode_wrapper = agen_encode_wrapper(raw_return, self.encoder)
+
             resp = StreamingResponse(
                 encode_wrapper,
                 media_type="text/event-stream",
@@ -146,4 +146,4 @@ class Endpoint[R]:
                 await self.parse_raw_return(scope, raw_return)(scope, receive, send)
         else:
             raw_return = await self.make_call(scope, receive, send, self.graph)
-            await self.parse_raw_return(scope, raw_return)(scope, receive, send)
+            return await self.parse_raw_return(scope, raw_return)(scope, receive, send)

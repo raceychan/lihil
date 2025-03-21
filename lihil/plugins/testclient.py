@@ -1,5 +1,5 @@
 from time import perf_counter
-from typing import Any, Literal, MutableMapping, Optional, Union
+from typing import Any, AsyncIterator, Literal, MutableMapping, Optional, Union
 from urllib.parse import urlencode
 
 from msgspec.json import decode as json_decode
@@ -41,6 +41,7 @@ class RequestResult(Base):
     headers: dict[str, str]
     body_chunks: list[bytes] = []
     _body: Optional[bytes] = None
+    _stream_complete: bool = False
 
     def __post_init__(self):
         self.headers = dict(self.headers)
@@ -56,6 +57,7 @@ class RequestResult(Base):
         """Return the response body as text."""
         body = await self.body()
         encoding = self._get_content_encoding() or "utf-8"
+
         return body.decode(encoding)
 
     async def json(self) -> Any:
@@ -63,12 +65,53 @@ class RequestResult(Base):
         result = await self.body()
         return json_decode(result)
 
+    async def stream(self) -> AsyncIterator[bytes]:
+        """
+        Return an async iterator for streaming response chunks.
+        This is useful for server-sent events or other streaming responses.
+        """
+        # First yield any chunks we've already received
+        for chunk in self.body_chunks:
+            yield chunk
+
+        # Mark that we've consumed all chunks
+        self.body_chunks = []
+        self._stream_complete = True
+
+    async def stream_text(self) -> AsyncIterator[str]:
+        """Return an async iterator for streaming response chunks as text."""
+        encoding = self._get_content_encoding() or "utf-8"
+        async for chunk in self.stream():
+            yield chunk.decode(encoding)
+
+    async def stream_json(self) -> AsyncIterator[Any]:
+        """Return an async iterator for streaming response chunks as JSON objects."""
+        async for chunk in self.stream_text():
+            # Skip empty chunks
+            if not chunk.strip():
+                continue
+
+            # For JSON streaming, each line should be a valid JSON object
+            for line in chunk.splitlines():
+                if line.strip():
+                    yield json_decode(line.encode())
+
     def _get_content_encoding(self) -> Optional[str]:
         """Extract encoding from Content-Type header."""
         content_type = self.headers.get("content-type", "")
         if "charset=" in content_type:
             return content_type.split("charset=")[1].split(";")[0].strip()
         return None
+
+    @property
+    def is_chunked(self) -> bool:
+        """Check if the response is using chunked transfer encoding."""
+        return self.headers.get("transfer-encoding", "").lower() == "chunked"
+
+    @property
+    def is_streaming(self) -> bool:
+        """Check if the response is a streaming response."""
+        return self.is_chunked
 
 
 class LocalClient:
@@ -95,6 +138,7 @@ class LocalClient:
         query_params: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
         body: Optional[Union[bytes, str, dict[str, Any], Payload]] = None,
+        stream: bool = False,
     ) -> RequestResult:
         # Prepare query string
         query_string = b""
@@ -131,12 +175,14 @@ class LocalClient:
             "headers": asgi_headers,
             "client": ("127.0.0.1", 12345),
             "server": ("testserver", 80),
+            "asgi": {"spec_version": "2.4"},
         }
 
         # Collect response data
         response_status = None
-        response_headers = []
+        response_headers: list[tuple[bytes, bytes]] = []
         response_body_chunks: list[bytes] = []
+        is_streaming = False
 
         # Define send and receive functions
         async def receive():
@@ -147,22 +193,43 @@ class LocalClient:
             }
 
         async def send(message: MutableMapping[str, Any]):
-            nonlocal response_status, response_headers
+            nonlocal response_status, response_headers, is_streaming
 
             if message["type"] == "http.response.start":
                 response_status = message["status"]
                 response_headers = message.get("headers", [])
 
+                # Check if this is a streaming response
+                for name, value in response_headers:
+                    if (
+                        name.lower() == b"transfer-encoding"
+                        and value.lower() == b"chunked"
+                    ):
+                        is_streaming = True
+
             elif message["type"] == "http.response.body":
-                response_body_chunks.append(message.get("body", b""))
+                chunk = message.get("body", b"")
+                if chunk:
+                    response_body_chunks.append(chunk)
+
+                # If streaming is requested but we're not collecting more chunks, return early
+                if stream and not message.get("more_body", False):
+                    return
 
         # Call the ASGI app
         await app(scope, receive, send)
 
+        # Convert headers to dict format
+        headers_dict: dict[str, str] = {}
+        for name, value in response_headers:
+            name_str = name.decode("latin1").lower()
+            value_str = value.decode("latin1")
+            headers_dict[name_str] = value_str
+
         # Create and return result
         return RequestResult(
             status_code=response_status or 500,
-            headers=response_headers,  # type: ignore
+            headers=headers_dict,
             body_chunks=response_body_chunks,
         )
 

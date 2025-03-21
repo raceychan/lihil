@@ -639,7 +639,6 @@ def test_textdecoder_factory_with_optional():
     assert optional_bytes_decoder(b"hello") == b"hello"
     assert optional_bytes_decoder("null") is None
 
-@pytest.mark.debug
 def test_textdecoder_factory_with_complex_types():
     """Test textdecoder_factory with more complex types"""
     # List type

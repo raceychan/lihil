@@ -99,22 +99,22 @@ from lihil import Lihil, Route, use, EventBus
 
 chat_route = Route("/chats/{chat_id}")
 message_route = chat_route / "messages"
-ParsedToken = NewType("ParsedToken", str)
+UserToken = NewType("UserToken", str)
 
 @chat_route.factory
 def parse_access_token(
     service: UserService, token: UserToken
-) -> AccessToken:
+) -> ParsedToken:
     return service.decrypt_access_token(token)
 
-@message.post
+@message_route.post
 async def stream(
    service: ChatService,  
    token: ParsedToken, 
    bus: EventBus,
    chat_id: str, 
    data: CreateMessage
-) -> Annotated[Stream[Event], CustomEncoder(event_encoder)]:
+) -> Annotated[Stream[GPTMessage], CustomEncoder(gpt_encoder)]:
     chat = service.get_user_chat(token.sub)
     chat.add_message(data)
     answer = service.ask(chat, model=data.model)
@@ -208,3 +208,22 @@ check detailed tutorials at https://lihil.cc/lihil/tutorials/, covering
 - Type-Based Message System, Event listeners, atomic event handling, etc.
 - Error Handling
 - ...and much more
+
+## RoadMap
+
+
+app-config
+bug fixing, 100% test coverage,
+
+
+### version 0.2.x
+
+- Tutorials & videos on lihil and web dev in general
+- Out-of-process event system (RabbitMQ, Kafka, etc.).
+- A highly performant schema-based query builder based on asyncpg
+- Local command handler(http rpc) and remote command handler (gRPC)
+- More middleware and official plugins (e.g., throttling, caching, auth).
+
+### version 0.3.x
+
+- roll out our own server written in c & cython, 60K RPS+

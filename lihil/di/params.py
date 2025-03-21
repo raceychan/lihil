@@ -175,7 +175,6 @@ def analyze_markedparam(
             return analyze_nodeparams(node, graph, seen, path_keys)
         elif new_origin := get_origin(atype):
             for meta in metas:
-                # BUG: this will never be intritged
                 if isinstance(meta, CustomDecoder):
                     decoder = meta.decode
                     break
@@ -202,7 +201,7 @@ def analyze_markedparam(
         else:
             location = "query"
 
-        if not decoder:
+        if decoder is None:
             if location == "body":
                 decoder = decoder_factory(atype)
             else:

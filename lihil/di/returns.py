@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator as ABCAsyncGen
+from collections.abc import Generator as ABCGen
 from inspect import Parameter
 from types import GenericAlias, UnionType
 from typing import (
@@ -15,7 +17,7 @@ from typing import (
 
 from lihil.constant.status import code as get_status_code
 from lihil.errors import StatusConflictError
-from lihil.interface import MISSING, Base, IEncoder, Maybe, is_provided
+from lihil.interface import MISSING, IEncoder, Maybe, Record, is_provided
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text, is_resp_mark
 from lihil.utils.phasing import encode_json, encode_text
 from lihil.utils.typing import flatten_annotated
@@ -59,11 +61,11 @@ def syncgen_encode_wrapper[T](
         yield encoder(res)
 
 
-class ReturnParam[T](Base):
+class ReturnParam[T](Record):
     # TODO: generate response from this
     encoder: IEncoder[T]
     status: int
-    type_: Maybe[type[T]] | UnionType | GenericAlias | None = MISSING
+    type_: Maybe[type[T]] | UnionType | GenericAlias | TypeAliasType | None = MISSING
     content_type: str = "application/json"
     annotation: Any = MISSING
 
@@ -142,32 +144,37 @@ class ReturnParam[T](Base):
             origin = get_origin(annt)
 
         metas = flatten_annotated(annt)
-        encoder = encode_json
+        # encoder = encode_json
+        custom_encoder = None
         if len(metas) > 1:
             ret_type, *rest = metas
             for m in rest:
                 if isinstance(m, CustomEncoder):
-                    encoder = m.encode
+                    custom_encoder = m.encode
                     break
         else:
             ret_type = annt
 
         if is_resp_mark(ret_type):
-            rp = ReturnParam.from_mark(ret_type, origin, status).replace(
-                encoder=encoder
-            )
+            rp = ReturnParam.from_mark(ret_type, origin, status)
+            if custom_encoder:
+                return rp.replace(encoder=custom_encoder)
             return rp
         else:
             ret = ReturnParam(
-                type_=ret_type, encoder=encoder, annotation=annt, status=status
+                type_=ret_type,
+                encoder=custom_encoder or encode_json,
+                annotation=annt,
+                status=status,
             )
             return ret
 
     @classmethod
     def from_generic(cls, annt: Any, origin: Any, status: int) -> "ReturnParam[Any]":
+        # TODO: from generator
         if is_resp_mark(annt):
             return ReturnParam.from_mark(annt, origin, status)
-        elif origin is Annotated:
+        elif origin is Annotated or origin in (Generator, ABCGen, AsyncGenerator, ABCAsyncGen):
             return ReturnParam.from_annotated(annt, origin, status)
         else:  # vanilla case, dict[str, str], list[str], etc.
             assert isinstance(origin, type)
@@ -186,8 +193,8 @@ def analyze_return[R](
 ) -> ReturnParam[R]:
     if annt is Parameter.empty or not is_provided(annt):
         return ReturnParam(encoder=encode_json, status=200)
-
     status = parse_status(status)
+
     if isinstance(annt, UnionType) or get_origin(annt) is Union:
         """
         TODO:

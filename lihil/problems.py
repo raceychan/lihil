@@ -20,7 +20,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from lihil.constant import status as http_status
-from lihil.interface import FlatRecord, IEncoder, ParamLocation
+from lihil.interface import IEncoder, ParamLocation, Record
 from lihil.utils.parse import to_kebab_case, trimdoc
 from lihil.utils.phasing import encoder_factory
 from lihil.utils.typing import is_union_type
@@ -155,7 +155,7 @@ def __erresp_factory_registry():
     return MappingProxyType(exc_handlers), _solver, get_solver
 
 
-class ProblemDetail[T](FlatRecord):  # user can inherit this and extend it
+class ProblemDetail[T](Record):  # user can inherit this and extend it
     """
     ## Specification:
         - RFC 9457: https://www.rfc-editor.org/rfc/rfc9457.html
@@ -297,7 +297,7 @@ LIHIL_ERRESP_REGISTRY, problem_solver, get_solver = __erresp_factory_registry()
 del __erresp_factory_registry
 
 
-class ValidationProblem(FlatRecord):
+class ValidationProblem(Record):
     location: ParamLocation
     param: str
     message: str

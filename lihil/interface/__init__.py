@@ -117,15 +117,11 @@ class ParamBase[T](Base):
 
 
 @dataclass_transform(frozen_default=True)
-class Record(Base, frozen=True, cache_hash=True): ...  # type: ignore
+class Record(Base, frozen=True, gc=False, cache_hash=True): ...  # type: ignore
 
-
-@dataclass_transform(frozen_default=True)
-class FlatRecord(Record, frozen=True, cache_hash=True, gc=False): ...
 
 @dataclass_transform(frozen_default=True)
 class Payload(Record, frozen=True, gc=False):
     """
     a pre-configured struct that is frozen, gc_free, tagged with "typeid"
     """
-

@@ -9,7 +9,7 @@ from msgspec.structs import FieldInfo, fields
 from starlette.requests import Request
 
 from lihil.errors import AppConfiguringError
-from lihil.interface import MISSING, FlatRecord, is_provided
+from lihil.interface import MISSING, Record, is_provided
 from lihil.plugins.bus import EventBus
 
 StrDict = dict[str, Any]
@@ -85,7 +85,7 @@ def is_lhl_dep(type_: type | GenericAlias):
     return type_ in (Request, EventBus)
 
 
-class ConfigBase(FlatRecord, forbid_unknown_fields=True): ...
+class ConfigBase(Record, forbid_unknown_fields=True): ...
 
 
 class OASConfig(ConfigBase):
