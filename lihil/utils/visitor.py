@@ -28,8 +28,12 @@ def all_subclasses[T](
 
 
 def union_types(subs: Sequence[type[Any]]) -> type | UnionType | None:
+    """
+    convert a sequence of types to a union of types
+    union_types([str, int, bytes]) -> Union[str, int, bytes]
+    """
     if not subs:
         return None
     elif len(subs) == 1:
         return next(iter(subs))
-    return Union[subs]  # type: ignore
+    return Union[*subs]  # type: ignore

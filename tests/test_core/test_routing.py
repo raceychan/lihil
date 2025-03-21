@@ -564,3 +564,38 @@ async def test_route_has_listener():
     # Test has_listener
     assert route.has_listener(listener1) is True
     assert route.has_listener(listener2) is False
+
+
+async def test_route_on_lifespan():
+    route = Route("aloha")
+
+    async def get(): ...
+
+    route.get(get)
+
+    await route.on_lifespan()
+
+    assert route.call_stacks["GET"]
+
+
+def test_get_endpoint_with_sync_fail():
+    route = Route("r")
+
+    def dummy(): ...
+
+    with pytest.raises(TypeError):
+        route.get_endpoint(dummy)
+
+def test_route_add_endpint_with_config():
+    r = Route("r")
+
+
+    @r.get(to_thread=False)
+    @r.post(to_thread=False)
+    @r.put(to_thread=False)
+    @r.delete(to_thread=False)
+    @r.options(to_thread=False)
+    @r.head(to_thread=False)
+    @r.patch(to_thread=False)
+    async def dummy():
+        ...

@@ -5,22 +5,17 @@
 
 > **Making Python the mainstream programming language for web development.**
 
+**lihil is *100%* test covered and *strictly* typed.**
+
+
+
 [![codecov](https://codecov.io/gh/raceychan/lihil/graph/badge.svg?token=KOK5S1IGVX)](https://codecov.io/gh/raceychan/lihil)
 [![PyPI version](https://badge.fury.io/py/lihil.svg)](https://badge.fury.io/py/lihil)
 [![License](https://img.shields.io/github/license/raceychan/lihil)](https://github.com/raceychan/lihil/blob/master/LICENSE)
 [![Downloads](https://img.shields.io/pypi/dm/lihil.svg)](https://pypistats.org/packages/lihil)
 [![Python Version](https://img.shields.io/pypi/pyversions/lihil.svg)](https://pypi.org/project/lihil/)
 
----
-
-## Source
-
-### https://github.com/raceychan/lihil
-
-## Docs
-
-### https://lihil.cc/lihil
-
+📚 Docs: https://lihil.cc/lihil
 ---
 
 Lihil is
@@ -160,6 +155,8 @@ uv add lihil
 ```python
 from lihil import Lihil
 
+# your application code 
+
 lhl = Lihil()
 
 if __name__ == "__main__":
@@ -211,10 +208,9 @@ check detailed tutorials at https://lihil.cc/lihil/tutorials/, covering
 
 ## RoadMap
 
+### version 0.1.x
 
-app-config
-bug fixing, 100% test coverage,
-
+complete core functionalities and make sure lihil is well tested, we will reach 100% test coverage before moving to 0.2.x.
 
 ### version 0.2.x
 

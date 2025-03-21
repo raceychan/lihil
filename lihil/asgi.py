@@ -4,7 +4,6 @@ from lihil.interface.asgi import ASGIApp, MiddlewareFactory
 
 
 class ASGIBase:
-    call_stack: ASGIApp
 
     def __init__(self):
         self.middle_factories: list[MiddlewareFactory[Any]] = []

@@ -1,10 +1,9 @@
 from inspect import Parameter
-from typing import Annotated, AsyncGenerator, Generator, Union
+from typing import Annotated, Generator, Union
 
 import pytest
 
 from lihil.constant.status import OK
-from lihil.constant.status import code as status_codes
 from lihil.di.returns import (
     CustomEncoder,
     ReturnParam,
@@ -64,7 +63,7 @@ async def test_agen_encode_wrapper():
 
     wrapped = agen_encode_wrapper(sample_agen(), encoder)
 
-    results = []
+    results: list[bytes] = []
     async for item in wrapped:
         results.append(item)
 
@@ -196,6 +195,11 @@ def test_analyze_return_with_union_type():
         analyze_return("not a type")
 
 
-def test_analyze_return_with_union_type():
-    result = analyze_return(Stream[Text, None, None])
+def test_analyze_return_with_stream_text():
+    result = analyze_return(Stream[Text])
+    assert result.encoder is (analyze_return(Text).encoder)
+
+
+def test_analyze_return_with_generator_text():
+    result = analyze_return(Generator[Text, None, None])
     assert result.encoder is (analyze_return(Text).encoder)

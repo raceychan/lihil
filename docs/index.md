@@ -22,11 +22,16 @@ Lihil is
 
 ## Features
 
+
+
 - **Data validation** using `msgspec`, which is about 12x faster than pydantic v2 for valiation and 25x memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html)
 - **Advanced dependency injection**, using `ididi` written in cython, inject params, resources, plugins, extremly powerful and fast.
 - **OpenAPI docs** and json schema automatically generated with accurate type information, union type, json examples, problem detail(RFC-9457) and more.
 - **Great Testability**, lihil is designed to be tested, however you want, web framework specifics objects such as `Response`, `content-type` is abstracted away(you can still use them) via `Marks`, you can test your endpoints like regular functions.
 - **Strong support for AI featuers**, lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
+
+
+checkout [features page](./features.md) for detailed explaination with scrrenshot & code examples.
 
 ## Install
 
@@ -54,7 +59,7 @@ uv init project_name
 uv add lihil
 ```
 
-## Quick Start
+## First impression
 
 ```python
 from lihil import Lihil
@@ -64,37 +69,7 @@ lhl = Lihil()
 @lhl.get
 async def hello():
     return {"hello": "world!"}
-```
 
-a more realistic examples would be something like
-
-```python
-from lihil import Lihil, Route, use, EventBus
-
-chat_route = Route("/chats/{chat_id}")
-message_route = chat_route / "messages"
-ParsedToken = NewType("ParsedToken", str)
-
-@chat_route.factory
-def parse_access_token(
-    service: UserService, token: UserToken
-) -> AccessToken:
-    return service.decrypt_access_token(token)
-
-@message.post
-async def stream(
-   service: ChatService,  
-   token: ParsedToken, 
-   bus: EventBus,
-   chat_id: str, 
-   data: CreateMessage
-) -> Annotated[Stream[GPTMessage], CustomEncoder(gpt_encoder)]:
-    chat = service.get_user_chat(token.sub)
-    chat.add_message(data)
-    answer = service.ask(chat, model=data.model)
-    buffer = []
-    async for word in answer:
-        buffer.append(word)
-        yield word
-    await bus.publish(NewMessageCreated(chat, buffer))
+if __name__ == "__main__":
+    lhl.run()
 ```

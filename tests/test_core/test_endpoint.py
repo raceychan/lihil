@@ -1,4 +1,4 @@
-from typing import Annotated, Generator
+from typing import Annotated
 
 import pytest
 from ididi import Ignore, use
@@ -19,8 +19,9 @@ class User(Payload, kw_only=True):
 
 # class Engine: ...
 
-
-rusers = Route("users/{user_id}")
+@pytest.fixture
+async def rusers()->Route:
+    return Route("users/{user_id}")
 
 
 def add_q(q: str, user_id: str) -> Ignore[str]:
@@ -36,7 +37,7 @@ async def create_user(
     return User(id=user.id, name=user.name, email=user.email)
 
 
-def test_return_status():
+def test_return_status(rusers: Route):
     rusers.post(create_user)
     ep = rusers.get_endpoint(create_user)
     assert any(qp[0] == "q" for qp in ep.deps.query_params)
@@ -46,7 +47,7 @@ def test_return_status():
     assert ep_ret.status == 201
 
 
-def test_status_conflict():
+def test_status_conflict(rusers: Route):
 
     async def get_user(
         user_id: str,
@@ -57,7 +58,7 @@ def test_status_conflict():
         rusers.get(get_user)
 
 
-def test_annotated_generic():
+def test_annotated_generic(rusers:Route):
 
     async def update_user(user_id: str) -> Annotated[dict[str, str], "aloha"]: ...
 
@@ -131,3 +132,5 @@ async def test_sync_generator_endpoint():
 
     # Check the full response content
     assert ans == "Hello, World! This is a test."
+
+

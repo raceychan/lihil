@@ -45,8 +45,11 @@ def async_wrapper[R](
         res = await loop.run_in_executor(workers, func_call)
         return cast(R, res)
 
+    if threaded:
+        return inner
+
     @wraps(func)
     async def dummy(**params: Any) -> R:
         return func(**params)
 
-    return inner if threaded else dummy
+    return dummy
