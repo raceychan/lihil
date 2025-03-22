@@ -87,14 +87,14 @@ class Endpoint[R]:
         self, scope: IScope, receive: IReceive, send: ISend, resolver: Resolver
     ) -> R | ParseResult | Response:
         request = Request(scope, receive, send)
-        callbacks: tuple[Callable[..., Awaitable[None]], ...] = ()
+        callbacks = None
         try:
             if self.require_body:
                 parsed_result = await self.deps.parse_command(request)
             else:
                 parsed_result = self.deps.parse_query(request)
 
-            callbacks = parsed_result.callback
+            callbacks = parsed_result.callbacks
 
             if errors := parsed_result.errors:
                 raise InvalidRequestErrors(detail=errors)

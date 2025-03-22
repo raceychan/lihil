@@ -5,7 +5,8 @@ from typing import Annotated, Any, Callable, Sequence, Union, cast, get_args, ge
 from ididi import DependentNode, Graph
 from ididi.config import USE_FACTORY_MARK
 from msgspec import Meta as FieldMeta
-from msgspec import field
+from msgspec import convert, field
+from starlette.datastructures import FormData
 
 from lihil.interface import (
     MISSING,
@@ -60,6 +61,14 @@ def is_lhl_dep(type_: type | GenericAlias):
 
 def is_body_param(annt: Any):
     return not is_lhl_dep(annt) and isinstance(annt, type) and issubclass(annt, Struct)
+
+
+def form_decoder[T](atype: type[T]):
+
+    def inner_decoder(form_data: FormData) -> T:
+        return convert(dict(form_data), atype)
+
+    return inner_decoder
 
 
 class CustomDecoder(Base):
@@ -184,8 +193,8 @@ def analyze_markedparam(
 
         if decoder is None:
             if location == "body":
-                if param_meta:
-                    decoder = bytes_decoder
+                if param_meta and param_meta.is_form_body:
+                    decoder = form_decoder(atype)
                 else:
                     decoder = decoder_factory(atype)
             else:

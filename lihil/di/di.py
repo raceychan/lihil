@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Mapping, Sequence, cast
 from warnings import warn
 
 from ididi import DependentNode, Graph
-from msgspec import DecodeError, ValidationError
+from msgspec import DecodeError, ValidationError, field
 from starlette.requests import Request
 
 from lihil.di.params import RequestParam, SingletonParam, analyze_request_params
@@ -25,14 +25,14 @@ class ParseResult(Record):
     params: dict[str, Any]
     errors: list[ValidationProblem]
 
-    callback: tuple[Callable[..., Awaitable[None]], ...] = ()
+    callbacks: list[Callable[..., Awaitable[None]]] = field(default_factory=list)
 
     def __getitem__(self, key: str):
         return self.params[key]
 
     @property
     def require_callback(self):
-        return bool(self.callback)
+        return bool(self.callbacks)
 
 
 # TODO: separate param parsing and dependency injection
@@ -132,8 +132,13 @@ class EndpointDeps[R](Base):
         req_path = req.path_params if self.path_params else None
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
-        body = await req.form() if self.is_form_body else await req.body()
-        params = self.prepare_params(req_path, req_query, req_header, body)
+        if self.is_form_body:
+            body = await req.form()
+            params = self.prepare_params(req_path, req_query, req_header, body)
+            params.callbacks.append(body.close)
+        else:
+            body = await req.body()
+            params = self.prepare_params(req_path, req_query, req_header, body)
         return params
 
 

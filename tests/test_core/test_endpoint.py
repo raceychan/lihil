@@ -194,8 +194,12 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient, login_form: byt
 
     import uuid
 
-    async def get(r: Request, fm: Form[bytes]) -> Resp[str, 200]:
-        return "asdf"
+    class UserInfo(Payload):
+        username: str
+        email: str
+
+    async def get(req: Request, fm: Form[UserInfo]) -> Resp[str, 200]:
+        return fm
 
     rusers.get(get)
     ep = rusers.get_endpoint("GET")
@@ -224,5 +228,4 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient, login_form: byt
         headers={f"content-type": content_type},
     )
 
-    breakpoint()
-    # assert await res.body() == b""
+    assert res
