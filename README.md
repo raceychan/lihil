@@ -82,6 +82,9 @@ Lihil is ASGI compatible and uses starlette as ASGI toolkit, which means that:
 
 - starlette `Request`, `Response` and its subclasses, should work just fine with lihil.
 
+However, this should be treated as an implementation detail, in other words, lihil might replace `starlette.Request` with somethings sharing the same interface.
+
+asgi middlewares should always work tho.
 
 ## Quick Start
 
