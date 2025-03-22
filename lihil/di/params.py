@@ -119,7 +119,6 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
     https://stackoverflow.com/questions/4526273/what-does-enctype-multipart-form-data-mean
     """
 
-    # TODO: use content type to check if is form data
     alias: str
     decoder: IDecoder[T] | ITextDecoder[T]
     location: ParamLocation

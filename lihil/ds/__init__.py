@@ -1,6 +1,5 @@
 from starlette.requests import Request
 
-from fastapi.params import Form
 
 class LHLRequest(Request):
     """
@@ -9,7 +8,7 @@ class LHLRequest(Request):
     improvement
 
     - url
-    - body 
+    - body
     - json
     - form
 
