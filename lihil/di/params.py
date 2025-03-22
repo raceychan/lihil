@@ -185,7 +185,7 @@ def analyze_markedparam(
         if decoder is None:
             if location == "body":
                 if param_meta:
-                    decoder = None
+                    decoder = bytes_decoder
                 else:
                     decoder = decoder_factory(atype)
             else:

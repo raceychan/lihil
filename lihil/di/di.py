@@ -25,8 +25,14 @@ class ParseResult(Record):
     params: dict[str, Any]
     errors: list[ValidationProblem]
 
+    callback: tuple[Callable[..., Awaitable[None]], ...] = ()
+
     def __getitem__(self, key: str):
         return self.params[key]
+
+    @property
+    def require_callback(self):
+        return bool(self.callback)
 
 
 # TODO: separate param parsing and dependency injection
@@ -64,6 +70,7 @@ class EndpointDeps[R](Base):
     ) -> ParseResult:
         verrors: list[Any] = []
         params: dict[str, Any] = {}
+        callbacks: list[Callable[..., Awaitable[None]]] = []
 
         zipped = (
             (self.path_params, req_path),
@@ -111,7 +118,15 @@ class EndpointDeps[R](Base):
                 except DecodeError:
                     error = InvalidJsonReceived("body", name)
                     verrors.append(error)
-        parsed_result = ParseResult(params, verrors)
+
+            if (pmeta := param.meta) and pmeta.is_form_body:
+
+                async def close_body() -> None:
+                    await body.close()
+
+                callbacks.append(close_body)
+
+        parsed_result = ParseResult(params, verrors, tuple(callbacks))
         return parsed_result
 
     def parse_query(self, req: Request) -> ParseResult:

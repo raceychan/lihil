@@ -1,4 +1,5 @@
 from typing import Annotated
+import urllib.parse
 
 import pytest
 from ididi import Ignore, use
@@ -179,9 +180,21 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
     assert await res.body() == b""
 
+@pytest.fixture
+def login_form()->bytes:
+    form_data = {
+        "username": "john_doe",
+        "email": "john.doe@example.com"
+    }
+
+    encoded_data = urllib.parse.urlencode(form_data).encode("utf-8")
+    return encoded_data
+
 
 @pytest.mark.debug
-async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
+async def test_ep_requiring_form(rusers: Route, lc: LocalClient, login_form: bytes):
+
+
 
     async def get(r: Request, fm: Form[bytes]) -> Resp[str, 200]:
         return "asdf"
@@ -189,7 +202,7 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
     rusers.get(get)
     ep = rusers.get_endpoint("GET")
 
-    res = await lc.call_endpoint(ep)
+    res = await lc.call_endpoint(ep, body = login_form)
 
     breakpoint()
     # assert await res.body() == b""

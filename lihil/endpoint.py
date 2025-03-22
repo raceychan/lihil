@@ -87,11 +87,14 @@ class Endpoint[R]:
         self, scope: IScope, receive: IReceive, send: ISend, resolver: Resolver
     ) -> R | ParseResult | Response:
         request = Request(scope, receive, send)
+        callbacks: tuple[Callable[..., Awaitable[None]], ...] = ()
         try:
             if self.require_body:
                 parsed_result = await self.deps.parse_command(request)
             else:
                 parsed_result = self.deps.parse_query(request)
+
+            callbacks = parsed_result.callback
 
             if errors := parsed_result.errors:
                 raise InvalidRequestErrors(detail=errors)
@@ -115,6 +118,10 @@ class Endpoint[R]:
             if solver := get_solver(exc):
                 return solver(request, exc)
             raise
+        finally:
+            if callbacks:
+                for cb in callbacks:
+                    await cb()
 
     def parse_raw_return(self, scope: IScope, raw_return: Any) -> Response:
         # TODO:
