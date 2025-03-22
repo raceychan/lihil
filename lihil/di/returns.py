@@ -145,14 +145,12 @@ class ReturnParam[T](Record):
         metas = flatten_annotated(annt)
         # encoder = encode_json
         custom_encoder = None
-        if len(metas) > 1:
-            ret_type, *rest = metas
-            for m in rest:
-                if isinstance(m, CustomEncoder):
-                    custom_encoder = m.encode
-                    break
-        else:
-            ret_type = annt
+        ret_type, *rest = metas
+        for m in rest:
+            if isinstance(m, CustomEncoder):
+                custom_encoder = m.encode
+                break
+
 
         if is_resp_mark(ret_type):
             rp = ReturnParam.from_mark(ret_type, origin, status)

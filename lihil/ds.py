@@ -2,40 +2,18 @@ from datetime import datetime, timezone
 from typing import ClassVar, Self, dataclass_transform
 from uuid import uuid4
 
-from msgspec.json import Decoder
+from msgspec.json import Decoder, decode
 
 from lihil.interface import Record, field
 from lihil.utils.visitor import all_subclasses, union_types
 
 
-def uuid_factory() -> str:
+def uuid4_str() -> str:
     return str(uuid4())
 
 
-def ts_factory() -> datetime:
+def utc_now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-class Envelope[Body](Record):
-    """
-    a lihil-managed event meta class
-
-    take cloudevents spec as a reference
-    https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md
-    """
-
-    entity_id: str
-    data: Body
-
-    source: str | None = None
-    event_id: str = field(default_factory=uuid_factory)
-    timestamp: datetime = field(default_factory=ts_factory)  # cloudevents name: time
-
-    def build_decoder(self) -> Decoder["Self"]:
-        "Build a decoder that decodes all subclsses of current class"
-        subs = all_subclasses(self.__class__)
-        sub_union = union_types(list(subs))
-        return Decoder(sub_union)
 
 
 @dataclass_transform(frozen_default=True)
@@ -46,6 +24,28 @@ class Event(Record, tag_field="typeid", omit_defaults=True):
     Description: Identifies the context in which an event happened. Often this will include information such as the type of the event source, the organization publishing the event or the process that produced the event. The exact syntax and semantics behind the data encoded in the URI is defined by the event producer.
     """
     version: ClassVar[str] = "1"
+
+
+class Envelope[Body: Event](Record, omit_defaults=True):
+    """
+    a lihil-managed event meta class
+
+    take cloudevents spec as a reference
+    https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md
+    """
+
+    data: Body
+
+    sub: str = field(default="", name="entity_id")
+    source: str = ""
+    event_id: str = field(default_factory=uuid4_str)
+    timestamp: datetime = field(default_factory=utc_now)
+
+    @classmethod
+    def build_decoder(cls) -> Decoder["Envelope[Event]"]:
+        event_subs = all_subclasses(Event)
+        sub_union = union_types(list(event_subs))
+        return Decoder(type=cls[sub_union])  # type: ignoer
 
 
 # TODO: Command

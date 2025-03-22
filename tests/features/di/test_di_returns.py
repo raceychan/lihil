@@ -213,3 +213,13 @@ def test_resp_with_only_ret_tpye():
 def test_invalid_resp():
     with pytest.raises(NotImplementedError):
         res = ReturnParam.from_mark("fadsf", str, 200)
+
+
+def test_random_metas():
+    ret = ReturnParam.from_mark(Annotated[Resp[str], "aloha"], Annotated, 422)
+    assert ret.type_ is str
+    assert ret.status == 422
+
+def test_analyze_invalid_union():
+    with pytest.raises(NotImplementedError):
+        analyze_return(int | Resp[str])
