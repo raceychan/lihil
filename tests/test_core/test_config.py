@@ -1,13 +1,12 @@
 import argparse
 import tempfile
-from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import pytest
+from msgspec.structs import FieldInfo
 from starlette.requests import Request
 
 from lihil.config import (
-    is_provided,
     AppConfig,
     ConfigBase,
     OASConfig,
@@ -20,10 +19,11 @@ from lihil.config import (
     format_nested_dict,
     get_thread_cnt,
     is_lhl_dep,
+    is_provided,
     parse_field_type,
 )
 from lihil.errors import AppConfiguringError
-from lihil.interface import MISSING
+from lihil.interface import MISSING, Maybe
 from lihil.plugins.bus import EventBus
 
 
@@ -105,22 +105,21 @@ def test_parse_field_type():
     # Get field information using msgspec's introspection
     fields = msgspec_fields(TestStruct)
 
-
-
     regular_field = next(f for f in fields if f.name == "regular")
     optional_field = next(f for f in fields if f.name == "optional")
     union_field = next(f for f in fields if f.name == "union")
-    
+
     # Regular type
     assert parse_field_type(regular_field) == int
-    
+
     # Optional type should return the non-None type
     assert parse_field_type(optional_field) == str
-    
+
     # Union type should return the first non-None type
     # Note: behavior depends on the order of types in the Union
     result = parse_field_type(union_field)
     assert result in (int, str)
+
 
 def test_build_parser():
     """Test building an argument parser from a config type"""
@@ -258,18 +257,18 @@ def test_config_from_cli_should_filter_provided_flags(monkeypatch):
     # Mock sys.argv with a boolean flag
     test_args = ["prog", "--is_prod"]
     monkeypatch.setattr("sys.argv", test_args)
-    
+
     # Get CLI config
     cli_config = config_from_cli(AppConfig)
-    
+
     # The current implementation includes _provided flags, which is problematic
     assert cli_config is not None
-    
+
     # This test will fail with the current implementation
     # It should pass once config_from_cli is fixed to filter out _provided attributes
     for key in cli_config:
         assert not key.endswith("_provided"), f"Found unexpected _provided flag: {key}"
-    
+
     # Check that the actual flag is still there
     assert "is_prod" in cli_config
     assert cli_config["is_prod"] is True
@@ -278,7 +277,7 @@ def test_config_from_cli_should_filter_provided_flags(monkeypatch):
 def test_config_from_cli_fix():
     """Demonstrate how to fix config_from_cli"""
     # This is a demonstration of how config_from_cli should be fixed
-    
+
     # Mock namespace with _provided flags
     class MockNamespace:
         def __init__(self):
@@ -286,17 +285,35 @@ def test_config_from_cli_fix():
             self.is_prod_provided = True
             self.version = "1.0.0"
             self.version_provided = True
-    
+
     mock_args = MockNamespace()
     args_dict = vars(mock_args)
-    
+
     # Current implementation (problematic)
     current_result = {k: v for k, v in args_dict.items() if is_provided(v)}
     assert "is_prod_provided" in current_result  # This will cause validation errors
-    
+
     # Fixed implementation
-    fixed_result = {k: v for k, v in args_dict.items() 
-                   if is_provided(v) and not k.endswith("_provided")}
+    fixed_result = {
+        k: v
+        for k, v in args_dict.items()
+        if is_provided(v) and not k.endswith("_provided")
+    }
     assert "is_prod" in fixed_result
     assert "is_prod_provided" not in fixed_result  # This is what we want
-    
+
+
+def test_filed_type():
+    fi = FieldInfo(name="is_prod", type=Maybe[int], encode_name="is_prod")
+
+    assert parse_field_type(fi) is int
+
+
+def test_build_parser_with_bool():
+
+    class NestedConfig(ConfigBase):
+        is_prod: bool
+    class NewConfig(ConfigBase):
+        nested: NestedConfig
+
+    parser = build_parser(NewConfig)

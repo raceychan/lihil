@@ -5,11 +5,11 @@ from types import GenericAlias, UnionType
 from typing import Any, Sequence, Union, cast, get_args, get_origin
 
 from msgspec import convert, field
-from msgspec.structs import FieldInfo, fields
+from msgspec.structs import NODEFAULT, FieldInfo, fields
 from starlette.requests import Request
 
 from lihil.errors import AppConfiguringError
-from lihil.interface import MISSING, Record, is_provided
+from lihil.interface import MISSING, Maybe, Record, get_maybe_vars, is_provided
 from lihil.plugins.bus import EventBus
 
 StrDict = dict[str, Any]
@@ -104,19 +104,23 @@ class ServerConfig(ConfigBase):
     root_path: str | None = None
 
 
-def parse_field_type(field: FieldInfo):
+def parse_field_type(field: FieldInfo) -> type:
     "Todo: parse Maybe[int] = MISSING"
 
     ftype = field.type
     origin = get_origin(ftype)
 
     if origin is UnionType or origin is Union:
-        for targ in get_args(ftype):
-            if targ is None:
-                continue
+        unions = get_args(ftype)
+        assert unions
+        for targ in unions:
             return targ
+    elif origin is Maybe:
+        maybe_var = get_maybe_vars(ftype)
+        assert maybe_var
+        return maybe_var
 
-    return field.type
+    return ftype
 
 
 class AppConfig(ConfigBase):
@@ -141,60 +145,62 @@ class AppConfig(ConfigBase):
         return lihil_config
 
 
-def build_parser(config_type: type[AppConfig]) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="lihil application configuration")
+def generate_parser_actions(
+    config_type: type[ConfigBase], prefix: str = ""
+) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
     cls_fields = fields(config_type)
 
     for field_info in cls_fields:
-        field_name = field_info.name
+        field_name = field_info.encode_name
         field_type = field_info.type
+        field_default = MISSING  # if field_type is not bool else field_info.default
 
-        if isinstance(field_info.default, ConfigBase):
-            nested_cls = field_type
-            nested_fields = fields(nested_cls)
-            for nested_field in nested_fields:
-                nested_name = f"{field_name}.{nested_field.name}"
-                arg_name = f"--{nested_name}"
+        full_field_name = f"{prefix}.{field_name}" if prefix else field_name
+        arg_name = f"--{full_field_name}"
 
-                if field_type == bool:
-                    parser.add_argument(
-                        arg_name,
-                        action=StoreTrueIfProvided,
-                        default=MISSING,
-                        help=f"Set {field_name} (default: {field_info.default})",
-                    )
-                else:
-                    parser.add_argument(
-                        arg_name,
-                        type=parse_field_type(nested_field),
-                        default=MISSING,
-                        help=f"Set {nested_name} (default: {nested_field.default})",
-                    )
-
+        if isinstance(field_type, type) and issubclass(field_type, ConfigBase):
+            nested_actions = generate_parser_actions(field_type, full_field_name)
+            actions.extend(nested_actions)
         else:
-            arg_name = f"--{field_name}"
-            if field_type == bool:
-                parser.add_argument(
-                    arg_name,
-                    action=StoreTrueIfProvided,
-                    default=MISSING,
-                    help=f"Set {field_name} (default: {field_info.default})",
-                )
-            elif field_info.required:
-                default_value = field_info.default_factory()
-                parser.add_argument(
-                    arg_name,
-                    type=field_type,
-                    default=MISSING,
-                    help=f"Set {field_name} (default: {default_value})",
-                )
+            if field_type is bool:
+                action = {
+                    "name": arg_name,
+                    "type": "bool",
+                    "action": "store_true",
+                    "default": field_default,
+                    "help": f"Set {full_field_name} (default: {field_default})",
+                }
             else:
-                parser.add_argument(
-                    arg_name,
-                    type=field_type,
-                    default=MISSING,
-                    help=f"Set {field_name} (default: {field_info.default})",
-                )
+                action = {
+                    "name": arg_name,
+                    "type": parse_field_type(field_info),
+                    "default": field_default,
+                    "help": f"Set {full_field_name} (default: {field_default})",
+                }
+            actions.append(action)
+    return actions
+
+
+def build_parser(config_type: type[ConfigBase]) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="lihil application configuration")
+    actions = generate_parser_actions(config_type)
+
+    for action in actions:
+        if action["type"] == "bool":
+            parser.add_argument(
+                action["name"],
+                action=action["action"],
+                default=action["default"],
+                help=action["help"],
+            )
+        else:
+            parser.add_argument(
+                action["name"],
+                type=action["type"],
+                default=action["default"],
+                help=action["help"],
+            )
     return parser
 
 
@@ -204,9 +210,7 @@ def config_from_cli(config_type: type[AppConfig]) -> StrDict | None:
     args = known_args.__dict__
 
     # Filter out _provided flags and keep only provided values
-    cli_args: StrDict = {
-        k: v for k, v in args.items() if is_provided(v) and not k.endswith("_provided")
-    }
+    cli_args: StrDict = {k: v for k, v in args.items() if is_provided(v)}
 
     if not cli_args:
         return None

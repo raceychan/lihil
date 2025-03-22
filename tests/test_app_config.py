@@ -103,6 +103,7 @@ def test_config_from_cli_boolean_flag():
 def test_config_from_cli_no_args():
     """Test that config_from_cli returns None when no arguments are provided."""
     config_dict = config_from_cli(config_type=AppConfig)
+
     assert config_dict is None
 
 

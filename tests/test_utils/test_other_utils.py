@@ -4,6 +4,7 @@ from typing import Union
 
 import pytest
 
+from lihil.interface import MISSING, Base, Maybe, get_maybe_vars
 from lihil.lihil import ThreadPoolExecutor
 from lihil.utils.threading import sync_ctx_to_thread
 from lihil.utils.visitor import union_types
@@ -50,3 +51,20 @@ def test_union_types():
 
     new_u = union_types([int, str, bytes, list[int]])
     assert new_u == Union[int, str, bytes, list[int]]
+
+
+def test_interface_utils():
+    res = get_maybe_vars(Maybe[str | int])
+    assert res == str | int
+    with pytest.raises(IndexError):
+        assert get_maybe_vars(int) is None
+    repr(MISSING)
+
+    class MyBase(Base):
+        name: str
+        age: int
+
+    mb = MyBase("1", 2)
+
+    mbd = {**mb}
+    assert mbd == {"name": "1", "age": 2}
