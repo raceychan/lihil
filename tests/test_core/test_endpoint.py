@@ -1,5 +1,5 @@
-from typing import Annotated
 import urllib.parse
+from typing import Annotated
 
 import pytest
 from ididi import Ignore, use
@@ -180,12 +180,10 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
     assert await res.body() == b""
 
+
 @pytest.fixture
-def login_form()->bytes:
-    form_data = {
-        "username": "john_doe",
-        "email": "john.doe@example.com"
-    }
+def login_form() -> bytes:
+    form_data = {"username": "john_doe", "email": "john.doe@example.com"}
 
     encoded_data = urllib.parse.urlencode(form_data).encode("utf-8")
     return encoded_data
@@ -194,7 +192,7 @@ def login_form()->bytes:
 @pytest.mark.debug
 async def test_ep_requiring_form(rusers: Route, lc: LocalClient, login_form: bytes):
 
-
+    import uuid
 
     async def get(r: Request, fm: Form[bytes]) -> Resp[str, 200]:
         return "asdf"
@@ -202,7 +200,29 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient, login_form: byt
     rusers.get(get)
     ep = rusers.get_endpoint("GET")
 
-    res = await lc.call_endpoint(ep, body = login_form)
+    boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+
+    # Correctly formatted multipart body
+    multipart_data = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="username"\r\n\r\n'
+        f"john_doe\r\n"
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="email"\r\n\r\n'
+        f"john.doe@example.com\r\n"
+        f"--{boundary}--\r\n"
+    ).encode(
+        "utf-8"
+    )  # Convert to bytes
+
+    # Content-Type header
+    content_type = f"multipart/form-data; boundary={boundary}"
+
+    res = await lc.call_endpoint(
+        ep,
+        body=multipart_data,
+        headers={f"content-type": content_type},
+    )
 
     breakpoint()
     # assert await res.body() == b""

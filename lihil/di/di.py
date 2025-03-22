@@ -70,7 +70,6 @@ class EndpointDeps[R](Base):
     ) -> ParseResult:
         verrors: list[Any] = []
         params: dict[str, Any] = {}
-        callbacks: list[Callable[..., Awaitable[None]]] = []
 
         zipped = (
             (self.path_params, req_path),
@@ -119,14 +118,7 @@ class EndpointDeps[R](Base):
                     error = InvalidJsonReceived("body", name)
                     verrors.append(error)
 
-            if (pmeta := param.meta) and pmeta.is_form_body:
-
-                async def close_body() -> None:
-                    await body.close()
-
-                callbacks.append(close_body)
-
-        parsed_result = ParseResult(params, verrors, tuple(callbacks))
+        parsed_result = ParseResult(params, verrors)
         return parsed_result
 
     def parse_query(self, req: Request) -> ParseResult:
