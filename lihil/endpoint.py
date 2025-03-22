@@ -98,9 +98,11 @@ class Endpoint[R]:
 
             params = parsed_result.params
             for name, p in self.deps.singletons:
-                if p.type_ is Request:
+                if not isinstance(p.type_, type):
+                    continue
+                if issubclass(p.type_, Request):
                     params[name] = request
-                elif p.type_ is EventBus:
+                elif issubclass(p.type_, EventBus):
                     bus = self.busterm.create_event_bus(resolver)
                     params[name] = bus
 
