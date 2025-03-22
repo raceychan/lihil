@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from msgspec.json import decode, encode
+from msgspec.json import encode
 
 from lihil.ds import Envelope, Event, utc_now, uuid4_str
 

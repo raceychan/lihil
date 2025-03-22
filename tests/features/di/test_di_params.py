@@ -5,7 +5,7 @@ import pytest
 from ididi import DependentNode, Graph
 from starlette.requests import Request
 
-from lihil.config import EventBus
+from lihil.plugins.bus import EventBus
 from lihil.di.params import (
     CustomDecoder,
     ParsedParams,

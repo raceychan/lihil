@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
-from typing import ClassVar, Self, dataclass_transform
+from typing import ClassVar, dataclass_transform
 from uuid import uuid4
 
-from msgspec.json import Decoder, decode
+from msgspec.json import Decoder
 
 from lihil.interface import Record, field
 from lihil.utils.visitor import all_subclasses, union_types
@@ -32,6 +32,8 @@ class Envelope[Body: Event](Record, omit_defaults=True):
 
     take cloudevents spec as a reference
     https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md
+
+    A container for event, can be used to deliver to kafka, save to pg, etc.
     """
 
     data: Body
@@ -46,6 +48,10 @@ class Envelope[Body: Event](Record, omit_defaults=True):
         event_subs = all_subclasses(Event)
         sub_union = union_types(list(event_subs))
         return Decoder(type=cls[sub_union])  # type: ignoer
+
+    @classmethod
+    def from_event(cls, e: Event):
+        "reuse metadata such as eventid, source, sub, from event"
 
 
 # TODO: Command

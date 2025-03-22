@@ -1,16 +1,14 @@
 import argparse
 import tomllib
 from pathlib import Path
-from types import GenericAlias, UnionType
+from types import UnionType
 from typing import Any, Sequence, Union, cast, get_args, get_origin
 
 from msgspec import convert, field
-from msgspec.structs import NODEFAULT, FieldInfo, fields
-from starlette.requests import Request
+from msgspec.structs import FieldInfo, fields
 
 from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, Maybe, Record, get_maybe_vars, is_provided
-from lihil.plugins.bus import EventBus
 
 StrDict = dict[str, Any]
 
@@ -78,11 +76,6 @@ class StoreTrueIfProvided(argparse.Action):
         kwargs["nargs"] = 0
         kwargs["default"] = MISSING
         super().__init__(*args, **kwargs)  # type: ignore
-
-
-def is_lhl_dep(type_: type | GenericAlias):
-    "Dependencies that should be injected and managed by lihil"
-    return type_ in (Request, EventBus)
 
 
 class ConfigBase(Record, forbid_unknown_fields=True): ...

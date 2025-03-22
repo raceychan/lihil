@@ -172,7 +172,7 @@ class Route(ASGIBase):
     def factory[**P, R](self, node: INode[P, R], **node_config: Unpack[INodeConfig]):
         return self.graph.node(node, **node_config)
 
-    def listen[E](self, listener: Callable[[E], Any]) -> None:
+    def listen(self, listener: Callable[[Event, Any], None]) -> None:
         self.registry.register(listener)
 
     def has_listener(self, listener: Callable[..., Any]) -> bool:

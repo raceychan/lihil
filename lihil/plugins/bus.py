@@ -11,8 +11,8 @@ from weakref import ref
 from ididi import Graph, Resolver
 from ididi.interfaces import GraphIgnore
 
-from lihil.ds import Event
-from lihil.interface import MISSING, Protocol
+from lihil.ds import Envelope, Event
+from lihil.interface import MISSING, Protocol, Record
 from lihil.utils.visitor import all_subclasses
 
 UNION_META = (UnionType, Union)
@@ -26,6 +26,19 @@ TODO:
 
 MsgCtx[T] = Annotated[T, CTX_MARKER]
 """
+
+
+# ============= Strategy ==============
+async def default_send(message: Any, context: Any, handler: Any) -> Any:
+    return await handler(message, context)
+
+
+async def default_publish(message: Any, context: Any, listeners: Any) -> None:
+    for listener in listeners:
+        await listener(message, context)
+
+
+# ============= Strategy ==============
 
 
 class IGuard(Protocol):
@@ -181,15 +194,6 @@ def gather_types(annotation: Any) -> set[Any]:
     return types
 
 
-async def default_send(message: Any, context: Any, handler: Any) -> Any:
-    return await handler(message, context)
-
-
-async def default_publish(message: Any, context: Any, listeners: Any) -> None:
-    for listener in listeners:
-        await listener(message, context)
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class FuncMeta:
     message_type: Any
@@ -210,9 +214,6 @@ class GuardMeta:
 
 
 class ManagerBase:
-    def __init__(self, dg: Graph):
-        self._dg = dg
-
     async def _resolve_meta(self, meta: FuncMeta, *, resolver: Resolver):
         handler = meta.handler
 
@@ -226,14 +227,14 @@ class ManagerBase:
             handler = MethodType(handler, instance)
         else:
             # TODO: EntryFunc
-            handler = self._dg.entry(ignore=meta.ignore + ("_",))(handler)
+
+            handler = resolver.entry(ignore=meta.ignore + ("_",))(handler)
 
         return handler
 
 
 class HandlerManager(ManagerBase):
-    def __init__(self, dg: Graph):
-        super().__init__(dg)
+    def __init__(self):
         self._handler_metas: dict[Any, Any] = {}
         self._guard_mapping: Any = defaultdict(list)
         self._global_guards: list[Any] = []
@@ -304,8 +305,7 @@ class HandlerManager(ManagerBase):
 
 
 class ListenerManager(ManagerBase):
-    def __init__(self, dg: Graph):
-        super().__init__(dg)
+    def __init__(self):
         self._listener_metas: dict[Any, list[Any]] = dict()
 
     def include_listeners(self, event_mapping: Any):
@@ -394,7 +394,7 @@ def get_funcmetas(msg_base: Any, func: Any) -> list[Any]:
     if not params:
         raise MessageHandlerNotFoundError(msg_base, func)
 
-    msg, *rest = params
+    msg, *_ = params
     is_async: bool = inspect.iscoroutinefunction(func)
     derived_msgtypes = gather_types(msg.annotation)
 
@@ -412,7 +412,7 @@ def get_funcmetas(msg_base: Any, func: Any) -> list[Any]:
             message_type=t,
             handler=func,
             is_async=is_async,
-            ignore=ignore,
+            ignore=ignore,  # type: ignore
         )
         for t in derived_msgtypes
     ]
@@ -429,7 +429,7 @@ def get_methodmetas(msg_base: type, cls: type) -> list[MethodMeta]:
         if len(params) == 1:
             continue
 
-        _, msg, *rest = params  # ignore `self`
+        _, msg, *_ = params  # ignore `self`
         is_async: bool = inspect.iscoroutinefunction(func)
         derived_msgtypes = gather_types(msg.annotation)
 
@@ -605,18 +605,12 @@ class MessageRegistry:
                 self.guard_mapping[target].append(meta)
 
 
-class EventBus:
-    def __init__(
-        self,
-        listener: ListenerManager,
-        strategy: Any,
-        resolver: Resolver,
-        tasks: set[Task[Any]],
-    ):
-        self.listeners = listener
-        self.strategy = strategy
-        self.resolver = resolver
-        self.tasks = tasks
+class EventBus(Record):
+    resolver: Resolver
+    lsnmgr: ListenerManager
+    strategy: Any
+    event_sink: Any
+    tasks: set[Task[Any]]
 
     async def publish(
         self,
@@ -624,8 +618,8 @@ class EventBus:
         *,
         context: Any = None,
     ) -> None:
-        # share same scope as request
-        resolved_listeners = await self.listeners.resolve_listeners(
+        self.resolver.register_singleton(self)
+        resolved_listeners = await self.lsnmgr.resolve_listeners(
             type(event), resolver=self.resolver
         )
         return await self.strategy(event, context, resolved_listeners)
@@ -638,7 +632,7 @@ class EventBus:
     ) -> None:
         async def event_task(event: Event, context: Any):
             async with self.resolver.ascope() as asc:
-                listener = await self.listeners.resolve_listeners(
+                listener = await self.lsnmgr.resolve_listeners(
                     type(event), resolver=asc
                 )
                 await self.strategy(event, context, listener)
@@ -653,8 +647,17 @@ class EventBus:
         self.tasks.add(task)
         # perserve a strong ref to prevent task from being gc
 
+    async def sink(self, event: Any):
+        "sin a single event, or a sequence of events"
+        try:
+            await self.event_sink.sink(event)
+        except AttributeError:
+            raise SinkUnsetError()
+
 
 class BusTerminal:
+    "persist meta data of event bus and command bus"
+
     def __init__(
         self,
         *registries: Any,
@@ -664,8 +667,8 @@ class BusTerminal:
         publisher: Any = default_publish,
     ):
         self._dg = graph or Graph()
-        self._handler_manager = HandlerManager(self._dg)
-        self._listener_manager = ListenerManager(self._dg)
+        self._handler_manager = HandlerManager()
+        self._listener_manager = ListenerManager()
 
         self._sender = sender
         self._publisher = publisher
@@ -676,7 +679,9 @@ class BusTerminal:
         self.include(*registries)
 
     def create_event_bus(self, resolver: Resolver):
-        return EventBus(self._listener_manager, self._publisher, resolver, self._tasks)
+        return EventBus(
+            resolver, self._listener_manager, self._publisher, self._sink, self._tasks
+        )
 
     @property
     def sender(self) -> Any:
@@ -721,9 +726,3 @@ class BusTerminal:
 
         handler = await self._handler_manager.resolve_handler(type(msg), resolver)
         return await self._sender(msg, context, handler)
-
-    async def sink(self, event: Any):
-        try:
-            await self._sink.sink(event)
-        except AttributeError:
-            raise SinkUnsetError()

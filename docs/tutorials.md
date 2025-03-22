@@ -201,7 +201,7 @@ Here is one example response of `InvalidRequestErrors`.
 - To change the documentation, override `DetailBase.__json_example__` and `DetailBase.__problem_detail__`.
 - To extend the error detail, provide typevar when inheriting `HTTPException[T]`.
 
-## Type-Based Message System
+## Message System
 
 Lihil has built-in support for both in-process message handling (Beta) and out-of-process message handling (implementing), it is recommended to use `EventBus` over `BackGroundTask` for event handling.
 
@@ -222,12 +222,12 @@ class TodoCreated(Event):
     content: str
 
 
-async def listen_create(created: TodoCreated):
+async def listen_create(created: TodoCreated, ctx):
     assert created.name
     assert created.content
 
 
-async def listen_twice(created: TodoCreated):
+async def listen_twice(created: TodoCreated, ctx):
     assert created.name
     assert created.content
 
@@ -239,6 +239,14 @@ bus_route = Route("/bus", listeners=[listen_create, listen_twice])
 async def create_todo(name: str, content: str, bus: EventBus) -> Resp[None, status.OK]:
     await bus.publish(TodoCreated(name, content))
 ```
+
+An event can have multiple event handlers, they will be called in sequence, config your `BusTerminal` with `publisher` then inject it to `Lihil`.
+
+An event handler can have as many dependencies as you want, but it should at least contain two params: a sub type of `Event`, and a sub type of `MessageContext`.
+
+if a handler is reigstered with a parent event, it will listen to all of its sub event.
+for example, 
+a handler that listens to `UserEvent`, will also be called when `UserCreated(UserEvent)`, `UserDeleted(UserEvent)` event is published/emitted.
 
 ## Plugins
 

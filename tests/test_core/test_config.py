@@ -18,13 +18,13 @@ from lihil.config import (
     deep_update,
     format_nested_dict,
     get_thread_cnt,
-    is_lhl_dep,
     is_provided,
     parse_field_type,
 )
 from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, Maybe
 from lihil.plugins.bus import EventBus
+from lihil.di.params import is_lhl_dep
 
 
 def test_get_thread_cnt():
@@ -313,6 +313,7 @@ def test_build_parser_with_bool():
 
     class NestedConfig(ConfigBase):
         is_prod: bool
+
     class NewConfig(ConfigBase):
         nested: NestedConfig
 

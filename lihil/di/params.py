@@ -7,7 +7,6 @@ from ididi.config import USE_FACTORY_MARK
 from msgspec import Meta as ParamMeta
 from msgspec import field
 
-from lihil.config import is_lhl_dep
 from lihil.interface import (
     MISSING,
     Base,
@@ -18,6 +17,7 @@ from lihil.interface import (
     is_provided,
 )
 from lihil.interface.marks import Body, Header, Path, Query, Struct, Use
+from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import (
     build_union_decoder,
@@ -26,6 +26,10 @@ from lihil.utils.phasing import (
     str_decoder,
 )
 from lihil.utils.typing import flatten_annotated, is_union_type
+from lihil.vendor_types import Request
+
+type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]
+type RequiredParams = Sequence[ParamPair]
 
 
 # from starlette.requests import Request
@@ -49,8 +53,12 @@ def textdecoder_factory(
     return decoder_factory(t)
 
 
-type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]
-type RequiredParams = Sequence[ParamPair]
+def is_lhl_dep(type_: type | GenericAlias):
+    "Dependencies that should be injected and managed by lihil"
+    return type_ in (Request, EventBus)
+
+def is_body_param(annt: Any):
+    return not is_lhl_dep(annt) and isinstance(annt, type) and issubclass(annt, Struct)
 
 
 class CustomDecoder(Base):
@@ -244,7 +252,7 @@ def analyze_param(
             location="path",
             default=default,
         )
-    elif isinstance(type_, type) and issubclass(type_, Struct):
+    elif is_body_param(type_):
         decoder = decoder_factory(type_)
         req_param = RequestParam(
             type_=type_,
@@ -256,7 +264,7 @@ def analyze_param(
         )
     elif isinstance(type_, UnionType) or get_origin(type_) is Union:
         type_args = get_args(type_)
-        if any(issubclass(subt, Struct) for subt in type_args):
+        if any(is_body_param(subt) for subt in type_args):
             decoder = decoder_factory(type_)
             req_param = RequestParam(
                 type_=type_,

@@ -10,9 +10,10 @@ class TodoCreated(Event):
     content: str
 
 
-async def listen_create(created: TodoCreated, _: Any):
+async def listen_create(created: TodoCreated, _: Any, bus: EventBus):
     assert created.name
     assert created.content
+    assert isinstance(bus, EventBus)
 
 
 async def listen_twice(created: TodoCreated, _: Any):
