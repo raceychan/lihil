@@ -238,3 +238,14 @@ same thing goes with Generator
 async def new_todo() -> Generator[Text, None, None]:
     ...
 ```
+
+
+## version 0.1.9
+
+### Improvements
+
+`EventBus` can now be injected into event handlers as dependency
+
+### Fix
+
+fix a bug where `Envelopment.build_decoder` would return a decoder that only decodes None

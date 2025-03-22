@@ -75,6 +75,14 @@ when such exception is raised from endpoint, client would receive a response lik
 
 - **Strong support for AI featuers**: lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
+
+## Compatability with starlette
+
+Lihil is ASGI compatible and uses starlette as ASGI toolkit, which means that:
+
+- starlette `Request`, `Response` and its subclasses, should work just fine with lihil.
+
+
 ## Quick Start
 
 ```python
