@@ -1,6 +1,16 @@
 from inspect import Parameter
 from types import GenericAlias, UnionType
-from typing import Annotated, Any, Callable, Sequence, Union, cast, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Literal,
+    Sequence,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 from ididi import DependentNode, Graph
 from ididi.config import USE_FACTORY_MARK
@@ -98,6 +108,9 @@ class ParamMeta(Base):
     is_form_body: bool
 
 
+type ParamContentType = Literal["application/json", "multipart/form-data"]
+
+
 class RequestParam[T](RequestParamBase[T], kw_only=True):
     """
     maybe we would like to create a subclass RequestBody
@@ -106,12 +119,12 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
     https://stackoverflow.com/questions/4526273/what-does-enctype-multipart-form-data-mean
     """
 
-    # content_type: Literal["application/json", "multipart/form-data"], related to decoder
-
+    # TODO: use content type to check if is form data
     alias: str
     decoder: IDecoder[T] | ITextDecoder[T]
     location: ParamLocation
-    meta: ParamMeta | None = None
+    content_type: ParamContentType = "application/json"
+    # meta: ParamMeta | None = None
 
     def __repr__(self) -> str:
         type_repr = getattr(self.type_, "__name__", repr(self.type_))
@@ -177,7 +190,7 @@ def analyze_markedparam(
         # Easy case, Pure non-deps request params
         location: ParamLocation
         alias = name
-        param_meta: ParamMeta | None = None
+        content_type: ParamContentType = "application/json"
         if porigin is Header:
             location = "header"
             alias = parse_header_key(name, metas)
@@ -185,7 +198,7 @@ def analyze_markedparam(
             location = "body"
         elif porigin is Form:
             location = "body"
-            param_meta = ParamMeta(is_form_body=True)
+            content_type = "multipart/form-data"
         elif porigin is Path:
             location = "path"
         else:
@@ -193,7 +206,7 @@ def analyze_markedparam(
 
         if decoder is None:
             if location == "body":
-                if param_meta and param_meta.is_form_body:
+                if content_type == "multipart/form-data":
                     decoder = form_decoder(atype)
                 else:
                     decoder = decoder_factory(atype)
@@ -207,7 +220,7 @@ def analyze_markedparam(
             decoder=decoder,
             location=location,
             default=default,
-            meta=param_meta,
+            content_type=content_type,
         )
         pair = (name, req_param)
         return [pair]
@@ -309,7 +322,6 @@ class ParsedParams(Base):
     # nodes should be a dict with {name: node}
     nodes: list[tuple[str, DependentNode]] = field(default_factory=list)
     singletons: list[tuple[str, SingletonParam[Any]]] = field(default_factory=list)
-    is_form_body: bool = False
 
     def collect_param(self, name: str, param_list: list[ParamPair | DependentNode]):
         for element in param_list:
@@ -321,8 +333,6 @@ class ParsedParams(Base):
                     self.singletons.append((param_name, req_param))
                 elif req_param.location == "body":
                     # TODO: we only need to check if body is Form.
-                    if req_param.meta:
-                        self.is_form_body = req_param.meta.is_form_body
                     self.bodies.append((param_name, req_param))
                 else:
                     self.params.append((param_name, req_param))
