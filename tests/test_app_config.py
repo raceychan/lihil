@@ -1,10 +1,15 @@
 import argparse
+import tomllib
+from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from lihil import Lihil
 from lihil.config import (
     MISSING,
     AppConfig,
+    AppConfiguringError,
     StoreTrueIfProvided,
     build_parser,
     config_from_cli,
@@ -114,14 +119,12 @@ def test_config_from_cli_unknown_args():
     assert config_dict is None  # No recognized arguments
 
 
-# def test_app_config_from_cli_integration():
-#     """Integration test for creating AppConfig from CLI arguments."""
-#     with patch("sys.argv", ["prog", "--version", "2.0.0", "--oas.title", "Custom API"]):
-#         config = AppConfig.from_cli()
+def test_app_config_from_filepath(tmp_path: Path):
+    toml_file = tmp_path / "config.toml"
 
-#         assert config.version == "2.0.0"
-#         assert config.oas.title == "Custom API"
+    toml_file.touch()
 
-#         # Other values should have defaults
-#         assert config.is_prod is False
-#         assert config.oas.doc_path == "/docs"
+    # data = {"name": "example", "version": "1.0.0"}
+
+    with pytest.raises(AppConfiguringError):
+        config_from_file(toml_file)

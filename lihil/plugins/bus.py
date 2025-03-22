@@ -1,10 +1,10 @@
 import inspect
 from abc import ABC
-from asyncio import Task, TaskGroup, create_task, to_thread
+from asyncio import Task, create_task, to_thread
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
-from types import MappingProxyType, MethodType, UnionType
+from types import MethodType, UnionType
 from typing import Annotated, Any, Union, cast, get_args, get_origin
 from weakref import ref
 
@@ -18,10 +18,14 @@ from lihil.utils.visitor import all_subclasses
 UNION_META = (UnionType, Union)
 CTX_MARKER = "__anywise_context__"
 
-BusMaker = Any
 Context = Any
 FrozenContext = Any
 IGNORE_TYPES = (Context, FrozenContext)
+"""
+TODO:
+
+MsgCtx[T] = Annotated[T, CTX_MARKER]
+"""
 
 
 class IGuard(Protocol):
@@ -178,39 +182,19 @@ def gather_types(annotation: Any) -> set[Any]:
 
 
 async def default_send(message: Any, context: Any, handler: Any) -> Any:
-    if context is None:
-        context = dict()
     return await handler(message, context)
 
 
 async def default_publish(message: Any, context: Any, listeners: Any) -> None:
-    if context is None:
-        context = MappingProxyType({})
-
     for listener in listeners:
         await listener(message, context)
 
 
-async def concurrent_publish(msg: Any, context: Any, subscribers: Any) -> None:
-    if not context:
-        context = {}
-    async with TaskGroup() as tg:
-        for sub in subscribers:
-            tg.create_task(sub(msg, context))
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class FuncMeta:
-    """
-    is_async: bool
-    is_contexted:
-    whether the handler receives a context param
-    """
-
     message_type: Any
     handler: Any
     is_async: bool
-    is_contexted: bool
     ignore: GraphIgnore
 
 
@@ -225,18 +209,11 @@ class GuardMeta:
     guard: Any
 
 
-def context_wrapper(origin: Any):
-    async def inner(message: Any, _: Any):
-        return await origin(message)
-
-    return inner
-
-
 class ManagerBase:
     def __init__(self, dg: Graph):
         self._dg = dg
 
-    async def _resolve_meta(self, meta: Any, *, resolver: Resolver):
+    async def _resolve_meta(self, meta: FuncMeta, *, resolver: Resolver):
         handler = meta.handler
 
         if not meta.is_async:
@@ -249,10 +226,8 @@ class ManagerBase:
             handler = MethodType(handler, instance)
         else:
             # TODO: EntryFunc
-            handler = self._dg.entry(ignore=meta.ignore)(handler)
+            handler = self._dg.entry(ignore=meta.ignore + ("_",))(handler)
 
-        if not meta.is_contexted:
-            handler = context_wrapper(handler)
         return handler
 
 
@@ -421,7 +396,6 @@ def get_funcmetas(msg_base: Any, func: Any) -> list[Any]:
 
     msg, *rest = params
     is_async: bool = inspect.iscoroutinefunction(func)
-    is_contexted: bool = is_contextparam(rest)
     derived_msgtypes = gather_types(msg.annotation)
 
     if not derived_msgtypes:
@@ -438,7 +412,6 @@ def get_funcmetas(msg_base: Any, func: Any) -> list[Any]:
             message_type=t,
             handler=func,
             is_async=is_async,
-            is_contexted=is_contexted,
             ignore=ignore,
         )
         for t in derived_msgtypes
@@ -458,7 +431,6 @@ def get_methodmetas(msg_base: type, cls: type) -> list[MethodMeta]:
 
         _, msg, *rest = params  # ignore `self`
         is_async: bool = inspect.iscoroutinefunction(func)
-        is_contexted: bool = is_contextparam(rest)
         derived_msgtypes = gather_types(msg.annotation)
 
         if not all(issubclass(msg_type, msg_base) for msg_type in derived_msgtypes):
@@ -471,7 +443,6 @@ def get_methodmetas(msg_base: type, cls: type) -> list[MethodMeta]:
                 message_type=t,
                 handler=func,
                 is_async=is_async,
-                is_contexted=is_contexted,
                 ignore=ignore,  # type: ignore
                 owner_type=cls,
             )

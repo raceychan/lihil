@@ -16,7 +16,7 @@ from typing import (
 )
 
 from lihil.constant.status import code as get_status_code
-from lihil.errors import StatusConflictError
+from lihil.errors import InvalidStatusError, StatusConflictError
 from lihil.interface import MISSING, IEncoder, Maybe, Record, is_provided
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text, is_resp_mark
 from lihil.utils.phasing import encode_json, encode_text
@@ -25,17 +25,16 @@ from lihil.utils.typing import flatten_annotated
 
 def parse_status(status: Any) -> int:
     status_type: type = type(status)
-    if status_type is int:
-        return status
-    elif status_type is str:
-        return int(status)
-    elif isinstance(status, TypeAliasType):
-        try:
+
+    try:
+        if status_type is int:
+            return status
+        elif status_type is str:
+            return int(status)
+        else:
             return get_status_code(status)
-        except KeyError:
-            raise ValueError("Invalid status code")
-    else:
-        raise ValueError("Invalid status code")
+    except Exception:
+        raise InvalidStatusError(status)
 
 
 def get_media(origin: Any):
@@ -174,7 +173,12 @@ class ReturnParam[T](Record):
         # TODO: from generator
         if is_resp_mark(annt):
             return ReturnParam.from_mark(annt, origin, status)
-        elif origin is Annotated or origin in (Generator, ABCGen, AsyncGenerator, ABCAsyncGen):
+        elif origin is Annotated or origin in (
+            Generator,
+            ABCGen,
+            AsyncGenerator,
+            ABCAsyncGen,
+        ):
             return ReturnParam.from_annotated(annt, origin, status)
         else:  # vanilla case, dict[str, str], list[str], etc.
             assert isinstance(origin, type)

@@ -1,3 +1,5 @@
+from typing import Any
+
 from lihil import Resp, Route, status
 from lihil.plugins.bus import Event, EventBus
 from lihil.plugins.testclient import LocalClient
@@ -8,12 +10,12 @@ class TodoCreated(Event):
     content: str
 
 
-async def listen_create(created: TodoCreated):
+async def listen_create(created: TodoCreated, _: Any):
     assert created.name
     assert created.content
 
 
-async def listen_twice(created: TodoCreated):
+async def listen_twice(created: TodoCreated, _: Any):
     assert created.name
     assert created.content
 

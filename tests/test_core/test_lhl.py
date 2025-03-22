@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from lihil.config import AppConfig, ServerConfig
+from lihil.constant.resp import ServiceUnavailableResp, lhlserver_static_resp
 from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
 from lihil.interface import ASGIApp, Base
 from lihil.lihil import Lihil, lifespan_wrapper, read_config
@@ -882,3 +883,21 @@ async def test_lihil_run_with_workers():
         assert str_app == "test_lhl:lhl"
 
     lhl.run(__file__, runner=mock_run)
+
+
+async def test_service_unavailble():
+    msgs: list[dict] = []
+
+    async def _send(msg):
+        nonlocal msgs
+        msgs.append(msg)
+
+    await ServiceUnavailableResp(_send)
+
+
+def test_static_resp():
+    resp = lhlserver_static_resp(b"hello, world")
+    assert (
+        resp
+        == b"HTTP/1.1 200 OK\r\ncontent-length: 12\r\ncontent-type: text/plain; charset='utf-8'\r\n\r\nhello, world"
+    )

@@ -53,7 +53,7 @@ async def ServiceUnavailableResp(send: ISend) -> None:
     await send(SERVICE_UNAVAILABLE_BODY)
 
 
-def lhlserver_static_resp(content: bytes, content_type: str, charset: str) -> bytes:
+def lhlserver_static_resp(content: bytes, content_type: str="text/plain", charset: str="utf-8") -> bytes:
     """
     a static route that requires our own server to run
     """

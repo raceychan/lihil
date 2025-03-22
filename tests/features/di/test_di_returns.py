@@ -1,5 +1,5 @@
 from inspect import Parameter
-from typing import Annotated, Generator, Union
+from typing import Annotated, Generator, Literal, Union
 
 import pytest
 
@@ -14,7 +14,7 @@ from lihil.di.returns import (
     parse_status,
     syncgen_encode_wrapper,
 )
-from lihil.errors import StatusConflictError
+from lihil.errors import InvalidStatusError, StatusConflictError
 from lihil.interface import MISSING
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text
 
@@ -31,7 +31,7 @@ def test_parse_status():
     assert parse_status(OK) == 200
 
     # Test invalid type (line 37)
-    with pytest.raises(ValueError, match="Invalid status code"):
+    with pytest.raises(InvalidStatusError, match="Invalid status code"):
         parse_status(None)
 
 
@@ -203,3 +203,13 @@ def test_analyze_return_with_stream_text():
 def test_analyze_return_with_generator_text():
     result = analyze_return(Generator[Text, None, None])
     assert result.encoder is (analyze_return(Text).encoder)
+
+
+def test_resp_with_only_ret_tpye():
+    res = ReturnParam.from_mark(Resp[str], Resp, 200)
+    assert res.type_ is str
+
+
+def test_invalid_resp():
+    with pytest.raises(NotImplementedError):
+        res = ReturnParam.from_mark("fadsf", str, 200)

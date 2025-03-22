@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated
 
 import pytest
 from ididi import Ignore, use
@@ -178,3 +178,4 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
     res = await lc.call_endpoint(ep)
 
     assert await res.body() == b""
+
