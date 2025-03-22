@@ -242,11 +242,22 @@ async def create_todo(name: str, content: str, bus: EventBus) -> Resp[None, stat
 
 An event can have multiple event handlers, they will be called in sequence, config your `BusTerminal` with `publisher` then inject it to `Lihil`.
 
-An event handler can have as many dependencies as you want, but it should at least contain two params: a sub type of `Event`, and a sub type of `MessageContext`.
+- An event handler can have as many dependencies as you want, but it should at least contain two params: a sub type of `Event`, and a sub type of `MessageContext`.
 
-if a handler is reigstered with a parent event, it will listen to all of its sub event.
+- if a handler is reigstered with a parent event, it will listen to all of its sub event.
 for example, 
-a handler that listens to `UserEvent`, will also be called when `UserCreated(UserEvent)`, `UserDeleted(UserEvent)` event is published/emitted.
+
+- a handler that listens to `UserEvent`, will also be called when `UserCreated(UserEvent)`, `UserDeleted(UserEvent)` event is published/emitted.
+
+- you can also publish event during event handling, to do so, declare one of your dependency as `EventBus`,
+
+```python
+async def listen_create(created: TodoCreated, _: Any, bus: EventBus):
+    if is_expired(created.created_at):
+        event = TodoExpired.from_event(created)
+        await bus.publish(event)
+```
+
 
 ## Plugins
 

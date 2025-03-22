@@ -619,10 +619,10 @@ class EventBus(Record):
         context: Any = None,
     ) -> None:
         self.resolver.register_singleton(self)
-        resolved_listeners = await self.lsnmgr.resolve_listeners(
+        listeners = await self.lsnmgr.resolve_listeners(
             type(event), resolver=self.resolver
         )
-        return await self.strategy(event, context, resolved_listeners)
+        return await self.strategy(event, context, listeners)
 
     def emit(
         self,
@@ -632,10 +632,10 @@ class EventBus(Record):
     ) -> None:
         async def event_task(event: Event, context: Any):
             async with self.resolver.ascope() as asc:
-                listener = await self.lsnmgr.resolve_listeners(
+                listeners = await self.lsnmgr.resolve_listeners(
                     type(event), resolver=asc
                 )
-                await self.strategy(event, context, listener)
+                await self.strategy(event, context, listeners)
 
         def callback_wrapper(task: Task[Any]):
             self.tasks.discard(task)
