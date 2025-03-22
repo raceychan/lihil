@@ -19,7 +19,8 @@ def utc_now() -> datetime:
 @dataclass_transform(frozen_default=True)
 class Event(Record, tag_field="typeid", omit_defaults=True):
 
-    # TODO: generate a event page to inspect source
+    # TODO: generate a event page to inspect source, perhaps asyncapi
+    # https://www.asyncapi.com/
     """
     Description: Identifies the context in which an event happened. Often this will include information such as the type of the event source, the organization publishing the event or the process that produced the event. The exact syntax and semantics behind the data encoded in the URI is defined by the event producer.
     """
@@ -52,15 +53,3 @@ class Envelope[Body: Event](Record, omit_defaults=True):
     @classmethod
     def from_event(cls, e: Event):
         "reuse metadata such as eventid, source, sub, from event"
-
-
-# TODO: Command
-
-"""
-async def publish(event: Event, subject: str, source: str | None = None):
-    eve = Envelope(data=event, subject=subject, source=source)
-
-
-async def create_user(user: User, bus: EventBus):
-    await bus.publish(event = user_created, subject=user.user_id)
-"""

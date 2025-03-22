@@ -4,7 +4,7 @@ import pytest
 from ididi import Ignore, use
 from starlette.requests import Request
 
-from lihil import Json, Payload, Resp, Route, Stream
+from lihil import Form, Json, Payload, Resp, Route, Stream
 from lihil.constant import status
 from lihil.errors import StatusConflictError
 from lihil.plugins.testclient import LocalClient
@@ -179,3 +179,17 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
     assert await res.body() == b""
 
+
+@pytest.mark.debug
+async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
+
+    async def get(r: Request, fm: Form[bytes]) -> Resp[str, 200]:
+        return "asdf"
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    res = await lc.call_endpoint(ep)
+
+    breakpoint()
+    # assert await res.body() == b""

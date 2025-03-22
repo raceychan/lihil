@@ -11,7 +11,7 @@ from weakref import ref
 from ididi import Graph, Resolver
 from ididi.interfaces import GraphIgnore
 
-from lihil.ds import Envelope, Event
+from lihil.ds.event import Envelope, Event
 from lihil.interface import MISSING, Protocol, Record
 from lihil.utils.visitor import all_subclasses
 

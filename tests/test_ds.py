@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from msgspec.json import encode
 
-from lihil.ds import Envelope, Event, utc_now, uuid4_str
+from lihil.ds.event import Envelope, Event, utc_now, uuid4_str
 
 
 class UserCreated(Event):

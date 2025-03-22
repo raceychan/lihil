@@ -59,17 +59,15 @@ def is_param_mark(m: Any) -> bool:
 QUERY_REQUEST_MARK = param_mark("query")
 HEADER_REQUEST_MARK = param_mark("header")
 BODY_REQUEST_MARK = param_mark("body")
+FORM_REQUEST_MARK = param_mark("form")
 PATH_REQUEST_MARK = param_mark("path")
 USE_DEPENDENCY_MARK = param_mark("use")
 
 type Query[T] = Annotated[T, QUERY_REQUEST_MARK]
-
 type Header[T, K: LiteralString] = Annotated[T, K, HEADER_REQUEST_MARK]
-
 type Body[T] = Annotated[T, BODY_REQUEST_MARK]
-
+type Form[T] = Annotated[T, FORM_REQUEST_MARK]
 type Path[T] = Annotated[T, PATH_REQUEST_MARK]
-
 type Use[T] = Annotated[T, USE_DEPENDENCY_MARK]
 
 # ================ Response ================

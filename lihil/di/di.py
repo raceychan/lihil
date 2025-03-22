@@ -28,6 +28,7 @@ class ParseResult(Record):
     def __getitem__(self, key: str):
         return self.params[key]
 
+
 # TODO: separate param parsing and dependency injection
 class EndpointDeps[R](Base):
     route_path: str
@@ -41,6 +42,7 @@ class EndpointDeps[R](Base):
 
     return_param: ReturnParam[R]  # | UnionType
     scoped: bool
+    is_form_body: bool
 
     def override(self) -> None: ...
 
@@ -123,7 +125,7 @@ class EndpointDeps[R](Base):
         req_path = req.path_params if self.path_params else None
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
-        body = await req.body()
+        body = await req.form() if self.is_form_body else await req.body()
         params = self.prepare_params(req_path, req_query, req_header, body)
         return params
 
@@ -150,6 +152,6 @@ def analyze_endpoint[R](
         dependencies=tuple(params.nodes),
         return_param=cast(ReturnParam[R], retparam),
         scoped=scoped,
+        is_form_body=params.is_form_body,
     )
     return info
-

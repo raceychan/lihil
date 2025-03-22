@@ -4,7 +4,7 @@ from typing import Annotated, Any, Callable, Sequence, Union, cast, get_args, ge
 
 from ididi import DependentNode, Graph
 from ididi.config import USE_FACTORY_MARK
-from msgspec import Meta as ParamMeta
+from msgspec import Meta as FieldMeta
 from msgspec import field
 
 from lihil.interface import (
@@ -16,7 +16,7 @@ from lihil.interface import (
     ParamLocation,
     is_provided,
 )
-from lihil.interface.marks import Body, Header, Path, Query, Struct, Use
+from lihil.interface.marks import Body, Form, Header, Path, Query, Struct, Use
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import (
@@ -57,6 +57,7 @@ def is_lhl_dep(type_: type | GenericAlias):
     "Dependencies that should be injected and managed by lihil"
     return type_ in (Request, EventBus)
 
+
 def is_body_param(annt: Any):
     return not is_lhl_dep(annt) and isinstance(annt, type) and issubclass(annt, Struct)
 
@@ -84,6 +85,10 @@ class RequestParamBase[T](Base):
         self.required = self.default is MISSING
 
 
+class ParamMeta(Base):
+    is_form_body: bool
+
+
 class RequestParam[T](RequestParamBase[T], kw_only=True):
     """
     maybe we would like to create a subclass RequestBody
@@ -108,42 +113,6 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
 
 
 class SingletonParam[T](RequestParamBase[T]): ...
-
-
-class ParsedParams(Base):
-    params: list[tuple[str, RequestParam[Any]]] = field(default_factory=list)
-    bodies: list[tuple[str, RequestParam[Any]]] = field(default_factory=list)
-    # nodes should be a dict with {name: node}
-    nodes: list[tuple[str, DependentNode]] = field(default_factory=list)
-    singletons: list[tuple[str, SingletonParam[Any]]] = field(default_factory=list)
-
-    def collect_param(self, name: str, param_list: list[ParamPair | DependentNode]):
-        for element in param_list:
-            if isinstance(element, DependentNode):
-                self.nodes.append((name, element))
-            else:
-                param_name, req_param = element
-                if isinstance(req_param, SingletonParam):
-                    self.singletons.append((param_name, req_param))
-                elif req_param.location == "body":
-                    self.bodies.append((param_name, req_param))
-                else:
-                    self.params.append((param_name, req_param))
-
-    def get_location(
-        self, location: ParamLocation
-    ) -> tuple[tuple[str, RequestParam[Any]], ...]:
-        return tuple(p for p in self.params if p[1].location == location)
-
-    def get_body(self) -> tuple[str, RequestParam[Any]] | None:
-        if not self.bodies:
-            body_param = None
-        elif len(self.bodies) == 1:
-            body_param = self.bodies[0]
-        else:
-            # "use defstruct to dynamically define a type"
-            raise NotImplementedError()
-        return body_param
 
 
 def analyze_nodeparams(
@@ -196,14 +165,18 @@ def analyze_markedparam(
         node = graph.analyze(atype)
         return analyze_nodeparams(node, graph, seen, path_keys)
     else:
-        # Pure non-deps request params
+        # Easy case, Pure non-deps request params
         location: ParamLocation
         alias = name
+        param_meta: ParamMeta | None = None
         if porigin is Header:
             location = "header"
             alias = parse_header_key(name, metas)
         elif porigin is Body:
             location = "body"
+        elif porigin is Form:
+            location = "body"
+            param_meta = ParamMeta(is_form_body=True)
         elif porigin is Path:
             location = "path"
         else:
@@ -211,7 +184,10 @@ def analyze_markedparam(
 
         if decoder is None:
             if location == "body":
-                decoder = decoder_factory(atype)
+                if param_meta:
+                    decoder = None
+                else:
+                    decoder = decoder_factory(atype)
             else:
                 decoder = textdecoder_factory(atype)
 
@@ -222,6 +198,7 @@ def analyze_markedparam(
             decoder=decoder,
             location=location,
             default=default,
+            meta=param_meta,
         )
         pair = (name, req_param)
         return [pair]
@@ -315,6 +292,46 @@ def analyze_param(
             default=default,
         )
     return [(name, req_param)]
+
+
+class ParsedParams(Base):
+    params: list[tuple[str, RequestParam[Any]]] = field(default_factory=list)
+    bodies: list[tuple[str, RequestParam[Any]]] = field(default_factory=list)
+    # nodes should be a dict with {name: node}
+    nodes: list[tuple[str, DependentNode]] = field(default_factory=list)
+    singletons: list[tuple[str, SingletonParam[Any]]] = field(default_factory=list)
+    is_form_body: bool = False
+
+    def collect_param(self, name: str, param_list: list[ParamPair | DependentNode]):
+        for element in param_list:
+            if isinstance(element, DependentNode):
+                self.nodes.append((name, element))
+            else:
+                param_name, req_param = element
+                if isinstance(req_param, SingletonParam):
+                    self.singletons.append((param_name, req_param))
+                elif req_param.location == "body":
+                    # TODO: we only need to check if body is Form.
+                    if req_param.meta:
+                        self.is_form_body = req_param.meta.is_form_body
+                    self.bodies.append((param_name, req_param))
+                else:
+                    self.params.append((param_name, req_param))
+
+    def get_location(
+        self, location: ParamLocation
+    ) -> tuple[tuple[str, RequestParam[Any]], ...]:
+        return tuple(p for p in self.params if p[1].location == location)
+
+    def get_body(self) -> tuple[str, RequestParam[Any]] | None:
+        if not self.bodies:
+            body_param = None
+        elif len(self.bodies) == 1:
+            body_param = self.bodies[0]
+        else:
+            # "use defstruct to dynamically define a type"
+            raise NotImplementedError()
+        return body_param
 
 
 def analyze_request_params(

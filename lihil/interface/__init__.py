@@ -7,7 +7,6 @@ from typing import (
     TypeGuard,
     dataclass_transform,
     get_args,
-    get_origin,
 )
 
 from msgspec import Struct as Struct
@@ -22,6 +21,7 @@ from lihil.interface.asgi import IScope as IScope
 from lihil.interface.asgi import ISend as ISend
 from lihil.interface.asgi import MiddlewareFactory as MiddlewareFactory
 from lihil.interface.marks import Body as Body
+from lihil.interface.marks import Form as Form
 from lihil.interface.marks import Header as Header
 from lihil.interface.marks import Json as Json
 from lihil.interface.marks import Query as Query
