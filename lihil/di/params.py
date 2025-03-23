@@ -1,3 +1,4 @@
+from copy import deepcopy
 from inspect import Parameter
 from types import GenericAlias, UnionType
 from typing import (
@@ -14,8 +15,8 @@ from typing import (
 
 from ididi import DependentNode, Graph
 from ididi.config import USE_FACTORY_MARK
-from msgspec import Meta as FieldMeta
 from msgspec import convert, field
+from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
 from lihil.interface import MISSING, Base, IDecoder, Maybe, ParamLocation, is_provided
@@ -29,7 +30,7 @@ from lihil.utils.phasing import (
     str_decoder,
 )
 from lihil.utils.typing import flatten_annotated, is_union_type
-from lihil.vendor_types import Request
+from lihil.vendor_types import FormData, Request
 
 type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]
 type RequiredParams = Sequence[ParamPair]
@@ -64,12 +65,32 @@ def textdecoder_factory(
     return decoder_factory(t)
 
 
-def form_decoder[T](atype: type[T]):
+def make_form_decoder[T](atype: type[T] | UnionType):
+    if not isinstance(atype, type) or not issubclass(atype, Struct):
+        raise NotImplementedError(
+            "currently only subclass of Struct is supported for `Form`"
+        )
 
-    def inner_decoder(form_data: FormData) -> T:
-        return convert(dict(form_data), atype)
+    form_fields = get_fields(atype)
 
-    return inner_decoder
+    def form_decoder(form_data: FormData) -> T:
+        values = {}
+        for fld in form_fields:
+            if issubclass(fld.type, Sequence):
+                val = form_data.getlist(fld.encode_name)
+            else:
+                val = form_data.get(fld.encode_name)
+
+            if not val:
+                if fld.required:
+                    raise Exception
+                val = deepcopy(fld.default)
+
+            values[fld.name] = val
+
+        return convert(values, atype)
+
+    return form_decoder
 
 
 class CustomDecoder(Base):
@@ -199,7 +220,7 @@ def analyze_markedparam(
         if decoder is None:
             if location == "body":
                 if content_type == "multipart/form-data":
-                    decoder = form_decoder(atype)
+                    decoder = make_form_decoder(atype)
                 else:
                     decoder = decoder_factory(atype)
             else:

@@ -31,9 +31,6 @@ def is_text_type(t: type) -> bool:
     return t in (str, bytes)
 
 
-# from fastapi.dependencies.utils import get_dependant
-
-
 def build_union_decoder(
     types: tuple[type], target_type: type[str | bytes]
 ) -> IDecoder[Any]:
