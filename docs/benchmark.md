@@ -12,4 +12,4 @@ it is made deliberately easy for you to reproduce them.
 ![bench](./images/benchmark.png)
 
 
-more in-depth tests will be uploaded 
+more in-depth tests will be uploaded

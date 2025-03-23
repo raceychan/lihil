@@ -141,7 +141,7 @@ Example:
 async def listen_nothing(event):
     ...
 
-Rotue.listen(listen_nothing) 
+Rotue.listen(listen_nothing)
 ```
 
 This would fail silently before this fix
@@ -183,7 +183,7 @@ if set, these config will be passed to uvicorn
 ##### Usage
 
 ```bash
-uv run python -m app --server.port=8005 --server.workers=4 
+uv run python -m app --server.port=8005 --server.workers=4
 ```
 
 ```bash

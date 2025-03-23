@@ -25,7 +25,7 @@
 
 
 
-  %Own   %Total  OwnTime  TotalTime  Function (filename)                                                
+  %Own   %Total  OwnTime  TotalTime  Function (filename)
   0.00%   0.00%    4.26s    10.09s   run (asyncio/runners.py)
   0.00%   0.00%    1.12s     1.31s   on_headers_complete (lihil/server/server.py)
   0.00%   0.00%   0.670s     1.05s   send (lihil/server/server.py)

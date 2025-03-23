@@ -71,7 +71,7 @@ when such exception is raised from endpoint, client would receive a response lik
 
 - **Message System Bulitin**: publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
 
-- **Great Testability**: bulit-in `LocalClient` to easily test your endpoints, routes, middlewares, app, everything.  
+- **Great Testability**: bulit-in `LocalClient` to easily test your endpoints, routes, middlewares, app, everything.
 
 - **Strong support for AI featuers**: lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
@@ -115,10 +115,10 @@ def parse_access_token(
 
 @message_route.post
 async def stream(
-   service: ChatService,  
-   token: ParsedToken, 
+   service: ChatService,
+   token: ParsedToken,
    bus: EventBus,
-   chat_id: str, 
+   chat_id: str,
    data: CreateMessage
 ) -> Annotated[Stream[GPTMessage], CustomEncoder(gpt_encoder)]:
     chat = service.get_user_chat(token.sub)
@@ -166,7 +166,7 @@ uv add lihil
 ```python
 from lihil import Lihil
 
-# your application code 
+# your application code
 
 lhl = Lihil()
 

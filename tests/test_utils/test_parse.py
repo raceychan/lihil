@@ -71,4 +71,3 @@ def test_build_union_decoder_priority():
     invalid_json = '{"key": value}'  # missing quotes around value
     assert union_decoder(invalid_json) == invalid_json
     assert isinstance(union_decoder(invalid_json), str)
-

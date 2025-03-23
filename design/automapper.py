@@ -15,4 +15,3 @@ def mapper_maker(
         include_fields = filter(includes, fields)
     else:
         include_fields = includes
-    

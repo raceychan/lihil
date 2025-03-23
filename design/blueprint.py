@@ -198,7 +198,7 @@ type JSON[T] = Annotated[T, "_json_serializer"]
 type HTML[T] = Annotated[T, "_html_response"]
 
 """
-we provide predefine render, 
+we provide predefine render,
 and a mapper maps render_key to render function,
 
 user can also register their Render function
