@@ -245,7 +245,7 @@ An event can have multiple event handlers, they will be called in sequence, conf
 - An event handler can have as many dependencies as you want, but it should at least contain two params: a sub type of `Event`, and a sub type of `MessageContext`.
 
 - if a handler is reigstered with a parent event, it will listen to all of its sub event.
-for example, 
+for example,
 
 - a handler that listens to `UserEvent`, will also be called when `UserCreated(UserEvent)`, `UserDeleted(UserEvent)` event is published/emitted.
 
@@ -324,7 +324,7 @@ async def get_user(token: UserToken) -> Ignore[User]: ...
 
 ### Data validation
 
-lihil provide you data validation functionalities out of the box using msgspec, you can also use your own customized encoder/decoder for request params and function return.  
+lihil provide you data validation functionalities out of the box using msgspec, you can also use your own customized encoder/decoder for request params and function return.
 
 To use them, annotate your param type with `CustomDecoder` and your return type with `CustomEncoder`
 
@@ -339,7 +339,7 @@ async def create_user(
 
 ### Testing
 
-Lihil provide you a test helper `LocalClient` to call `Lihil` instance, `Route`, and `endpoint` locally,  
+Lihil provide you a test helper `LocalClient` to call `Lihil` instance, `Route`, and `endpoint` locally,
 
 ```python
 from lihil.plugins.testclient import LocalClient

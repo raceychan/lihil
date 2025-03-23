@@ -18,7 +18,7 @@ socket -> -> uvloop -> asyncio -> http parser -> msgspec -> Request
 leave DI to python using ididi
 
 
-roughly 
+roughly
 
 asyncio -> ASGI in c -> lihil
 
@@ -30,6 +30,3 @@ we might want to create a `licorne`(unicorn in french) before lihil that acts li
 
 
 Layered Infrastructure for High-Performance Integration and Logging
-
-
-

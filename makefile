@@ -17,7 +17,7 @@ test:
 
 .PHONY: cov
 cov:
-	uv run python -m pytest tests/ --cov=lihil --cov-report term-missing 
+	uv run python -m pytest tests/ --cov=lihil --cov-report term-missing
 
 .PHONY: debug
 debug:

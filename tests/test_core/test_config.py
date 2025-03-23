@@ -146,10 +146,10 @@ def test_config_from_file_toml():
         [tool.lihil]
         is_prod = true
         version = "1.0.0"
-        
+
         [tool.lihil.oas]
         title = "Test API"
-        
+
         [tool.lihil.server]
         host = "127.0.0.1"
         port = 9000
@@ -174,7 +174,7 @@ def test_config_from_file_toml_alternative_format():
         [lihil]
         is_prod = true
         version = "1.0.0"
-        
+
         [lihil.oas]
         title = "Test API"
         """

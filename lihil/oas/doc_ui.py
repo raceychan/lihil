@@ -268,10 +268,10 @@ def get_problem_ui_html(
             <h1 class="mb-4">{title} - Problem Details</h1>
             <p class="lead">
                 This page documents all possible error responses that can be returned by the API.
-                Each error follows the <a href="https://www.rfc-editor.org/rfc/rfc9457.html" target="_blank">RFC 9457</a> 
+                Each error follows the <a href="https://www.rfc-editor.org/rfc/rfc9457.html" target="_blank">RFC 9457</a>
                 Problem Details specification.
             </p>
-            
+
             <div class="search-container">
                 <div class="row">
                     <div class="col-md-6">
@@ -287,7 +287,7 @@ def get_problem_ui_html(
                     </div>
                 </div>
             </div>
-            
+
             <div id="problem-ui">
                 <div id="problems-container"></div>
                 <div id="no-results" class="no-results" style="display: none;">
@@ -296,31 +296,31 @@ def get_problem_ui_html(
                 </div>
             </div>
         </div>
-        
+
         <script src="{problem_js_url}"></script>
         <script src="{bootstrap_js_url}"></script>
         <script>
             // Store all problems
             const allProblems = {problems_json};
-            
+
             // Function to render problems
             function renderProblems(problems) {{
                 const container = document.getElementById('problems-container');
                 container.innerHTML = '';
-                
+
                 if (problems.length === 0) {{
                     document.getElementById('no-results').style.display = 'block';
                     return;
                 }}
-                
+
                 document.getElementById('no-results').style.display = 'none';
-                
+
                 problems.forEach(problem => {{
                     const statusColorClass = getStatusColorClass(problem.status);
-                    
+
                     const problemCard = document.createElement('div');
                     problemCard.className = 'card problem-card';
-                    
+
                     problemCard.innerHTML = `
                         <div class="card-header">
                             <h5 class="mb-0">${{problem.className}}</h5>
@@ -339,11 +339,11 @@ def get_problem_ui_html(
 }}</pre>
                         </div>
                     `;
-                    
+
                     container.appendChild(problemCard);
                 }});
             }}
-            
+
             // Function to get status code color
             function getStatusColorClass(status) {{
                 if (status >= 200 && status < 300) return 'bg-success';
@@ -352,25 +352,25 @@ def get_problem_ui_html(
                 if (status >= 500) return 'bg-danger';
                 return 'bg-secondary';
             }}
-            
+
             // Function to filter problems
             function filterProblems() {{
                 const searchTerm = document.getElementById('search-input').value.toLowerCase();
                 const statusFilter = document.getElementById('status-filter').value;
-                
+
                 const filtered = allProblems.filter(problem => {{
-                    const matchesSearch = 
-                        problem.type.toLowerCase().includes(searchTerm) || 
+                    const matchesSearch =
+                        problem.type.toLowerCase().includes(searchTerm) ||
                         problem.title.toLowerCase().includes(searchTerm) ||
                         (problem.description && problem.description.toLowerCase().includes(searchTerm));
-                    
+
                     const matchesStatus = !statusFilter || problem.status.toString() === statusFilter;
-                    
+
                     return matchesSearch && matchesStatus;
                 }});
-                
+
                 renderProblems(filtered);
-                
+
                 // Update URL with search parameters
                 const url = new URL(window.location);
                 if (searchTerm) {{
@@ -378,29 +378,29 @@ def get_problem_ui_html(
                 }} else {{
                     url.searchParams.delete('search');
                 }}
-                
+
                 if (statusFilter) {{
                     url.searchParams.set('status', statusFilter);
                 }} else {{
                     url.searchParams.delete('status');
                 }}
-                
+
                 window.history.replaceState({{}}, '', url);
             }}
-            
+
             // Initialize the UI
             document.addEventListener('DOMContentLoaded', function() {{
                 // Populate status filter dropdown
                 const statusFilter = document.getElementById('status-filter');
                 const statusCodes = [...new Set(allProblems.map(p => p.status))].sort((a, b) => a - b);
-                
+
                 statusCodes.forEach(code => {{
                     const option = document.createElement('option');
                     option.value = code;
                     option.textContent = code;
                     statusFilter.appendChild(option);
                 }});
-                
+
                 // Set up event listeners
                 document.getElementById('search-input').addEventListener('input', filterProblems);
                 document.getElementById('status-filter').addEventListener('change', filterProblems);
@@ -409,20 +409,20 @@ def get_problem_ui_html(
                     document.getElementById('status-filter').value = '';
                     filterProblems();
                 }});
-                
+
                 // Check for URL parameters
                 const urlParams = new URLSearchParams(window.location.search);
                 const searchParam = urlParams.get('search');
                 const statusParam = urlParams.get('status');
-                
+
                 if (searchParam) {{
                     document.getElementById('search-input').value = searchParam;
                 }}
-                
+
                 if (statusParam) {{
                     document.getElementById('status-filter').value = statusParam;
                 }}
-                
+
                 // Initial render
                 filterProblems();
             }});

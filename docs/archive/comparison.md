@@ -22,7 +22,7 @@ struct User {
 async fn main() {
     // Build our application with a single POST route
     let app = Router::new().route("/user", post(create_user));
-    
+
     // Run our app with hyper, listening globally on port 8000
     let listener = TcpListener::bind("0.0.0.0:8000").await.unwrap();
     println!("Server running on http://0.0.0.0:8000");
@@ -200,10 +200,10 @@ Transfer/sec:      7.58MB
 
 ## CLI Command used to run apps
 ```bash
-python3 -m uvicorn 
---interface asgi3 
---no-access-log 
---log-level "warning" 
+python3 -m uvicorn
+--interface asgi3
+--no-access-log
+--log-level "warning"
 --http httptools server:app
 ```
 

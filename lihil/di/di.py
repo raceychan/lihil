@@ -152,4 +152,3 @@ def analyze_endpoint[R](
         scoped=scoped,
     )
     return info
-
