@@ -18,15 +18,7 @@ from msgspec import Meta as FieldMeta
 from msgspec import convert, field
 from starlette.datastructures import FormData
 
-from lihil.interface import (
-    MISSING,
-    Base,
-    IDecoder,
-    ITextDecoder,
-    Maybe,
-    ParamLocation,
-    is_provided,
-)
+from lihil.interface import MISSING, Base, IDecoder, Maybe, ParamLocation, is_provided
 from lihil.interface.marks import Body, Form, Header, Path, Query, Struct, Use
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
@@ -43,10 +35,18 @@ type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]
 type RequiredParams = Sequence[ParamPair]
 
 
-# from starlette.requests import Request
+def is_lhl_dep(type_: type | GenericAlias):
+    "Dependencies that should be injected and managed by lihil"
+    return type_ in (Request, EventBus)
+
+
+def is_body_param(annt: Any):
+    return not is_lhl_dep(annt) and isinstance(annt, type) and issubclass(annt, Struct)
+
+
 def textdecoder_factory(
     t: type | UnionType | GenericAlias,
-) -> ITextDecoder[Any] | IDecoder[Any]:
+) -> IDecoder[Any]:
     # BUG:
     if is_union_type(t):
         union_args = get_args(t)
@@ -62,15 +62,6 @@ def textdecoder_factory(
     elif t is bytes:
         return bytes_decoder
     return decoder_factory(t)
-
-
-def is_lhl_dep(type_: type | GenericAlias):
-    "Dependencies that should be injected and managed by lihil"
-    return type_ in (Request, EventBus)
-
-
-def is_body_param(annt: Any):
-    return not is_lhl_dep(annt) and isinstance(annt, type) and issubclass(annt, Struct)
 
 
 def form_decoder[T](atype: type[T]):
@@ -108,7 +99,9 @@ class ParamMeta(Base):
     is_form_body: bool
 
 
-type ParamContentType = Literal["application/json", "multipart/form-data"]
+type ParamContentType = Literal[
+    "application/json", "multipart/form-data", "application/x-www-form-urlencoded"
+]
 
 
 class RequestParam[T](RequestParamBase[T], kw_only=True):
@@ -120,7 +113,7 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
     """
 
     alias: str
-    decoder: IDecoder[T] | ITextDecoder[T]
+    decoder: IDecoder[T]
     location: ParamLocation
     content_type: ParamContentType = "application/json"
     # meta: ParamMeta | None = None

@@ -578,7 +578,7 @@ async def test_route_on_lifespan():
     assert route.call_stacks["GET"]
 
 
-def test_get_endpoint_with_sync_fail():
+def test_get_endpoint_with_sync_func_fail():
     route = Route("r")
 
     def dummy(): ...

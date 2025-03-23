@@ -143,7 +143,9 @@ pip install lihil
 
 ### uv
 
-uv is the recommended way of using this project, you can install it with a single command [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
+if you want to install this project with uv
+
+[uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
 
 1. init your web project with `project_name`
 

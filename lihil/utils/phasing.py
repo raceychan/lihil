@@ -1,13 +1,12 @@
 from functools import lru_cache
-from types import GenericAlias, UnionType
-from typing import Any, Callable, Union, get_args, get_origin
+from typing import Any, Callable, Union, get_args
 
 from msgspec import DecodeError
 from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import Encoder as JsonEncoder
 from msgspec.json import encode as json_encode
 
-from lihil.interface import IDecoder, IEncoder, ITextDecoder
+from lihil.interface import IDecoder, IEncoder
 from lihil.utils.typing import is_union_type
 
 
@@ -30,6 +29,9 @@ def is_text_type(t: type) -> bool:
         return any(u in (str, bytes) for u in union_args)
 
     return t in (str, bytes)
+
+
+# from fastapi.dependencies.utils import get_dependant
 
 
 def build_union_decoder(

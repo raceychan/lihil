@@ -11,7 +11,7 @@ from typing import (
     get_origin,
 )
 
-from msgspec import Struct
+from msgspec import Struct as Struct
 
 from lihil.constant.status import Status
 
