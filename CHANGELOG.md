@@ -2,20 +2,20 @@
 
 ## version 0.1.1
 
-This is the very first version of lihil, but we already have a working version that users can play alon..
+This is the very first version of lihil, but we already have a working version that users can play around with.
 
 ### Features
 
-- core functionalities to an ASGI webserver, routing, http methods, `GET`, `POST`, `PUT`, `DELTE`
+- core functionalities of an ASGI webserver, routing, http methods, `GET`, `POST`, `PUT`, `DELETE`
 - ASGI middleware support
-- variosu response and encoding supoprt, json response, text response, stream response, etc.
-- bulitin json serialization/deseriazation using `msgspec`
+- various response and encoding support, json response, text response, stream response, etc.
+- bulit-in json serialization/deserialization using `msgspec`
 - `CustomEncoder` and `CustomDecoder` support
 - Performant and powerful dependency injection using `ididi`
-- Builtin message support, `EventBus` that enables user to publish events to multiple listenrs.
-- auto generated openapi shemas and swagger web-ui documentation
+- Built-in message support, `EventBus` that enables user to publish events to multiple listeners.
+- auto generated OpenAPI schemas and swagger web-ui documentation
 - rfc-9457 problem details and problems web-ui documentation
-- many other things, stay tune to our docs!
+- many other things, stay tuned to our docs!
 
 ## version 0.1.2
 
@@ -222,7 +222,7 @@ def _(a: str):
     ...
 ```
 
-- fix a bug where if return type is Annotated with resp mark, it will always be encoded as json unless custom encoder is provided, example
+- fix a bug where if return type is Annotated with resp mark, it will always be encoded as json unless custom encoder is provided, for example:
 
 ```python
 async def new_todo() -> Annotated[Text, "1"]:
