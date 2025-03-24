@@ -19,5 +19,5 @@ from .vendor_types import Response as Response
 from .vendor_types import UploadFile as UploadFile
 # from .server.runner import run as run
 
-VERSION = "0.1.9"
+VERSION = "0.1.10"
 __version__ = VERSION
