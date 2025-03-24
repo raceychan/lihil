@@ -38,7 +38,7 @@ class InvalidParamTypeError(LihilError):
     def __init__(self, annt: Any):
         msg = f"Unexpected param `{annt}` received, if you believe this is a bug, report an issue at https://github.com/raceychan/lihil/issues"
 
-        if annt == Literal[None]:
+        if annt is Literal[None]:
             super().__init__("use `Empty` instead")
         else:
             super().__init__(msg)

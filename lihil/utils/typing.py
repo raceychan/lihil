@@ -47,5 +47,3 @@ def is_nontextual_sequence(type_: Any):
         return False
 
     return issubclass(type_, Sequence)
-
-

@@ -144,4 +144,4 @@ def empty_encoder(param: Any) -> bytes:
     return b""
 
 
-type Empty = Annotated[None, CustomEncoder(empty_encoder)]
+type Empty = Annotated[Literal[None], CustomEncoder(empty_encoder)]

@@ -304,3 +304,25 @@ async def post(myfile: UploadFile) -> Resp[Text, 200]:
 - add `MiddlewareBuildError`, which will be raised when calling middleware factory fail 
 - add `NotSupportedError` for usage not currently supported, such a multiple return params.
 - add `InvalidParamTypeError` for invalid param type, such as `Literal[3.14]`
+
+
+### Feat:
+
+- add `Empty` to indicate where Response should be empty
+
+```python
+async def test_route_with_nested_empty_response():
+    route = Route("empty")
+
+    async def post_empty() -> Resp[Empty, status.NO_CONTENT]: ...
+
+    route.post(post_empty)
+
+    lc = LocalClient()
+
+    ep = route.get_endpoint("POST")
+
+    res = await lc.call_route(route, method="POST")
+    assert res.status_code == 204
+    assert await res.body() == b""
+```

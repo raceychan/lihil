@@ -81,6 +81,16 @@ def syncgen_encode_wrapper[T](
         yield encoder(res)
 
 
+def is_empty_return(t: Any):
+    if not is_provided(t):
+        return False
+
+    if t is None or t is Literal[None]:
+        return True
+    
+    return False
+    
+
 class ReturnParam[T](Record):
     # TODO: generate response from this
     encoder: IEncoder[T]
@@ -91,7 +101,7 @@ class ReturnParam[T](Record):
 
     def __post_init__(self):
         if self.status < 200 or self.status in (204, 205, 304):
-            if is_provided(self.type_) and self.type_ is not None:
+            if not is_empty_return(self.type_):
                 raise StatusConflictError(self.status, self.type_)
 
     def __repr__(self) -> str:
