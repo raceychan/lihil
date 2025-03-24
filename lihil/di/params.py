@@ -71,22 +71,24 @@ def textdecoder_factory(
     return decoder_factory(t)
 
 
-def filedeocder_factory(name: str, param_type: type[UploadFile], default: Any):
+def filedeocder_factory(filename: str):
     def file_decoder(form_data: FormData) -> UploadFile | None:
-        if upload_file := form_data.get(name):
+        if upload_file := form_data.get(filename):
             return cast(UploadFile, upload_file)
-        return None
 
     return file_decoder
 
 
-def formdecoder_factory[T](atype: type[T] | UnionType):
-    if not isinstance(atype, type) or not issubclass(atype, Struct):
+def formdecoder_factory[T](ptype: type[T] | UnionType):
+    if not isinstance(ptype, type) or not issubclass(ptype, Struct):
+        if ptype is bytes:
+            return to_bytes
+
         raise NotImplementedError(
-            "currently only subclass of Struct is supported for `Form`"
+            f"currently only bytes or subclass of Struct is supported for `Form`, received {ptype}"
         )
 
-    form_fields = get_fields(atype)
+    form_fields = get_fields(ptype)
 
     def form_decoder(form_data: FormData) -> T:
         values = {}
@@ -103,7 +105,7 @@ def formdecoder_factory[T](atype: type[T] | UnionType):
 
             values[ffield.name] = val
 
-        return convert(values, atype)
+        return convert(values, ptype)
 
     return form_decoder
 
@@ -268,7 +270,7 @@ def analyze_markedparam(
 def file_body_param(
     name: str, type_: UnionType | type[UploadFile] | GenericAlias, default: Any
 ):
-    decoder = filedeocder_factory(name, type_, default)
+    decoder = filedeocder_factory(name)
     content_type = "multipart/form-data"
 
     req_param = RequestParam(
@@ -362,7 +364,7 @@ def analyze_param(
     elif isinstance(type_, UnionType) or get_origin(type_) is Union:
         req_param = analyze_union_param(name, type_, default)
     elif type_ in graph.nodes:
-        node = graph.analyze(type_)
+        node = graph.analyze(cast(type, type_))
         params: list[ParamPair | DependentNode] = [node]
         for dep_name, dep in node.dependencies.items():
             ptype, default = dep.param_type, dep.default_

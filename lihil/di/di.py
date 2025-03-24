@@ -149,6 +149,15 @@ class EndpointDeps[R](Base):
         return params
 
 
+def is_form_body(param_pair: ParamPair | None):
+    if not param_pair:
+        return False
+
+    _, param = param_pair
+
+    return param.content_type == "multipart/form-data" and param.type_ is not bytes
+
+
 def analyze_endpoint[R](
     graph: Graph, route_path: str, f: Callable[..., R | Awaitable[R]]
 ) -> "EndpointDeps[R]":
@@ -165,9 +174,8 @@ def analyze_endpoint[R](
     scoped = any(graph.should_be_scoped(node.dependent) for _, node in params.nodes)
 
     body_param = params.get_body()
-    form_body: bool = (
-        body_param[1].content_type == "multipart/form-data" if body_param else False
-    )
+    form_body: bool = is_form_body(body_param)
+
     info = EndpointDeps(
         route_path=route_path,
         header_params=params.get_location("header"),

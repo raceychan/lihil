@@ -5,7 +5,7 @@ import pytest
 from ididi import Ignore, use
 from starlette.requests import Request
 
-from lihil import Form, Json, Payload, Resp, Route, Stream, UploadFile
+from lihil import Form, Json, Payload, Resp, Route, Stream, Text, UploadFile
 from lihil.constant import status
 from lihil.errors import StatusConflictError
 from lihil.plugins.testclient import LocalClient
@@ -289,7 +289,6 @@ async def test_ep_requiring_upload_file(rusers: Route, lc: LocalClient):
     assert result.status_code == 200
 
 
-@pytest.mark.debug
 async def test_ep_requiring_upload_file_fail(rusers: Route, lc: LocalClient):
     async def get(req: Request, myfile: UploadFile) -> Resp[str, 200]:
         return None
@@ -299,3 +298,59 @@ async def test_ep_requiring_upload_file_fail(rusers: Route, lc: LocalClient):
 
     result = await lc.call_endpoint(ep)
     assert result.status_code == 422
+
+
+async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
+    async def get(by_form: Form[bytes]) -> Resp[Text, 200]:
+        assert isinstance(by_form, bytes)
+        return "ok"
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+
+    # Correctly formatted multipart body
+    multipart_data = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="username"\r\n\r\n'
+        f"john_doe\r\n"
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="email"\r\n\r\n'
+        f"john.doe@example.com\r\n"
+        f"--{boundary}--\r\n"
+    ).encode(
+        "utf-8"
+    )  # Convert to bytes
+
+    # Content-Type header
+    content_type = f"multipart/form-data; boundary={boundary}"
+
+    res = await lc.call_endpoint(
+        ep,
+        body=multipart_data,
+        headers={f"content-type": content_type},
+    )
+    assert await res.text() == "ok"
+    assert res.status_code == 200
+
+
+async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
+    async def get(by_form: Form[list[int]]) -> Resp[Text, 200]:
+        assert isinstance(by_form, bytes)
+        return "ok"
+
+    with pytest.raises(NotImplementedError):
+        rusers.get(get)
+
+
+async def test_ep_requiring_form_sequence_type(rusers: Route, lc: LocalClient):
+    class UserInfo(Payload):
+        name: str
+        phones: list[str]
+
+    async def get(by_form: Form[UserInfo]) -> Resp[Text, 200]:
+        assert isinstance(by_form, UserInfo)
+        return "ok"
+
+    rusers.get(get)

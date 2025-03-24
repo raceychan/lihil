@@ -5,7 +5,6 @@ import pytest
 from ididi import DependentNode, Graph
 from starlette.requests import Request
 
-from lihil.plugins.bus import EventBus
 from lihil.di.params import (
     CustomDecoder,
     ParsedParams,
@@ -19,6 +18,7 @@ from lihil.di.params import (
 )
 from lihil.interface import MISSING, Payload
 from lihil.interface.marks import Body, Header, Path, Query, Use
+from lihil.plugins.bus import EventBus
 
 
 # Helper classes for testing
@@ -639,6 +639,7 @@ def test_textdecoder_factory_with_optional():
     assert optional_bytes_decoder(b"hello") == b"hello"
     assert optional_bytes_decoder("null") is None
 
+
 def test_textdecoder_factory_with_complex_types():
     """Test textdecoder_factory with more complex types"""
     # List type
@@ -650,9 +651,10 @@ def test_textdecoder_factory_with_complex_types():
 
     result = dict_decoder('{"a": 1, "b": 2}')
 
-
     assert result == {"a": 1, "b": 2}
 
     # Nested type
     nested_decoder = textdecoder_factory(list[dict[str, int]])
     assert nested_decoder('[{"a": 1}, {"b": 2}]') == [{"a": 1}, {"b": 2}]
+
+
