@@ -217,217 +217,280 @@ def get_problem_ui_html(
     # Encode problem examples as JSON
     problems_json = encode_json(problem_examples).decode()
 
+    # TODO: use <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/digitallytailored/classless@latest/classless.min.css"> for better visual
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <link type="text/css" rel="stylesheet" href="{bootstrap_css_url}">
-        <link rel="shortcut icon" href="{problem_favicon_url}">
-        <title>{title} - Problem Details</title>
-        <style>
-            body {{
-                padding: 20px;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            }}
-            .problem-card {{
-                margin-bottom: 20px;
-                border-radius: 8px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }}
-            .problem-card .card-header {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }}
-            .status-badge {{
-                font-size: 14px;
-                padding: 5px 10px;
-                border-radius: 20px;
-            }}
-            .search-container {{
-                margin-bottom: 30px;
-            }}
-            .no-results {{
-                text-align: center;
-                padding: 40px;
-                color: #666;
-            }}
-            pre {{
-                background-color: #f8f9fa;
-                padding: 15px;
-                border-radius: 5px;
-            }}
-            .problem-type {{
-                font-family: monospace;
-                word-break: break-all;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1 class="mb-4">{title} - Problem Details</h1>
-            <p class="lead">
-                This page documents all possible error responses that can be returned by the API.
-                Each error follows the <a href="https://www.rfc-editor.org/rfc/rfc9457.html" target="_blank">RFC 9457</a> 
-                Problem Details specification.
-            </p>
-            
-            <div class="search-container">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="input-group mb-3">
-                            <input type="text" id="search-input" class="form-control" placeholder="Search problems...">
-                            <button class="btn btn-outline-secondary" type="button" id="clear-search">Clear</button>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <select id="status-filter" class="form-select">
-                            <option value="">All Status Codes</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="problem-ui">
-                <div id="problems-container"></div>
-                <div id="no-results" class="no-results" style="display: none;">
-                    <h3>No matching problem details found</h3>
-                    <p>Try adjusting your search criteria</p>
-                </div>
-            </div>
-        </div>
-        
-        <script src="{problem_js_url}"></script>
-        <script src="{bootstrap_js_url}"></script>
-        <script>
-            // Store all problems
-            const allProblems = {problems_json};
-            
-            // Function to render problems
-            function renderProblems(problems) {{
-                const container = document.getElementById('problems-container');
-                container.innerHTML = '';
-                
-                if (problems.length === 0) {{
-                    document.getElementById('no-results').style.display = 'block';
-                    return;
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <link type="text/css" rel="stylesheet" href="{bootstrap_css_url}">
+
+            <link rel="shortcut icon" href="{problem_favicon_url}">
+            <title>{title}</title>
+            <style>
+                body {{
+                    padding: 20px;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 }}
-                
-                document.getElementById('no-results').style.display = 'none';
-                
-                problems.forEach(problem => {{
-                    const statusColorClass = getStatusColorClass(problem.status);
-                    
-                    const problemCard = document.createElement('div');
-                    problemCard.className = 'card problem-card';
-                    
-                    problemCard.innerHTML = `
-                        <div class="card-header">
-                            <h5 class="mb-0">${{problem.className}}</h5>
-                            <span class="badge ${{statusColorClass}} status-badge">Status: ${{problem.status}}</span>
+                .problem-card {{
+                    margin-bottom: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                }}
+                .problem-card .card-header {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }}
+                .status-badge {{
+                    font-size: 14px;
+                    padding: 5px 10px;
+                    border-radius: 20px;
+                }}
+                .search-container {{
+                    margin-bottom: 30px;
+                }}
+                .no-results {{
+                    text-align: center;
+                    padding: 40px;
+                    color: #666;
+                }}
+                pre {{
+                    background-color: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 5px;
+                }}
+                .problem-type {{
+                    font-family: monospace;
+                    word-break: break-all;
+                }}
+                .json-viewer-modal .modal-dialog {{
+                    max-width: 90%;
+                }}
+                .json-viewer-content {{
+                    max-height: 80vh;
+                    overflow-y: auto;
+                }}
+                .btn-json {{
+                    margin-left: 10px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1 class="mb-4">{title}</h1>
+                <p class="lead">
+                    This page documents all possible error responses that can be returned by the API.
+                    Each error follows the <a href="https://www.rfc-editor.org/rfc/rfc9457.html" target="_blank">RFC 9457</a>
+                    Problem Details specification.
+                </p>
+
+                <div class="search-container">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="input-group mb-3">
+                                <input type="text" id="search-input" class="form-control" placeholder="Search problems...">
+                                <button class="btn btn-outline-secondary" type="button" id="clear-search">Clear</button>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <p class="problem-type"><strong>Type:</strong> ${{problem.type}}</p>
-                            <p><strong>Description:</strong> ${{problem.title || 'No title available'}}</p>
-                            <p><strong>Example:</strong></p>
-                            <pre>{{
+                        <div class="col-md-3">
+                            <select id="status-filter" class="form-select">
+                                <option value="">All Status Codes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <button id="view-json-btn" class="btn btn-primary">View this as JSON</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="problem-ui">
+                    <div id="problems-container"></div>
+                    <div id="no-results" class="no-results" style="display: none;">
+                        <h3>No matching problem details found</h3>
+                        <p>Try adjusting your search criteria</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JSON Viewer Modal -->
+            <div class="modal fade json-viewer-modal" id="jsonViewerModal" tabindex="-1" aria-labelledby="jsonViewerModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="jsonViewerModalLabel">Problem Details JSON</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="json-viewer-content">
+                                <pre id="json-content"></pre>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button id="copy-json-btn" class="btn btn-secondary">Copy to Clipboard</button>
+                            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script src="{problem_js_url}"></script>
+            <script src="{bootstrap_js_url}"></script>
+            <script>
+                // Store all problems
+                const allProblems = {problems_json};
+
+                // Function to render problems
+                function renderProblems(problems) {{
+                    const container = document.getElementById('problems-container');
+                    container.innerHTML = '';
+
+                    if (problems.length === 0) {{
+                        document.getElementById('no-results').style.display = 'block';
+                        return;
+                    }}
+
+                    document.getElementById('no-results').style.display = 'none';
+
+                    problems.forEach(problem => {{
+                        const statusColorClass = getStatusColorClass(problem.status);
+
+                        const problemCard = document.createElement('div');
+                        problemCard.className = 'card problem-card';
+
+                        problemCard.innerHTML = `
+                            <div class="card-header">
+                                <h5 class="mb-0">${{problem.className}}</h5>
+                                <span class="badge ${{statusColorClass}} status-badge">Status: ${{problem.status}}</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="problem-type"><strong>Type:</strong> ${{problem.type}}</p>
+                                <p><strong>Description:</strong> ${{problem.title || 'No title available'}}</p>
+                                <p><strong>Example:</strong></p>
+                                <pre>{{
   "type": "${{problem.type}}",
   "title": "${{problem.title}}",
   "status": ${{problem.status}},
   "detail": "${{problem.detail}}",
   "instance": "${{problem.instance}}"
 }}</pre>
-                        </div>
-                    `;
-                    
-                    container.appendChild(problemCard);
-                }});
-            }}
-            
-            // Function to get status code color
-            function getStatusColorClass(status) {{
-                if (status >= 200 && status < 300) return 'bg-success';
-                if (status >= 300 && status < 400) return 'bg-info';
-                if (status >= 400 && status < 500) return 'bg-warning';
-                if (status >= 500) return 'bg-danger';
-                return 'bg-secondary';
-            }}
-            
-            // Function to filter problems
-            function filterProblems() {{
-                const searchTerm = document.getElementById('search-input').value.toLowerCase();
-                const statusFilter = document.getElementById('status-filter').value;
-                
-                const filtered = allProblems.filter(problem => {{
-                    const matchesSearch = 
-                        problem.type.toLowerCase().includes(searchTerm) || 
-                        problem.title.toLowerCase().includes(searchTerm) ||
-                        (problem.description && problem.description.toLowerCase().includes(searchTerm));
-                    
-                    const matchesStatus = !statusFilter || problem.status.toString() === statusFilter;
-                    
-                    return matchesSearch && matchesStatus;
-                }});
-                
-                renderProblems(filtered);
-                
-                // Update URL with search parameters
-                const url = new URL(window.location);
-                if (searchTerm) {{
-                    url.searchParams.set('search', searchTerm);
-                }} else {{
-                    url.searchParams.delete('search');
+                            </div>
+                        `;
+
+                        container.appendChild(problemCard);
+                    }});
                 }}
-                
-                if (statusFilter) {{
-                    url.searchParams.set('status', statusFilter);
-                }} else {{
-                    url.searchParams.delete('status');
+
+                // Function to get status code color
+                function getStatusColorClass(status) {{
+                    if (status >= 200 && status < 300) return 'bg-success';
+                    if (status >= 300 && status < 400) return 'bg-info';
+                    if (status >= 400 && status < 500) return 'bg-warning';
+                    if (status >= 500) return 'bg-danger';
+                    return 'bg-secondary';
                 }}
-                
-                window.history.replaceState({{}}, '', url);
-            }}
-            
-            // Initialize the UI
-            document.addEventListener('DOMContentLoaded', function() {{
-                // Populate status filter dropdown
-                const statusFilter = document.getElementById('status-filter');
-                const statusCodes = [...new Set(allProblems.map(p => p.status))].sort((a, b) => a - b);
-                
-                statusCodes.forEach(code => {{
-                    const option = document.createElement('option');
-                    option.value = code;
-                    option.textContent = code;
-                    statusFilter.appendChild(option);
-                }});
-                
-                // Set up event listeners
-                document.getElementById('search-input').addEventListener('input', filterProblems);
-                document.getElementById('status-filter').addEventListener('change', filterProblems);
-                document.getElementById('clear-search').addEventListener('click', function() {{
-                    document.getElementById('search-input').value = '';
-                    document.getElementById('status-filter').value = '';
+
+                // Function to filter problems
+                function filterProblems() {{
+                    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+                    const statusFilter = document.getElementById('status-filter').value;
+
+                    const filtered = allProblems.filter(problem => {{
+                        const matchesSearch =
+                            problem.type.toLowerCase().includes(searchTerm) ||
+                            problem.title.toLowerCase().includes(searchTerm) ||
+                            (problem.description && problem.description.toLowerCase().includes(searchTerm));
+
+                        const matchesStatus = !statusFilter || problem.status.toString() === statusFilter;
+
+                        return matchesSearch && matchesStatus;
+                    }});
+
+                    renderProblems(filtered);
+
+                    // Update URL with search parameters
+                    const url = new URL(window.location);
+                    if (searchTerm) {{
+                        url.searchParams.set('search', searchTerm);
+                    }} else {{
+                        url.searchParams.delete('search');
+                    }}
+
+                    if (statusFilter) {{
+                        url.searchParams.set('status', statusFilter);
+                    }} else {{
+                        url.searchParams.delete('status');
+                    }}
+
+                    window.history.replaceState({{}}, '', url);
+                }}
+
+                // Initialize the UI
+                document.addEventListener('DOMContentLoaded', function() {{
+                    // Populate status filter dropdown
+                    const statusFilter = document.getElementById('status-filter');
+                    const statusCodes = [...new Set(allProblems.map(p => p.status))].sort((a, b) => a - b);
+
+                    statusCodes.forEach(code => {{
+                        const option = document.createElement('option');
+                        option.value = code;
+                        option.textContent = code;
+                        statusFilter.appendChild(option);
+                    }});
+
+                    // Set up event listeners
+                    document.getElementById('search-input').addEventListener('input', filterProblems);
+                    document.getElementById('status-filter').addEventListener('change', filterProblems);
+                    document.getElementById('clear-search').addEventListener('click', function() {{
+                        document.getElementById('search-input').value = '';
+                        document.getElementById('status-filter').value = '';
+                        filterProblems();
+                    }});
+
+                    // JSON viewer button
+                    document.getElementById('view-json-btn').addEventListener('click', function() {{
+                        const jsonContent = document.getElementById('json-content');
+                        jsonContent.textContent = JSON.stringify(allProblems, null, 2);
+                        
+                        const jsonModal = new bootstrap.Modal(document.getElementById('jsonViewerModal'));
+                        jsonModal.show();
+                    }});
+
+                    // Copy JSON button
+                    document.getElementById('copy-json-btn').addEventListener('click', function() {{
+                        const jsonContent = document.getElementById('json-content').textContent;
+                        navigator.clipboard.writeText(jsonContent).then(
+                            function() {{
+                                const copyBtn = document.getElementById('copy-json-btn');
+                                const originalText = copyBtn.textContent;
+                                copyBtn.textContent = 'Copied!';
+                                setTimeout(() => {{
+                                    copyBtn.textContent = originalText;
+                                }}, 2000);
+                            }},
+                            function() {{
+                                alert('Failed to copy to clipboard');
+                            }}
+                        );
+                    }});
+
+                    // Check for URL parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const searchParam = urlParams.get('search');
+                    const statusParam = urlParams.get('status');
+
+                    if (searchParam) {{
+                        document.getElementById('search-input').value = searchParam;
+                    }}
+
+                    if (statusParam) {{
+                        document.getElementById('status-filter').value = statusParam;
+                    }}
+
+                    // Initial render
                     filterProblems();
                 }});
-                
-                // Check for URL parameters
-                const urlParams = new URLSearchParams(window.location.search);
-                const searchParam = urlParams.get('search');
-                const statusParam = urlParams.get('status');
-                
-                if (searchParam) {{
-                    document.getElementById('search-input').value = searchParam;
-                }}
-                
-                if (statusParam) {{
-                    document.getElementById('status-filter').value = statusParam;
-                }}
-                
-                // Initial render
-                filterProblems();
-            }});
-        </script>
-    </body>
-    </html>
-    """
+            </script>
+        </body>
+        </html>
+        """
     return HTMLResponse(html)

@@ -85,6 +85,7 @@ class OASConfig(ConfigBase):
     oas_path: str = "/openapi"
     doc_path: str = "/docs"
     problem_path: str = "/problems"
+    problem_title: str = "lihil-Problem Page"
     title: str = "lihil-OpenAPI"
     version: str = "3.1.0"
 

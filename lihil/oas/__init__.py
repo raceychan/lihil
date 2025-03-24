@@ -48,7 +48,7 @@ def get_problem_route(
     problem_path = oas_config.problem_path
 
     async def problem_detail():
-        return get_problem_ui_html(title="API Problem Details", problems=problems)
+        return get_problem_ui_html(title=oas_config.problem_title, problems=problems)
 
     problem_route = Route(problem_path, route_config=RouteConfig(in_schema=False))
     problem_route.get(problem_detail)

@@ -181,16 +181,7 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
     assert await res.body() == b""
 
 
-@pytest.fixture
-def login_form() -> bytes:
-    form_data = {"username": "john_doe", "email": "john.doe@example.com"}
-
-    encoded_data = urllib.parse.urlencode(form_data).encode("utf-8")
-    return encoded_data
-
-
-@pytest.mark.debug
-async def test_ep_requiring_form(rusers: Route, lc: LocalClient, login_form: bytes):
+async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
 
     import uuid
 
@@ -227,5 +218,44 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient, login_form: byt
         body=multipart_data,
         headers={f"content-type": content_type},
     )
-
+    assert res.status_code == 200
     assert res
+
+
+async def test_ep_requiring_missing_param(rusers: Route, lc: LocalClient):
+
+    import uuid
+
+    class UserInfo(Payload):
+        username: str
+        email: str
+
+    async def get(req: Request, fm: Form[UserInfo]) -> Resp[str, 200]:
+        return fm
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+
+    # Correctly formatted multipart body
+    multipart_data = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="username"\r\n\r\n'
+        f"john_doe\r\n"
+        f"--{boundary}--\r\n"
+    ).encode(
+        "utf-8"
+    )  # Convert to bytes
+
+    # Content-Type header
+    content_type = f"multipart/form-data; boundary={boundary}"
+
+    res = await lc.call_endpoint(
+        ep,
+        body=multipart_data,
+        headers={f"content-type": content_type},
+    )
+    assert res.status_code == 422
+    body = await res.body()
+    assert b"invalid-request-errors" in body

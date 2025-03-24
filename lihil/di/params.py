@@ -75,18 +75,20 @@ def make_form_decoder[T](atype: type[T] | UnionType):
 
     def form_decoder(form_data: FormData) -> T:
         values = {}
-        for fld in form_fields:
-            if issubclass(fld.type, Sequence):
-                val = form_data.getlist(fld.encode_name)
+        for ffield in form_fields:
+            if ffield.type in (str, bytes):
+                val = form_data.get(ffield.encode_name)
+            elif issubclass(ffield.type, Sequence):
+                val = form_data.getlist(ffield.encode_name)
             else:
-                val = form_data.get(fld.encode_name)
+                val = form_data.get(ffield.encode_name)
 
             if not val:
-                if fld.required:
-                    raise Exception
-                val = deepcopy(fld.default)
+                if ffield.required:  # has not diffult
+                    continue  # let msgspec `convert` raise error
+                val = deepcopy(ffield.default)
 
-            values[fld.name] = val
+            values[ffield.name] = val
 
         return convert(values, atype)
 

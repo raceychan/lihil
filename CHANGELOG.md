@@ -249,3 +249,14 @@ async def new_todo() -> Generator[Text, None, None]:
 ### Fix
 
 fix a bug where `Envelopment.build_decoder` would return a decoder that only decodes None
+
+
+## version 0.1.10
+
+
+### Improvements
+
+- Problem Page now has a new `View this as Json` button 
+
+- user can now declare form data using `Form` in their endpoint.
+
