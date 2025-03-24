@@ -297,9 +297,8 @@ async def post(myfile: UploadFile) -> Resp[Text, 200]:
 
 ### Improvements
 
+- now `add_middleware` will append new middleware to the tail of the call chain.
 - add `middlewares: list[MiddlewareFactory[Any]] | None` param to the constructor of `Lihil` and `Route`, default to None
-
-- now `add_middleware` will append new middleware to the tail of call chain.
 
 - add `MiddlewareBuildError`, which will be raised when calling middleware factory fail 
 - add `NotSupportedError` for usage not currently supported, such a multiple return params.

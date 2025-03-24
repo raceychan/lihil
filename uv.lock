@@ -488,17 +488,21 @@ wheels = [
 
 [[package]]
 name = "ididi"
-version = "1.5.2"
+version = "1.5.4"
 source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8b/4a/4084ad2c05edff3319ea044c67493ba0a901f8c9ecbc316d34d0a53d0466/ididi-1.5.4.tar.gz", hash = "sha256:6626db88c3356733e00f7dd3ce8bdcee7396fc8de808a63d583115fb8596a859", size = 524681 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/bd/924fdc1504716d8a289766bb61c47089bc440cf9b160ba869a0afb53a344/ididi-1.5.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a166b1927470b12419de953bb889fa316a5882e89c762cdd7ae176ac020efa3a", size = 2837976 },
-    { url = "https://files.pythonhosted.org/packages/17/33/275abd1fe12b4d2cdf269d6f3c0ac2433d553bec6e202481ab9866bf49b7/ididi-1.5.2-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:d375c88c00d088573105e59383103bbb3b0508129bcd70daa8ecb3e3acb6144a", size = 2707037 },
-    { url = "https://files.pythonhosted.org/packages/87/77/98322037c4998a3d3034637a0984cedd6f056d8bc4c118584c1b839fd190/ididi-1.5.2-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:9146bb3530f78dbc080d1f7e9103c5881dbcfd1a0b5192219157249e124aeb77", size = 2927809 },
-    { url = "https://files.pythonhosted.org/packages/7a/78/34a9ee6d2068b4fe1f7b559313b7bf205f54459909b620246cc3ec5be851/ididi-1.5.2-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:3f95a5d1f6361b2bdce7bfc83fd9a1e7b3855d7306aeb53f91e67b28dd4b0674", size = 3005940 },
-    { url = "https://files.pythonhosted.org/packages/78/da/2ba39b3d09247b3994623abc8eff963f3f0d1fecb47c18d37532c8558cd0/ididi-1.5.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ccd2230ebb79c474d1f831bd55e762d4a0f20baf4973af6564af9a8059de62f1", size = 2839121 },
-    { url = "https://files.pythonhosted.org/packages/28/5d/32f6812afc0d88bd7bbffd5703887ba5b0183ecda690a17e38240798ba71/ididi-1.5.2-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:fec0a3bd320358f60e667a43c75d0268fc1758ddb01feda1733a520aef74a9da", size = 2696431 },
-    { url = "https://files.pythonhosted.org/packages/90/b4/e41add3f64c609d462b43bf5c2c76c9c70a970b9602c8362ce06db06508a/ididi-1.5.2-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:c118cc95079eb18396518b9bf466de9f96c601140cab18a5cd18c3a2001e5f71", size = 2915111 },
-    { url = "https://files.pythonhosted.org/packages/d4/43/868fd4ab4db99e31272c37a5e3999c26ac0c99b4545de387011137c9d08b/ididi-1.5.2-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:8718486d8bb5d9c30fde710bf0cd353be20406d5f5ddd11541695c62e007a7e4", size = 3008540 },
+    { url = "https://files.pythonhosted.org/packages/eb/14/8d52768a44574e1e98acacb327744f796d454e59e894faa543e0734440cc/ididi-1.5.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d3df4b9f5149f8b1bda062fa0a98056052e7ad526ef8818a39b2370bbb173154", size = 2857938 },
+    { url = "https://files.pythonhosted.org/packages/7b/43/ae67554ca55ea12d688faed7e8fbe3c3dad63250c0e5ce322adfaf6adbb0/ididi-1.5.4-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:e18488cbe313fc92e0bbfa603a6f61dc5e123db80cd4c5856241a64fbe43c89a", size = 2723979 },
+    { url = "https://files.pythonhosted.org/packages/14/c1/0279aaca10cec594395b7c8e3750c63cde1a813f132c64b93029db4e0e53/ididi-1.5.4-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:0f6c4813fd56ee7aba2480b63362558c52293ce8eea8bd4862267ce7fa74cb57", size = 2959087 },
+    { url = "https://files.pythonhosted.org/packages/68/69/d0fb95c92aa4da7f5dd2d8e4eedfbabac5db545108be901c782f5cc85ddb/ididi-1.5.4-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:7c39d6a8b8e522e06e7e3741eb608f43af6cd18313d7a9fef48da1085f8ff0b7", size = 3033186 },
+    { url = "https://files.pythonhosted.org/packages/c8/7d/c5477d3807601f7349de8120463d664031a329ca7bb3eeddb93dbea002b8/ididi-1.5.4-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:23f35bd94587abbd278e34e2b13a91b430de79753f57433e061b76e469a2aec2", size = 2853732 },
+    { url = "https://files.pythonhosted.org/packages/d1/a5/f52e96d8f999acd751baab402fc2ea7a75ff4c3e9564b1a61d3b8a0f890e/ididi-1.5.4-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:9c19670956549e7c865f1ebb3211052fe347d814afe312519e944b7ed7b9618c", size = 2716932 },
+    { url = "https://files.pythonhosted.org/packages/16/88/f1eaf5bb6dcd91cb420c51ea4d30bbf05befc945e30e29fc897a940131e8/ididi-1.5.4-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:fa2af88afc22825ac5599b8e897a303bb158a3aeca782ace32dcdd2e401686e7", size = 2943899 },
+    { url = "https://files.pythonhosted.org/packages/26/b6/d780988598f4fc4ac364cc12c574d4530b5f8b9459fa088589f8ef6a93ee/ididi-1.5.4-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:6f20af324990012f77d80a57fbba62417d0f6a8e8b0c43fee8f83062d392fff0", size = 3034853 },
 ]
 
 [[package]]
@@ -670,7 +674,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httptools", specifier = ">=0.6.4" },
-    { name = "ididi", specifier = "==1.5.2" },
+    { name = "ididi", specifier = "==1.5.4" },
     { name = "msgspec", specifier = ">=0.19.0" },
     { name = "multipart", specifier = ">=1.2.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
