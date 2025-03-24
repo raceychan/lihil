@@ -253,15 +253,42 @@ fix a bug where `Envelopment.build_decoder` would return a decoder that only dec
 
 ## version 0.1.10
 
-
 ### Improvements
 
 - Problem Page now has a new `View this as Json` button 
-
-- user can now declare form data using `Form` in their endpoint.
-- user can now declare `UploadFile` in their endpoint.
-
 - now prioritize param mark over param resolution rule
 
+### Features
 
+- user can now declare form data using `Form` in their endpoint.
+
+```python
+from lihil import Form, Resp
+
+
+
+class UserInfo(Payload):
+    name: str
+    password: str
+
+@Route("/token").post
+async def post(login_form: Form[UserInfo]) -> Resp[Text, status.OK]:
+    assert isinstance(login_form, UserInfo)
+    return "ok"
+```
+
+Note that, currently only `Form[bytes]` and `Form[DataModel]` is accpeted, where DataModel is any subclass of `Struct`
+
+- user can now declare `UploadFile` in their endpoint.
+
+```python
+from lihil import UploadFile
+
+@Route("/upload").post
+async def post(myfile: UploadFile) -> Resp[Text, 200]:
+    file_path = f"/tmp/{myfile.filename}"  # Adjust the path as needed
+    with open(file_path, "wb") as f:
+        f.write(await myfile.read())  
+    return "ok"
+```
 
