@@ -44,6 +44,7 @@ dev = [
   "mkdocs>=1.6.1",
   "pymdown-extensions>=10.14.3",
   "mkdocs-material[imaging]>=9.6.9",
+  "pre-commit>=4.2.0",
 ]
 
 [tool.pyright]

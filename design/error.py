@@ -7,7 +7,7 @@ class ErrorResponse[Exc]:
     # The "status" member is a JSON number indicating the HTTP status code
 
     type: https://example.net/validation-error
-    # human-readable documentation for the problem type 
+    # human-readable documentation for the problem type
 
     title: "You do not have enough credit.",
     #  a short, human-readable summary of the problem type.
@@ -60,7 +60,7 @@ class ErorrResponse[Exc: Exception]:
 
 type Result[Ok, Err: Exception] = ty.Annotated[Ok, Err]
 """
-Carry normal return and exception  
+Carry normal return and exception
 
 type CreateUserError = (
     UserNotFoundError

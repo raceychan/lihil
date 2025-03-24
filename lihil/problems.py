@@ -97,7 +97,7 @@ def __erresp_factory_registry():
         handler: ExceptionHandler[Exc],
     ) -> ExceptionHandler[Exc]:
         """\
-        >>> 
+        >>>
         @solver
         def any_error_handler(request: Request, exc: Exception | Literal[500]) -> ErrorResponse:
         """

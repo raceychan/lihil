@@ -77,7 +77,7 @@ when such exception is raised from endpoint, client would receive a response lik
 
 ```json
 {
-    "type_": "out-of-stock-error", 
+    "type_": "out-of-stock-error",
     "status": 422,
     "title": "The order can't be placed because items are out of stock",
     "detail": "order(id=43, items=[massager], quantity=0) can't be placed, because [massager] is short in quantity",

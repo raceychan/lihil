@@ -66,6 +66,3 @@ Transfer/sec:      3.77MB
 | Response.__call__ | responses.py | 0.529 | Self time in response handling |
 | Endpoint.prepare_params | routing.py | 0.223 | Self time in parameter preparation |
 | HttpToolsProtocol.data_received | server/server.py | 0.340 | Self time in data reception |
-
-
-

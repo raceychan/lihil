@@ -20,7 +20,7 @@ class StatusConflictError(LihilError):
         msg = f"{status} conflicts with return type {type_}"
         super().__init__(self, msg)
 
-class InvalidStatusError(LihilError): 
+class InvalidStatusError(LihilError):
     def __init__(self, code: Any) -> None:
         super().__init__(f"Invalid status code {code}")
 
