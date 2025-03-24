@@ -16,6 +16,7 @@ from lihil.problems import (
     ValidationProblem,
 )
 from lihil.utils.parse import find_path_keys
+from lihil.vendor_types import FormData
 
 type ParamPair = tuple[str, RequestParam[Any]]
 type RequiredParams = Sequence[ParamPair]
@@ -103,6 +104,12 @@ class EndpointDeps[R](Base):
         if self.body_param and body is not None:
             name, param = self.body_param
             if body == b"":  # empty bytes
+                if not param.required:
+                    body = param.default
+                else:
+                    err = MissingRequestParam("body", name)
+                    verrors.append(err)
+            elif isinstance(body, FormData) and len(body) == 0:
                 if not param.required:
                     body = param.default
                 else:

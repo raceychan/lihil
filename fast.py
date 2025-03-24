@@ -10,6 +10,8 @@ class User(BaseModel):
     name: str
     email: str
 
+class Order(BaseModel):
+    order_id: str
 
 rprofile = APIRouter()
 
@@ -30,7 +32,7 @@ async def get_engine() -> Engine:
 @rprofile.post("/profile/{pid}")
 async def profile(
     pid: str, q: int, user: User, engine: Annotated[Engine, Depends(get_engine)]
-) -> User:
+) -> User | Order:
 
     return User(id=user.id, name=user.name, email=user.email)
 

@@ -71,15 +71,16 @@ def textdecoder_factory(
     return decoder_factory(t)
 
 
-def filedeocder_factory(atype: type[UploadFile] | UnionType | type[Any] | GenericAlias):
-    def file_decoder(form_data: FormData) -> UploadFile:
-        breakpoint()
-        raise NotImplementedError
+def filedeocder_factory(name: str, param_type: type[UploadFile], default: Any):
+    def file_decoder(form_data: FormData) -> UploadFile | None:
+        if upload_file := form_data.get(name):
+            return cast(UploadFile, upload_file)
+        return None
 
     return file_decoder
 
 
-def fromdecoder_factory[T](atype: type[T] | UnionType):
+def formdecoder_factory[T](atype: type[T] | UnionType):
     if not isinstance(atype, type) or not issubclass(atype, Struct):
         raise NotImplementedError(
             "currently only subclass of Struct is supported for `Form`"
@@ -204,7 +205,6 @@ def analyze_markedparam(
                 if isinstance(meta, CustomDecoder):
                     custom_decoder = meta.decode
                     break
-
             return analyze_markedparam(
                 graph, name, seen, path_keys, atype, new_origin, default, custom_decoder
             )
@@ -238,7 +238,7 @@ def analyze_markedparam(
         elif porigin is Form:
             location = "body"
             content_type = "multipart/form-data"
-            custom_decoder = fromdecoder_factory(atype)
+            custom_decoder = formdecoder_factory(atype)
         elif porigin is Path:
             location = "path"
         else:
@@ -265,6 +265,24 @@ def analyze_markedparam(
         return [pair]
 
 
+def file_body_param(
+    name: str, type_: UnionType | type[UploadFile] | GenericAlias, default: Any
+):
+    decoder = filedeocder_factory(name, type_, default)
+    content_type = "multipart/form-data"
+
+    req_param = RequestParam(
+        type_=type_,
+        name=name,
+        alias=name,
+        decoder=decoder,
+        location="body",
+        default=default,
+        content_type=content_type,
+    )
+    return req_param
+
+
 def analyze_union_param(
     name: str, type_: UnionType | type[Any] | GenericAlias, default: Any
 ) -> RequestParam[Any]:
@@ -274,10 +292,8 @@ def analyze_union_param(
     for subt in type_args:
         if is_body_param(subt):
             if is_file_body(type_):
-                decoder = filedeocder_factory(type_)
-                content_type = "multipart/form-data"
-            else:
-                decoder = decoder_factory(subt)
+                return file_body_param(name, type_=type_, default=default)
+            decoder = decoder_factory(subt)
             req_param = RequestParam(
                 type_=type_,
                 name=name,
@@ -331,20 +347,18 @@ def analyze_param(
         )
     elif is_body_param(type_):
         if is_file_body(type_):
-            decoder = custom_decoder or filedeocder_factory(type_)
-            content_type = "multipart/form-data"
+            req_param = file_body_param(name, type_, default)
         else:
             decoder = custom_decoder or decoder_factory(type_)
-
-        req_param = RequestParam(
-            type_=type_,
-            name=name,
-            default=default,
-            alias=name,
-            decoder=decoder,
-            location="body",
-            content_type=content_type,
-        )
+            req_param = RequestParam(
+                type_=type_,
+                name=name,
+                default=default,
+                alias=name,
+                decoder=decoder,
+                location="body",
+                content_type=content_type,
+            )
     elif isinstance(type_, UnionType) or get_origin(type_) is Union:
         req_param = analyze_union_param(name, type_, default)
     elif type_ in graph.nodes:
@@ -411,7 +425,9 @@ class ParsedParams(Base):
             body_param = self.bodies[0]
         else:
             # "use defstruct to dynamically define a type"
-            raise NotImplementedError()
+            raise NotImplementedError(
+                "endpoint with multiple body params is not yet supported"
+            )
         return body_param
 
 

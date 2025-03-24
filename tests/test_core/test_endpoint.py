@@ -1,3 +1,4 @@
+import uuid
 from typing import Annotated
 
 import pytest
@@ -182,8 +183,6 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
 async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
 
-    import uuid
-
     class UserInfo(Payload):
         username: str
         email: str
@@ -221,10 +220,7 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
     assert res
 
 
-@pytest.mark.debug
 async def test_ep_requiring_missing_param(rusers: Route, lc: LocalClient):
-
-    import uuid
 
     class UserInfo(Payload):
         username: str
@@ -261,16 +257,45 @@ async def test_ep_requiring_missing_param(rusers: Route, lc: LocalClient):
     assert b"invalid-request-errors" in body
 
 
-
 async def test_ep_requiring_upload_file(rusers: Route, lc: LocalClient):
-
 
     class UserInfo(Payload):
         username: str
         email: str
 
-    async def get(req: Request, fm: UploadFile) -> Resp[str, 200]:
-        return fm
+    async def get(req: Request, myfile: UploadFile) -> Resp[str, 200]:
+        assert isinstance(myfile, UploadFile)
+        return None
+
+    boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+
+    file_content = b"Hello, this is test content!"  # Example file content
+    filename = "test_file.txt"
+
+    multipart_body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="myfile"; filename="{filename}"\r\n'
+        f"Content-Type: text/plain\r\n\r\n"
+        + file_content.decode()  # File content as string
+        + f"\r\n--{boundary}--\r\n"
+    ).encode("utf-8")
+
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
 
     rusers.get(get)
     ep = rusers.get_endpoint("GET")
+
+    result = await lc.call_endpoint(ep, body=multipart_body, headers=headers)
+    assert result.status_code == 200
+
+
+@pytest.mark.debug
+async def test_ep_requiring_upload_file_fail(rusers: Route, lc: LocalClient):
+    async def get(req: Request, myfile: UploadFile) -> Resp[str, 200]:
+        return None
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    result = await lc.call_endpoint(ep)
+    assert result.status_code == 422
