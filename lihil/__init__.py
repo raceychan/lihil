@@ -9,6 +9,8 @@ from .interface import Stream as Stream
 from .interface import Text as Text
 from .interface import Use as Use
 from .interface import Body as Body
+from .interface import Query as Query
+from .interface import Path as Path
 from .lihil import Lihil as Lihil
 from .problems import HTTPException as HTTPException
 from .routing import Route as Route

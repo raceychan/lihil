@@ -24,6 +24,7 @@ from lihil.interface.marks import Body as Body
 from lihil.interface.marks import Form as Form
 from lihil.interface.marks import Header as Header
 from lihil.interface.marks import Json as Json
+from lihil.interface.marks import Path as Path
 from lihil.interface.marks import Query as Query
 from lihil.interface.marks import Resp as Resp
 from lihil.interface.marks import Stream as Stream

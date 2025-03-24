@@ -15,12 +15,22 @@ from typing import (
 
 from ididi import DependentNode, Graph
 from ididi.config import USE_FACTORY_MARK
+from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from msgspec import convert, field
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
-from lihil.interface import MISSING, Base, IDecoder, Maybe, ParamLocation, is_provided
-from lihil.interface.marks import Body, Form, Header, Path, Query, Struct, Use
+from lihil.interface import MISSING, Base, IDecoder, Maybe, ParamLocation
+from lihil.interface.marks import (
+    Body,
+    Form,
+    Header,
+    Path,
+    Query,
+    Struct,
+    Use,
+    is_param_mark,
+)
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, to_str
@@ -179,52 +189,64 @@ def analyze_nodeparams(
     return params
 
 
+def analyze_annoated(
+    graph: Graph,
+    name: str,
+    seen: set[str],
+    path_keys: tuple[str, ...],
+    default: Any,
+    atype: type,
+    metas: list[Any],
+) -> list[ParamPair | DependentNode]:
+    if metas and (USE_FACTORY_MARK in metas):
+        idx = metas.index(USE_FACTORY_MARK)
+        factory, config = metas[idx + 1], metas[idx + 2]
+        node = graph.analyze(factory, config=config)
+        return analyze_nodeparams(node, graph, seen, path_keys)
+    elif new_origin := get_origin(atype):
+        return analyze_markedparam(
+            graph,
+            name,
+            seen,
+            path_keys,
+            type_=atype,
+            porigin=new_origin,
+            default=default,
+            metas=metas,
+        )
+    else:
+        return analyze_param(
+            graph,
+            name,
+            seen,
+            path_keys,
+            atype,
+            default,
+            metas=metas,
+        )
+
+
 def analyze_markedparam(
     graph: Graph,
     name: str,
     seen: set[str],
     path_keys: tuple[str, ...],
     type_: type[Any] | UnionType | GenericAlias,
-    porigin: Maybe[
-        Query[Any] | Header[Any, Any] | Use[Any] | Annotated[Any, ...]
-    ] = MISSING,
+    porigin: Maybe[Query[Any] | Header[Any, Any] | Use[Any] | Annotated[Any, ...]],
+    metas: list[Any],
     default: Any = MISSING,
-    custom_decoder: IDecoder[Any] | None = None,
 ) -> list[ParamPair | DependentNode]:
-    if not is_provided(porigin):
-        porigin = get_origin(type_)
-
-    atype, *metas = flatten_annotated(type_)
 
     if porigin is Annotated:
-        if USE_FACTORY_MARK in metas:
-            idx = metas.index(USE_FACTORY_MARK)
-            factory, config = metas[idx + 1], metas[idx + 2]
-            node = graph.analyze(factory, config=config)
-            return analyze_nodeparams(node, graph, seen, path_keys)
-        elif new_origin := get_origin(atype):
-            for meta in metas:
-                if isinstance(meta, CustomDecoder):
-                    custom_decoder = meta.decode
-                    break
-            return analyze_markedparam(
-                graph, name, seen, path_keys, atype, new_origin, default, custom_decoder
-            )
-        else:
-            for meta in metas:
-                if isinstance(meta, CustomDecoder):
-                    custom_decoder = meta.decode
-                    break
-            return analyze_param(
-                graph,
-                name,
-                seen,
-                path_keys,
-                atype,
-                default,
-                custom_decoder=custom_decoder,
-            )
-    elif porigin is Use:
+        raise NotImplementedError
+
+    atype, local_metas = flatten_annotated(type_)
+    if local_metas:
+        metas += local_metas
+
+    custom_decoder = get_decoder_from_metas(metas)
+
+    if porigin is Use:
         node = graph.analyze(atype)
         return analyze_nodeparams(node, graph, seen, path_keys)
     else:
@@ -319,14 +341,21 @@ def analyze_union_param(
     return req_param
 
 
-def analyze_param(
+def get_decoder_from_metas(metas: list[Any]) -> IDecoder[Any] | None:
+    for meta in metas:
+        if isinstance(meta, CustomDecoder):
+            return meta.decode
+
+
+def analyze_param[T](
     graph: Graph,
     name: str,
     seen: set[str],
     path_keys: tuple[str, ...],
-    type_: type[Any] | UnionType | GenericAlias,  # or GenericAlias
-    default: Any,
-    custom_decoder: IDecoder[Any] | None = None,
+    type_: type[T] | UnionType | GenericAlias,  # or GenericAlias
+    default: Maybe[T] = MISSING,
+    content_type: ParamContentType = "application/json",
+    metas: list[Any] | None = None,
 ) -> list[ParamPair | DependentNode]:
     """
     Analyzes a parameter and returns a tuple of:
@@ -334,7 +363,31 @@ def analyze_param(
     - The dependent node if this parameter is a dependency, otherwise None
     """
 
-    content_type: ParamContentType = "application/json"
+    custom_decoder = get_decoder_from_metas(metas) if metas else None
+
+    if (porigin := get_origin(type_)) is Annotated:
+        atype, metas = flatten_annotated(type_)
+        return analyze_annoated(
+            graph=graph,
+            name=name,
+            seen=seen,
+            path_keys=path_keys,
+            atype=atype,
+            default=default,
+            metas=metas or [],
+        )
+
+    if is_param_mark(type_):
+        return analyze_markedparam(
+            graph=graph,
+            name=name,
+            seen=seen,
+            path_keys=path_keys,
+            type_=type_,
+            porigin=porigin,
+            default=default,
+            metas=metas or [],
+        )
 
     if name in path_keys:  # simplest case
         seen.discard(name)
@@ -349,7 +402,7 @@ def analyze_param(
         )
     elif is_body_param(type_):
         if is_file_body(type_):
-            req_param = file_body_param(name, type_, default)
+            req_param = file_body_param(name, cast(type[UploadFile], type_), default)
         else:
             decoder = custom_decoder or decoder_factory(type_)
             req_param = RequestParam(
@@ -367,7 +420,9 @@ def analyze_param(
         node = graph.analyze(cast(type, type_))
         params: list[ParamPair | DependentNode] = [node]
         for dep_name, dep in node.dependencies.items():
-            ptype, default = dep.param_type, dep.default_
+            ptype, dep_dfault = dep.param_type, dep.default_
+            if dep_dfault is IDIDI_MISSING:
+                default = MISSING
             if ptype in graph.nodes:
                 # only add top level dependency, leave subs to ididi
                 continue
@@ -375,10 +430,7 @@ def analyze_param(
             sub_params = analyze_param(graph, dep_name, seen, path_keys, ptype, default)
             params.extend(sub_params)
         return params
-    elif porigin := get_origin(type_):
-        return analyze_markedparam(
-            graph, name, seen, path_keys, type_, porigin, default
-        )
+
     elif is_lhl_dep(type_):
         # user should be able to menually init their plugin then register as a singleton
         return [(name, SingletonParam(type_=type_, name=name, default=default))]

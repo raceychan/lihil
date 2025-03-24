@@ -27,15 +27,15 @@ def param_mark(name: str):
     return f"{LIHIL_PARAM_MARK}_{name.upper()}__"
 
 
-def is_lihil_mark(m: Any, mark_prefix: str) -> bool:
+def is_lihil_marked(m: Any, mark_prefix: str) -> bool:
     if isinstance(m, str):
         return m.startswith(mark_prefix)
     elif get_origin(m) is Annotated:
         meta_args = get_args(m)
-        return any(is_lihil_mark(m, mark_prefix) for m in meta_args)
+        return any(is_lihil_marked(m, mark_prefix) for m in meta_args)
     elif isinstance(m, (TypeAliasType, GenericAlias)):
         value = getattr(m, "__value__", None)
-        return is_lihil_mark(value, mark_prefix) if value else False
+        return is_lihil_marked(value, mark_prefix) if value else False
     else:
         return False
 
@@ -44,14 +44,18 @@ def is_resp_mark(m: Any) -> TypeGuard[TypeAliasType]:
     """
     marks that usually show up in endpoint return annotation
     """
-    return is_lihil_mark(m, LIHIL_RESPONSE_MARK)
+    return is_lihil_marked(m, LIHIL_RESPONSE_MARK)
 
 
 def is_param_mark(m: Any) -> bool:
     """
     marks that usually show up in endpoint signature and sub-deps
     """
-    return is_lihil_mark(m, LIHIL_PARAM_MARK)
+    return is_lihil_marked(m, LIHIL_PARAM_MARK)
+
+
+def is_marked_param(m: Any) -> bool:
+    return is_param_mark(m) or is_resp_mark(m)
 
 
 # ================ Request ================
@@ -78,10 +82,8 @@ STREAM_RETURN_MARK = resp_mark("stream")
 JSON_RETURN_MARK = resp_mark("json")
 RESP_RETURN_MARK = resp_mark("resp")
 
-# type TextType = str | bytes
 type Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
 type HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
-# TODO: T
 type Stream[T] = Annotated[
     AsyncGenerator[T, None] | Generator[T, None, None],
     STREAM_RETURN_MARK,

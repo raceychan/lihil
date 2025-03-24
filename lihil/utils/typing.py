@@ -13,24 +13,26 @@ from typing import (
 
 def flatten_annotated[T](
     annt: Annotated[type[T], Any] | UnionType | TypeAliasType | GenericAlias,
-) -> tuple[type[T], ...]:
-    "Annotated[Annotated[T, Ann1, Ann2], Ann3] -> [T, Ann1, Ann2, Ann3]"
+) -> tuple[type[T], list[Any]] | tuple[type[T], None]:
     type_args = get_args(annt)
     size = len(type_args)
+
     if size == 0:
-        return cast(tuple[type, ...], (annt,))
+        return (cast(type, annt), None)
     elif size == 1:
-        return (type_args[0],)
+        return (type_args[0], None)
     else:
         atype, *metadata = type_args
-        flattened_metadata: list[Any] = [atype]
+        flattened_metadata: list[Any] = []
 
         for item in metadata:
             if get_origin(item) is Annotated:
-                flattened_metadata.extend(flatten_annotated(item))
+                _, metas = flatten_annotated(item)
+                if metas:
+                    flattened_metadata.extend(metas)
             else:
                 flattened_metadata.append(item)
-        return tuple(flattened_metadata)
+        return (atype, flattened_metadata)
 
 
 def is_union_type(t: type | UnionType | GenericAlias | TypeAliasType):

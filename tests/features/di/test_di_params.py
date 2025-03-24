@@ -10,10 +10,12 @@ from lihil.di.params import (
     ParsedParams,
     RequestParam,
     SingletonParam,
-    analyze_markedparam,
+    analyze_annoated,
     analyze_nodeparams,
     analyze_param,
     analyze_request_params,
+    flatten_annotated,
+    is_param_mark,
     textdecoder_factory,
 )
 from lihil.interface import MISSING, Payload
@@ -162,7 +164,6 @@ def test_analyze_param_payload():
     assert param.type_ == SamplePayload
 
 
-# Test analyze_param for union type with payload
 def test_analyze_param_union_payload():
     graph = Graph()
     seen: set[str] = set()
@@ -233,8 +234,13 @@ def test_analyze_markedparam_query():
     path_keys = ()
 
     query_type = Query[int]
-    result = analyze_markedparam(
-        graph, "page", seen, path_keys, query_type, Annotated, MISSING
+    result = analyze_param(
+        graph=graph,
+        name="page",
+        seen=seen,
+        path_keys=path_keys,
+        type_=query_type,
+        default=MISSING,
     )
 
     assert len(result) == 1
@@ -250,9 +256,7 @@ def test_analyze_markedparam_header():
     seen = set()
     path_keys = ()
 
-    result = analyze_markedparam(
-        graph, "user_agent", seen, path_keys, Header[str], Header
-    )
+    result = analyze_param(graph, "user_agent", seen, path_keys, Header[str], Header)
     assert len(result) == 1
     name, param = result[0]
     assert name == "user_agent"
@@ -267,7 +271,7 @@ def test_analyze_markedparam_body():
     path_keys = ()
 
     body_type = Body[dict]
-    result = analyze_markedparam(graph, "data", seen, path_keys, body_type)
+    result = analyze_param(graph, "data", seen, path_keys, body_type)
 
     assert len(result) == 1
     name, param = result[0]
@@ -283,7 +287,7 @@ def test_analyze_markedparam_path():
     path_keys = ()
 
     path_type = Path[int]
-    result = analyze_markedparam(graph, "id", seen, path_keys, path_type)
+    result = analyze_param(graph, "id", seen, path_keys, path_type)
 
     assert len(result) == 1
     assert not isinstance(result[0], DependentNode)
@@ -367,7 +371,17 @@ def test_analyze_markedparam_with_custom_decoder():
 
     query_type = Annotated[Query[int], CustomDecoder(custom_decode)]
 
-    result = analyze_markedparam(graph, "page", seen, path_keys, query_type)
+    atype, metas = flatten_annotated(query_type)
+
+    result = analyze_annoated(
+        graph=graph,
+        name="page",
+        seen=seen,
+        path_keys=path_keys,
+        atype=atype,
+        metas=metas,
+        default=MISSING,
+    )
 
     assert len(result) == 1
     name, param = result[0]
@@ -390,8 +404,8 @@ def test_analyze_markedparam_with_factory():
     config = {"reuse": False}
     annotated_type = Annotated[SimpleDependency, use(factory, **config)]
 
-    result = analyze_markedparam(
-        graph, "dep", seen, path_keys, annotated_type, Annotated, MISSING
+    result = analyze_param(
+        graph, "dep", seen, path_keys, type_=annotated_type, default=MISSING
     )
 
     assert len(result) >= 1
@@ -407,7 +421,7 @@ def test_analyze_markedparam_with_nested_origin():
     inner_type = Query[int]
     outer_type = Annotated[inner_type, "metadata"]
 
-    result = analyze_markedparam(graph, "page", seen, path_keys, outer_type)
+    result = analyze_param(graph, "page", seen, path_keys, type_=outer_type)
 
     assert len(result) == 1
     name, param = result[0]
@@ -422,7 +436,7 @@ def test_analyze_markedparam_with_plain_type():
     path_keys = ()
 
     # Use a plain type without annotation
-    result = analyze_markedparam(graph, "name", seen, path_keys, str, None, MISSING)
+    result = analyze_param(graph, "name", seen, path_keys, str, None, MISSING)
 
     assert len(result) == 1
     name, param = result[0]
@@ -439,7 +453,7 @@ def test_analyze_markedparam_with_use_origin():
 
     use_type = Use[SimpleDependency]
 
-    result = analyze_markedparam(graph, "dep", seen, path_keys, use_type)
+    result = analyze_param(graph, "dep", seen, path_keys, use_type)
 
     assert len(result) >= 1
     assert isinstance(result[0], DependentNode)
@@ -658,3 +672,28 @@ def test_textdecoder_factory_with_complex_types():
     assert nested_decoder('[{"a": 1}, {"b": 2}]') == [{"a": 1}, {"b": 2}]
 
 
+def test_check_marked_param():
+    assert is_param_mark(Annotated[Body[str], "aloha"])
+    assert is_param_mark(Body[int])
+
+
+def test_query_struct_is_query():
+    class QModel(Payload):
+        name: str
+        age: int
+
+    res = analyze_param(
+        graph=Graph(),
+        name="query_model",
+        seen=set(),
+        path_keys=("query_model",),
+        type_=Query[QModel],
+    )
+    assert len(res) == 1
+
+    assert not isinstance(res[0], DependentNode)
+
+    name, pres = res[0]
+
+    assert pres.location == "query"
+    assert pres.type_ == QModel

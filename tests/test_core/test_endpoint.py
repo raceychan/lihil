@@ -5,7 +5,7 @@ import pytest
 from ididi import Ignore, use
 from starlette.requests import Request
 
-from lihil import Form, Json, Payload, Resp, Route, Stream, Text, UploadFile
+from lihil import Form, Json, Payload, Query, Resp, Route, Stream, Text, UploadFile
 from lihil.constant import status
 from lihil.errors import StatusConflictError
 from lihil.plugins.testclient import LocalClient
@@ -349,8 +349,23 @@ async def test_ep_requiring_form_sequence_type(rusers: Route, lc: LocalClient):
         name: str
         phones: list[str]
 
-    async def get(by_form: Form[UserInfo]) -> Resp[Text, 200]:
+    async def get(by_form: Form[UserInfo]) -> Resp[Text, status.OK]:
         assert isinstance(by_form, UserInfo)
         return "ok"
 
     rusers.get(get)
+
+
+async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
+    class UserInfo(Payload):
+        name: str
+        phones: list[str]
+
+    async def get(user_id: Query[UserInfo]) -> Resp[Text, status.OK]:
+        return "ok"
+
+    rusers.get(get)
+
+    ep = rusers.get_endpoint("GET")
+    assert ep.deps.query_params
+    assert not ep.deps.path_params

@@ -261,3 +261,7 @@ fix a bug where `Envelopment.build_decoder` would return a decoder that only dec
 - user can now declare form data using `Form` in their endpoint.
 - user can now declare `UploadFile` in their endpoint.
 
+- now prioritize param mark over param resolution rule
+
+
+

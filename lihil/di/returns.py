@@ -42,6 +42,12 @@ def get_media(origin: Any):
     return content_type
 
 
+def get_encoder_from_metas(metas: list[Any]) -> IEncoder[Any] | None:
+    for meta in metas:
+        if isinstance(meta, CustomEncoder):
+            return meta.encode
+
+
 class CustomEncoder:
     encode: Callable[[Any], bytes]
 
@@ -142,15 +148,11 @@ class ReturnParam[T](Record):
         if not is_provided(origin):
             origin = get_origin(annt)
 
-        metas = flatten_annotated(annt)
         # encoder = encode_json
         custom_encoder = None
-        ret_type, *rest = metas
-        for m in rest:
-            if isinstance(m, CustomEncoder):
-                custom_encoder = m.encode
-                break
+        ret_type, metas = flatten_annotated(annt)
 
+        custom_encoder = get_encoder_from_metas(metas) if metas else None
 
         if is_resp_mark(ret_type):
             rp = ReturnParam.from_mark(ret_type, origin, status)
@@ -203,13 +205,21 @@ def analyze_return[R](
         we need to handle case of multiple return e.g
         async def userfunc() -> Resp[User, 200] | Resp[Order, 201]
         """
+        # TODO: analyze all if more than one raise excepiton
         annt_args = get_args(annt)
-        if not any(is_resp_mark(arg) for arg in annt_args):
-            ret = ReturnParam(
-                type_=annt, annotation=annt, encoder=encode_json, status=status
-            )
-        else:
+        rets: list[ReturnParam[Any]] = []
+
+        for arg in annt_args:
+            if not is_resp_mark(arg):
+                continue
+            rets.append(analyze_return(arg))
+
+        if len(annt_args) > 1 and rets:
             raise NotImplementedError(f"Unexpected case {annt=} received")
+
+        ret = ReturnParam(
+            type_=annt, annotation=annt, encoder=encode_json, status=status
+        )
     elif origin := get_origin(annt) or is_resp_mark(annt):
         # NOTE: we have to check both condition, since some resp marks are not generic
         ret = ReturnParam.from_generic(annt, origin, status)

@@ -1,9 +1,10 @@
 [project]
-authors = [{name = "raceychan", email = "raceychan@gmail.com"}]
+authors = [{ name = "raceychan", email = "raceychan@gmail.com" }]
 dependencies = [
   "httptools>=0.6.4",
   "ididi==1.5.2",
   "msgspec>=0.19.0",
+  "multipart>=1.2.1",
   "python-multipart>=0.0.20",
   "starlette>=0.45.3",
   "uvicorn>=0.34.0",
@@ -54,7 +55,10 @@ typeCheckingMode = "strict"
 [tool.pytest.ini_options]
 addopts = "--strict-markers --capture=no"
 asyncio_mode = "auto"
-filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning:lihil.di.di"]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::UserWarning:lihil.di.di",
+]
 markers = [
   "integration_test: marks tests as slow integration tests (deselect with '-m \"not integration_test\"')",
   "debug: marks tests as debug tests (deselect with '-m \"not debug\"')",
@@ -63,6 +67,4 @@ markers = [
 testpaths = ["tests"]
 
 [tool.coverage.run]
-omit = [
-  "lihil/plugins/*",
-]
+omit = ["lihil/plugins/*"]
