@@ -1,5 +1,6 @@
 from types import GenericAlias
 from typing import (
+    Literal,
     Annotated,
     Any,
     AsyncGenerator,
@@ -91,3 +92,6 @@ type Stream[T] = Annotated[
 ]
 type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
 type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
+
+
+type Empty = Literal[None]

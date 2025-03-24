@@ -3,6 +3,7 @@ from re import Pattern
 from typing import Any, Literal, get_origin
 
 from starlette.routing import compile_path
+from lihil.errors import NotSupportedError
 
 RE_PATH_KEYS = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 "Must be a valid python variable name?"
@@ -129,7 +130,7 @@ def parse_header_key(name: str, metas: list[Any]) -> str:
     if get_origin(header_key) is Literal:
         return header_key.__args__[0]
 
-    raise NotImplementedError("invalid header key")
+    raise NotSupportedError("invalid header key")
 
 
 def trimdoc(doc: str | None):

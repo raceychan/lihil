@@ -16,11 +16,12 @@ from typing import (
 )
 
 from lihil.constant.status import code as get_status_code
-from lihil.errors import InvalidStatusError, StatusConflictError
+from lihil.errors import InvalidStatusError, StatusConflictError, InvalidParamType, NotSupportedError
 from lihil.interface import MISSING, IEncoder, Maybe, Record, is_provided
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text, is_resp_mark
 from lihil.utils.phasing import encode_json, encode_text
 from lihil.utils.typing import flatten_annotated
+
 
 
 def parse_status(status: Any) -> int:
@@ -136,7 +137,7 @@ class ReturnParam[T](Record):
         elif origin is Annotated:
             return ReturnParam.from_annotated(annt, origin, status)
         else:
-            raise NotImplementedError(f"Unexpected case {annt=}, {origin=} received")
+            raise InvalidParamType(annt)
 
     @classmethod
     def from_annotated(
@@ -181,7 +182,8 @@ class ReturnParam[T](Record):
         ):
             return ReturnParam.from_annotated(annt, origin, status)
         else:  # vanilla case, dict[str, str], list[str], etc.
-            assert isinstance(origin, type)
+            if not isinstance(origin, type):
+                raise
             ret = ReturnParam[Any](
                 type_=origin, encoder=encode_json, annotation=annt, status=status
             )
@@ -215,7 +217,7 @@ def analyze_return[R](
             rets.append(analyze_return(arg))
 
         if len(annt_args) > 1 and rets:
-            raise NotImplementedError(f"Unexpected case {annt=} received")
+            raise NotSupportedError("Multiple return param is currently not supported")
 
         ret = ReturnParam(
             type_=annt, annotation=annt, encoder=encode_json, status=status
@@ -227,7 +229,8 @@ def analyze_return[R](
         # default case, should be a single non-generic type,
         # e.g. User, str, bytes, etc.
         if not is_py_singleton(annt) and not isinstance(annt, type):
-            raise NotImplementedError(f"Unexpected case {annt=}, {origin=} received")
+            raise InvalidParamType(annt)
+
         ret = ReturnParam(
             type_=annt,
             annotation=annt,

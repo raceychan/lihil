@@ -5,6 +5,7 @@ import pytest
 from ididi import DependentNode, Graph
 from starlette.requests import Request
 
+from lihil.errors import NotSupportedError
 from lihil.di.params import (
     CustomDecoder,
     ParsedParams,
@@ -129,7 +130,7 @@ def test_parsed_params():
     )
     params.collect_param("another", [("another", another_body)])
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotSupportedError):
         params.get_body()
 
 

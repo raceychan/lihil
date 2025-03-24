@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from lihil import HTTPException, Json, Lihil, Payload, Resp, Route, Stream, Text, status
 
@@ -94,8 +95,15 @@ async def stream() -> Stream[str]:
         yield c
 
 
+rempty = Route("empty")
+
+
+@rempty.post
+async def empty_resp() -> None: ...
+
+
 lhl = Lihil(
-    routes=[rusers, rprofile, rstream],
+    routes=[rusers, rprofile, rstream, rempty],
     lifespan=lifespan,
     config_file="pyproject.toml",
 )

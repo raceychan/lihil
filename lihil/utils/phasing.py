@@ -6,6 +6,8 @@ from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import Encoder as JsonEncoder
 from msgspec.json import encode as json_encode
 
+
+from lihil.errors import NotSupportedError
 from lihil.interface import IDecoder, IEncoder
 from lihil.utils.typing import is_union_type
 
@@ -60,7 +62,7 @@ def build_union_decoder(
 @lru_cache(256)
 def decoder_factory[T](t: type[T]) -> IDecoder[T]:
     if is_text_type(t):
-        raise NotImplementedError("use textdecoder instead")
+        raise NotSupportedError("use textdecoder instead")
     return JsonDecoder(t).decode
 
 

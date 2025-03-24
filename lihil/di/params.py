@@ -20,6 +20,7 @@ from msgspec import convert, field
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
+from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, Base, IDecoder, Maybe, ParamLocation
 from lihil.interface.marks import (
     Body,
@@ -94,7 +95,7 @@ def formdecoder_factory[T](ptype: type[T] | UnionType):
         if ptype is bytes:
             return to_bytes
 
-        raise NotImplementedError(
+        raise NotSupportedError(
             f"currently only bytes or subclass of Struct is supported for `Form`, received {ptype}"
         )
 
@@ -476,8 +477,8 @@ class ParsedParams(Base):
             body_param = self.bodies[0]
         else:
             # "use defstruct to dynamically define a type"
-            raise NotImplementedError(
-                "endpoint with multiple body params is not yet supported"
+            raise NotSupportedError(
+                "Endpoint with multiple body params is not yet supported"
             )
         return body_param
 

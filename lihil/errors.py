@@ -20,8 +20,27 @@ class StatusConflictError(LihilError):
         msg = f"{status} conflicts with return type {type_}"
         super().__init__(self, msg)
 
+
 class InvalidStatusError(LihilError):
     def __init__(self, code: Any) -> None:
         super().__init__(f"Invalid status code {code}")
 
+
 class AppConfiguringError(LihilError): ...
+
+
+class MiddlewareBuildError(LihilError):
+    def __init__(self, factory: Any):
+        super().__init__(f"Unable to instantate middleware from {factory}")
+
+
+class InvalidParamType(LihilError):
+    def __init__(self, annt: Any):
+        super().__init__(
+            f"Unexpected param {annt=} received, if you believe this is a bug, report an issue at https://github.com/raceychan/lihil/issues"
+        )
+
+
+class NotSupportedError(LihilError):
+    def __init__(self, msg: str):
+        super().__init__(msg)

@@ -6,7 +6,13 @@ import pytest
 
 from lihil.config import AppConfig, ServerConfig
 from lihil.constant.resp import ServiceUnavailableResp, lhlserver_static_resp
-from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
+from lihil.errors import (
+    AppConfiguringError,
+    DuplicatedRouteError,
+    InvalidLifeSpanError,
+    MiddlewareBuildError,
+    NotSupportedError,
+)
 from lihil.interface import ASGIApp, Base
 from lihil.lihil import Lihil, lifespan_wrapper, read_config
 from lihil.plugins.testclient import LocalClient
@@ -294,7 +300,7 @@ async def test_lihil_static_route_with_invalid_path():
     app = Lihil()
 
     # Try to add a static route with a dynamic path
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotSupportedError):
         app.static("/static/{param}", "Content")
 
 
@@ -452,7 +458,7 @@ async def test_lihil_lifespan_startup_error():
     @asynccontextmanager
     async def error_lifespan(app):
         raise ValueError("Startup error")
-        yield None
+        yield
 
     # Create app with lifespan
     app = Lihil(lifespan=error_lifespan)
@@ -651,7 +657,7 @@ async def test_include_middleware_fail():
     # Adding the failing middleware should propagate the exception
     app.add_middleware(failing_middleware_factory)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(MiddlewareBuildError):
         await initialize_app_lifespan(app)
 
 
@@ -901,3 +907,43 @@ def test_static_resp():
         resp
         == b"HTTP/1.1 200 OK\r\ncontent-length: 12\r\ncontent-type: text/plain; charset='utf-8'\r\n\r\nhello, world"
     )
+
+
+async def test_init_lihil_add_middleware_error():
+
+    def m1(app: ASGIApp) -> ASGIApp:
+        async def m11(a, b, c):
+            pass
+
+    lhl = Lihil(middlewares=[m1])
+
+    lc = LocalClient()
+    with pytest.raises(MiddlewareBuildError):
+        await lc.call_app(lhl, "GET", "/")
+
+
+async def test_init_lihil_with_middlewares():
+
+    se = []
+
+    def m1(app: ASGIApp) -> ASGIApp:
+        async def m11(a, b, c):
+            nonlocal se
+            se.append(1)
+            await app(a, b, c)
+
+        return m11
+
+    def m2(app: ASGIApp) -> ASGIApp:
+        async def m22(a, b, c):
+            nonlocal se
+            se.append(2)
+            await app(a, b, c)
+
+        return m22
+
+    lhl = Lihil(middlewares=[m1, m2])
+
+    lc = LocalClient()
+    await lc.call_app(lhl, "GET", "/")
+    assert se == [1, 2]

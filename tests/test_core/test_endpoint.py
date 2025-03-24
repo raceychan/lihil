@@ -7,7 +7,7 @@ from starlette.requests import Request
 
 from lihil import Form, Json, Payload, Query, Resp, Route, Stream, Text, UploadFile
 from lihil.constant import status
-from lihil.errors import StatusConflictError
+from lihil.errors import StatusConflictError, NotSupportedError
 from lihil.plugins.testclient import LocalClient
 from lihil.utils.threading import async_wrapper
 
@@ -340,7 +340,7 @@ async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
         assert isinstance(by_form, bytes)
         return "ok"
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotSupportedError):
         rusers.get(get)
 
 

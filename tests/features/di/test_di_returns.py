@@ -14,7 +14,12 @@ from lihil.di.returns import (
     parse_status,
     syncgen_encode_wrapper,
 )
-from lihil.errors import InvalidStatusError, StatusConflictError
+from lihil.errors import (
+    InvalidStatusError,
+    NotSupportedError,
+    StatusConflictError,
+    InvalidParamType,
+)
 from lihil.interface import MISSING
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text
 
@@ -190,7 +195,7 @@ def test_analyze_return_with_union_type():
     assert result.status == 200
 
     # Test with a non-type value that's not a singleton
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(InvalidParamType):
         analyze_return("not a type")
 
 
@@ -210,7 +215,7 @@ def test_resp_with_only_ret_tpye():
 
 
 def test_invalid_resp():
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(InvalidParamType):
         res = ReturnParam.from_mark("fadsf", str, 200)
 
 
@@ -221,5 +226,5 @@ def test_random_metas():
 
 
 def test_analyze_invalid_union():
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotSupportedError):
         analyze_return(int | Resp[str])

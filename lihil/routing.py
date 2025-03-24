@@ -10,7 +10,7 @@ from lihil.asgi import ASGIBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
 from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
-from lihil.interface.asgi import ASGIApp
+from lihil.interface.asgi import ASGIApp, MiddlewareFactory
 from lihil.oas.model import RouteConfig
 from lihil.plugins.bus import BusTerminal, Event, MessageRegistry
 
@@ -51,9 +51,10 @@ class Route(ASGIBase):
         graph: Graph | None = None,
         registry: MessageRegistry | None = None,
         listeners: list[Callable[..., Any]] | None = None,
+        middlewares: list[MiddlewareFactory[Any]] | None = None,
         route_config: RouteConfig | None = None,
     ):
-        super().__init__()
+        super().__init__(middlewares)
 
         self.path = trim_path(path)
         self.path_regex: Pattern[str] | None = None
@@ -77,10 +78,6 @@ class Route(ASGIBase):
 
     def __truediv__(self, path: str) -> "Route":
         return self.sub(path)
-
-    async def on_lifespan(self):
-        for method, ep in self.endpoints.items():
-            self.call_stacks[method] = self.chainup_middlewares(ep)
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
         http_method = scope["method"]

@@ -1,12 +1,13 @@
 from typing import Any, Sequence
 
+from lihil.errors import MiddlewareBuildError
 from lihil.interface.asgi import ASGIApp, MiddlewareFactory
 
 
 class ASGIBase:
 
-    def __init__(self):
-        self.middle_factories: list[MiddlewareFactory[Any]] = []
+    def __init__(self, middlewares: list[MiddlewareFactory[Any]] | None):
+        self.middle_factories: list[MiddlewareFactory[Any]] = middlewares or []
 
     def add_middleware[M: ASGIApp](
         self,
@@ -18,7 +19,7 @@ class ASGIBase:
         if isinstance(middleware_factories, Sequence):
             self.middle_factories = list(middleware_factories) + self.middle_factories
         else:
-            self.middle_factories.insert(0, middleware_factories)
+            self.middle_factories.append(middleware_factories)
 
     def chainup_middlewares(self, tail: ASGIApp) -> ASGIApp:
         # current = problem_solver(tail, self.err_registry)
@@ -26,7 +27,9 @@ class ASGIBase:
         for factory in reversed(self.middle_factories):
             try:
                 prev = factory(current)
-            except Exception:
-                raise
+                assert prev is not None
+            except Exception as exc:
+                raise MiddlewareBuildError(factory) from exc
             current = prev
+
         return current

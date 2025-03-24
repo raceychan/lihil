@@ -17,17 +17,14 @@ from lihil.utils.threading import async_wrapper
 
 class IEndPointConfig(TypedDict, total=False):
     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
+    "Errors that might raise from current endpoint, will be seen as response at openapi docs"
     in_schema: bool
+    "Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
     to_thread: bool
+    "Whether to include this endpoint inside openapi docs"
 
 
 class EndPointConfig(Record, kw_only=True):
-    """
-    # TODO: implement this through ep decorator
-    [tool.lihil.oas]
-    "/users/{user_id}" = { include_schema = true }
-    """
-
     errors: tuple[type[DetailBase[Any]], ...] = field(default_factory=tuple)
     to_thread: bool = True
     in_schema: bool = True

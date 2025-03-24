@@ -1,3 +1,5 @@
+from typing import Literal
+
 import pytest
 
 from lihil import Text
@@ -572,9 +574,7 @@ async def test_route_on_lifespan():
     async def get(): ...
 
     route.get(get)
-
-    await route.on_lifespan()
-
+    route.setup()
     assert route.call_stacks["GET"]
 
 
@@ -586,9 +586,9 @@ def test_get_endpoint_with_sync_func_fail():
     with pytest.raises(TypeError):
         route.get_endpoint(dummy)
 
+
 def test_route_add_endpint_with_config():
     r = Route("r")
-
 
     @r.get(to_thread=False)
     @r.post(to_thread=False)
@@ -597,5 +597,55 @@ def test_route_add_endpint_with_config():
     @r.options(to_thread=False)
     @r.head(to_thread=False)
     @r.patch(to_thread=False)
-    async def dummy():
-        ...
+    async def dummy(): ...
+
+
+async def test_init_route_with_middlewares():
+
+    se = []
+
+    def m1(app: ASGIApp) -> ASGIApp:
+        async def m11(a, b, c):
+            nonlocal se
+            se.append(1)
+            await app(a, b, c)
+
+        return m11
+
+    def m2(app: ASGIApp) -> ASGIApp:
+        async def m22(a, b, c):
+            nonlocal se
+            se.append(2)
+            await app(a, b, c)
+
+        return m22
+
+    def m4(app: ASGIApp) -> ASGIApp:
+        async def m(a, b, c):
+            nonlocal se
+            se.append(3)
+            await app(a, b, c)
+
+        return m
+
+    async def get():
+        nonlocal se
+        se.append(4)
+
+    route = Route("/mroute", middlewares=[m1, m2])
+    route.get(get)
+
+    route.add_middleware(m4)
+
+    lc = LocalClient()
+    res = await lc.call_route(route, "GET")
+    assert res.status_code == 200
+    assert se == [1, 2, 3, 4]
+
+
+# def test_route_with_empty_response():
+#     route = Route("empty")
+
+#     async def post_empty() -> Literal[None]: ...
+
+#     route.post(post_empty)

@@ -3,6 +3,7 @@ from typing import Annotated
 import uvicorn
 from fastapi import APIRouter, Depends, FastAPI
 from pydantic import BaseModel
+from starlette.middleware.gzip import GZipMiddleware
 
 
 class User(BaseModel):

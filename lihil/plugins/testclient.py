@@ -119,6 +119,7 @@ class LocalClient:
 
     def __init__(
         self,
+        *,
         client_type: Literal["http"] = "http",
         headers: dict[str, str] | None = None,
     ):
@@ -149,6 +150,14 @@ class LocalClient:
         request_headers = self.base_headers.copy()
         if headers:
             request_headers.update(headers)
+
+        if path_params:
+            path_template = path
+            for param_name, param_value in path_params.items():
+                pattern = f"{{{param_name}}}"
+                path_template = path_template.replace(pattern, str(param_value))
+
+            path = path_template
 
         # Convert headers to ASGI format
         asgi_headers = [
@@ -249,15 +258,11 @@ class LocalClient:
         4. reset ep.graph to old graph
         """
 
-        encoded_path = (
-            {k: str(v) for k, v in path_params.items()} if path_params else {}
-        )
-
         resp = await self.request(
             app=ep,
             method=ep.method,
             path=ep.path,
-            path_params=encoded_path,
+            path_params=path_params,
             query_params=query_params,
             headers=headers,
             body=body,
@@ -281,18 +286,12 @@ class LocalClient:
         4. reset route.graph to old graph
         """
 
-        actual_path = route.path
-        if path_params:
-            for param_name, param_value in path_params.items():
-                pattern = f"{{{param_name}}}"
-                actual_path = actual_path.replace(pattern, str(param_value))
-
         route.setup()
 
         resp = await self.request(
             app=route,
             method=method,
-            path=actual_path,
+            path=route.path,
             path_params=path_params,
             query_params=query_params,
             headers=headers,
@@ -311,6 +310,7 @@ class LocalClient:
         body: Optional[Union[bytes, str, dict[str, Any], Payload]] = None,
     ) -> RequestResult:
         await self.send_app_lifespan(app)
+
         return await self.request(
             app=app,
             method=method,

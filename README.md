@@ -7,8 +7,6 @@
 
 **lihil is *100%* test covered and *strictly* typed.**
 
-
-
 [![codecov](https://codecov.io/gh/raceychan/lihil/graph/badge.svg?token=KOK5S1IGVX)](https://codecov.io/gh/raceychan/lihil)
 [![PyPI version](https://badge.fury.io/py/lihil.svg)](https://badge.fury.io/py/lihil)
 [![License](https://img.shields.io/github/license/raceychan/lihil)](https://github.com/raceychan/lihil/blob/master/LICENSE)

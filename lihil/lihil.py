@@ -11,8 +11,13 @@ from uvicorn import run as uvi_run
 
 from lihil.config import AppConfig, config_from_file
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
-from lihil.errors import AppConfiguringError, DuplicatedRouteError, InvalidLifeSpanError
-from lihil.interface import ASGIApp, IReceive, IScope, ISend
+from lihil.errors import (
+    AppConfiguringError,
+    DuplicatedRouteError,
+    InvalidLifeSpanError,
+    NotSupportedError,
+)
+from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
@@ -57,13 +62,14 @@ class Lihil[T](ASGIBase):
         self,
         *,
         routes: list[Route] | None = None,
+        middlewares: list[MiddlewareFactory[Any]] | None = None,
         app_config: AppConfig | None = None,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
         config_file: Path | str | None = None,
         lifespan: LifeSpan[T] | None = None,
     ):
-        super().__init__()
+        super().__init__(middlewares)
         self.app_config = read_config(config_file, app_config)
         self.workers = ThreadPoolExecutor(
             max_workers=self.app_config.max_thread_workers
@@ -164,7 +170,7 @@ class Lihil[T](ASGIBase):
         charset: str = "utf-8",
     ) -> None:
         if not is_plain_path(path):
-            raise NotImplementedError(
+            raise NotSupportedError(
                 "staic resource with dynamic route is not supported"
             )
         if isinstance(static_content, Callable):
