@@ -15,10 +15,10 @@ from lihil.di.returns import (
     syncgen_encode_wrapper,
 )
 from lihil.errors import (
+    InvalidParamTypeError,
     InvalidStatusError,
     NotSupportedError,
     StatusConflictError,
-    InvalidParamType,
 )
 from lihil.interface import MISSING
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text
@@ -51,8 +51,7 @@ def test_get_media():
 
 # Test CustomEncoder class (lines 57-58)
 def test_custom_encoder():
-    encoder = CustomEncoder()
-    encoder.encode = lambda x: f"encoded:{x}".encode()
+    encoder = CustomEncoder(lambda x: f"encoded:{x}".encode())
 
     assert encoder.encode("test") == b"encoded:test"
 
@@ -132,8 +131,7 @@ def test_return_param_from_mark():
 
 
 def test_return_param_from_annotated1():
-    encoder = CustomEncoder()
-    encoder.encode = lambda x: f"custom:{x}".encode()
+    encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
 
     param = ReturnParam.from_annotated(Annotated[str, encoder], Annotated, 200)
     assert param.type_ == str
@@ -141,8 +139,7 @@ def test_return_param_from_annotated1():
 
 
 def test_return_param_from_annotated2():
-    encoder = CustomEncoder()
-    encoder.encode = lambda x: f"custom:{x}".encode()
+    encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
 
     # Test with Annotated and Resp
     param = ReturnParam.from_annotated(Annotated[Resp[str, 201], encoder])
@@ -164,8 +161,7 @@ def test_return_param_from_generic():
     assert param.type_ == str
 
     # Test with Annotated
-    encoder = CustomEncoder()
-    encoder.encode = lambda x: f"custom:{x}".encode()
+    encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
     param = ReturnParam.from_generic(Annotated[str, encoder], Annotated, 200)
     assert param.type_ == str
 
@@ -195,7 +191,7 @@ def test_analyze_return_with_union_type():
     assert result.status == 200
 
     # Test with a non-type value that's not a singleton
-    with pytest.raises(InvalidParamType):
+    with pytest.raises(InvalidParamTypeError):
         analyze_return("not a type")
 
 
@@ -215,7 +211,7 @@ def test_resp_with_only_ret_tpye():
 
 
 def test_invalid_resp():
-    with pytest.raises(InvalidParamType):
+    with pytest.raises(InvalidParamTypeError):
         res = ReturnParam.from_mark("fadsf", str, 200)
 
 

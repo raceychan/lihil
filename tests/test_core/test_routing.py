@@ -3,8 +3,9 @@ from typing import Literal
 import pytest
 
 from lihil import Text
-from lihil.interface import ASGIApp, IReceive, IScope, ISend
+from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend
 
+from lihil.errors import InvalidParamTypeError
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.plugins.bus import Event
 from lihil.plugins.testclient import LocalClient
@@ -649,3 +650,28 @@ async def test_init_route_with_middlewares():
 #     async def post_empty() -> Literal[None]: ...
 
 #     route.post(post_empty)
+
+
+async def test_route_with_empty_response():
+    route = Route("empty")
+
+    async def post_empty() -> Empty: ...
+
+    route.post(post_empty)
+
+    lc = LocalClient()
+
+    ep = route.get_endpoint("POST")
+
+    res = await lc.call_route(route, method="POST")
+    assert await res.body() == b""
+
+
+@pytest.mark.debug
+async def test_route_with_literal_resp():
+    route = Route("empty")
+
+    async def post_empty() -> Literal[None]: ...
+
+    with pytest.raises(InvalidParamTypeError):
+        route.post(post_empty)

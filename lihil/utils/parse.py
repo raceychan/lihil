@@ -1,9 +1,11 @@
 import re
 from re import Pattern
-from typing import Any, Literal, get_origin
+from typing import Any, Literal
 
 from starlette.routing import compile_path
+
 from lihil.errors import NotSupportedError
+from lihil.interface import lhl_get_origin
 
 RE_PATH_KEYS = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 "Must be a valid python variable name?"
@@ -127,7 +129,7 @@ def parse_header_key(name: str, metas: list[Any]) -> str:
     if isinstance(header_key, str):
         return header_key
 
-    if get_origin(header_key) is Literal:
+    if lhl_get_origin(header_key) is Literal:
         return header_key.__args__[0]
 
     raise NotSupportedError("invalid header key")

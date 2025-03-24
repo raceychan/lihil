@@ -1,6 +1,5 @@
 from types import GenericAlias
 from typing import (
-    Literal,
     Annotated,
     Any,
     AsyncGenerator,
@@ -9,8 +8,8 @@ from typing import (
     TypeAliasType,
     TypeGuard,
     get_args,
-    get_origin,
 )
+from typing import get_origin as ty_get_origin
 
 from msgspec import Struct as Struct
 
@@ -18,6 +17,15 @@ from lihil.constant.status import Status
 
 LIHIL_RESPONSE_MARK = "__LIHIL_RESPONSE_MARK"
 LIHIL_PARAM_MARK = "__LIHIL_PARAM_MARK"
+
+
+def lhl_get_origin(annt: Any):
+    "a extended get origin that handles TypeAliasType"
+    if is_marked_param(annt):
+        return ty_get_origin(annt)
+    elif isinstance(annt, TypeAliasType):
+        return annt.__value__
+    return ty_get_origin(annt)
 
 
 def resp_mark(name: str):
@@ -31,7 +39,7 @@ def param_mark(name: str):
 def is_lihil_marked(m: Any, mark_prefix: str) -> bool:
     if isinstance(m, str):
         return m.startswith(mark_prefix)
-    elif get_origin(m) is Annotated:
+    elif ty_get_origin(m) is Annotated:
         meta_args = get_args(m)
         return any(is_lihil_marked(m, mark_prefix) for m in meta_args)
     elif isinstance(m, (TypeAliasType, GenericAlias)):
@@ -92,6 +100,3 @@ type Stream[T] = Annotated[
 ]
 type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
 type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
-
-
-type Empty = Literal[None]

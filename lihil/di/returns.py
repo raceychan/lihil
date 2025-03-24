@@ -6,22 +6,40 @@ from typing import (
     Annotated,
     Any,
     AsyncGenerator,
-    Callable,
     Generator,
     Literal,
     TypeAliasType,
     Union,
     get_args,
-    get_origin,
 )
 
 from lihil.constant.status import code as get_status_code
-from lihil.errors import InvalidStatusError, StatusConflictError, InvalidParamType, NotSupportedError
-from lihil.interface import MISSING, IEncoder, Maybe, Record, is_provided
-from lihil.interface.marks import HTML, Json, Resp, Stream, Text, is_resp_mark
+from lihil.errors import (
+    InvalidParamTypeError,
+    InvalidStatusError,
+    NotSupportedError,
+    StatusConflictError,
+)
+from lihil.interface import (
+    MISSING,
+    CustomEncoder,
+    Empty,
+    IEncoder,
+    Maybe,
+    Record,
+    is_provided,
+)
+from lihil.interface.marks import (
+    HTML,
+    Json,
+    Resp,
+    Stream,
+    Text,
+    is_resp_mark,
+    lhl_get_origin,
+)
 from lihil.utils.phasing import encode_json, encode_text
 from lihil.utils.typing import flatten_annotated
-
 
 
 def parse_status(status: Any) -> int:
@@ -47,10 +65,6 @@ def get_encoder_from_metas(metas: list[Any]) -> IEncoder[Any] | None:
     for meta in metas:
         if isinstance(meta, CustomEncoder):
             return meta.encode
-
-
-class CustomEncoder:
-    encode: Callable[[Any], bytes]
 
 
 async def agen_encode_wrapper[T](
@@ -87,7 +101,7 @@ class ReturnParam[T](Record):
     def from_mark(
         cls, annt: TypeAliasType | GenericAlias | UnionType, origin: Any, status: int
     ) -> "ReturnParam[Any]":
-        origin = get_origin(annt) or annt
+        origin = lhl_get_origin(annt) or annt
         if origin is Text:
             content_type = get_media(origin)
             rtp = ReturnParam(
@@ -137,7 +151,7 @@ class ReturnParam[T](Record):
         elif origin is Annotated:
             return ReturnParam.from_annotated(annt, origin, status)
         else:
-            raise InvalidParamType(annt)
+            raise InvalidParamTypeError(annt)
 
     @classmethod
     def from_annotated(
@@ -147,7 +161,7 @@ class ReturnParam[T](Record):
         status: int = 200,
     ) -> "ReturnParam[Any]":
         if not is_provided(origin):
-            origin = get_origin(annt)
+            origin = lhl_get_origin(annt)
 
         # encoder = encode_json
         custom_encoder = None
@@ -181,9 +195,11 @@ class ReturnParam[T](Record):
             ABCAsyncGen,
         ):
             return ReturnParam.from_annotated(annt, origin, status)
+        elif nested_origin := lhl_get_origin(origin):
+            return ReturnParam.from_generic(origin, nested_origin, status)
         else:  # vanilla case, dict[str, str], list[str], etc.
             if not isinstance(origin, type):
-                raise
+                raise InvalidParamTypeError(annt)
             ret = ReturnParam[Any](
                 type_=origin, encoder=encode_json, annotation=annt, status=status
             )
@@ -201,7 +217,8 @@ def analyze_return[R](
         return ReturnParam(encoder=encode_json, status=200)
     status = parse_status(status)
 
-    if isinstance(annt, UnionType) or get_origin(annt) is Union:
+    ret_origin = lhl_get_origin(annt)
+    if isinstance(annt, UnionType) or ret_origin is Union:
         """
         TODO:
         we need to handle case of multiple return e.g
@@ -222,14 +239,16 @@ def analyze_return[R](
         ret = ReturnParam(
             type_=annt, annotation=annt, encoder=encode_json, status=status
         )
-    elif origin := get_origin(annt) or is_resp_mark(annt):
+    elif ret_origin or is_resp_mark(annt):
         # NOTE: we have to check both condition, since some resp marks are not generic
-        ret = ReturnParam.from_generic(annt, origin, status)
-    else:
-        # default case, should be a single non-generic type,
+        ret = ReturnParam.from_generic(annt, ret_origin, status)
+    else:  # default case, should be a single non-generic type,
         # e.g. User, str, bytes, etc.
         if not is_py_singleton(annt) and not isinstance(annt, type):
-            raise InvalidParamType(annt)
+            if annt is Empty:
+                pass
+            else:
+                raise InvalidParamTypeError(annt)
 
         ret = ReturnParam(
             type_=annt,

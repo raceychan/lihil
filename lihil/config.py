@@ -2,13 +2,13 @@ import argparse
 import tomllib
 from pathlib import Path
 from types import UnionType
-from typing import Any, Sequence, Union, cast, get_args, get_origin
+from typing import Any, Sequence, Union, cast, get_args
 
 from msgspec import convert, field
 from msgspec.structs import FieldInfo, fields
 
 from lihil.errors import AppConfiguringError
-from lihil.interface import MISSING, Maybe, Record, get_maybe_vars, is_provided
+from lihil.interface import MISSING, Maybe, Record, get_maybe_vars, is_provided, lhl_get_origin
 
 StrDict = dict[str, Any]
 
@@ -102,7 +102,7 @@ def parse_field_type(field: FieldInfo) -> type:
     "Todo: parse Maybe[int] = MISSING"
 
     ftype = field.type
-    origin = get_origin(ftype)
+    origin = lhl_get_origin(ftype)
 
     if origin is UnionType or origin is Union:
         unions = get_args(ftype)

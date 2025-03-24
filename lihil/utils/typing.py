@@ -49,5 +49,3 @@ def is_nontextual_sequence(type_: Any):
     return issubclass(type_, Sequence)
 
 
-# def isasyncfunc():
-#    return iscoroutinefunction

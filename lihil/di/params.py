@@ -1,17 +1,7 @@
 from copy import deepcopy
 from inspect import Parameter
 from types import GenericAlias, UnionType
-from typing import (
-    Annotated,
-    Any,
-    Callable,
-    Literal,
-    Sequence,
-    Union,
-    cast,
-    get_args,
-    get_origin,
-)
+from typing import Annotated, Any, Literal, Sequence, Union, cast, get_args
 
 from ididi import DependentNode, Graph
 from ididi.config import USE_FACTORY_MARK
@@ -21,7 +11,7 @@ from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
 from lihil.errors import NotSupportedError
-from lihil.interface import MISSING, Base, IDecoder, Maybe, ParamLocation
+from lihil.interface import MISSING, Base, CustomDecoder, IDecoder, Maybe, ParamLocation
 from lihil.interface.marks import (
     Body,
     Form,
@@ -31,6 +21,7 @@ from lihil.interface.marks import (
     Struct,
     Use,
     is_param_mark,
+    lhl_get_origin,
 )
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
@@ -48,7 +39,7 @@ def is_lhl_dep(type_: type | GenericAlias):
 
 
 def is_file_body(annt: Any) -> bool:
-    annt_origin = get_origin(annt) or annt
+    annt_origin = lhl_get_origin(annt) or annt
     return annt_origin is UploadFile
 
 
@@ -121,19 +112,6 @@ def formdecoder_factory[T](ptype: type[T] | UnionType):
     return form_decoder
 
 
-class CustomDecoder(Base):
-    """
-    class IType: ...
-
-    def decode_itype()
-
-
-    async def create_user(i: Annotated[IType, CustomDecoder(decode_itype)])
-    """
-
-    decode: Callable[[bytes | str], Any]
-
-
 class RequestParamBase[T](Base):
     type_: type[T] | UnionType | GenericAlias
     name: str
@@ -204,7 +182,7 @@ def analyze_annoated(
         factory, config = metas[idx + 1], metas[idx + 2]
         node = graph.analyze(factory, config=config)
         return analyze_nodeparams(node, graph, seen, path_keys)
-    elif new_origin := get_origin(atype):
+    elif new_origin := lhl_get_origin(atype):
         return analyze_markedparam(
             graph,
             name,
@@ -363,7 +341,7 @@ def analyze_param[T](
 
     custom_decoder = get_decoder_from_metas(metas) if metas else None
 
-    if (porigin := get_origin(type_)) is Annotated:
+    if (porigin := lhl_get_origin(type_)) is Annotated:
         atype, metas = flatten_annotated(type_)
         return analyze_annoated(
             graph=graph,
@@ -412,7 +390,7 @@ def analyze_param[T](
                 location="body",
                 content_type=content_type,
             )
-    elif isinstance(type_, UnionType) or get_origin(type_) is Union:
+    elif isinstance(type_, UnionType) or lhl_get_origin(type_) is Union:
         req_param = analyze_union_param(name, type_, default)
     elif type_ in graph.nodes:
         node = graph.analyze(cast(type, type_))

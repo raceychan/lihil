@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 
 class LihilError(Exception):
@@ -34,11 +34,14 @@ class MiddlewareBuildError(LihilError):
         super().__init__(f"Unable to instantate middleware from {factory}")
 
 
-class InvalidParamType(LihilError):
+class InvalidParamTypeError(LihilError):
     def __init__(self, annt: Any):
-        super().__init__(
-            f"Unexpected param {annt=} received, if you believe this is a bug, report an issue at https://github.com/raceychan/lihil/issues"
-        )
+        msg = f"Unexpected param `{annt}` received, if you believe this is a bug, report an issue at https://github.com/raceychan/lihil/issues"
+
+        if annt == Literal[None]:
+            super().__init__("use `Empty` instead")
+        else:
+            super().__init__(msg)
 
 
 class NotSupportedError(LihilError):

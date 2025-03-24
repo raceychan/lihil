@@ -303,4 +303,4 @@ async def post(myfile: UploadFile) -> Resp[Text, 200]:
 
 - add `MiddlewareBuildError`, which will be raised when calling middleware factory fail 
 - add `NotSupportedError` for usage not currently supported, such a multiple return params.
-- add `InvalidParamType` for invalid param type, such as `Literal[3.14]`
+- add `InvalidParamTypeError` for invalid param type, such as `Literal[3.14]`

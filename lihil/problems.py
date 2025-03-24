@@ -12,7 +12,6 @@ from typing import (
     TypeAliasType,
     cast,
     get_args,
-    get_origin,
 )
 
 from msgspec import Meta
@@ -20,7 +19,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from lihil.constant import status as http_status
-from lihil.interface import IEncoder, ParamLocation, Record
+from lihil.interface import IEncoder, ParamLocation, Record, lhl_get_origin
 from lihil.utils.parse import to_kebab_case, trimdoc
 from lihil.utils.phasing import encoder_factory
 from lihil.utils.typing import is_union_type
@@ -42,7 +41,7 @@ type ErrorRegistry = MappingProxyType[
 def parse_exception(
     exc: type["DetailBase[Any]"] | TypeAliasType,
 ) -> type["DetailBase[Any]"] | int | list[type["DetailBase[Any]"] | int]:
-    exc_origin = get_origin(exc)
+    exc_origin = lhl_get_origin(exc)
 
     if exc_origin is None:
         if isinstance(exc, TypeAliasType):
@@ -63,7 +62,10 @@ def parse_exception(
         return res
     else:
         if not isinstance(exc_origin, type):
-            raise TypeError(f"Invalid exception type {exc}")
+            if lhl_get_origin(exc_origin):
+                return parse_exception(exc_origin)
+            else:
+                raise TypeError(f"Invalid exception type {exc}")
 
         if not isinstance(exc, type):
             exc_local = exc_origin
@@ -128,7 +130,7 @@ def __erresp_factory_registry():
             return status_handlers.get(exc)
         elif isinstance(exc, TypeAliasType):
             return status_handlers.get(http_status.code(exc))
-        elif get_origin(exc) is Literal:
+        elif lhl_get_origin(exc) is Literal:
             scode: int = get_args(exc)[0]
             return status_handlers.get(scode)
 

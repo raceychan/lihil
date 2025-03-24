@@ -1,4 +1,5 @@
 from typing import (
+    Annotated,
     Any,
     Callable,
     Literal,
@@ -30,6 +31,7 @@ from lihil.interface.marks import Resp as Resp
 from lihil.interface.marks import Stream as Stream
 from lihil.interface.marks import Text as Text
 from lihil.interface.marks import Use as Use
+from lihil.interface.marks import lhl_get_origin as lhl_get_origin
 
 type ParamLocation = Literal["path", "query", "header", "body"]
 type Func[**P, R] = Callable[P, R]
@@ -119,3 +121,27 @@ class Payload(Record, frozen=True, gc=False):
     """
     a pre-configured struct that is frozen, gc_free, tagged with "typeid"
     """
+
+
+class CustomEncoder(Base):
+    encode: Callable[[Any], bytes]
+
+
+class CustomDecoder(Base):
+    """
+    class IType: ...
+
+    def decode_itype()
+
+
+    async def create_user(i: Annotated[IType, CustomDecoder(decode_itype)])
+    """
+
+    decode: Callable[[bytes | str], Any]
+
+
+def empty_encoder(param: Any) -> bytes:
+    return b""
+
+
+type Empty = Annotated[None, CustomEncoder(empty_encoder)]

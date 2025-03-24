@@ -114,6 +114,14 @@ class RequestResult(Base):
         return self.is_chunked
 
 
+"""
+TODO:
+
+ltc = LocalClient()
+await ltc(app, path="/", path_params=dict(q=5))
+"""
+
+
 class LocalClient:
     """A client for testing ASGI applications."""
 
@@ -135,10 +143,10 @@ class LocalClient:
         app: ASGIApp,
         method: str,
         path: str,
-        path_params: dict[str, Any] | None = None,
-        query_params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
-        body: Optional[Union[bytes, str, dict[str, Any], Payload]] = None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+        body: Union[bytes, str, dict[str, Any], Payload] | None = None,
         stream: bool = False,
     ) -> RequestResult:
         # Prepare query string
