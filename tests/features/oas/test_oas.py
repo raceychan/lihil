@@ -1,14 +1,21 @@
 from types import UnionType
+from typing import Annotated
 
 import pytest
 
-from lihil import HTTPException, Payload, Resp, Route, Text, status
+from lihil import Empty, HTTPException, Payload, Resp, Route, Text, status
 from lihil.config import OASConfig
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.oas.doc_ui import get_problem_ui_html
-from lihil.oas.schema import generate_oas, generate_op_from_ep
+from lihil.oas.schema import (
+    generate_oas,
+    generate_op_from_ep,
+    get_path_item_from_route,
+    get_resp_schemas,
+)
 from lihil.plugins.testclient import LocalClient
 from lihil.problems import collect_problems
+from lihil.routing import RouteConfig
 
 
 class User(Payload, tag=True):
@@ -128,3 +135,54 @@ async def test_call_problempage():
 
     res = await lc.call_endpoint(ep)
     assert res.status_code == 200
+
+
+async def test_ep_with_empty_resp():
+
+    route = Route()
+
+    def empty_ep() -> Empty: ...
+
+    route.get(empty_ep)
+
+    ep = route.get_endpoint("GET")
+
+    schema = get_resp_schemas(ep, {}, "")
+    assert schema["200"].description == "No Content"
+
+
+type MyAlias = Annotated[Annotated[str, "hha"], "aloha"]
+
+
+async def test_ep_with_annotated_resp():
+
+    route = Route()
+
+    def empty_ep() -> MyAlias: ...
+
+    route.get(empty_ep)
+
+    ep = route.get_endpoint("GET")
+    schema = get_resp_schemas(ep, {}, "")
+    assert schema
+
+
+async def test_ep_not_include_schema():
+
+    route = Route()
+
+    def empty_ep() -> MyAlias: ...
+
+    route.get(empty_ep, in_schema=False)
+
+    ep = route.get_endpoint("GET")
+    schema = get_path_item_from_route(route, {}, "")
+    assert schema.get is None
+
+
+async def test_route_not_include_schema():
+
+    route = Route(route_config=RouteConfig(in_schema=False))
+
+    res = generate_oas([route], oas_config, "")
+    assert not res.paths

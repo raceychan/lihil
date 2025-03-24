@@ -10,6 +10,7 @@ from typing import (
     Literal,
     TypeAliasType,
     Union,
+    cast,
     get_args,
 )
 
@@ -87,9 +88,9 @@ def is_empty_return(t: Any):
 
     if t is None or t is Literal[None]:
         return True
-    
+
     return False
-    
+
 
 class ReturnParam[T](Record):
     # TODO: generate response from this
@@ -160,6 +161,9 @@ class ReturnParam[T](Record):
             return analyze_return(retype, status)
         elif origin is Annotated:
             return ReturnParam.from_annotated(annt, origin, status)
+        elif origin is Empty:
+            annt = cast(TypeAliasType, annt)
+            return ReturnParam.from_annotated(annt.__value__, origin, status)
         else:
             raise InvalidParamTypeError(annt)
 
@@ -255,10 +259,8 @@ def analyze_return[R](
     else:  # default case, should be a single non-generic type,
         # e.g. User, str, bytes, etc.
         if not is_py_singleton(annt) and not isinstance(annt, type):
-            if annt is Empty:
-                pass
-            else:
-                raise InvalidParamTypeError(annt)
+
+            raise InvalidParamTypeError(annt)
 
         ret = ReturnParam(
             type_=annt,

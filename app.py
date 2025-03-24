@@ -1,7 +1,17 @@
 from contextlib import asynccontextmanager
-from typing import Literal
 
-from lihil import HTTPException, Json, Lihil, Payload, Resp, Route, Stream, Text, status
+from lihil import (
+    Empty,
+    HTTPException,
+    Json,
+    Lihil,
+    Payload,
+    Resp,
+    Route,
+    Stream,
+    Text,
+    status,
+)
 
 
 class Unhappiness(Payload):
@@ -99,7 +109,7 @@ rempty = Route("empty")
 
 
 @rempty.post
-async def empty_resp() -> None: ...
+async def empty_resp() -> Empty: ...
 
 
 lhl = Lihil(

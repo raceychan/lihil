@@ -31,6 +31,7 @@ from lihil.interface.marks import Resp as Resp
 from lihil.interface.marks import Stream as Stream
 from lihil.interface.marks import Text as Text
 from lihil.interface.marks import Use as Use
+from lihil.interface.marks import EMPTY_RETURN_MARK
 from lihil.interface.marks import lhl_get_origin as lhl_get_origin
 
 type ParamLocation = Literal["path", "query", "header", "body"]
@@ -144,4 +145,4 @@ def empty_encoder(param: Any) -> bytes:
     return b""
 
 
-type Empty = Annotated[Literal[None], CustomEncoder(empty_encoder)]
+type Empty = Annotated[Literal[None], CustomEncoder(empty_encoder), EMPTY_RETURN_MARK]

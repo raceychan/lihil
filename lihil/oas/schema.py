@@ -1,6 +1,6 @@
 import re
 from types import UnionType
-from typing import Any, Sequence, cast, get_args
+from typing import Annotated, Any, Sequence, cast, get_args
 
 from msgspec import Struct
 from msgspec.json import schema_components
@@ -8,11 +8,12 @@ from msgspec.json import schema_components
 from lihil.config import OASConfig
 from lihil.constant.status import phrase
 from lihil.di import EndpointDeps, RequestParam
-from lihil.interface import is_provided
+from lihil.interface import EMPTY_RETURN_MARK, is_provided, lhl_get_origin
 from lihil.oas import model as oasmodel
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
 from lihil.routing import Endpoint, Route
 from lihil.utils.parse import to_kebab_case, trimdoc
+from lihil.utils.typing import flatten_annotated
 
 # from lihil.utils.phasing import encode_json
 
@@ -200,7 +201,7 @@ def body_schema(
     return body
 
 
-def err_resp_schema(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
+def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
     problem_content = schemas.get(ProblemDetail.__name__, None) or type_to_content(
         ProblemDetail, schemas
     )
@@ -288,7 +289,7 @@ def err_resp_schema(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
     return resps
 
 
-def resp_schema(
+def get_resp_schemas(
     ep: Endpoint[Any], schemas: SchemasDict, problem_path: str
 ) -> dict[str, oasmodel.Response]:
     ep_return = ep.deps.return_param
@@ -299,20 +300,36 @@ def resp_schema(
         "200": oasmodel.Response(description="Sucessful Response")
     }
 
-    if is_provided(return_type):
-        if isinstance(return_type, UnionType):
+    if not is_provided(return_type):
+        # TODO: show no return type here
+        return resps
+    else:
+        ret_origin = lhl_get_origin(ep_return.annotation)
+        if ret_origin is Annotated:
+            return_type, metas = flatten_annotated(ep_return.annotation)
+            if metas and EMPTY_RETURN_MARK in metas:
+                resps[str(ep_return.status)] = oasmodel.Response(
+                    description="No Content", content=None
+                )
+            else:
+                content = type_to_content(return_type, schemas, content_type)
+                resp = oasmodel.Response(
+                    description="Successful Response", content=content
+                )
+                resps[str(ep_return.status)] = resp
+        elif isinstance(return_type, UnionType):
             """
             TODO: handle union Resp
             def create_user() -> Resp[User, 200] | Resp[UserNotFound, 404]
             """
-            pass
-        content = type_to_content(return_type, schemas, content_type)
-        resp = oasmodel.Response(description="Successful Response", content=content)
-        resps[str(ep_return.status)] = resp
-
-    err_resps = err_resp_schema(ep, schemas, problem_path)
-    resps.update(err_resps)
-    return resps
+            content = type_to_content(return_type, schemas, content_type)
+            resp = oasmodel.Response(description="Successful Response", content=content)
+            resps[str(ep_return.status)] = resp
+        else:
+            content = type_to_content(return_type, schemas, content_type)
+            resp = oasmodel.Response(description="Successful Response", content=content)
+            resps[str(ep_return.status)] = resp
+        return resps
 
 
 def generate_param_schema(ep_deps: EndpointDeps[Any], schemas: SchemasDict):
@@ -337,7 +354,9 @@ def generate_op_from_ep(
     operationId = generate_unique_id(ep)
     params, body = generate_param_schema(ep.deps, schemas)
 
-    resps = resp_schema(ep, schemas, problem_path)
+    resps = get_resp_schemas(ep, schemas, problem_path)
+    err_resps = get_err_resp_schemas(ep, schemas, problem_path)
+    resps.update(err_resps)
 
     op = oasmodel.Operation(
         tags=tags,
@@ -352,7 +371,7 @@ def generate_op_from_ep(
     return op
 
 
-def path_item_from_route(
+def get_path_item_from_route(
     route: Route, schemas: SchemasDict, problem_path: str
 ) -> oasmodel.PathItem:
     epoint_ops: dict[str, Any] = {}
@@ -386,7 +405,7 @@ def generate_oas(
     for route in routes:
         if not route.config.in_schema:
             continue
-        paths[route.path] = path_item_from_route(
+        paths[route.path] = get_path_item_from_route(
             route, schemas, oas_config.problem_path
         )
 

@@ -90,6 +90,7 @@ HTML_RETURN_MARK = resp_mark("html")
 STREAM_RETURN_MARK = resp_mark("stream")
 JSON_RETURN_MARK = resp_mark("json")
 RESP_RETURN_MARK = resp_mark("resp")
+EMPTY_RETURN_MARK = resp_mark("empty")
 
 type Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
 type HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]

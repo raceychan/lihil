@@ -11,6 +11,7 @@ from .interface import Use as Use
 from .interface import Body as Body
 from .interface import Query as Query
 from .interface import Path as Path
+from .interface import Empty as Empty
 from .lihil import Lihil as Lihil
 from .problems import HTTPException as HTTPException
 from .routing import Route as Route
