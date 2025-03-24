@@ -55,6 +55,31 @@ def read_config(
         return config_from_file(config_file)
 
 
+StaticCache = dict[str, tuple[dict[str, Any], dict[str, Any]]]
+
+
+class StaticRoute:
+    def __init__(self):
+        self.static_cache: StaticCache = {}
+        # self.path = ""
+
+    def match(self, scope: IScope):
+        if cache := self.static_cache.get(scope["path"]):
+            scope["lhl_static_cache"] = cache
+            return True
+        return False
+
+    async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
+        for msg in scope["lhl_static_cache"]:
+            await send(msg)
+
+    def add_cache(self, path: str, content: tuple[dict[str, bytes], dict[str, bytes]]):
+        self.static_cache[path] = content
+
+    def setup(self):
+        pass
+
+
 class Lihil[T](ASGIBase):
     _userls: LifeSpan[T] | None
 
@@ -77,6 +102,7 @@ class Lihil[T](ASGIBase):
         self.graph = graph or Graph(self_inject=True, workers=self.workers)
         self.busterm = busterm or BusTerminal()
         self.root = Route("/", graph=self.graph)
+        self.static_route: StaticRoute | None = None
         self.routes: list[Route] = [self.root]
         if routes:
             self.include_routes(*routes)
@@ -85,12 +111,7 @@ class Lihil[T](ASGIBase):
         self._app_state: T | None = None
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
-        self._static_cache: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
         self._generate_doc_route()
-
-    @property
-    def static_cache(self):
-        return self._static_cache
 
     @property
     def app_state(self) -> T | None:
@@ -169,6 +190,13 @@ class Lihil[T](ASGIBase):
         content_type: str = "text/plain",
         charset: str = "utf-8",
     ) -> None:
+        """
+        Todo:
+        class StaticRoute:
+            def match(self, path):
+                return self.endpoints[path]
+
+        """
         if not is_plain_path(path):
             raise NotSupportedError(
                 "staic resource with dynamic route is not supported"
@@ -187,16 +215,12 @@ class Lihil[T](ASGIBase):
                 encoded = encode_json(static_content)
 
         content_resp = uvicorn_static_resp(encoded, content_type, charset)
-        self._static_cache[path] = content_resp
+        if self.static_route is None:
+            self.routes[1] = self.static_route = StaticRoute()
+        self.static_route.add_cache(path, content_resp)
 
     async def call_route(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         for route in self.routes:
-            if cache := self._static_cache.get(scope["path"]):
-                header, body = cache
-                await send(header)
-                await send(body)
-                return
-
             if route.match(scope):
                 return await route(scope, receive, send)
         else:

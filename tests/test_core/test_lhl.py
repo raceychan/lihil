@@ -524,8 +524,8 @@ async def test_static_with_callable():
         return "hello world"
 
     app.static("/test-callable", get_content)
-    assert "/test-callable" in app.static_cache
-    header, body = app.static_cache["/test-callable"]
+    assert "/test-callable" in app.static_route.static_cache
+    header, body = app.static_route.static_cache["/test-callable"]
     assert body["body"] == b"hello world"
 
 
@@ -535,8 +535,8 @@ async def test_static_with_json_content():
     data = {"message": "hello world"}
 
     app.static("/test-json", data, content_type="application/json")
-    assert "/test-json" in app.static_cache
-    header, body = app.static_cache["/test-json"]
+    assert "/test-json" in app.static_route.static_cache
+    header, body = app.static_route.static_cache["/test-json"]
     assert json.loads(body["body"].decode()) == data
     assert header["headers"][1][1].startswith(b"application/json")
 
