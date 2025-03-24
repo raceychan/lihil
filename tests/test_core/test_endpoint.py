@@ -1,11 +1,10 @@
-import urllib.parse
 from typing import Annotated
 
 import pytest
 from ididi import Ignore, use
 from starlette.requests import Request
 
-from lihil import Form, Json, Payload, Resp, Route, Stream
+from lihil import Form, Json, Payload, Resp, Route, Stream, UploadFile
 from lihil.constant import status
 from lihil.errors import StatusConflictError
 from lihil.plugins.testclient import LocalClient
@@ -222,6 +221,7 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
     assert res
 
 
+@pytest.mark.debug
 async def test_ep_requiring_missing_param(rusers: Route, lc: LocalClient):
 
     import uuid
@@ -259,3 +259,18 @@ async def test_ep_requiring_missing_param(rusers: Route, lc: LocalClient):
     assert res.status_code == 422
     body = await res.body()
     assert b"invalid-request-errors" in body
+
+
+
+async def test_ep_requiring_upload_file(rusers: Route, lc: LocalClient):
+
+
+    class UserInfo(Payload):
+        username: str
+        email: str
+
+    async def get(req: Request, fm: UploadFile) -> Resp[str, 200]:
+        return fm
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")

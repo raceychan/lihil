@@ -1,9 +1,9 @@
-from typing import Dict, List, Optional, Union
+from typing import Union
 
 import pytest
 
 from lihil.utils.parse import to_kebab_case
-from lihil.utils.phasing import build_union_decoder, bytes_decoder, str_decoder
+from lihil.utils.phasing import build_union_decoder, to_bytes, to_str
 
 
 def test_acronym():
@@ -12,12 +12,12 @@ def test_acronym():
     assert to_kebab_case("OAuth2PasswordBearer") == "o-auth2-password-bearer"
 
 
-def test_str_decoder_decode_bytes():
-    assert str_decoder(b"abc") == "abc"
+def test_to_str_decode_bytes():
+    assert to_str(b"abc") == "abc"
 
 
-def test_bytes_decoder_decode_str():
-    assert bytes_decoder("abc") == b"abc"
+def test_to_bytes_decode_str():
+    assert to_bytes("abc") == b"abc"
 
 
 def test_byte_str_union():
@@ -71,4 +71,3 @@ def test_build_union_decoder_priority():
     invalid_json = '{"key": value}'  # missing quotes around value
     assert union_decoder(invalid_json) == invalid_json
     assert isinstance(union_decoder(invalid_json), str)
-

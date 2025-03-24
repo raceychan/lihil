@@ -14,6 +14,7 @@ from .problems import HTTPException as HTTPException
 from .routing import Route as Route
 from .vendor_types import Request as Request
 from .vendor_types import Response as Response
+from .vendor_types import UploadFile as UploadFile
 # from .server.runner import run as run
 
 VERSION = "0.1.9"

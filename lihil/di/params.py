@@ -23,14 +23,9 @@ from lihil.interface import MISSING, Base, IDecoder, Maybe, ParamLocation, is_pr
 from lihil.interface.marks import Body, Form, Header, Path, Query, Struct, Use
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
-from lihil.utils.phasing import (
-    build_union_decoder,
-    bytes_decoder,
-    decoder_factory,
-    str_decoder,
-)
-from lihil.utils.typing import flatten_annotated, is_union_type
-from lihil.vendor_types import FormData, Request
+from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, to_str
+from lihil.utils.typing import flatten_annotated, is_nontextual_sequence, is_union_type
+from lihil.vendor_types import FormData, Request, UploadFile
 
 type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]
 type RequiredParams = Sequence[ParamPair]
@@ -41,14 +36,25 @@ def is_lhl_dep(type_: type | GenericAlias):
     return type_ in (Request, EventBus)
 
 
-def is_body_param(annt: Any):
-    return not is_lhl_dep(annt) and isinstance(annt, type) and issubclass(annt, Struct)
+def is_file_body(annt: Any) -> bool:
+    annt_origin = get_origin(annt) or annt
+    return annt_origin is UploadFile
+
+
+def is_body_param(annt: Any) -> bool:
+
+    if not isinstance(annt, type):
+        return False
+
+    if is_lhl_dep(annt):
+        return False
+
+    return issubclass(annt, Struct) or is_file_body(annt)
 
 
 def textdecoder_factory(
     t: type | UnionType | GenericAlias,
 ) -> IDecoder[Any]:
-    # BUG:
     if is_union_type(t):
         union_args = get_args(t)
         if str in union_args:
@@ -59,13 +65,21 @@ def textdecoder_factory(
             return decoder_factory(t)
 
     if t is str:
-        return str_decoder
+        return to_str
     elif t is bytes:
-        return bytes_decoder
+        return to_bytes
     return decoder_factory(t)
 
 
-def make_form_decoder[T](atype: type[T] | UnionType):
+def filedeocder_factory(atype: type[UploadFile] | UnionType | type[Any] | GenericAlias):
+    def file_decoder(form_data: FormData) -> UploadFile:
+        breakpoint()
+        raise NotImplementedError
+
+    return file_decoder
+
+
+def fromdecoder_factory[T](atype: type[T] | UnionType):
     if not isinstance(atype, type) or not issubclass(atype, Struct):
         raise NotImplementedError(
             "currently only subclass of Struct is supported for `Form`"
@@ -76,9 +90,7 @@ def make_form_decoder[T](atype: type[T] | UnionType):
     def form_decoder(form_data: FormData) -> T:
         values = {}
         for ffield in form_fields:
-            if ffield.type in (str, bytes):
-                val = form_data.get(ffield.encode_name)
-            elif issubclass(ffield.type, Sequence):
+            if is_nontextual_sequence(ffield.type):
                 val = form_data.getlist(ffield.encode_name)
             else:
                 val = form_data.get(ffield.encode_name)
@@ -174,7 +186,7 @@ def analyze_markedparam(
         Query[Any] | Header[Any, Any] | Use[Any] | Annotated[Any, ...]
     ] = MISSING,
     default: Any = MISSING,
-    decoder: IDecoder[Any] | None = None,
+    custom_decoder: IDecoder[Any] | None = None,
 ) -> list[ParamPair | DependentNode]:
     if not is_provided(porigin):
         porigin = get_origin(type_)
@@ -190,19 +202,31 @@ def analyze_markedparam(
         elif new_origin := get_origin(atype):
             for meta in metas:
                 if isinstance(meta, CustomDecoder):
-                    decoder = meta.decode
+                    custom_decoder = meta.decode
                     break
 
             return analyze_markedparam(
-                graph, name, seen, path_keys, atype, new_origin, default, decoder
+                graph, name, seen, path_keys, atype, new_origin, default, custom_decoder
             )
         else:
-            return analyze_param(graph, name, seen, path_keys, atype, default)
+            for meta in metas:
+                if isinstance(meta, CustomDecoder):
+                    custom_decoder = meta.decode
+                    break
+            return analyze_param(
+                graph,
+                name,
+                seen,
+                path_keys,
+                atype,
+                default,
+                custom_decoder=custom_decoder,
+            )
     elif porigin is Use:
         node = graph.analyze(atype)
         return analyze_nodeparams(node, graph, seen, path_keys)
     else:
-        # Easy case, Pure non-deps request params
+        # Easy case, Pure non-deps request params with param marks.
         location: ParamLocation
         alias = name
         content_type: ParamContentType = "application/json"
@@ -214,19 +238,19 @@ def analyze_markedparam(
         elif porigin is Form:
             location = "body"
             content_type = "multipart/form-data"
+            custom_decoder = fromdecoder_factory(atype)
         elif porigin is Path:
             location = "path"
         else:
             location = "query"
 
-        if decoder is None:
+        if custom_decoder is None:
             if location == "body":
-                if content_type == "multipart/form-data":
-                    decoder = make_form_decoder(atype)
-                else:
-                    decoder = decoder_factory(atype)
+                decoder = decoder_factory(atype)
             else:
                 decoder = textdecoder_factory(atype)
+        else:
+            decoder = custom_decoder
 
         req_param = RequestParam(
             type_=atype,
@@ -241,6 +265,42 @@ def analyze_markedparam(
         return [pair]
 
 
+def analyze_union_param(
+    name: str, type_: UnionType | type[Any] | GenericAlias, default: Any
+) -> RequestParam[Any]:
+    type_args = get_args(type_)
+    content_type: ParamContentType = "application/json"
+
+    for subt in type_args:
+        if is_body_param(subt):
+            if is_file_body(type_):
+                decoder = filedeocder_factory(type_)
+                content_type = "multipart/form-data"
+            else:
+                decoder = decoder_factory(subt)
+            req_param = RequestParam(
+                type_=type_,
+                name=name,
+                alias=name,
+                decoder=decoder,
+                location="body",
+                default=default,
+                content_type=content_type,
+            )
+            break
+    else:
+        decoder = textdecoder_factory(type_)
+        req_param = RequestParam(
+            type_=type_,
+            name=name,
+            alias=name,
+            decoder=decoder,
+            location="query",
+            default=default,
+        )
+    return req_param
+
+
 def analyze_param(
     graph: Graph,
     name: str,
@@ -248,6 +308,7 @@ def analyze_param(
     path_keys: tuple[str, ...],
     type_: type[Any] | UnionType | GenericAlias,  # or GenericAlias
     default: Any,
+    custom_decoder: IDecoder[Any] | None = None,
 ) -> list[ParamPair | DependentNode]:
     """
     Analyzes a parameter and returns a tuple of:
@@ -255,9 +316,11 @@ def analyze_param(
     - The dependent node if this parameter is a dependency, otherwise None
     """
 
+    content_type: ParamContentType = "application/json"
+
     if name in path_keys:  # simplest case
         seen.discard(name)
-        decoder = textdecoder_factory(type_)
+        decoder = custom_decoder or textdecoder_factory(type_)
         req_param = RequestParam(
             type_=type_,
             name=name,
@@ -267,38 +330,23 @@ def analyze_param(
             default=default,
         )
     elif is_body_param(type_):
-        decoder = decoder_factory(type_)
+        if is_file_body(type_):
+            decoder = custom_decoder or filedeocder_factory(type_)
+            content_type = "multipart/form-data"
+        else:
+            decoder = custom_decoder or decoder_factory(type_)
+
         req_param = RequestParam(
             type_=type_,
             name=name,
+            default=default,
             alias=name,
             decoder=decoder,
             location="body",
-            default=default,
+            content_type=content_type,
         )
     elif isinstance(type_, UnionType) or get_origin(type_) is Union:
-        type_args = get_args(type_)
-        if any(is_body_param(subt) for subt in type_args):
-            decoder = decoder_factory(type_)
-            req_param = RequestParam(
-                type_=type_,
-                name=name,
-                alias=name,
-                decoder=decoder,
-                location="body",
-                default=default,
-            )
-        else:
-            decoder = textdecoder_factory(type_)
-            req_param = RequestParam(
-                type_=type_,
-                name=name,
-                alias=name,
-                decoder=decoder,
-                location="query",
-                default=default,
-            )
-
+        req_param = analyze_union_param(name, type_, default)
     elif type_ in graph.nodes:
         node = graph.analyze(type_)
         params: list[ParamPair | DependentNode] = [node]
@@ -319,7 +367,7 @@ def analyze_param(
         # user should be able to menually init their plugin then register as a singleton
         return [(name, SingletonParam(type_=type_, name=name, default=default))]
     else:  # default case, treat as query
-        decoder = textdecoder_factory(type_)
+        decoder = custom_decoder or textdecoder_factory(type_)
         req_param = RequestParam(
             type_=type_,
             name=name,
@@ -347,7 +395,6 @@ class ParsedParams(Base):
                 if isinstance(req_param, SingletonParam):
                     self.singletons.append((param_name, req_param))
                 elif req_param.location == "body":
-                    # TODO: we only need to check if body is Form.
                     self.bodies.append((param_name, req_param))
                 else:
                     self.params.append((param_name, req_param))
@@ -378,6 +425,13 @@ def analyze_request_params(
     for name, param in func_params:
         ptype, default = param.annotation, param.default
         default = MISSING if param.default is Parameter.empty else param.default
-        param_list = analyze_param(graph, name, seen_path, path_keys, ptype, default)
+        param_list = analyze_param(
+            graph=graph,
+            name=name,
+            seen=seen_path,
+            path_keys=path_keys,
+            type_=ptype,
+            default=default,
+        )
         parsed_params.collect_param(name, param_list)
     return parsed_params

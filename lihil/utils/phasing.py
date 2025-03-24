@@ -10,13 +10,13 @@ from lihil.interface import IDecoder, IEncoder
 from lihil.utils.typing import is_union_type
 
 
-def str_decoder(content: str | bytes) -> str:
+def to_str(content: str | bytes) -> str:
     if isinstance(content, bytes):
         return content.decode()
     return content
 
 
-def bytes_decoder(content: str | bytes) -> bytes:
+def to_bytes(content: str | bytes) -> bytes:
     if isinstance(content, str):
         return content.encode()
     return content
@@ -45,7 +45,7 @@ def build_union_decoder(
         new_union = Union[rest]  # type: ignore
         rest_decoder = decoder_factory(new_union)
 
-    raw_decoder = str_decoder if target_type is str else bytes_decoder
+    raw_decoder = to_str if target_type is str else to_bytes
 
     def decode_reunion(content: bytes | str):
         try:

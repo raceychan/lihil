@@ -259,4 +259,5 @@ fix a bug where `Envelopment.build_decoder` would return a decoder that only dec
 - Problem Page now has a new `View this as Json` button 
 
 - user can now declare form data using `Form` in their endpoint.
+- user can now declare `UploadFile` in their endpoint.
 

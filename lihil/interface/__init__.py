@@ -59,9 +59,8 @@ class _Missed:
 MISSING = _Missed()
 
 
-
 class IDecoder[T](Protocol):
-    def __call__(self, content: bytes | str, /) -> T: ...
+    def __call__(self, content: Any, /) -> T: ...
 
 
 class IEncoder[T](Protocol):

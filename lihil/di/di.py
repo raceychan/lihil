@@ -6,12 +6,7 @@ from ididi import DependentNode, Graph
 from msgspec import DecodeError, ValidationError, field
 from starlette.requests import Request
 
-from lihil.di.params import (
-    ParamContentType,
-    RequestParam,
-    SingletonParam,
-    analyze_request_params,
-)
+from lihil.di.params import RequestParam, SingletonParam, analyze_request_params
 from lihil.di.returns import ReturnParam, analyze_return
 from lihil.interface import MISSING, Base, Record
 from lihil.problems import (
@@ -53,7 +48,7 @@ class EndpointDeps[R](Base):
 
     return_param: ReturnParam[R]  # | UnionType
     scoped: bool
-    body_media: ParamContentType
+    form_body: bool = False
 
     def override(self) -> None: ...
 
@@ -137,13 +132,13 @@ class EndpointDeps[R](Base):
         req_path = req.path_params if self.path_params else None
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
-        if self.body_media == "application/json":
-            body = await req.body()
-            params = self.prepare_params(req_path, req_query, req_header, body)
-        else:
+        if self.form_body:
             body = await req.form()
             params = self.prepare_params(req_path, req_query, req_header, body)
             params.callbacks.append(body.close)
+        else:
+            body = await req.body()
+            params = self.prepare_params(req_path, req_query, req_header, body)
         return params
 
 
@@ -154,6 +149,8 @@ def analyze_endpoint[R](
     seen_path: set[str] = set(path_keys)
     func_sig = signature(f)
     func_params = tuple(func_sig.parameters.items())
+    # inputs
+
     params = analyze_request_params(func_params, graph, seen_path, path_keys)
     retparam = analyze_return(func_sig.return_annotation)
     if seen_path:
@@ -161,8 +158,8 @@ def analyze_endpoint[R](
     scoped = any(graph.should_be_scoped(node.dependent) for _, node in params.nodes)
 
     body_param = params.get_body()
-    body_media: ParamContentType = (
-        body_param[1].content_type if body_param else "application/json"
+    form_body: bool = (
+        body_param[1].content_type == "multipart/form-data" if body_param else False
     )
     info = EndpointDeps(
         route_path=route_path,
@@ -174,6 +171,6 @@ def analyze_endpoint[R](
         dependencies=tuple(params.nodes),
         return_param=cast(ReturnParam[R], retparam),
         scoped=scoped,
-        body_media=body_media,
+        form_body=form_body,
     )
     return info

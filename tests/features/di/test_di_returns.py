@@ -100,7 +100,6 @@ def test_return_param_init():
     assert "Return(test, 200)" in repr(param)
 
 
-# Test ReturnParam.from_mark method (lines 131, 143-146, 151-152)
 def test_return_param_from_mark():
     # Test with Text mark (line 131)
     param = ReturnParam.from_mark(Text, Text, 200)
@@ -219,6 +218,7 @@ def test_random_metas():
     ret = ReturnParam.from_mark(Annotated[Resp[str], "aloha"], Annotated, 422)
     assert ret.type_ is str
     assert ret.status == 422
+
 
 def test_analyze_invalid_union():
     with pytest.raises(NotImplementedError):
