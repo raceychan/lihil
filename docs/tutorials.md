@@ -38,7 +38,9 @@ when defining endpoints, you can use marks provide meta data for your params.
 - `Body` for body param
 - `Use` for dependency
 
-if a param is not declared with param marks, the following rule would apply:
+##### Param Parsing Rules
+
+if a param is not declared with any param mark, the following rule would apply to parse it:
 
 - if the param name appears in route path, it is interpreted as a path param.
 - if the param type is a subclass of `msgspec.Struct`, it is interpreted as a body param.
@@ -67,7 +69,7 @@ user_route.factory(Cache)
 
 @user_route.put
 async def update_user(user_id: str, engine: Use[Engine], cache: Cache, bus: EventBus):
-    ...
+    return "ok"
 ```
 
 In this example:
@@ -77,17 +79,9 @@ In this example:
 - `cache` is registered in the user_route, so it is also a dependency
 - `bus` is a lihil-builtin type, it is therefore a dependency as well.
 
-only `user_id` needs to be provided by the client request, rest will be resolved by lihil.
+Only `user_id` needs to be provided by the client request, rest will be resolved by lihil.
 
-#### Param Parsing
-
-if you would like to have a great control on how your params are parsed, you can use `CustomDecoder` to provide your decoder for the param type.
-
-```python
-@user_route.put
-async def update_user(random: Annotated[str, Customer]):
-    ...
-```
+Since return param is not declared, `"ok"` will be serialized as json `'"ok"'`, status code will be `200`.
 
 ## Config Your App
 
@@ -302,7 +296,7 @@ lihil accepts a factory to build your middleware, so that you can use di inside 
 lihil.add_middleware(lambda app: app.graph.resolve(ThrottleMiddleware))
 ```
 
-- use it at your endpoints
+- Use it at your endpoints
 
 ```python
 async def create_user(user_name: str, plugin: YourPlugin): ...
@@ -310,11 +304,11 @@ async def create_user(user_name: str, plugin: YourPlugin): ...
 
 ### DI (dependency injection)
 
-- you can use `Route.factory` to decorate a dependency class/factory function for the class for your dependency, or `Route.add_nodes` to batch add&config many dependencies at once. it is recommended to register dependency where you use them, but you can register them to any route if you want.
+- You can use `Route.factory` to decorate a dependency class/factory function for the class for your dependency, or `Route.add_nodes` to batch add&config many dependencies at once. it is recommended to register dependency where you use them, but you can register them to any route if you want.
 
-- if your factory function is a generator(function that contains `yield` keyword), it will be treated as `scoped`, meaning that it will be created before your endpoint function and destoried after. you can use this to achieve business purpose via clients that offer `atomic operation`, such as database connection.
+- If your factory function is a generator(function that contains `yield` keyword), it will be treated as `scoped`, meaning that it will be created before your endpoint function and destoried after. you can use this to achieve business purpose via clients that offer `atomic operation`, such as database connection.
 
-- you can create function as dependency by `Annotated[Any, use(your_function)]`. Do note that you will need to annotate your dependency function return type with `Ignore` like this
+- You can create function as dependency by `Annotated[Any, use(your_function)]`. Do note that you will need to annotate your dependency function return type with `Ignore` like this
 
 ```python
 async def get_user(token: UserToken) -> Ignore[User]: ...
@@ -331,11 +325,25 @@ To use them, annotate your param type with `CustomDecoder` and your return type 
 ```python
 from lihil.di import CustomEncoder, CustomDecoder
 
-async def create_user(
+user_route = @Route(/users/{user_id})
+
+async def get_user(
     user_id: Annotated[MyUserID, CustomDecoder(decode_user_id)]
 ) -> Annotated[MyUserId, CustomEncoder(encode_user_id)]:
     return user_id
 ```
+
+```python
+def decoder[T](param: str | bytes) -> T: ...
+```
+
+- `decoder` should expect a single param with type either `str`, for non-body param, or `bytes`, for body param, and returns required param type, in the `decode_user_id` case, it is `str`.
+
+```python
+def encoder[T](param: T) -> bytes: ...
+```
+
+- `encoder` should expect a single param with any type that the endpoint function returns, in the `encode_user_id` case, it is `str`, and returns bytes.
 
 ### Testing
 

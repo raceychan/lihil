@@ -87,7 +87,62 @@ when such exception is raised from endpoint, client would receive a response lik
 
 ## Message System
 
-publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
+
+Lihil has built-in support for both in-process message handling
+
+There are three primitives for event:
+
+1. publish: asynchronous and blocking event handling that shares the same scoep with caller.
+2. emit: non-blocking asynchrounous event hanlding, has its own scope.
+3. sink: a thin wrapper around external dependency for data persistence, such as message queue or database.
+
+```python
+from lihil import Resp, Route, status
+from lihil.plugins.bus import Event, EventBus
+from lihil.plugins.testclient import LocalClient
+
+
+class TodoCreated(Event):
+    name: str
+    content: str
+
+
+async def listen_create(created: TodoCreated, ctx):
+    assert created.name
+    assert created.content
+
+
+async def listen_twice(created: TodoCreated, ctx):
+    assert created.name
+    assert created.content
+
+
+bus_route = Route("/bus", listeners=[listen_create, listen_twice])
+
+
+@bus_route.post
+async def create_todo(name: str, content: str, bus: EventBus) -> Resp[None, status.OK]:
+    await bus.publish(TodoCreated(name, content))
+```
+
+An event can have multiple event handlers, they will be called in sequence, config your `BusTerminal` with `publisher` then inject it to `Lihil`.
+
+- An event handler can have as many dependencies as you want, but it should at least contain two params: a sub type of `Event`, and a sub type of `MessageContext`.
+
+- if a handler is reigstered with a parent event, it will listen to all of its sub event.
+for example,
+
+- a handler that listens to `UserEvent`, will also be called when `UserCreated(UserEvent)`, `UserDeleted(UserEvent)` event is published/emitted.
+
+- you can also publish event during event handling, to do so, declare one of your dependency as `EventBus`,
+
+```python
+async def listen_create(created: TodoCreated, _: Any, bus: EventBus):
+    if is_expired(created.created_at):
+        event = TodoExpired.from_event(created)
+        await bus.publish(event)
+```
+
 
 ## typing support
 

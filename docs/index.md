@@ -22,8 +22,6 @@ Lihil is
 
 ## Features
 
-
-
 - **Data validation** using `msgspec`, which is about 12x faster than pydantic v2 for valiation and 25x memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html)
 - **Advanced dependency injection**, using `ididi` written in cython, inject params, resources, plugins, extremly powerful and fast.
 - **OpenAPI docs** and json schema automatically generated with accurate type information, union type, json examples, problem detail(RFC-9457) and more.
@@ -33,9 +31,43 @@ Lihil is
 
 checkout [features page](./features.md) for detailed explaination with scrrenshot & code examples.
 
+
+## First impression
+
+```python
+from lihil import Lihil, Route, EventBus, Event, status
+from msgspec import field, Struct
+
+from .users.infra import UserService
+
+user_route = Route("/users")
+
+class UserSignup(Payload):
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+
+class UserCreated(Event):
+    id: str
+    name: str
+
+@user_route.post
+async def singup_user(
+    data: UserSignup, service: UserService, bus: EventBus
+) -> Resp[str, status.Created]:
+    user = await service.signup(data)
+    event = UserCreated(id=user.id, name=user.name)
+    await bus.publish(event)
+    return user.id
+
+lhl = Lihil(routes=[user_route])
+
+if __name__ == "__main__":
+    lhl.run()
+```
+
 ## Install
 
-lihil requires python>=3.12
+lihil(currently) requires python>=3.12
 
 ### pip
 
@@ -45,31 +77,30 @@ pip install lihil
 
 ### uv
 
-uv is the recommended way of using this project, [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
+if you want to install this project with uv
 
-1. init project with `project_name`
+[uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
+
+1. init your web project with `project_name`
 
 ```bash
 uv init project_name
 ```
 
-2.install lihil
+2. install lihil via uv, this will solve all dependencies for your in a dedicated venv.
 
 ```bash
 uv add lihil
 ```
 
-## First impression
 
-```python
-from lihil import Lihil
 
-lhl = Lihil()
+## versioning
 
-@lhl.get
-async def hello():
-    return {"hello": "world!"}
+lihil follows semantic versioning, where a version in x.y.z represents:
 
-if __name__ == "__main__":
-    lhl.run()
-```
+- x: major, breaking change
+- y: minor, feature updates
+- z: patch, bug fixes, typing updates
+
+**v1.0.0** will be the first stable major version.
