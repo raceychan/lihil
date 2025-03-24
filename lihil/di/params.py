@@ -237,9 +237,6 @@ def analyze_markedparam(
     default: Any = MISSING,
 ) -> list[ParamPair | DependentNode]:
 
-    if porigin is Annotated:
-        raise NotImplementedError
-
     atype, local_metas = flatten_annotated(type_)
     if local_metas:
         metas += local_metas

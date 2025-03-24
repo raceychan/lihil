@@ -369,3 +369,44 @@ async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
     ep = rusers.get_endpoint("GET")
     assert ep.deps.query_params
     assert not ep.deps.path_params
+
+
+async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
+
+    async def get(aloha: Annotated[int, "aloha"]) -> Resp[Text, status.OK]:
+        return "ok"
+
+    rusers.get(get)
+
+    ep = rusers.get_endpoint("GET")
+    assert ep.deps.query_params
+    assert ep.deps.query_params[0][0] == "aloha"
+    assert ep.deps.query_params[0][1].type_ is int
+
+
+async def test_ep_with_random_annoated_path(rusers: Route, lc: LocalClient):
+
+    async def get(user_id: Annotated[int, "aloha"]) -> Resp[Text, status.OK]:
+        return "ok"
+
+    rusers.get(get)
+
+    ep = rusers.get_endpoint("GET")
+    assert ep.deps.path_params
+    assert ep.deps.path_params[0][0] == "user_id"
+    assert ep.deps.path_params[0][1].type_ is int
+
+
+async def test_ep_with_random_annoated_path(rusers: Route, lc: LocalClient):
+    class UserInfo(Payload):
+        name: str
+        phones: list[str]
+
+    async def get(user: Annotated[UserInfo, "aloha"]) -> Resp[Text, status.OK]:
+        return "ok"
+
+    rusers.get(get)
+
+    ep = rusers.get_endpoint("GET")
+    assert ep.deps.body_param
+    assert ep.deps.body_param[1].type_ is UserInfo

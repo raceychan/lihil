@@ -14,6 +14,7 @@ from lihil.di.params import (
     analyze_nodeparams,
     analyze_param,
     analyze_request_params,
+    analyze_union_param,
     flatten_annotated,
     is_param_mark,
     textdecoder_factory,
@@ -697,3 +698,12 @@ def test_query_struct_is_query():
 
     assert pres.location == "query"
     assert pres.type_ == QModel
+
+
+def test_union_param_with_non_file():
+    class QModel(Payload):
+        name: str
+        age: int
+
+    param = analyze_union_param(name="q", type_=bytes | QModel, default=None)
+    assert param.type_ == (bytes | QModel)

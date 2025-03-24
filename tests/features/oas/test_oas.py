@@ -4,8 +4,10 @@ import pytest
 
 from lihil import HTTPException, Payload, Resp, Route, Text, status
 from lihil.config import OASConfig
+from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.oas.doc_ui import get_problem_ui_html
 from lihil.oas.schema import generate_oas, generate_op_from_ep
+from lihil.plugins.testclient import LocalClient
 from lihil.problems import collect_problems
 
 
@@ -99,3 +101,30 @@ def test_complex_route(complex_route: Route):
 
     oas = generate_oas([complex_route], oas_config, "0.1.0")
     assert oas
+
+
+async def test_call_openai():
+    lc = LocalClient()
+    oas_route = get_openapi_route(oas_config, routes=[], app_version="0.1.0")
+    ep = oas_route.get_endpoint("GET")
+
+    res = await lc.call_endpoint(ep)
+    assert res.status_code == 200
+
+
+async def test_call_doc_ui():
+    lc = LocalClient()
+    doc_route = get_doc_route(oas_config)
+    ep = doc_route.get_endpoint("GET")
+
+    res = await lc.call_endpoint(ep)
+    assert res.status_code == 200
+
+
+async def test_call_problempage():
+    lc = LocalClient()
+    problem_route = get_problem_route(oas_config, [])
+    ep = problem_route.get_endpoint("GET")
+
+    res = await lc.call_endpoint(ep)
+    assert res.status_code == 200
