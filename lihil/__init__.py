@@ -23,5 +23,5 @@ from .vendor_types import UploadFile as UploadFile
 
 # from .server.runner import run as run
 
-VERSION = "1.5.4"
+VERSION = "0.1.11"
 __version__ = VERSION
