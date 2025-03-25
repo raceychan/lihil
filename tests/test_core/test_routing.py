@@ -239,7 +239,7 @@ async def test_route_get_endpoint():
 
     # Get by method string
     endpoint = route.get_endpoint("GET")
-    assert endpoint.func is handler
+    assert endpoint.unwrapped_func is handler
 
     # Get by function reference
     endpoint = route.get_endpoint(handler)
@@ -584,7 +584,7 @@ def test_get_endpoint_with_sync_func_fail():
 
     def dummy(): ...
 
-    with pytest.raises(TypeError):
+    with pytest.raises(KeyError):
         route.get_endpoint(dummy)
 
 
@@ -672,8 +672,9 @@ async def test_route_with_literal_resp():
 
     async def post_empty() -> Literal[None]: ...
 
+    route.post(post_empty)
     with pytest.raises(InvalidParamTypeError):
-        route.post(post_empty)
+        route.setup()
 
 
 async def test_route_with_nested_empty_response():

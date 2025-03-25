@@ -45,6 +45,7 @@ def test_get_order_schema():
     ) -> Order | User: ...
 
     current_ep = user_route.endpoints["POST"]
+    current_ep.setup()
     ep_rt = current_ep.deps.return_param
     assert isinstance(ep_rt.type_, UnionType)
     components = {"schemas": {}}
@@ -60,6 +61,7 @@ def test_get_hello_return():
     ) -> Resp[Text, status.OK]: ...
 
     current_ep = user_route.get_endpoint(get_hello)
+    current_ep.setup()
     ep_rt = current_ep.deps.return_param
     assert ep_rt.type_ is bytes
 
@@ -105,6 +107,7 @@ def test_complex_route(complex_route: Route):
     complex_route.add_endpoint(
         "GET", func=get_user, errors=[UserNotFoundError, UserNotHappyError]
     )
+    complex_route.setup()
 
     oas = generate_oas([complex_route], oas_config, "0.1.0")
     assert oas
@@ -146,7 +149,7 @@ async def test_ep_with_empty_resp():
     route.get(empty_ep)
 
     ep = route.get_endpoint("GET")
-
+    ep.setup()
     schema = get_resp_schemas(ep, {}, "")
     assert schema["200"].description == "No Content"
 
@@ -163,6 +166,7 @@ async def test_ep_with_annotated_resp():
     route.get(empty_ep)
 
     ep = route.get_endpoint("GET")
+    ep.setup()
     schema = get_resp_schemas(ep, {}, "")
     assert schema
 

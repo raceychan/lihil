@@ -1,5 +1,4 @@
 from functools import partial
-from inspect import iscoroutinefunction
 from types import MethodType
 from typing import Any, Callable, Pattern, Union, Unpack, cast, overload
 
@@ -67,7 +66,7 @@ class Route(ASGIBase):
 
     def __repr__(self):
         endpoints_repr = "".join(
-            f", {method}: {endpoint.func}"
+            f", {method}: {endpoint.unwrapped_func}"
             for method, endpoint in self.endpoints.items()
         )
         return f"{self.__class__.__name__}({self.path!r}{endpoints_repr})"
@@ -90,6 +89,7 @@ class Route(ASGIBase):
 
     def setup(self):
         for method, ep in self.endpoints.items():
+            ep.setup()
             self.call_stacks[method] = self.chainup_middlewares(ep)
 
     def sync_deps(self, graph: Graph, busterm: BusTerminal):
@@ -97,8 +97,7 @@ class Route(ASGIBase):
         self.busterm = busterm
 
         for ep in self.endpoints.values():
-            ep.graph = graph
-            ep.busterm = busterm
+            ep.sync_deps(graph, busterm)
 
     def get_endpoint(
         self, method_func: HTTP_METHODS | Callable[..., Any]
@@ -107,11 +106,8 @@ class Route(ASGIBase):
             methodname = cast(HTTP_METHODS, method_func.upper())
             return self.endpoints[methodname]
 
-        if not iscoroutinefunction(method_func):
-            raise TypeError("only async function can be used to lookup endpint")
-
         for ep in self.endpoints.values():
-            if ep.func is method_func:
+            if ep.unwrapped_func is method_func:
                 return ep
         else:
             raise KeyError(f"{method_func} is not in current route")

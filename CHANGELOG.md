@@ -383,3 +383,25 @@ async def get_user(engine: Engine, resolver: AsyncScope):
 async def create_user(engine: Engine, resolver: AsyncScope):
     assert not isinstance(resolver, AsyncScope) # here resolver is Graph since `Engine` is not scoped.
 ```
+
+## version 0.1.12
+
+### Improvements
+
+- lazy analysis on endpoint, now dependencies declare in the endpoint won't be analyzed untill lifespan event. this is for better analysis on dependencies, for example:
+
+```python
+
+user_route = Route("user")
+
+@user_route.factory
+class Engine: ...
+
+order_route = Route("order")
+
+@order_route.get
+async def get_order(engine: Engine):
+    ...
+```
+
+before this change, when `get_order` is added to `order_route`, `Engine` will be recognized as a query param, as `Engine` is registered through `user_route`

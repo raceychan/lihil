@@ -58,6 +58,7 @@ async def create_user(
 def test_return_status(rusers: Route):
     rusers.post(create_user)
     ep = rusers.get_endpoint(create_user)
+    ep.setup()
     assert any(qp[0] == "q" for qp in ep.deps.query_params)
     assert not any(qp[0] == "func_dep" for qp in ep.deps.query_params)
     assert any(pp[0] == "user_id" for pp in ep.deps.path_params)
@@ -72,8 +73,9 @@ def test_status_conflict(rusers: Route):
     ) -> Annotated[Resp[str, status.NO_CONTENT], "hello"]:
         return "hello"
 
+    rusers.get(get_user)
     with pytest.raises(StatusConflictError):
-        rusers.get(get_user)
+        rusers.get_endpoint(get_user).setup()
 
 
 def test_annotated_generic(rusers: Route):
@@ -82,6 +84,7 @@ def test_annotated_generic(rusers: Route):
 
     rusers.put(update_user)
     ep = rusers.get_endpoint(update_user)
+    ep.setup()
     repr(ep)
     assert ep.deps.return_param.type_ == dict[str, str]
 
@@ -351,8 +354,9 @@ async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
         assert isinstance(by_form, bytes)
         return "ok"
 
+    rusers.get(get)
     with pytest.raises(NotSupportedError):
-        rusers.get(get)
+        rusers.get_endpoint("GET").setup()
 
 
 async def test_ep_requiring_form_sequence_type(rusers: Route, lc: LocalClient):
@@ -378,6 +382,7 @@ async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
+    ep.setup()
     assert ep.deps.query_params
     assert not ep.deps.path_params
 
@@ -390,6 +395,7 @@ async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
+    ep.setup()
     assert ep.deps.query_params
     assert ep.deps.query_params[0][0] == "aloha"
     assert ep.deps.query_params[0][1].type_ is int
@@ -419,6 +425,7 @@ async def test_ep_with_random_annoated_path(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
+    ep.setup()
     assert ep.deps.body_param
     assert ep.deps.body_param[1].type_ is UserInfo
 

@@ -28,6 +28,7 @@ def test_endpoint_deps():
     route = Route()
     route.get(get_order)
     ep = route.get_endpoint("GET")
+    ep.setup()
     rt = ep.deps.return_param
     assert isinstance(rt.type_, UnionType)
     # assert str in rt.type_

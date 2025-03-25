@@ -122,12 +122,12 @@ class Lihil[T](ASGIBase):
         await receive()
 
         if self._userls is None:
-            self._setup()
+            self.setup()
             return
 
         user_ls = self._userls(self)
         try:
-            self._setup()
+            self.setup()
             self._app_state = await user_ls.__aenter__()
             await send({"type": "lifespan.startup.complete"})
         except BaseException:
@@ -144,7 +144,7 @@ class Lihil[T](ASGIBase):
         else:
             await send({"type": "lifespan.shutdown.complete"})
 
-    def _setup(self) -> None:
+    def setup(self) -> None:
         self.call_stack = self.chainup_middlewares(self.call_route)
         for route in self.routes:
             route.setup()

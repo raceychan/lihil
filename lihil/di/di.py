@@ -165,7 +165,6 @@ def analyze_endpoint[R](
     graph: Graph,
     route_path: str,
     f: Callable[..., R | Awaitable[R]],
-    config: EndPointConfig | None = None,
 ) -> "EndpointDeps[R]":
     path_keys = find_path_keys(route_path)
     seen_path: set[str] = set(path_keys)
@@ -178,12 +177,9 @@ def analyze_endpoint[R](
     if seen_path:
         warn(f"Unused path keys {seen_path}")
 
-    scoped_by_config = bool(config and config.scoped is True)
 
-    if not scoped_by_config:
-        scoped = any(graph.should_be_scoped(node.dependent) for _, node in params.nodes)
-    else:
-        scoped = scoped_by_config
+    scoped = any(graph.should_be_scoped(node.dependent) for _, node in params.nodes)
+
 
     body_param = params.get_body()
     form_body: bool = is_form_body(body_param)

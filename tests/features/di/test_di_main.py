@@ -32,11 +32,11 @@ async def test_call_endpoint():
         return "ok"
 
     ep = route.get_endpoint(create_todo)
-    assert ep.encoder is encode_text
     client = LocalClient()
     resp = await client.call_endpoint(
         ep=ep, path_params=dict(p="hello"), query_params=dict(q=5)
     )
+    assert ep.encoder is encode_text
     result = await resp.body()
     assert result == b"ok"
 
@@ -46,6 +46,7 @@ async def test_non_use_dep():
     async def get_todo(p: str, service: UserService): ...
 
     ep = route.get_endpoint(get_todo)
+    ep.setup()
     deps = ep.deps.dependencies
     assert len(deps) == 1  # only service not engine
 

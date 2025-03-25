@@ -265,6 +265,7 @@ class LocalClient:
         3. set ep.graph = new graph
         4. reset ep.graph to old graph
         """
+        ep.setup()
 
         resp = await self.request(
             app=ep,

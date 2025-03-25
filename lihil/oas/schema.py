@@ -351,7 +351,7 @@ def generate_op_from_ep(
 ) -> oasmodel.Operation:
     tags = [ep.tag] if ep.tag else ["root"]
     summary = ep.name.replace("_", " ").title()
-    description = trimdoc(ep.func.__doc__) or "Missing Description"
+    description = trimdoc(ep.unwrapped_func.__doc__) or "Missing Description"
     operationId = generate_unique_id(ep)
     params, body = generate_param_schema(ep.deps, schemas)
 

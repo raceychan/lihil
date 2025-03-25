@@ -33,6 +33,7 @@ async def test_bus_is_singleton():
     bus_route.post(create_todo)
 
     ep = bus_route.get_endpoint("POST")
+    ep.setup()
     assert ep.deps.singletons
     assert ep.deps.singletons[0][1].type_ is EventBus
 

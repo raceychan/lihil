@@ -2,18 +2,20 @@
 
 ## Basics
 
-### Endpoint
+### how to create an enpoint
 
 An `endpoint` is the most atomic ASGI component in `lihil`, registered under `Route` with `Route.{http method}`, such as `Route.get`. It defines how clients interact with the resource exposed by the `Route`, effectively combining a `Route` and an HTTP method. In the ASGI call chain, the `endpoint` is typically at the end.
 
 
-Let's what a normal endpoint would like with an example:
+Let's start with transforming a regular function that creates a `User` in database to an endpoint.
 
 #### `app/users/api.py`
 
 ```python
+from msgspec import Struct
+from sqlalchemy import Engine
 
-async def create_user(user: UserData)
+async def create_user(user: UserData, )
 
 ```
 
