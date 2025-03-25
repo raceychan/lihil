@@ -6,9 +6,6 @@ from ididi import DependentNode, Graph
 from msgspec import DecodeError, ValidationError, field
 from starlette.requests import Request
 
-from lihil.config import EndPointConfig
-
-# from lihil.config import
 from lihil.di.params import RequestParam, SingletonParam, analyze_request_params
 from lihil.di.returns import ReturnParam, analyze_return
 from lihil.interface import MISSING, Base, Record
@@ -170,16 +167,13 @@ def analyze_endpoint[R](
     seen_path: set[str] = set(path_keys)
     func_sig = signature(f)
     func_params = tuple(func_sig.parameters.items())
-    # inputs
 
     params = analyze_request_params(func_params, graph, seen_path, path_keys)
     retparam = analyze_return(func_sig.return_annotation)
     if seen_path:
         warn(f"Unused path keys {seen_path}")
 
-
     scoped = any(graph.should_be_scoped(node.dependent) for _, node in params.nodes)
-
 
     body_param = params.get_body()
     form_body: bool = is_form_body(body_param)

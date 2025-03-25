@@ -2,27 +2,107 @@
 
 ## Basics
 
-### how to create an enpoint
+### Create an enpoint from regular function
 
 An `endpoint` is the most atomic ASGI component in `lihil`, registered under `Route` with `Route.{http method}`, such as `Route.get`. It defines how clients interact with the resource exposed by the `Route`, effectively combining a `Route` and an HTTP method. In the ASGI call chain, the `endpoint` is typically at the end.
 
-
-Let's start with transforming a regular function that creates a `User` in database to an endpoint.
+Let's start with a function that creates a `User` in database.
 
 #### `app/users/api.py`
 
 ```python
 from msgspec import Struct
-from sqlalchemy import Engine
+from sqlalchemy.ext.asyncio import AsyncEngine
+from .users.db import user_sql
 
-async def create_user(user: UserData, )
+class UserDB(UserData):
+    user_id: str
 
+def get_engine() -> AsyncEngine:
+    return AsyncEngine()
+
+async def create_user(user: UserData, engine: AsyncEngine) -> UserDB:
+    user_id = str(uuid4())
+    sql = user_sql(user=user, id_=user_id)
+    async with engine.begin() as conn:
+        await conn.execute(sql)
+    return UserDB.from_user(user, id=user_id)
 ```
 
+To expose this function as an endpoint:
 
-#### Marks
+```python
+from lihil import Route
 
-when defining endpoints, you can use marks provide meta data for your params.
+user_route = Route("/users")
+user_route.factory(get_engine)
+user_route.post(create_user)
+```
+
+With just three lines, we:
+
+1. Create a Route with the path "/users".
+2. Register `AsyncEngine` as a dependency, using `get_engine` as its factory.
+3. Register create_user as the POST endpoint.
+
+#### Declare endpoint meta using marks
+
+Often you would like to change status code, or content type, to do so, you can use one or a combination of several `return marks`. for example, to change stauts code:
+
+```python
+from lihil import Resp, status
+
+async def create_user(user: UserData, engine: Engine) -> Resp[UserDB, status.Created]:
+    ...
+```
+
+Now `create_user` would return a status code `201`, instead of the default `200`.
+
+There are several other return marks you might want to use:
+
+- `Json[T]` for response with content-type `application/json`, the default case
+- `Text` for response with content-type `text/plain`
+- `HTML` for response with content-type `text/html`
+- `Empty` for empty response
+- `Resp[T, 200]` for response with status code `200`
+
+
+#### Declare how your endpoint param should be parsed from request
+
+you can also use marks provide meta data for your params. for example:
+
+```python
+from lihil import use, Ignore
+from typing import Annotated, NewType
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+
+async def get_conn(engine: AsyncEngine) -> AsyncConnection:
+    async with engine.begin() as conn:
+        yield conn
+
+UserID = NewType("UserID", str)
+
+def user_id_factory() -> UserID:
+    return UserID(str(uuid4()))
+
+async def create_user(
+    user: UserData, user_id: UserID, conn: AsyncConnection
+) -> Resp[UserDB, stauts.Created]:
+
+    sql = user_sql(user=user, id_=user_id)
+    await conn.execute(sql)
+    return UserDB.from_user(user, id=user_id)
+
+user_route.factory(get_conn)
+user_route.factory(user_id_factory, reuse=False)
+```
+
+Here,
+
+1. `user_id` will be created by `user_id_factory` and return a uuid in str.
+2. `conn` will be created by `get_conn` and return an instance of `AsyncConnection`, where the the connection will be returned to engine after request.
+3. `UserDB` will be json-serialized, and return a response with content-type being `application/json`, status code being `201`.
+
 
 ##### Params
 
@@ -41,12 +121,7 @@ if a param is not declared with any param mark, the following rule would apply t
 - if the param type is registered in the route graph, or is a lihil-builtin type, it will be interpered as a dependency and will be resolved by lihil
 - otherise, it is interpreted as a query param.
 
-##### Returns
 
-- `Json` for response with content-type `application/json`, the default case
-- `Text` for response with content-type `text/plain`
-- `HTML` for response with content-type `text/html`
-- `Resp[T, 200]` for response with status code `200`
 
 Example:
 

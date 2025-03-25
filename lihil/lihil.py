@@ -104,9 +104,9 @@ class Lihil[T](ASGIBase):
         self.busterm = busterm or BusTerminal()
         self.root = Route("/", graph=self.graph)
         self.routes: list[Route] = [self.root]
+        # =========== keep above order ============
         if routes:
             self.include_routes(*routes)
-
         self._userls = lifespan_wrapper(lifespan)
         self.static_route: StaticRoute | None = None
         self._app_state: T | None = None

@@ -1,5 +1,5 @@
 from inspect import isasyncgen, isgenerator
-from typing import Any, Awaitable, Callable
+from typing import Any, Callable
 
 from ididi import Graph
 from ididi.graph import Resolver
@@ -17,14 +17,6 @@ from lihil.utils.threading import async_wrapper
 
 class Endpoint[R]:
     _method: HTTP_METHODS
-    _path: str
-    _tag: str
-    _name: str
-    _func: Callable[..., Awaitable[R]]
-    _graph: Graph
-    _deps: EndpointDeps[R]
-
-    _status_code: int
 
     def __init__(
         self,
@@ -105,6 +97,8 @@ class Endpoint[R]:
     def inject_singletons(
         self, params: dict[str, Any], request: Request, resolver: Resolver
     ):
+        # TODO?: we should enable user to extend this
+
         for name, p in self._deps.singletons:
             ptype = p.type_
             if issubclass(ptype, Request):

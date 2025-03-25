@@ -1,4 +1,3 @@
-import pytest
 from starlette.requests import Request
 
 from lihil import Payload, Route, Text
@@ -104,7 +103,7 @@ async def test_decoder_error():
     resp = await client.call_endpoint(ep, body=b"{invalid json")
 
     assert resp.status_code == 422
-    result = await resp.json()
+    await resp.json()
 
 
 async def test_param_with_default():
