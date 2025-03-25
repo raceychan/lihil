@@ -2,29 +2,21 @@
 
 ## Basics
 
-### Routing
-
-When you define a route, you expose a resource through a specific **path** that clients can request. you then define `endpoints` on the route to determin what clients can do with the resource.
-
-take url `https://lihil.cc/documentation` as an example, path `/documentation` would locate resource `documentation`.
-
-#### Define an route in lihil
-
-```python
-from lihil import Route
-
-orders_route = Route("/users/{user_id}/orders")
-```
-
 ### Endpoint
 
-endpoints always live under a route, an endpoint defines what clients can do with the resource exposed by the route. in a nutshell, an endpoint is the combination of a route and a http method.
+An `endpoint` is the most atomic ASGI component in `lihil`, registered under `Route` with `Route.{http method}`, such as `Route.get`. It defines how clients interact with the resource exposed by the `Route`, effectively combining a `Route` and an HTTP method. In the ASGI call chain, the `endpoint` is typically at the end.
+
+
+Let's what a normal endpoint would like with an example:
+
+#### `app/users/api.py`
 
 ```python
-@orders_route.get
-async def search_order(nums: int):
-    ...
+
+async def create_user(user: UserData)
+
 ```
+
 
 #### Marks
 
@@ -82,6 +74,22 @@ In this example:
 Only `user_id` needs to be provided by the client request, rest will be resolved by lihil.
 
 Since return param is not declared, `"ok"` will be serialized as json `'"ok"'`, status code will be `200`.
+
+### Routing
+
+When you define a route, you expose a resource through a specific **path** that clients can request. you then define `endpoints` on the route to determin what clients can do with the resource.
+
+take url `https://lihil.cc/documentation` as an example, path `/documentation` would locate resource `documentation`.
+
+#### Define an route in lihil
+
+```python
+from lihil import Route
+
+orders_route = Route("/users/{user_id}/orders")
+```
+
+
 
 ## Config Your App
 

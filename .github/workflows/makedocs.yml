@@ -22,5 +22,6 @@ jobs:
           key: ${{ github.ref }}
           path: .cache
       - run: pip install mkdocs-material[imaging]
+      - run: pip install mkdocs-mermaid2-plugin
       - run: pip install pillow cairosvg
       - run: mkdocs gh-deploy --force

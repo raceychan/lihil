@@ -29,6 +29,7 @@ theme:
 plugins:
   - social
   - search
+  - mermaid2
 
 extra:
   social:
@@ -45,7 +46,12 @@ markdown_extensions:
       generic: true
   - footnotes
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+        # make exceptions to highlighting of code:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom
   - pymdownx.mark
   - attr_list
   - pymdownx.emoji:
@@ -58,3 +64,4 @@ nav:
   - MiniCourse: minicourse.md
   - Features: features.md
   - Benchmark: benchmark.md
+  - Contribute: contribute.md
