@@ -255,7 +255,7 @@ fix a bug where `Envelopment.build_decoder` would return a decoder that only dec
 
 ### Improvements
 
-- Problem Page now has a new `View this as Json` button 
+- Problem Page now has a new `View this as Json` button
 - now prioritize param mark over param resolution rule
 
 ### Features
@@ -288,7 +288,7 @@ from lihil import UploadFile
 async def post(myfile: UploadFile) -> Resp[Text, 200]:
     file_path = f"/tmp/{myfile.filename}"  # Adjust the path as needed
     with open(file_path, "wb") as f:
-        f.write(await myfile.read())  
+        f.write(await myfile.read())
     return "ok"
 ```
 
@@ -299,8 +299,7 @@ async def post(myfile: UploadFile) -> Resp[Text, 200]:
 
 - now `add_middleware` will append new middleware to the tail of the call chain.
 - add `middlewares: list[MiddlewareFactory[Any]] | None` param to the constructor of `Lihil` and `Route`, default to None
-
-- add `MiddlewareBuildError`, which will be raised when calling middleware factory fail 
+- add `MiddlewareBuildError`, which will be raised when calling middleware factory fail
 - add `NotSupportedError` for usage not currently supported, such a multiple return params.
 - add `InvalidParamTypeError` for invalid param type, such as `Literal[3.14]`
 

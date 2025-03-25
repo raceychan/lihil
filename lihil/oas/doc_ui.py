@@ -450,7 +450,7 @@ def get_problem_ui_html(
                     document.getElementById('view-json-btn').addEventListener('click', function() {{
                         const jsonContent = document.getElementById('json-content');
                         jsonContent.textContent = JSON.stringify(allProblems, null, 2);
-                        
+
                         const jsonModal = new bootstrap.Modal(document.getElementById('jsonViewerModal'));
                         jsonModal.show();
                     }});
