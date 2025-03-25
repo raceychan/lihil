@@ -314,3 +314,43 @@ class Route(ASGIBase):
         if func is None:
             return cast(Func[P, R], partial(self.options, **epconfig))
         return self.add_endpoint("OPTIONS", func=func, **epconfig)
+
+    @overload
+    def trace[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def trace[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    @overload
+    def trace[**P, R](
+        self, func: Func[P, R] | None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]: ...
+
+    def trace[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        if func is None:
+            return cast(Func[P, R], partial(self.options, **epconfig))
+        return self.add_endpoint("TRACE", func=func, **epconfig)
+
+    @overload
+    def connect[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def connect[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    @overload
+    def connect[**P, R](
+        self, func: Func[P, R] | None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]: ...
+
+    def connect[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        if func is None:
+            return cast(Func[P, R], partial(self.options, **epconfig))
+        return self.add_endpoint("CONNECT", func=func, **epconfig)

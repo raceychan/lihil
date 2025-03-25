@@ -2,13 +2,17 @@
 
 ## Basics
 
-### Create an enpoint from regular function
+### Enpoint
 
-An `endpoint` is the most atomic ASGI component in `lihil`, registered under `Route` with `Route.{http method}`, such as `Route.get`. It defines how clients interact with the resource exposed by the `Route`, effectively combining a `Route` and an HTTP method. In the ASGI call chain, the `endpoint` is typically at the end.
+An `endpoint` is the most atomic ASGI component in `lihil`, registered under `Route` with `Route.{http method}`, such as `Route.get`. It defines how clients interact with the resource exposed by the `Route`, effectively combining a `Route` and an HTTP method.
+
+In the [ASGI callchain](./minicourse.md) the `endpoint` is typically at the end.
 
 Let's start with a function that creates a `User` in database.
 
-#### `app/users/api.py`
+#### Expose a function as an endpoint
+
+**`app/users/api.py`**
 
 ```python
 from msgspec import Struct
@@ -31,6 +35,7 @@ async def create_user(user: UserData, engine: AsyncEngine) -> UserDB:
 
 To expose this function as an endpoint:
 
+
 ```python
 from lihil import Route
 
@@ -45,6 +50,17 @@ With just three lines, we:
 2. Register `AsyncEngine` as a dependency, using `get_engine` as its factory.
 3. Register create_user as the POST endpoint.
 
+
+You might also use python decorator syntax to register an endpoint
+
+```python
+user_route = Route("/users")
+
+@user_route.post
+async def create_user(): ...
+```
+
+
 #### Declare endpoint meta using marks
 
 Often you would like to change status code, or content type, to do so, you can use one or a combination of several `return marks`. for example, to change stauts code:
@@ -58,6 +74,8 @@ async def create_user(user: UserData, engine: Engine) -> Resp[UserDB, status.Cre
 
 Now `create_user` would return a status code `201`, instead of the default `200`.
 
+##### Return Marks
+
 There are several other return marks you might want to use:
 
 - `Json[T]` for response with content-type `application/json`, the default case
@@ -66,8 +84,7 @@ There are several other return marks you might want to use:
 - `Empty` for empty response
 - `Resp[T, 200]` for response with status code `200`
 
-
-#### Declare how your endpoint param should be parsed from request
+#### Param Parsing & Dependency Injection
 
 you can also use marks provide meta data for your params. for example:
 
@@ -104,12 +121,13 @@ Here,
 3. `UserDB` will be json-serialized, and return a response with content-type being `application/json`, status code being `201`.
 
 
-##### Params
+##### Param Marks
 
 - `Query` for query param, the default case
 - `Path` for path param
 - `Header` for header param
 - `Body` for body param
+- `Form` for body param with content type `multipart/from-data`
 - `Use` for dependency
 
 ##### Param Parsing Rules
@@ -120,8 +138,6 @@ if a param is not declared with any param mark, the following rule would apply t
 - if the param type is a subclass of `msgspec.Struct`, it is interpreted as a body param.
 - if the param type is registered in the route graph, or is a lihil-builtin type, it will be interpered as a dependency and will be resolved by lihil
 - otherise, it is interpreted as a query param.
-
-
 
 Example:
 
@@ -152,20 +168,118 @@ Only `user_id` needs to be provided by the client request, rest will be resolved
 
 Since return param is not declared, `"ok"` will be serialized as json `'"ok"'`, status code will be `200`.
 
-### Routing
+#### Data validation and Custom Encoder/Decoder
+
+lihil provide you data validation functionalities out of the box using msgspec, you can also use your own customized encoder/decoder for request params and function return.
+
+To use them, annotate your param type with `CustomDecoder` and your return type with `CustomEncoder`
+
+```python
+from lihil.di import CustomEncoder, CustomDecoder
+
+user_route = @Route(/users/{user_id})
+
+async def get_user(
+    user_id: Annotated[MyUserID, CustomDecoder(decode_user_id)]
+) -> Annotated[MyUserId, CustomEncoder(encode_user_id)]:
+    return user_id
+```
+
+```python
+def decoder[T](param: str | bytes) -> T: ...
+```
+
+- `decoder` should expect a single param with type either `str`, for non-body param, or `bytes`, for body param, and returns required param type, in the `decode_user_id` case, it is `str`.
+
+```python
+def encoder[T](param: T) -> bytes: ...
+```
+
+- `encoder` should expect a single param with any type that the endpoint function returns, in the `encode_user_id` case, it is `str`, and returns bytes.
+
+
+#### Configuring your endpoint
+
+```python
+@router.get(errors=[UserNotFoundError, UserInactiveError])
+async get_user(user_id: str): ...
+```
+
+Endpoint can be configured with these options:
+
+```python
+errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
+"""Errors that might be raised from the current `endpoint`. These will be treated as responses and displayed in OpenAPI documentation."""
+
+in_schema: bool
+"""Whether to include this `endpoint` in the OpenAPI documentation."""
+
+to_thread: bool
+"""Whether this `endpoint` should run in a separate thread. Only applies to synchronous functions."""
+
+scoped: Literal[True] | None
+"""Whether the current `endpoint` should be scoped."""
+```
+
+- `scoped`: if an endpoint requires any dependency that is an async context manager, or its factory returns an async generator, the endpoint would be scoped, and setting scoped to None won't change that, however, for an endpoint that is not scoped, setting `scoped=True` would make it scoped.
+
+
+### Route
 
 When you define a route, you expose a resource through a specific **path** that clients can request. you then define `endpoints` on the route to determin what clients can do with the resource.
 
 take url `https://lihil.cc/documentation` as an example, path `/documentation` would locate resource `documentation`.
 
-#### Define an route in lihil
+#### Defining an route
 
 ```python
 from lihil import Route
 
-orders_route = Route("/users/{user_id}/orders")
+users_route = Route("/users")
 ```
 
+##### register endpoint to an route.
+
+In previous dicussion, we expose `create_user` as an endpoint for `POST` request of `users_route`.
+we can also declare other http methods with similar syntax, this includes:
+
+- GET
+- POST
+- HEAD
+- OPTIONS
+- TRACE
+- PUT
+- DELETE
+- PATCH
+- CONNECT
+
+This means that an route can have 0-9 endpoints.
+
+to expose a function for multiple http methods
+
+- apply multiple decorators
+
+- or, equivalently, use `Route.add_endpoint`
+
+```python
+
+users_route.add_endpoint("GET", "POST", ...,  create_user)
+```
+
+#### Defining an sub-route
+
+In previous discussion, we created a route for `users`, a collection of the user resource,
+to expose an specific user resource,
+
+```python
+user_route = users_route.sub("{user_id}")
+
+@user_route.get
+async def get_user(user_id: str, limit: int = 1): ...
+```
+
+Here,
+we define a sub route of `users_route`, when we include an route into our `Lihil`, all of its sub-routes will also be included recursively.
 
 
 ## Config Your App
@@ -401,34 +515,7 @@ async def get_user(token: UserToken) -> Ignore[User]: ...
 
 - if your function is a sync generator, it will be solved within a separate thread.
 
-### Data validation
 
-lihil provide you data validation functionalities out of the box using msgspec, you can also use your own customized encoder/decoder for request params and function return.
-
-To use them, annotate your param type with `CustomDecoder` and your return type with `CustomEncoder`
-
-```python
-from lihil.di import CustomEncoder, CustomDecoder
-
-user_route = @Route(/users/{user_id})
-
-async def get_user(
-    user_id: Annotated[MyUserID, CustomDecoder(decode_user_id)]
-) -> Annotated[MyUserId, CustomEncoder(encode_user_id)]:
-    return user_id
-```
-
-```python
-def decoder[T](param: str | bytes) -> T: ...
-```
-
-- `decoder` should expect a single param with type either `str`, for non-body param, or `bytes`, for body param, and returns required param type, in the `decode_user_id` case, it is `str`.
-
-```python
-def encoder[T](param: T) -> bytes: ...
-```
-
-- `encoder` should expect a single param with any type that the endpoint function returns, in the `encode_user_id` case, it is `str`, and returns bytes.
 
 ### Testing
 

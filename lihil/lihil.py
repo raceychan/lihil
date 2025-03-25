@@ -380,3 +380,29 @@ class Lihil[T](ASGIBase):
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
     ) -> Func[P, R]:
         return self.root.options(func, **epconfig)
+
+    @overload
+    def trace[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def trace[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    def trace[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        return self.root.trace(func, **epconfig)
+
+    @overload
+    def connect[**P, R](
+        self, **epconfig: Unpack[IEndPointConfig]
+    ) -> Callable[[Func[P, R]], Func[P, R]]: ...
+
+    @overload
+    def connect[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+
+    def connect[**P, R](
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+    ) -> Func[P, R]:
+        return self.root.connect(func, **epconfig)

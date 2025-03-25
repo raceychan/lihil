@@ -23,11 +23,11 @@ StrDict = dict[str, Any]
 
 class IEndPointConfig(TypedDict, total=False):
     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
-    "Errors that might raise from current endpoint, will be seen as response at openapi docs"
+    "Errors that might be raised from the current `endpoint`. These will be treated as responses and displayed in OpenAPI documentation."
     in_schema: bool
-    "Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
-    to_thread: bool
     "Whether to include this endpoint inside openapi docs"
+    to_thread: bool
+    "Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
     scoped: Literal[True] | None
     "Whether current endpoint should be scoped"
 

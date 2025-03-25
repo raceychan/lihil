@@ -8,7 +8,7 @@ we will go through some of the common concept related to web development that wo
 
 Don't overthink it—if you don’t like the term `resource`, think of it as an `object`.
 
-## URI
+## `URI`
 
 ### Uniform Resource Identifier
 
@@ -31,9 +31,14 @@ When you see a RESTful API with a URI like this, even without prior knowledge, y
 `URL` (Uniform Resource Locator): A type of URI that not only identifies a resource but also provides a way to access it. URLs generally include a scheme (protocol), domain, path, query parameters, and optionally a fragment.
 
 
-## ASGI
+## `ASGI`
 
-ASGI refering to `Asynchronous Server Gateway Interface`, a protocol designed by `encode`, it is often mentioned with the idea `ASGIApp`, which is an async callable with following signature.
+ASGI refering to `Asynchronous Server Gateway Interface`, a protocol designed by `encode`.
+
+
+## `ASGIApp`
+
+is an async callable with following signature.
 
 ```python
 class ASGIApp(Protocol):
@@ -57,7 +62,7 @@ Many components you see from `lihil` implementes `ASGIApp`, including
 asgi middlewares are also `ASGIApp`.
 
 
-### ASGI Call Chain
+### `ASGI Call Chain`
 
 `ASGIApp` are often chained together like a linked list, where each call to the chain go through every node on the chain, for example, a ordinary call stack looks like this
 
@@ -111,6 +116,7 @@ Comparing with what would you do with lihil:
 
 ```python
 user_route = Route("/users")
+
 @user_route.post
 async def create_user(user: User, repo: Repository):
     await repo.add_user(user)

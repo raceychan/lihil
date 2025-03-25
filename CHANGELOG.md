@@ -405,3 +405,5 @@ async def get_order(engine: Engine):
 ```
 
 before this change, when `get_order` is added to `order_route`, `Engine` will be recognized as a query param, as `Engine` is registered through `user_route`
+
+- add http methods `connect`, `trace` to `Lihil` and `Route`.
