@@ -1,9 +1,9 @@
 from copy import deepcopy
 from inspect import Parameter
 from types import GenericAlias, UnionType
-from typing import Annotated, Any, Literal, Sequence, Union, cast, get_args
+from typing import Annotated, Any, Literal, Sequence, TypeGuard, Union, cast, get_args
 
-from ididi import DependentNode, Graph
+from ididi import DependentNode, Graph, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from msgspec import convert, field
@@ -33,12 +33,18 @@ type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]
 type RequiredParams = Sequence[ParamPair]
 
 
-def is_lhl_dep(type_: type | GenericAlias):
+def is_lhl_dep(
+    param_type: type | GenericAlias,
+) -> TypeGuard[type[Request | EventBus | Resolver]]:
     "Dependencies that should be injected and managed by lihil"
-    return type_ in (Request, EventBus)
+    if not isinstance(param_type, type):
+        param_type = lhl_get_origin(param_type) or param_type
+        param_type = cast(type, param_type)
+
+    return issubclass(param_type, (Request, EventBus, Resolver))
 
 
-def is_file_body(annt: Any) -> bool:
+def is_file_body(annt: Any) -> TypeGuard[type[UploadFile]]:
     annt_origin = lhl_get_origin(annt) or annt
     return annt_origin is UploadFile
 
@@ -153,7 +159,14 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         return self.decoder(content)
 
 
-class SingletonParam[T](RequestParamBase[T]): ...
+class SingletonParam[T](Base):
+    type_: type[T]
+    name: str
+    default: Maybe[Any] = MISSING
+    required: bool = False
+
+    def __post_init__(self):
+        self.required = self.default is MISSING
 
 
 def analyze_nodeparams(
@@ -265,9 +278,7 @@ def analyze_markedparam(
         return [pair]
 
 
-def file_body_param(
-    name: str, type_: UnionType | type[UploadFile] | GenericAlias, default: Any
-):
+def file_body_param(name: str, type_: type[UploadFile], default: Any):
     decoder = filedeocder_factory(name)
     content_type = "multipart/form-data"
 
@@ -378,7 +389,7 @@ def analyze_param[T](
         )
     elif is_body_param(type_):
         if is_file_body(type_):
-            req_param = file_body_param(name, cast(type[UploadFile], type_), default)
+            req_param = file_body_param(name, type_, default)
         else:
             decoder = custom_decoder or decoder_factory(type_)
             req_param = RequestParam(

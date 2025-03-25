@@ -10,7 +10,7 @@ dependencies = [
   "uvicorn>=0.34.0",
   "uvloop>=0.21.0",
 ]
-description = "Add your description here"
+description = "async python framework offering high level development, low level performance."
 dynamic = ["version"]
 name = "lihil"
 readme = "README.md"

@@ -6,6 +6,9 @@ from ididi import DependentNode, Graph
 from msgspec import DecodeError, ValidationError, field
 from starlette.requests import Request
 
+from lihil.config import EndPointConfig
+
+# from lihil.config import
 from lihil.di.params import RequestParam, SingletonParam, analyze_request_params
 from lihil.di.returns import ReturnParam, analyze_return
 from lihil.interface import MISSING, Base, Record
@@ -159,7 +162,10 @@ def is_form_body(param_pair: ParamPair | None):
 
 
 def analyze_endpoint[R](
-    graph: Graph, route_path: str, f: Callable[..., R | Awaitable[R]]
+    graph: Graph,
+    route_path: str,
+    f: Callable[..., R | Awaitable[R]],
+    config: EndPointConfig | None = None,
 ) -> "EndpointDeps[R]":
     path_keys = find_path_keys(route_path)
     seen_path: set[str] = set(path_keys)
@@ -171,7 +177,13 @@ def analyze_endpoint[R](
     retparam = analyze_return(func_sig.return_annotation)
     if seen_path:
         warn(f"Unused path keys {seen_path}")
-    scoped = any(graph.should_be_scoped(node.dependent) for _, node in params.nodes)
+
+    scoped_by_config = bool(config and config.scoped is True)
+
+    if not scoped_by_config:
+        scoped = any(graph.should_be_scoped(node.dependent) for _, node in params.nodes)
+    else:
+        scoped = scoped_by_config
 
     body_param = params.get_body()
     form_body: bool = is_form_body(body_param)

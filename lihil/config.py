@@ -2,15 +2,53 @@ import argparse
 import tomllib
 from pathlib import Path
 from types import UnionType
-from typing import Any, Sequence, Union, cast, get_args
+from typing import Any, Literal, Sequence, TypedDict, Union, Unpack, cast, get_args
 
 from msgspec import convert, field
 from msgspec.structs import FieldInfo, fields
 
 from lihil.errors import AppConfiguringError
-from lihil.interface import MISSING, Maybe, Record, get_maybe_vars, is_provided, lhl_get_origin
+from lihil.interface import (
+    MISSING,
+    Maybe,
+    Record,
+    get_maybe_vars,
+    is_provided,
+    lhl_get_origin,
+)
+from lihil.interface.problem import DetailBase
 
 StrDict = dict[str, Any]
+
+
+class IEndPointConfig(TypedDict, total=False):
+    errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
+    "Errors that might raise from current endpoint, will be seen as response at openapi docs"
+    in_schema: bool
+    "Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
+    to_thread: bool
+    "Whether to include this endpoint inside openapi docs"
+    scoped: Literal[True] | None
+    "Whether current endpoint should be scoped"
+
+
+class EndPointConfig(Record, kw_only=True):
+    errors: tuple[type[DetailBase[Any]], ...] = field(default_factory=tuple)
+    to_thread: bool = True
+    in_schema: bool = True
+    scoped: Literal[True] | None = None
+
+    @classmethod
+    def from_unpack(cls, **iconfig: Unpack[IEndPointConfig]):
+        if raw_errors := iconfig.get("errors"):
+            if not isinstance(raw_errors, Sequence):
+                errors = (raw_errors,)
+            else:
+                errors = tuple(raw_errors)
+
+            iconfig["errors"] = errors
+
+        return cls(**iconfig)  # type: ignore
 
 
 def get_thread_cnt() -> int:

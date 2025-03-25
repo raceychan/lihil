@@ -2,12 +2,23 @@ import uuid
 from typing import Annotated
 
 import pytest
-from ididi import Ignore, use
+from ididi import AsyncScope, Graph, Ignore, use
 from starlette.requests import Request
 
-from lihil import Form, Json, Payload, Query, Resp, Route, Stream, Text, UploadFile
-from lihil.constant import status
-from lihil.errors import StatusConflictError, NotSupportedError
+from lihil import (
+    Form,
+    Json,
+    Payload,
+    Query,
+    Resp,
+    Route,
+    Stream,
+    Text,
+    UploadFile,
+    Use,
+    status,
+)
+from lihil.errors import NotSupportedError, StatusConflictError
 from lihil.plugins.testclient import LocalClient
 from lihil.utils.threading import async_wrapper
 
@@ -410,3 +421,93 @@ async def test_ep_with_random_annoated_path(rusers: Route, lc: LocalClient):
     ep = rusers.get_endpoint("GET")
     assert ep.deps.body_param
     assert ep.deps.body_param[1].type_ is UserInfo
+
+
+async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
+
+    side_effect = []
+
+    async def call_back() -> None:
+        nonlocal side_effect
+        side_effect.append(1)
+
+    class Engine: ...
+
+    @rusers.factory
+    def get_engine() -> Engine:
+        eng = Engine()
+        yield eng
+
+    async def get(
+        user_id: str, engine: Engine, resolver: AsyncScope
+    ) -> Resp[Text, status.OK]:
+
+        resolver.register_exit_callback(call_back)
+
+        return "ok"
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    res = await lc.call_endpoint(ep, path_params={"user_id": "123"})
+    assert res.status_code == 200
+    assert side_effect == [1]
+
+
+async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
+
+    side_effect = []
+
+    async def call_back() -> Ignore[None]:
+        nonlocal side_effect
+        side_effect.append(1)
+
+    class Engine: ...
+
+    async def get(
+        user_id: str, engine: Engine, resolver: Graph
+    ) -> Resp[Text, status.OK]:
+        await resolver.aresolve(call_back)
+        return "ok"
+
+    rusers.factory(Engine)
+    rusers.get(get)
+
+    ep = rusers.get_endpoint("GET")
+    res = await lc.call_endpoint(ep, path_params={"user_id": "123"})
+    assert res.status_code == 200
+    assert side_effect == [1]
+
+
+async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
+    class Engine: ...
+
+    async def get(
+        user_id: str, engine: Use[Engine], resolver: AsyncScope
+    ) -> Resp[Text, status.OK]:
+        with pytest.raises(AssertionError):
+            assert isinstance(resolver, AsyncScope)
+        return "ok"
+
+    rusers.get(get)
+    res = await lc.call_endpoint(
+        rusers.get_endpoint("GET"), path_params={"user_id": "123"}
+    )
+
+    text = await res.text()
+    assert text == "ok"
+
+
+    async def post(
+        user_id: str, engine: Use[Engine], resolver: AsyncScope
+    ) -> Resp[Text, status.OK]:
+        assert isinstance(resolver, AsyncScope)
+        return "ok"
+
+    rusers.post(post, scoped=True)
+    res = await lc.call_endpoint(
+        rusers.get_endpoint("POST"), path_params={"user_id": "123"}
+    )
+
+    text = await res.text()
+    assert text == "ok"

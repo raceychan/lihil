@@ -8,7 +8,8 @@ from msgspec.json import schema_components
 from lihil.config import OASConfig
 from lihil.constant.status import phrase
 from lihil.di import EndpointDeps, RequestParam
-from lihil.interface import EMPTY_RETURN_MARK, is_provided, lhl_get_origin
+from lihil.interface import is_provided, lhl_get_origin
+from lihil.interface.marks import EMPTY_RETURN_MARK
 from lihil.oas import model as oasmodel
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
 from lihil.routing import Endpoint, Route

@@ -5,14 +5,14 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
 from types import MethodType, UnionType
-from typing import Annotated, Any, Union, cast, get_args
+from typing import Annotated, Any, Protocol, Union, cast, get_args
 from weakref import ref
 
 from ididi import Graph, Resolver
 from ididi.interfaces import GraphIgnore
 
 from lihil.ds.event import Envelope, Event
-from lihil.interface import MISSING, Protocol, Record, lhl_get_origin
+from lihil.interface import MISSING, Record, lhl_get_origin
 from lihil.utils.visitor import all_subclasses
 
 UNION_META = (UnionType, Union)

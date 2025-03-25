@@ -325,3 +325,62 @@ async def test_route_with_nested_empty_response():
     assert res.status_code == 204
     assert await res.body() == b""
 ```
+
+- add `Resolver` to lhl singleton, meaning that user can now inject `Graph`, `AsyncScope` in their endpoint.
+
+example:
+
+```python
+from lihil import Route, LocalClient, use
+
+async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
+
+    side_effect = []
+
+    async def call_back() -> None:
+        nonlocal side_effect
+        side_effect.append(1)
+
+    class Engine: ...
+
+    @rusers.factory
+    def get_engine() -> Engine:
+        eng = Engine()
+        yield eng
+
+    async def get(
+        user_id: str, engine: Engine, resolver: AsyncScope
+    ) -> Resp[Text, status.OK]:
+        resolver.register_exit_callback(call_back)
+        return "ok"
+
+    rusers.get(get)
+
+    res = await lc.call_endpoint(rusers.get_endpoint("GET"), path_params={"user_id": "123"})
+    assert res.status_code == 200
+    assert side_effect == [1]
+```
+
+
+This is a powerful feature where user can define what will be called after leaving current scope.
+
+note that only resource would require scope, unless specifically configured via endpoint config
+
+- add `scoped` to endpoint config
+
+```
+from lihil import Route
+from ididi import AsyncScope
+
+class Engine: ...
+
+
+@Route("users).get(scoped=True)
+async def get_user(engine: Engine, resolver: AsyncScope):
+    assert isinstance(resolver, AsyncScope)
+
+
+@Route("users).post
+async def create_user(engine: Engine, resolver: AsyncScope):
+    assert not isinstance(resolver, AsyncScope) # here resolver is Graph since `Engine` is not scoped.
+```

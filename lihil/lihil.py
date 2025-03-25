@@ -1,4 +1,5 @@
 import inspect
+import sys
 import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -21,7 +22,7 @@ from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
-from lihil.routing import ASGIBase, Func, IEndPointConfig, Route
+from lihil.routing import ASGIBase, Func, IEndPointConfig, Route, RouteConfig
 from lihil.utils.parse import is_plain_path
 from lihil.utils.phasing import encode_json
 
@@ -60,21 +61,21 @@ StaticCache = dict[str, tuple[dict[str, Any], dict[str, Any]]]
 
 class StaticRoute:
     def __init__(self):
+        # TODO: make this a response instead of a route, cancel static route
+        # as route gets more complicated this is hard to maintain.
         self.static_cache: StaticCache = {}
-        # self.path = ""
+        self.path = "_static_route_"
+        self.config = RouteConfig(in_schema=False)
 
     def match(self, scope: IScope):
-        if cache := self.static_cache.get(scope["path"]):
-            scope["lhl_static_cache"] = cache
-            return True
-        return False
+        return scope["path"] in self.static_cache
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
-        for msg in scope["lhl_static_cache"]:
+        for msg in self.static_cache[scope["path"]]:
             await send(msg)
 
     def add_cache(self, path: str, content: tuple[dict[str, bytes], dict[str, bytes]]):
-        self.static_cache[path] = content
+        self.static_cache[sys.intern(path)] = content
 
     def setup(self):
         pass
@@ -102,12 +103,12 @@ class Lihil[T](ASGIBase):
         self.graph = graph or Graph(self_inject=True, workers=self.workers)
         self.busterm = busterm or BusTerminal()
         self.root = Route("/", graph=self.graph)
-        self.static_route: StaticRoute | None = None
         self.routes: list[Route] = [self.root]
         if routes:
             self.include_routes(*routes)
 
         self._userls = lifespan_wrapper(lifespan)
+        self.static_route: StaticRoute | None = None
         self._app_state: T | None = None
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY

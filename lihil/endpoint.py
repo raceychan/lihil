@@ -1,45 +1,18 @@
 from inspect import isasyncgen, isgenerator
-from typing import Any, Awaitable, Callable, Sequence, TypedDict, Unpack
+from typing import Any, Awaitable, Callable
 
 from ididi import Graph
 from ididi.graph import Resolver
-from msgspec import field
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
+from lihil.config import EndPointConfig
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
-from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend, Record
+from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend
 from lihil.plugins.bus import BusTerminal, EventBus
-from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
+from lihil.problems import  InvalidRequestErrors, get_solver
 from lihil.utils.threading import async_wrapper
-
-
-class IEndPointConfig(TypedDict, total=False):
-    errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
-    "Errors that might raise from current endpoint, will be seen as response at openapi docs"
-    in_schema: bool
-    "Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
-    to_thread: bool
-    "Whether to include this endpoint inside openapi docs"
-
-
-class EndPointConfig(Record, kw_only=True):
-    errors: tuple[type[DetailBase[Any]], ...] = field(default_factory=tuple)
-    to_thread: bool = True
-    in_schema: bool = True
-
-    @classmethod
-    def from_unpack(cls, **iconfig: Unpack[IEndPointConfig]):
-        if raw_errors := iconfig.get("errors"):
-            if not isinstance(raw_errors, Sequence):
-                errors = (raw_errors,)
-            else:
-                errors = tuple(raw_errors)
-
-            iconfig["errors"] = errors
-
-        return cls(**iconfig)  # type: ignore
 
 
 class Endpoint[R]:
@@ -71,7 +44,9 @@ class Endpoint[R]:
         self.config = config
 
         self.name = func.__name__
-        self.deps = analyze_endpoint(graph=self.graph, route_path=self.path, f=func)
+        self.deps = analyze_endpoint(
+            graph=self.graph, route_path=self.path, f=func, config=config
+        )
         self.require_body: bool = self.deps.body_param is not None
         self.status_code = self.deps.default_status
         self.scoped: bool = self.deps.scoped
@@ -79,6 +54,21 @@ class Endpoint[R]:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.method}: {self.path!r} {self.func})"
+
+    def inject_singletons(
+        self, params: dict[str, Any], request: Request, resolver: Resolver
+    ):
+        for name, p in self.deps.singletons:
+            ptype = p.type_
+            if issubclass(ptype, Request):
+                params[name] = request
+            elif issubclass(ptype, EventBus):
+                bus = self.busterm.create_event_bus(resolver)
+                params[name] = bus
+            elif issubclass(ptype, Resolver):
+                params[name] = resolver
+
+        return params
 
     async def make_call(
         self, scope: IScope, receive: IReceive, send: ISend, resolver: Resolver
@@ -96,15 +86,7 @@ class Endpoint[R]:
             if errors := parsed_result.errors:
                 raise InvalidRequestErrors(detail=errors)
 
-            params = parsed_result.params
-            for name, p in self.deps.singletons:
-                if not isinstance(p.type_, type):
-                    continue
-                if issubclass(p.type_, Request):
-                    params[name] = request
-                elif issubclass(p.type_, EventBus):
-                    bus = self.busterm.create_event_bus(resolver)
-                    params[name] = bus
+            params = self.inject_singletons(parsed_result.params, request, resolver)
 
             for name, dep in self.deps.dependencies:
                 params[name] = await resolver.aresolve(dep.dependent, **params)
@@ -120,9 +102,7 @@ class Endpoint[R]:
                 for cb in callbacks:
                     await cb()
 
-    def parse_raw_return(self, scope: IScope, raw_return: Any) -> Response:
-        # TODO:
-        # self.deps.return_param.generate_response
+    def return_to_response(self, raw_return: Any) -> Response:
         if isinstance(raw_return, Response):
             resp = raw_return
         elif isgenerator(raw_return) or isasyncgen(raw_return):
@@ -130,7 +110,6 @@ class Endpoint[R]:
                 encode_wrapper = syncgen_encode_wrapper(raw_return, self.encoder)
             else:
                 encode_wrapper = agen_encode_wrapper(raw_return, self.encoder)
-
             resp = StreamingResponse(
                 encode_wrapper,
                 media_type="text/event-stream",
@@ -141,7 +120,6 @@ class Endpoint[R]:
                 content=self.encoder(raw_return), status_code=self.status_code
             )
         if (status := resp.status_code) < 200 or status in (204, 205, 304):
-            # TODO: this should be done in the server layer
             resp.body = b""
         return resp
 
@@ -149,7 +127,7 @@ class Endpoint[R]:
         if self.scoped:
             async with self.graph.ascope() as resolver:
                 raw_return = await self.make_call(scope, receive, send, resolver)
-                await self.parse_raw_return(scope, raw_return)(scope, receive, send)
+                await self.return_to_response(raw_return)(scope, receive, send)
         else:
             raw_return = await self.make_call(scope, receive, send, self.graph)
-            return await self.parse_raw_return(scope, raw_return)(scope, receive, send)
+            return await self.return_to_response(raw_return)(scope, receive, send)

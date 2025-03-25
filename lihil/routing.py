@@ -3,27 +3,23 @@ from inspect import iscoroutinefunction
 from types import MethodType
 from typing import Any, Callable, Pattern, Union, Unpack, cast, overload
 
-from ididi import Graph, INode, INodeConfig
+from ididi import Graph, INodeConfig
 from ididi.interfaces import IDependent
 
 from lihil.asgi import ASGIBase
+from lihil.config import EndPointConfig, IEndPointConfig
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
-from lihil.endpoint import Endpoint, EndPointConfig, IEndPointConfig
+from lihil.endpoint import Endpoint
 from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
 from lihil.interface.asgi import ASGIApp, MiddlewareFactory
 from lihil.oas.model import RouteConfig
 from lihil.plugins.bus import BusTerminal, Event, MessageRegistry
-
-# from lihil.plugins.bus import Collector
 from lihil.utils.parse import (
     build_path_regex,
     generate_route_tag,
     merge_path,
     trim_path,
 )
-
-# TODO: we should abstract an interface shared between route and lihil app
-# make lihil a special route, the root route, we can then reduce a lot of code duplication
 
 
 class Route(ASGIBase):
@@ -166,7 +162,7 @@ class Route(ASGIBase):
             self.path_regex = build_path_regex(self.path)
         return func
 
-    def factory[**P, R](self, node: INode[P, R], **node_config: Unpack[INodeConfig]):
+    def factory[R](self, node: Callable[..., R], **node_config: Unpack[INodeConfig]):
         return self.graph.node(node, **node_config)
 
     def listen(self, listener: Callable[[Event, Any], None]) -> None:

@@ -7,7 +7,7 @@ https://swagger.io/docs/specification/v3_0/about/
 from typing import Any
 
 from lihil.config import OASConfig
-from lihil.problems import DetailBase
+from lihil.interface.problem import DetailBase
 from lihil.routing import Route, RouteConfig
 from lihil.utils.phasing import encode_json
 from lihil.vendor_types import Response
