@@ -29,7 +29,7 @@ from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, 
 from lihil.utils.typing import flatten_annotated, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
 
-type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, SingletonParam[Any]]
+type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, PluginParam[Any]]
 type RequiredParams = Sequence[ParamPair]
 
 
@@ -159,7 +159,7 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         return self.decoder(content)
 
 
-class SingletonParam[T](Base):
+class PluginParam[T](Base):
     type_: type[T]
     name: str
     default: Maybe[Any] = MISSING
@@ -420,7 +420,7 @@ def analyze_param[T](
 
     elif is_lhl_dep(type_):
         # user should be able to menually init their plugin then register as a singleton
-        return [(name, SingletonParam(type_=type_, name=name, default=default))]
+        return [(name, PluginParam(type_=type_, name=name, default=default))]
     else:  # default case, treat as query
         decoder = custom_decoder or textdecoder_factory(type_)
         req_param = RequestParam(
@@ -434,36 +434,43 @@ def analyze_param[T](
     return [(name, req_param)]
 
 
+"""
+class PluginLoader(Protocol):
+    def is_plugin(self, param) -> bool:
+        ...
+
+    def inject_plugin(self, param, request, resolver):
+        ...
+"""
+
+
 class ParsedParams(Base):
-    params: list[tuple[str, RequestParam[Any]]] = field(default_factory=list)
-    bodies: list[tuple[str, RequestParam[Any]]] = field(default_factory=list)
-    # nodes should be a dict with {name: node}
-    nodes: list[tuple[str, DependentNode]] = field(default_factory=list)
-    singletons: list[tuple[str, SingletonParam[Any]]] = field(default_factory=list)
+    params: dict[str, RequestParam[Any]] = field(default_factory=dict)
+    bodies: dict[str, RequestParam[Any]] = field(default_factory=dict)
+    nodes: dict[str, DependentNode] = field(default_factory=dict)
+    plugins: dict[str, PluginParam[Any]] = field(default_factory=dict)
 
     def collect_param(self, name: str, param_list: list[ParamPair | DependentNode]):
         for element in param_list:
             if isinstance(element, DependentNode):
-                self.nodes.append((name, element))
+                self.nodes[name] = element
             else:
                 param_name, req_param = element
-                if isinstance(req_param, SingletonParam):
-                    self.singletons.append((param_name, req_param))
+                if isinstance(req_param, PluginParam):
+                    self.plugins[param_name] = req_param
                 elif req_param.location == "body":
-                    self.bodies.append((param_name, req_param))
+                    self.bodies[param_name] = req_param
                 else:
-                    self.params.append((param_name, req_param))
+                    self.params[param_name] = req_param
 
-    def get_location(
-        self, location: ParamLocation
-    ) -> tuple[tuple[str, RequestParam[Any]], ...]:
-        return tuple(p for p in self.params if p[1].location == location)
+    def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
+        return {n: p for n, p in self.params.items() if p.location == location}
 
     def get_body(self) -> tuple[str, RequestParam[Any]] | None:
         if not self.bodies:
             body_param = None
         elif len(self.bodies) == 1:
-            body_param = self.bodies[0]
+            body_param = next(iter(self.bodies.items()))
         else:
             # "use defstruct to dynamically define a type"
             raise NotSupportedError(

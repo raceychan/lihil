@@ -21,6 +21,27 @@ from lihil.utils.parse import (
 )
 
 
+def endpoint_factory[R](
+    method: HTTP_METHODS,
+    path: str,
+    tag: str,
+    func: Callable[..., R],
+    busterm: BusTerminal,
+    graph: Graph,
+    epconfig: EndPointConfig,
+) -> Endpoint[R]:
+    endpoint = Endpoint(
+        method=method,
+        path=path,
+        tag=tag,
+        func=func,
+        busterm=busterm,
+        graph=graph,
+        config=epconfig,
+    )
+    return endpoint
+
+
 class Route(ASGIBase):
     _flyweights: dict[str, "Route"] = {}
 
@@ -48,6 +69,7 @@ class Route(ASGIBase):
         listeners: list[Callable[..., Any]] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
         route_config: RouteConfig | None = None,
+        endpoint_factory: Callable[..., Endpoint[Any]] = endpoint_factory,
     ):
         super().__init__(middlewares)
 
@@ -62,6 +84,7 @@ class Route(ASGIBase):
         self.subroutes: list[Route] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
         self.config = route_config or RouteConfig()
+        self.endpoint_factory = endpoint_factory
         self.tag = self.config.tag or generate_route_tag(self.path)
 
     def __repr__(self):
@@ -142,15 +165,16 @@ class Route(ASGIBase):
         **iconfig: Unpack[IEndPointConfig],
     ) -> Func[P, R]:
         epconfig = EndPointConfig.from_unpack(**iconfig)
+        # TODO: use a end point factory that user can override
         for method in methods:
-            endpoint = Endpoint(
+            endpoint = self.endpoint_factory(
                 method=method,
                 path=self.path,
                 tag=self.tag,
                 func=func,
                 busterm=self.busterm,
                 graph=self.graph,
-                config=epconfig,
+                epconfig=epconfig,
             )
             self.endpoints[method] = endpoint
             if self.path_regex is not None:

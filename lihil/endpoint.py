@@ -9,6 +9,7 @@ from starlette.responses import Response, StreamingResponse
 from lihil.config import EndPointConfig
 from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
+from lihil.errors import InvalidParamTypeError
 from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend
 from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import InvalidRequestErrors, get_solver
@@ -62,15 +63,15 @@ class Endpoint[R]:
         return self._method
 
     @property
-    def scoped(self):
-        return
+    def scoped(self) -> bool:
+        return self._scoped
 
     @property
     def encoder(self):
         return self._encoder
 
     @property
-    def tag(self):
+    def tag(self) -> str:
         return self._tag
 
     @property
@@ -83,6 +84,10 @@ class Endpoint[R]:
             route_path=self._path,
             f=self._unwrapped_func,
         )
+
+        self._dep_items = self._deps.dependencies.items()
+        self._plugin_items = self._deps.plugins.items()
+
         scoped_by_config = bool(self._config and self._config.scoped is True)
 
         self._require_body: bool = self._deps.body_param is not None
@@ -94,12 +99,20 @@ class Endpoint[R]:
         self._graph = graph
         self._busterm = busterm
 
-    def inject_singletons(
+    def inject_plugins(
         self, params: dict[str, Any], request: Request, resolver: Resolver
     ):
-        # TODO?: we should enable user to extend this
+        """
+        elif self.plugin_loaders:
+            for loader in self.plugin_loaders:
+                try:
+                    plugin = loader.resolver(request, resolver)
+                except NotImplementedError:
+                    continue
 
-        for name, p in self._deps.singletons:
+                params[name] = plugin
+        """
+        for name, p in self._plugin_items:
             ptype = p.type_
             if issubclass(ptype, Request):
                 params[name] = request
@@ -108,7 +121,8 @@ class Endpoint[R]:
                 params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-
+            else:
+                raise InvalidParamTypeError(ptype)
         return params
 
     async def make_call(
@@ -121,15 +135,13 @@ class Endpoint[R]:
                 parsed_result = await self._deps.parse_command(request)
             else:
                 parsed_result = self._deps.parse_query(request)
-
             callbacks = parsed_result.callbacks
-
             if errors := parsed_result.errors:
                 raise InvalidRequestErrors(detail=errors)
 
-            params = self.inject_singletons(parsed_result.params, request, resolver)
+            params = self.inject_plugins(parsed_result.params, request, resolver)
 
-            for name, dep in self._deps.dependencies:
+            for name, dep in self._dep_items:
                 params[name] = await resolver.aresolve(dep.dependent, **params)
 
             raw_return = await self._func(**params)

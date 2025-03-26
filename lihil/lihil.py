@@ -32,7 +32,6 @@ type LifeSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
     if lifespan is None:
         return None
-
     if isasyncgenfunction(lifespan):
         return asynccontextmanager(lifespan)
     elif (wrapped := getattr(lifespan, "__wrapped__", None)) and isasyncgenfunction(

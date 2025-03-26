@@ -1,12 +1,12 @@
 from inspect import signature
-from typing import Any, Awaitable, Callable, Mapping, Sequence, cast
+from typing import Any, Awaitable, Callable, Mapping, cast
 from warnings import warn
 
 from ididi import DependentNode, Graph
-from msgspec import DecodeError, ValidationError, field
+from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
-from lihil.di.params import RequestParam, SingletonParam, analyze_request_params
+from lihil.di.params import PluginParam, RequestParam, analyze_request_params
 from lihil.di.returns import ReturnParam, analyze_return
 from lihil.interface import MISSING, Base, Record
 from lihil.problems import (
@@ -18,8 +18,8 @@ from lihil.problems import (
 from lihil.utils.parse import find_path_keys
 from lihil.vendor_types import FormData
 
-type ParamPair = tuple[str, RequestParam[Any]]
-type RequiredParams = Sequence[ParamPair]
+type ParamMap[T] = dict[str, T]
+type RequestParamMap = dict[str, RequestParam[Any]]
 
 
 class ParseResult(Record):
@@ -40,12 +40,12 @@ class ParseResult(Record):
 class EndpointDeps[R](Base):
     route_path: str
 
-    query_params: RequiredParams
-    path_params: RequiredParams
-    header_params: RequiredParams
-    body_param: ParamPair | None
-    dependencies: tuple[tuple[str, DependentNode], ...]
-    singletons: tuple[tuple[str, SingletonParam[Any]], ...]
+    query_params: RequestParamMap
+    path_params: RequestParamMap
+    header_params: RequestParamMap
+    body_param: tuple[str, RequestParam[Struct]] | None
+    dependencies: ParamMap[DependentNode]
+    plugins: ParamMap[PluginParam[Any]]
 
     return_param: ReturnParam[R]  # | UnionType
     scoped: bool
@@ -82,7 +82,7 @@ class EndpointDeps[R](Base):
             if received is None:
                 continue
 
-            for name, param in required:
+            for name, param in required.items():
                 alias = param.alias if param.alias else param.name
                 if (val := received.get(alias, MISSING)) is not MISSING:
                     val = received[alias]
@@ -149,12 +149,10 @@ class EndpointDeps[R](Base):
         return params
 
 
-def is_form_body(param_pair: ParamPair | None):
+def is_form_body(param_pair: tuple[str, RequestParam[Any]] | None):
     if not param_pair:
         return False
-
     _, param = param_pair
-
     return param.content_type == "multipart/form-data" and param.type_ is not bytes
 
 
@@ -173,7 +171,9 @@ def analyze_endpoint[R](
     if seen_path:
         warn(f"Unused path keys {seen_path}")
 
-    scoped = any(graph.should_be_scoped(node.dependent) for _, node in params.nodes)
+    scoped = any(
+        graph.should_be_scoped(node.dependent) for node in params.nodes.values()
+    )
 
     body_param = params.get_body()
     form_body: bool = is_form_body(body_param)
@@ -184,8 +184,8 @@ def analyze_endpoint[R](
         query_params=params.get_location("query"),
         path_params=params.get_location("path"),
         body_param=body_param,
-        singletons=tuple(params.singletons),
-        dependencies=tuple(params.nodes),
+        plugins=params.plugins,
+        dependencies=params.nodes,
         return_param=cast(ReturnParam[R], retparam),
         scoped=scoped,
         form_body=form_body,

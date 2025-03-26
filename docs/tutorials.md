@@ -4,7 +4,7 @@
 
 ### Enpoint
 
-An `endpoint` is the most atomic ASGI component in `lihil`, registered under `Route` with `Route.{http method}`, such as `Route.get`. It defines how clients interact with the resource exposed by the `Route`, effectively combining a `Route` and an HTTP method.
+An `endpoint` is the most atomic ASGI component in `lihil`, registered under `Route` with `Route.{http method}`, such as `Route.get`. It defines how clients interact with the resource exposed by the `Route`.
 
 In the [ASGI callchain](./minicourse.md) the `endpoint` is typically at the end.
 
@@ -39,9 +39,9 @@ To expose this function as an endpoint:
 ```python
 from lihil import Route
 
-user_route = Route("/users")
-user_route.factory(get_engine)
-user_route.post(create_user)
+users_route = Route("/users")
+users_route.factory(get_engine)
+users_route.post(create_user)
 ```
 
 With just three lines, we:
@@ -54,9 +54,9 @@ With just three lines, we:
 You might also use python decorator syntax to register an endpoint
 
 ```python
-user_route = Route("/users")
+users_route = Route("/users")
 
-@user_route.post
+@users_route.post
 async def create_user(): ...
 ```
 
@@ -110,8 +110,8 @@ async def create_user(
     await conn.execute(sql)
     return UserDB.from_user(user, id=user_id)
 
-user_route.factory(get_conn)
-user_route.factory(user_id_factory, reuse=False)
+users_route.factory(get_conn)
+users_route.factory(user_id_factory, reuse=False)
 ```
 
 Here,
@@ -228,7 +228,7 @@ scoped: Literal[True] | None
 
 When you define a route, you expose a resource through a specific **path** that clients can request. you then define `endpoints` on the route to determin what clients can do with the resource.
 
-take url `https://lihil.cc/documentation` as an example, path `/documentation` would locate resource `documentation`.
+take url `https://dontclickme.com/users` as an example, path `/users` would locate resource `users`.
 
 #### Defining an route
 
@@ -257,7 +257,7 @@ This means that an route can have 0-9 endpoints.
 
 to expose a function for multiple http methods
 
-- apply multiple decorators
+- apply multiple decorators to the function
 
 - or, equivalently, use `Route.add_endpoint`
 
@@ -281,14 +281,21 @@ async def get_user(user_id: str, limit: int = 1): ...
 Here,
 we define a sub route of `users_route`, when we include an route into our `Lihil`, all of its sub-routes will also be included recursively.
 
-## Middlewares
+Route are unique to path, thus, you might call it constructor with same path multiple times.
 
-...
+```python
+@users_route.sub("{user_id}").get
+async def get_user(user_id: str, limit: int = 1): ...
 
-### Lihil
+@users_route.sub("{user_id}").put
+async def update_user(data: UserUpdate): ...
+```
 
-...
+here both `get_user` and `update_user` are under the same route.
 
+#### The root route
+
+an route with path `/` is the root route, if not provided, root route is created with `Lihil` by default, anything registered via `Lihil.{http method}` is the under the root route.
 
 ## Config Your App
 

@@ -59,9 +59,10 @@ def test_return_status(rusers: Route):
     rusers.post(create_user)
     ep = rusers.get_endpoint(create_user)
     ep.setup()
-    assert any(qp[0] == "q" for qp in ep.deps.query_params)
-    assert not any(qp[0] == "func_dep" for qp in ep.deps.query_params)
-    assert any(pp[0] == "user_id" for pp in ep.deps.path_params)
+    assert "q" in ep.deps.query_params
+    assert "func_dep" in ep.deps.dependencies
+    assert "user_id" in ep.deps.path_params
+
     ep_ret = ep.deps.return_param
     assert ep_ret.status == 201
 
@@ -397,11 +398,11 @@ async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
     ep = rusers.get_endpoint("GET")
     ep.setup()
     assert ep.deps.query_params
-    assert ep.deps.query_params[0][0] == "aloha"
-    assert ep.deps.query_params[0][1].type_ is int
+    assert "aloha" in ep.deps.query_params
+    assert ep.deps.query_params["aloha"].type_ is int
 
 
-async def test_ep_with_random_annoated_path(rusers: Route, lc: LocalClient):
+async def test_ep_with_random_annoated_path1(rusers: Route, lc: LocalClient):
 
     async def get(user_id: Annotated[int, "aloha"]) -> Resp[Text, status.OK]:
         return "ok"
@@ -409,12 +410,13 @@ async def test_ep_with_random_annoated_path(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
+    ep.setup()
     assert ep.deps.path_params
-    assert ep.deps.path_params[0][0] == "user_id"
-    assert ep.deps.path_params[0][1].type_ is int
+    assert "user_id" in ep.deps.path_params
+    assert ep.deps.path_params["user_id"].type_ is int
 
 
-async def test_ep_with_random_annoated_path(rusers: Route, lc: LocalClient):
+async def test_ep_with_random_annoated_path2(rusers: Route, lc: LocalClient):
     class UserInfo(Payload):
         name: str
         phones: list[str]
@@ -503,7 +505,6 @@ async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
 
     text = await res.text()
     assert text == "ok"
-
 
     async def post(
         user_id: str, engine: Use[Engine], resolver: AsyncScope

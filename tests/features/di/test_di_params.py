@@ -10,7 +10,7 @@ from lihil.di.params import (
     CustomDecoder,
     ParsedParams,
     RequestParam,
-    SingletonParam,
+    PluginParam,
     analyze_annoated,
     analyze_nodeparams,
     analyze_param,
@@ -77,12 +77,12 @@ def test_request_param():
     assert "RequestParam<query>(test: int)" in repr(param)
 
 
-# Test SingletonParam
+# Test PluginParam
 def test_singleton_param():
-    param = SingletonParam(type_=Request, name="request")
+    param = PluginParam(type_=Request, name="request")
     assert param.required is True
 
-    param = SingletonParam(type_=EventBus, name="bus", default=None)
+    param = PluginParam(type_=EventBus, name="bus", default=None)
     assert param.required is False
 
 
@@ -99,7 +99,7 @@ def test_parsed_params():
         type_=dict, name="data", alias="data", decoder=lambda x: dict(), location="body"
     )
 
-    singleton_param = SingletonParam(type_=Request, name="request")
+    singleton_param = PluginParam(type_=Request, name="request")
 
     # Create a mock DependentNode
     node = graph.analyze(DependentService)
@@ -113,7 +113,7 @@ def test_parsed_params():
     # Test get_location
     query_params = params.get_location("query")
     assert len(query_params) == 1
-    assert query_params[0][0] == "q"
+    assert query_params.__contains__("q")
 
     # Test get_body
     body = params.get_body()
@@ -225,7 +225,7 @@ def test_analyze_param_lihil_dep():
     assert len(result) == 1
     name, param = result[0]
     assert name == "request"
-    assert isinstance(param, SingletonParam)
+    assert isinstance(param, PluginParam)
     assert param.type_ == Request
 
 
@@ -357,7 +357,7 @@ def test_analyze_request_params():
     # Check that path parameter was correctly identified
     path_params = result.get_location("path")
     assert len(path_params) == 1
-    assert path_params[0][0] == "id"
+    assert "id" in path_params
 
 
 # ... existing code ...
@@ -515,7 +515,7 @@ def test_analyze_param_with_nested_dependency():
             if isinstance(node, DependentNode)
             else (
                 node[1].type_
-                if isinstance(node[1], (RequestParam, SingletonParam))
+                if isinstance(node[1], (RequestParam, PluginParam))
                 else None
             )
         )

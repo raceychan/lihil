@@ -158,7 +158,7 @@ def param_schema(
     parameters: list[oasmodel.Parameter | oasmodel.Reference] = []
 
     for group in (ep_deps.query_params, ep_deps.path_params, ep_deps.header_params):
-        for _, p in group:
+        for p in group.values():
             ps = _single_field_schema(p, schemas)
             parameters.append(ps)
     return parameters
