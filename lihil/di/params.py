@@ -7,7 +7,7 @@ from warnings import warn
 from ididi import DependentNode, Graph, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
-from msgspec import ValidationError, convert, field
+from msgspec import convert, field
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
@@ -52,7 +52,6 @@ def is_lhl_dep(
     if not isinstance(param_type, type):
         param_type = lhl_get_origin(param_type) or param_type
         param_type = cast(type, param_type)
-
     return issubclass(param_type, (Request, EventBus, Resolver))
 
 

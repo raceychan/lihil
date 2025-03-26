@@ -17,6 +17,7 @@ from lihil.di.params import (
     analyze_union_param,
     convertor_factory,
     flatten_annotated,
+    is_lhl_dep,
     is_param_mark,
 )
 from lihil.errors import NotSupportedError
@@ -616,6 +617,7 @@ def test_convertor_factory_with_union_types():
     complex_decoder = convertor_factory(Union[int, list, dict])
     assert complex_decoder("42") == 42
 
+
 def test_convertor_factory_with_python_3_10_union_syntax():
     """Test convertor_factory with Python 3.10+ union syntax (if supported)"""
     # Skip if UnionType is not available (Python < 3.10)
@@ -699,3 +701,13 @@ def test_union_param_with_non_file():
 
     param = analyze_union_param(name="q", type_=bytes | QModel, default=None)
     assert param.type_ == (bytes | QModel)
+
+
+type talias = int
+
+type treq = Request
+
+
+def test_verify_lhl_dep_with_type_alias():
+    assert not is_lhl_dep(talias)
+    assert is_lhl_dep(treq)

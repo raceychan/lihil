@@ -24,7 +24,9 @@ def lhl_get_origin(annt: Any) -> Any:
     if is_marked_param(annt):
         return ty_get_origin(annt)
     elif isinstance(annt, TypeAliasType):
-        return lhl_get_origin(annt.__value__)
+        while isinstance(annt, TypeAliasType):
+            annt = annt.__value__
+        return annt
     return ty_get_origin(annt)
 
 
