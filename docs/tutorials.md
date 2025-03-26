@@ -281,6 +281,14 @@ async def get_user(user_id: str, limit: int = 1): ...
 Here,
 we define a sub route of `users_route`, when we include an route into our `Lihil`, all of its sub-routes will also be included recursively.
 
+## Middlewares
+
+...
+
+### Lihil
+
+...
+
 
 ## Config Your App
 
@@ -514,6 +522,10 @@ async def get_user(token: UserToken) -> Ignore[User]: ...
 ```
 
 - if your function is a sync generator, it will be solved within a separate thread.
+
+- all graph will eventually merged into the main graph holding by `Lihil`, which means that, if you register a dependency with a factory in route `A`, the same factory can be used in every other route if it is required.
+
+- you can menually construct graph and inject into `Lihil`
 
 
 
