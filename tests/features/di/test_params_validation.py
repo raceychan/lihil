@@ -1,10 +1,9 @@
-import json
 from typing import Any, Literal
 
 import pytest
 from ididi import Graph
 
-from lihil.endpoint import EndpointDeps, analyze_endpoint
+from lihil.endpoint import EndpointDeps
 from lihil.interface import Header, Payload
 from lihil.utils.phasing import encode_json
 
@@ -27,7 +26,7 @@ async def create_user(user: User) -> User: ...
 def get_order_dep() -> EndpointDeps[Any]:
     dg = Graph()
     path = "/users/{user_id}/orders/{order_id}"
-    dep = analyze_endpoint(dg, path, get_order)
+    dep = EndpointDeps.from_function(dg, path, get_order)
     return dep
 
 
@@ -35,7 +34,7 @@ def get_order_dep() -> EndpointDeps[Any]:
 def create_user_dep() -> EndpointDeps[Any]:
     dg = Graph()
     path = "/user"
-    dep = analyze_endpoint(dg, path, create_user)
+    dep = EndpointDeps.from_function(dg, path, create_user)
     return dep
 
 

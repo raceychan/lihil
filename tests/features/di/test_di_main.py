@@ -168,7 +168,6 @@ async def test_received_empty_body():
     assert "MissingRequestParam" in error["type"]
     assert error["location"] == "body"
 
-
 async def test_parse_command():
     "a request that has body is treated as `command`"
     route = Route("/test")

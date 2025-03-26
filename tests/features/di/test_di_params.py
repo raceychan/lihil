@@ -9,6 +9,7 @@ from lihil.di.params import (
     CustomDecoder,
     EndpointParams,
     PluginParam,
+    RequestBodyParam,
     RequestParam,
     analyze_annoated,
     analyze_nodeparams,
@@ -94,8 +95,8 @@ def test_parsed_params():
         type_=str, name="q", alias="q", decoder=lambda x: str(x), location="query"
     )
 
-    body_param = RequestParam(
-        type_=dict, name="data", alias="data", decoder=lambda x: dict(), location="body"
+    body_param = RequestBodyParam(
+        type_=dict, name="data", alias="data", decoder=lambda x: dict()
     )
 
     singleton_param = PluginParam(type_=Request, name="request")
@@ -120,12 +121,11 @@ def test_parsed_params():
     assert body[0] == "data"
 
     # Test multiple bodies (should raise NotImplementedError)
-    another_body = RequestParam(
+    another_body = RequestBodyParam(
         type_=dict,
         name="another",
         alias="another",
         decoder=lambda x: dict(),
-        location="body",
     )
     params.collect_param("another", [("another", another_body)])
 
@@ -160,8 +160,8 @@ def test_analyze_param_payload():
     assert len(result) == 1
     name, param = result[0]
     assert name == "data"
-    assert isinstance(param, RequestParam)
-    assert param.location == "body"
+    assert isinstance(param, RequestBodyParam)
+
     assert param.type_ == SamplePayload
 
 
@@ -181,8 +181,7 @@ def test_analyze_param_union_payload():
 
     name, param = result[0]
     assert name == "data"
-    assert isinstance(param, RequestParam)
-    assert param.location == "body"
+    assert isinstance(param, RequestBodyParam)
 
 
 # Test analyze_param for query parameters
@@ -277,8 +276,7 @@ def test_analyze_markedparam_body():
     assert len(result) == 1
     name, param = result[0]
     assert name == "data"
-    assert isinstance(param, RequestParam)
-    assert param.location == "body"
+    assert isinstance(param, RequestBodyParam)
 
 
 # Test analyze_markedparam for Path
@@ -535,10 +533,9 @@ def test_analyze_param_union_with_payload():
     assert len(result) == 1
     name, param = result[0]
     assert name == "mixed_data"
-    assert isinstance(param, RequestParam)
+    assert isinstance(param, RequestBodyParam)
 
     # The key point: when a Union includes a Payload, it should be treated as a body parameter
-    assert param.location == "body"
 
     # Test that the decoder can handle the union type
     # This indirectly tests that the decoder was created correctly in lines 237-238

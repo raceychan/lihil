@@ -47,14 +47,11 @@ def parse_exception(
             return http_status.code(exc)
         if issubclass(exc, HTTPException):
             return exc
-
         raise TypeError(f"Invalid exception type {exc}")
-
     elif exc_origin is Literal:
-        try:
-            return get_args(exc)[0]
-        except IndexError:
-            return get_args(exc.__value__)[0]
+        while isinstance(exc, TypeAliasType):
+            exc = exc.__value__
+        return get_args(exc)[0]
     elif is_union_type(exc):
         res: list[Any] = []
         sub_excs = get_args(exc)
@@ -229,7 +226,7 @@ del __erresp_factory_registry
 
 
 class ValidationProblem(Record):
-    location: ParamLocation
+    location: ParamLocation | Literal["body"]
     param: str
     message: str
 

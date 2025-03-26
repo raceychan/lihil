@@ -1,13 +1,13 @@
 from inspect import signature
-from typing import Any, Awaitable, Callable, Mapping, cast
+from typing import Any, Awaitable, Callable, Mapping
 
 from ididi import DependentNode, Graph
 from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
-from lihil.di.params import EndpointParams, PluginParam, RequestParam
+from lihil.di.params import EndpointParams, PluginParam, RequestBodyParam, RequestParam
 from lihil.di.returns import EndpointReturn
-from lihil.interface import MISSING, Base, Record
+from lihil.interface import MISSING, Base, IEncoder, Record
 from lihil.problems import (
     InvalidDataType,
     InvalidJsonReceived,
@@ -19,6 +19,13 @@ from lihil.vendor_types import FormData
 
 type ParamMap[T] = dict[str, T]
 type RequestParamMap = dict[str, RequestParam[Any]]
+
+
+def is_form_body(param_pair: tuple[str, RequestBodyParam[Any]] | None):
+    if not param_pair:
+        return False
+    _, param = param_pair
+    return param.content_type == "multipart/form-data" and param.type_ is not bytes
 
 
 class ParseResult(Record):
@@ -42,7 +49,7 @@ class EndpointDeps[R](Base):
     query_params: RequestParamMap
     path_params: RequestParamMap
     header_params: RequestParamMap
-    body_param: tuple[str, RequestParam[Struct]] | None
+    body_param: tuple[str, RequestBodyParam[Struct]] | None
     dependencies: ParamMap[DependentNode]
     plugins: ParamMap[PluginParam[Any]]
 
@@ -57,7 +64,7 @@ class EndpointDeps[R](Base):
         return self.return_param.status
 
     @property
-    def return_encoder(self):
+    def return_encoder(self) -> IEncoder[R]:
         return self.return_param.encoder
 
     # TODO:we shou rewrite this in cython, along with the request object
@@ -147,43 +154,38 @@ class EndpointDeps[R](Base):
             params = self.prepare_params(req_path, req_query, req_header, body)
         return params
 
+    @classmethod
+    def from_function[FR](
+        cls,
+        graph: Graph,
+        route_path: str,
+        f: Callable[..., FR | Awaitable[FR]],
+    ) -> "EndpointDeps[FR]":
+        path_keys = find_path_keys(route_path)
+        func_sig = signature(f)
+        func_params = tuple(func_sig.parameters.items())
 
-def is_form_body(param_pair: tuple[str, RequestParam[Any]] | None):
-    if not param_pair:
-        return False
-    _, param = param_pair
-    return param.content_type == "multipart/form-data" and param.type_ is not bytes
+        # TODO: add to endpoint params: plugin identifier
+        params = EndpointParams.from_func_params(func_params, graph, path_keys)
+        retparam = EndpointReturn.from_return(func_sig.return_annotation)
 
+        scoped = any(
+            graph.should_be_scoped(node.dependent) for node in params.nodes.values()
+        )
 
-def analyze_endpoint[R](
-    graph: Graph,
-    route_path: str,
-    f: Callable[..., R | Awaitable[R]],
-) -> "EndpointDeps[R]":
-    path_keys = find_path_keys(route_path)
-    func_sig = signature(f)
-    func_params = tuple(func_sig.parameters.items())
+        body_param = params.get_body()
+        form_body: bool = is_form_body(body_param)
 
-    params = EndpointParams.from_func_params(func_params, graph, path_keys)
-    retparam = EndpointReturn.from_return(func_sig.return_annotation)
-
-    scoped = any(
-        graph.should_be_scoped(node.dependent) for node in params.nodes.values()
-    )
-
-    body_param = params.get_body()
-    form_body: bool = is_form_body(body_param)
-
-    info = EndpointDeps(
-        route_path=route_path,
-        header_params=params.get_location("header"),
-        query_params=params.get_location("query"),
-        path_params=params.get_location("path"),
-        body_param=body_param,
-        plugins=params.plugins,
-        dependencies=params.nodes,
-        return_param=cast(EndpointReturn[R], retparam),
-        scoped=scoped,
-        form_body=form_body,
-    )
-    return info
+        info = EndpointDeps(
+            route_path=route_path,
+            header_params=params.get_location("header"),
+            query_params=params.get_location("query"),
+            path_params=params.get_location("path"),
+            body_param=body_param,
+            plugins=params.plugins,
+            dependencies=params.nodes,
+            return_param=retparam,
+            scoped=scoped,
+            form_body=form_body,
+        )
+        return info

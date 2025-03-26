@@ -21,16 +21,19 @@ from lihil.interface.marks import Text as Text
 from lihil.interface.marks import Use as Use
 from lihil.interface.marks import lhl_get_origin as lhl_get_origin
 from lihil.interface.struct import Base as Base
+from lihil.interface.struct import CustomDecoder as CustomDecoder
+from lihil.interface.struct import CustomEncoder as CustomEncoder
 from lihil.interface.struct import Empty as Empty
 from lihil.interface.struct import IDecoder as IDecoder
 from lihil.interface.struct import IEncoder as IEncoder
 from lihil.interface.struct import ParamBase as ParamBase
 from lihil.interface.struct import Payload as Payload
 from lihil.interface.struct import Record as Record
-from lihil.interface.struct import CustomDecoder as CustomDecoder
-from lihil.interface.struct import CustomEncoder as CustomEncoder
 
-type ParamLocation = Literal["path", "query", "header", "body"]
+type ParamLocation = Literal["path", "query", "header"]
+type BodyContentType = Literal[
+    "application/json", "multipart/form-data", "application/x-www-form-urlencoded"
+]
 type Func[**P, R] = Callable[P, R]
 
 type Maybe[T] = T | "_Missed"

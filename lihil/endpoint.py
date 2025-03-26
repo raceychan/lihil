@@ -7,7 +7,7 @@ from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
 from lihil.config import EndPointConfig
-from lihil.di import EndpointDeps, ParseResult, analyze_endpoint
+from lihil.di import EndpointDeps, ParseResult
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.errors import InvalidParamTypeError
 from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend
@@ -79,7 +79,7 @@ class Endpoint[R]:
         return self._unwrapped_func
 
     def setup(self) -> None:
-        self._deps = analyze_endpoint(
+        self._deps = EndpointDeps.from_function(
             graph=self._graph,
             route_path=self._path,
             f=self._unwrapped_func,

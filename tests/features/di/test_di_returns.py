@@ -1,5 +1,5 @@
 from inspect import Parameter
-from typing import Annotated, Generator, Literal, Union
+from typing import Annotated, Generator, Union
 
 import pytest
 

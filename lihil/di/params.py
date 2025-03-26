@@ -1,7 +1,7 @@
 from copy import deepcopy
 from inspect import Parameter
 from types import GenericAlias, UnionType
-from typing import Annotated, Any, Literal, Sequence, TypeGuard, Union, cast, get_args
+from typing import Annotated, Any, Sequence, TypeGuard, Union, cast, get_args
 from warnings import warn
 
 from ididi import DependentNode, Graph, Resolver
@@ -12,7 +12,15 @@ from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
 from lihil.errors import NotSupportedError
-from lihil.interface import MISSING, Base, CustomDecoder, IDecoder, Maybe, ParamLocation
+from lihil.interface import (
+    MISSING,
+    Base,
+    BodyContentType,
+    CustomDecoder,
+    IDecoder,
+    Maybe,
+    ParamLocation,
+)
 from lihil.interface.marks import (
     Body,
     Form,
@@ -30,7 +38,9 @@ from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, 
 from lihil.utils.typing import flatten_annotated, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
 
-type ParamPair = tuple[str, RequestParam[Any]] | tuple[str, PluginParam[Any]]
+type ParamPair = tuple[str, RequestParam[Any] | RequestBodyParam[Any]] | tuple[
+    str, PluginParam[Any]
+]
 type RequiredParams = Sequence[ParamPair]
 
 
@@ -120,8 +130,9 @@ def formdecoder_factory[T](ptype: type[T] | UnionType):
 
 
 class RequestParamBase[T](Base):
-    type_: type[T] | UnionType | GenericAlias
     name: str
+    alias: str
+    type_: type[T] | UnionType | GenericAlias
     default: Maybe[Any] = MISSING
     required: bool = False
 
@@ -133,9 +144,10 @@ class ParamMeta(Base):
     is_form_body: bool
 
 
-type ParamContentType = Literal[
-    "application/json", "multipart/form-data", "application/x-www-form-urlencoded"
-]
+# TODO: we should probably separate body with rest of reqiest params
+# since body are sent in bytes, other are in string.
+
+# we should use decoder for body but for param we use msgspec.convert
 
 
 class RequestParam[T](RequestParamBase[T], kw_only=True):
@@ -146,11 +158,9 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
     https://stackoverflow.com/questions/4526273/what-does-enctype-multipart-form-data-mean
     """
 
-    alias: str
     decoder: IDecoder[T]
     location: ParamLocation
     # this only applies to body so we might want separate interface
-    content_type: ParamContentType | None = None
     # meta: ParamMeta | None = None
 
     def __repr__(self) -> str:
@@ -159,6 +169,15 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
 
     def decode(self, content: bytes | str) -> T:
         return self.decoder(content)
+
+
+class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
+    decoder: IDecoder[T]
+    content_type: BodyContentType = "application/json"
+
+    def __repr__(self) -> str:
+        type_repr = getattr(self.type_, "__name__", repr(self.type_))
+        return f"RequestBodyParam<{self.content_type}>({self.name}: {type_repr})"
 
 
 class PluginParam[T](Base):
@@ -244,26 +263,40 @@ def analyze_markedparam(
         # Easy case, Pure non-deps request params with param marks.
         location: ParamLocation
         alias = name
-        content_type: ParamContentType = "application/json"
+        content_type: BodyContentType = "application/json"
         if porigin is Header:
             location = "header"
             alias = parse_header_key(name, metas)
         elif porigin is Body:
-            location = "body"
+            body_param = RequestBodyParam(
+                name=name,
+                alias=alias,
+                type_=type_,
+                default=default,
+                decoder=decoder_factory(atype),
+                content_type=content_type,
+            )
+            return [(name, body_param)]
         elif porigin is Form:
-            location = "body"
             content_type = "multipart/form-data"
             custom_decoder = formdecoder_factory(atype)
+            body_param = RequestBodyParam(
+                name=name,
+                alias=alias,
+                type_=atype,
+                default=default,
+                decoder=custom_decoder,
+                content_type=content_type,
+            )
+            return [(name, body_param)]
+
         elif porigin is Path:
             location = "path"
         else:
             location = "query"
 
         if custom_decoder is None:
-            if location == "body":
-                decoder = decoder_factory(atype)
-            else:
-                decoder = textdecoder_factory(atype)
+            decoder = textdecoder_factory(atype)
         else:
             decoder = custom_decoder
 
@@ -274,22 +307,22 @@ def analyze_markedparam(
             decoder=decoder,
             location=location,
             default=default,
-            content_type=content_type,
         )
         pair = (name, req_param)
         return [pair]
 
 
-def file_body_param(name: str, type_: type[UploadFile], default: Any):
+def file_body_param(
+    name: str, type_: type[UploadFile], default: Any
+) -> RequestBodyParam[Any]:
     decoder = filedeocder_factory(name)
     content_type = "multipart/form-data"
 
-    req_param = RequestParam(
+    req_param = RequestBodyParam(
         type_=type_,
         name=name,
         alias=name,
         decoder=decoder,
-        location="body",
         default=default,
         content_type=content_type,
     )
@@ -298,23 +331,20 @@ def file_body_param(name: str, type_: type[UploadFile], default: Any):
 
 def analyze_union_param(
     name: str, type_: UnionType | type[Any] | GenericAlias, default: Any
-) -> RequestParam[Any]:
+) -> RequestParam[Any] | RequestBodyParam[Any]:
     type_args = get_args(type_)
-    content_type: ParamContentType = "application/json"
 
     for subt in type_args:
         if is_body_param(subt):
             if is_file_body(type_):
                 return file_body_param(name, type_=type_, default=default)
             decoder = decoder_factory(subt)
-            req_param = RequestParam(
+            req_param = RequestBodyParam(
                 type_=type_,
                 name=name,
                 alias=name,
                 decoder=decoder,
-                location="body",
                 default=default,
-                content_type=content_type,
             )
             break
     else:
@@ -343,7 +373,6 @@ def analyze_param[T](
     path_keys: tuple[str, ...],
     type_: type[T] | UnionType | GenericAlias,  # or GenericAlias
     default: Maybe[T] = MISSING,
-    content_type: ParamContentType = "application/json",
     metas: list[Any] | None = None,
 ) -> list[ParamPair | DependentNode]:
     """
@@ -353,7 +382,6 @@ def analyze_param[T](
     """
 
     custom_decoder = get_decoder_from_metas(metas) if metas else None
-
     if (porigin := lhl_get_origin(type_)) is Annotated:
         atype, metas = flatten_annotated(type_)
         return analyze_annoated(
@@ -394,14 +422,12 @@ def analyze_param[T](
             req_param = file_body_param(name, type_, default)
         else:
             decoder = custom_decoder or decoder_factory(type_)
-            req_param = RequestParam(
+            req_param = RequestBodyParam(
                 type_=type_,
                 name=name,
                 default=default,
                 alias=name,
                 decoder=decoder,
-                location="body",
-                content_type=content_type,
             )
     elif isinstance(type_, UnionType) or lhl_get_origin(type_) is Union:
         req_param = analyze_union_param(name, type_, default)
@@ -448,7 +474,7 @@ class PluginLoader(Protocol):
 
 class EndpointParams(Base):
     params: dict[str, RequestParam[Any]] = field(default_factory=dict)
-    bodies: dict[str, RequestParam[Any]] = field(default_factory=dict)
+    bodies: dict[str, RequestBodyParam[Any]] = field(default_factory=dict)
     nodes: dict[str, DependentNode] = field(default_factory=dict)
     plugins: dict[str, PluginParam[Any]] = field(default_factory=dict)
 
@@ -460,7 +486,7 @@ class EndpointParams(Base):
                 param_name, req_param = element
                 if isinstance(req_param, PluginParam):
                     self.plugins[param_name] = req_param
-                elif req_param.location == "body":
+                elif isinstance(req_param, RequestBodyParam):
                     self.bodies[param_name] = req_param
                 else:
                     self.params[param_name] = req_param
@@ -468,7 +494,7 @@ class EndpointParams(Base):
     def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.location == location}
 
-    def get_body(self) -> tuple[str, RequestParam[Any]] | None:
+    def get_body(self) -> tuple[str, RequestBodyParam[Any]] | None:
         if not self.bodies:
             body_param = None
         elif len(self.bodies) == 1:
@@ -489,7 +515,7 @@ class EndpointParams(Base):
     ):
         seen_path = set(path_keys)
         params = dict[str, RequestParam[Any]]()
-        bodies = dict[str, RequestParam[Any]]()
+        bodies = dict[str, RequestBodyParam[Any]]()
         nodes = dict[str, DependentNode]()
         plugins = dict[str, PluginParam[Any]]()
         for name, param in func_params:
@@ -510,7 +536,7 @@ class EndpointParams(Base):
                     param_name, req_param = element
                     if isinstance(req_param, PluginParam):
                         plugins[param_name] = req_param
-                    elif req_param.location == "body":
+                    elif isinstance(req_param, RequestBodyParam):
                         bodies[param_name] = req_param
                     else:
                         params[param_name] = req_param
