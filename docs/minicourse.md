@@ -81,7 +81,7 @@ flowchart LR
 
 ## Inversion of Control & Dependency Injection
 
-### Inversion of Control 
+### Inversion of Control
 
 Although the term `Inversion of Control` might sound exotic and fancy, and can be interpreted at different levels of software design, we only talk about one of its narrow sense here,
 
@@ -139,7 +139,7 @@ async def create_user(user: User):
     await repo.add_user(user)
 ```
 
-As we are not dynamically injecting `Repo` into `create_user`, we lose the benifits of 
+As we are not dynamically injecting `Repo` into `create_user`, we lose the benifits of
 
 - separation of interface and implementation:
     1. often we want to build engine differently depending on the environment we are deploying our app on, for example, you might want to increase the size of connection pool in prod.
@@ -149,6 +149,3 @@ As we are not dynamically injecting `Repo` into `create_user`, we lose the benif
 - lifetime control:
     Dependencies have differernt lfietime, for example,
     you might want to reuse a same `AsyncEngine` across different requests, but open a new `AsyncConnection` to handle each request.
-
-
-

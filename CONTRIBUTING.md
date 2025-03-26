@@ -8,6 +8,7 @@ pre-commit install
 ```
 
 To run pre-commit hooks manually, use:
+
 ```bash
 pre-commit run --all-files
 ```
