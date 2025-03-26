@@ -94,7 +94,7 @@ class EndpointDeps[R](Base):
                     val = received[alias]
 
                     try:
-                        params[name] = param.decoder(val)
+                        params[name] = param.convertor(val)
                     except ValidationError as mve:
                         error = InvalidDataType(param.location, name, str(mve))
                         verrors.append(error)

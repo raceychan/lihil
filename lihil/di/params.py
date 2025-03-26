@@ -7,7 +7,7 @@ from warnings import warn
 from ididi import DependentNode, Graph, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
-from msgspec import convert, field
+from msgspec import ValidationError, convert, field
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
@@ -17,6 +17,7 @@ from lihil.interface import (
     Base,
     BodyContentType,
     CustomDecoder,
+    IConvertor,
     IDecoder,
     Maybe,
     ParamLocation,
@@ -61,17 +62,15 @@ def is_file_body(annt: Any) -> TypeGuard[type[UploadFile]]:
 
 
 def is_body_param(annt: Any) -> bool:
-
     if not isinstance(annt, type):
         return False
 
     if is_lhl_dep(annt):
         return False
-
     return issubclass(annt, Struct) or is_file_body(annt)
 
 
-def textdecoder_factory(
+def convertor_factory(
     t: type | UnionType | GenericAlias,
 ) -> IDecoder[Any]:
     if is_union_type(t):
@@ -88,6 +87,20 @@ def textdecoder_factory(
     elif t is bytes:
         return to_bytes
     return decoder_factory(t)
+
+
+# def str_dec_hook(type_: type, obj: Any) -> str:
+#     if type_ is str:
+#         return obj
+#     raise NotImplementedError
+
+
+# def convertor_factory[T](t: type[T] | UnionType) -> IConvertor[T]:
+
+#     def convertor(content: str):
+#         return convert(content, t, dec_hook=str_dec_hook, strict=False)
+
+#     return convertor
 
 
 def filedeocder_factory(filename: str):
@@ -135,40 +148,22 @@ class RequestParamBase[T](Base):
     type_: type[T] | UnionType | GenericAlias
     default: Maybe[Any] = MISSING
     required: bool = False
+    # meta: ParamMeta | None = None
 
     def __post_init__(self):
         self.required = self.default is MISSING
 
 
-class ParamMeta(Base):
-    is_form_body: bool
-
-
-# TODO: we should probably separate body with rest of reqiest params
-# since body are sent in bytes, other are in string.
-
-# we should use decoder for body but for param we use msgspec.convert
-
-
 class RequestParam[T](RequestParamBase[T], kw_only=True):
-    """
-    maybe we would like to create a subclass RequestBody
-    since RequestBody can have content-type
-    reff:
-    https://stackoverflow.com/questions/4526273/what-does-enctype-multipart-form-data-mean
-    """
-
-    decoder: IDecoder[T]
+    convertor: IConvertor[T]
     location: ParamLocation
-    # this only applies to body so we might want separate interface
-    # meta: ParamMeta | None = None
 
     def __repr__(self) -> str:
         type_repr = getattr(self.type_, "__name__", repr(self.type_))
         return f"RequestParam<{self.location}>({self.name}: {type_repr})"
 
-    def decode(self, content: bytes | str) -> T:
-        return self.decoder(content)
+    def decode(self, content: str) -> T:
+        return self.convertor(content)
 
 
 class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
@@ -279,32 +274,27 @@ def analyze_markedparam(
             return [(name, body_param)]
         elif porigin is Form:
             content_type = "multipart/form-data"
-            custom_decoder = formdecoder_factory(atype)
+            decoder = custom_decoder or formdecoder_factory(atype)
             body_param = RequestBodyParam(
                 name=name,
                 alias=alias,
                 type_=atype,
                 default=default,
-                decoder=custom_decoder,
+                decoder=decoder,
                 content_type=content_type,
             )
             return [(name, body_param)]
-
         elif porigin is Path:
             location = "path"
         else:
             location = "query"
 
-        if custom_decoder is None:
-            decoder = textdecoder_factory(atype)
-        else:
-            decoder = custom_decoder
-
+        convertor = custom_decoder or convertor_factory(atype)
         req_param = RequestParam(
             type_=atype,
             name=name,
             alias=alias,
-            decoder=decoder,
+            convertor=convertor,
             location=location,
             default=default,
         )
@@ -346,14 +336,14 @@ def analyze_union_param(
                 decoder=decoder,
                 default=default,
             )
-            break
+            return req_param
     else:
-        decoder = textdecoder_factory(type_)
+        convertor = convertor_factory(cast(type[Any], type_))
         req_param = RequestParam(
             type_=type_,
             name=name,
             alias=name,
-            decoder=decoder,
+            convertor=convertor,
             location="query",
             default=default,
         )
@@ -361,6 +351,7 @@ def analyze_union_param(
 
 
 def get_decoder_from_metas(metas: list[Any]) -> IDecoder[Any] | None:
+    # TODO: custom convertor
     for meta in metas:
         if isinstance(meta, CustomDecoder):
             return meta.decode
@@ -408,12 +399,12 @@ def analyze_param[T](
 
     if name in path_keys:  # simplest case
         seen.discard(name)
-        decoder = custom_decoder or textdecoder_factory(type_)
+        convertor = custom_decoder or convertor_factory(type_)
         req_param = RequestParam(
             type_=type_,
             name=name,
             alias=name,
-            decoder=decoder,
+            convertor=convertor,
             location="path",
             default=default,
         )
@@ -450,12 +441,12 @@ def analyze_param[T](
         # user should be able to menually init their plugin then register as a singleton
         return [(name, PluginParam(type_=type_, name=name, default=default))]
     else:  # default case, treat as query
-        decoder = custom_decoder or textdecoder_factory(type_)
+        convertor = custom_decoder or convertor_factory(type_)
         req_param = RequestParam(
             type_=type_,
             name=name,
             alias=name,
-            decoder=decoder,
+            convertor=convertor,
             location="query",
             default=default,
         )
@@ -532,14 +523,14 @@ class EndpointParams(Base):
             for element in param_list:
                 if isinstance(element, DependentNode):
                     nodes[name] = element
+                    continue
+                param_name, req_param = element
+                if isinstance(req_param, PluginParam):
+                    plugins[param_name] = req_param
+                elif isinstance(req_param, RequestBodyParam):
+                    bodies[param_name] = req_param
                 else:
-                    param_name, req_param = element
-                    if isinstance(req_param, PluginParam):
-                        plugins[param_name] = req_param
-                    elif isinstance(req_param, RequestBodyParam):
-                        bodies[param_name] = req_param
-                    else:
-                        params[param_name] = req_param
+                    params[param_name] = req_param
         if seen_path:
             warn(f"Unused path keys {seen_path}")
         return cls(params=params, bodies=bodies, nodes=nodes, plugins=plugins)

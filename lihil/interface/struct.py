@@ -19,6 +19,12 @@ class IDecoder[T](Protocol):
     def __call__(self, content: Any, /) -> T: ...
 
 
+class IConvertor[T](Protocol):
+    "for non-body params"
+
+    def __call__(self, content: str, /) -> T: ...
+
+
 class IEncoder[T](Protocol):
     def __call__(self, content: T, /) -> bytes: ...
 
@@ -55,7 +61,7 @@ class Record(Base, frozen=True, gc=False, cache_hash=True): ...  # type: ignore
 @dataclass_transform(frozen_default=True)
 class Payload(Record, frozen=True, gc=False):
     """
-    a pre-configured struct that is frozen, gc_free, tagged with "typeid"
+    a pre-configured struct that is frozen, gc_free
     """
 
 

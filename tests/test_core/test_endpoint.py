@@ -117,7 +117,7 @@ async def test_ep_raise_httpexc():
 
     ep = rusers.get_endpoint(update_user)
     with pytest.raises(UserNotFound):
-        await client.call_endpoint(ep, path_params=dict(user_id=5))
+        await client.call_route(rusers, method="PUT", path_params=dict(user_id="5"))
 
 
 async def test_sync_generator_endpoint():

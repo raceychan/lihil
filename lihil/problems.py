@@ -206,7 +206,7 @@ class HTTPException[T](Exception, DetailBase[T]):
 
 
 class ErrorResponse[T](Response):
-    problem_encoder = encoder_factory(ProblemDetail[T])
+    problem_encoder = encoder_factory()
 
     def __init__(
         self,
@@ -246,7 +246,7 @@ class InvalidDataType(ValidationProblem, tag=True):
 # @dataclass(kw_only=True)
 class InvalidRequestErrors(HTTPException[list[ValidationProblem]]):
 
-    problem_encoder: ClassVar[IEncoder[Any]] = encoder_factory(list[ValidationProblem])
+    problem_encoder: ClassVar[IEncoder[Any]] = encoder_factory()
 
     title: str = "Check Your Params"
     instance: str = "uri of the entity"
