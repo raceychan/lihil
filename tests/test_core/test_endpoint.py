@@ -436,37 +436,6 @@ async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
 
     side_effect = []
 
-    async def call_back() -> None:
-        nonlocal side_effect
-        side_effect.append(1)
-
-    class Engine: ...
-
-    @rusers.factory
-    def get_engine() -> Engine:
-        eng = Engine()
-        yield eng
-
-    async def get(
-        user_id: str, engine: Engine, resolver: AsyncScope
-    ) -> Resp[Text, status.OK]:
-
-        resolver.register_exit_callback(call_back)
-
-        return "ok"
-
-    rusers.get(get)
-    ep = rusers.get_endpoint("GET")
-
-    res = await lc.call_endpoint(ep, path_params={"user_id": "123"})
-    assert res.status_code == 200
-    assert side_effect == [1]
-
-
-async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
-
-    side_effect = []
-
     async def call_back() -> Ignore[None]:
         nonlocal side_effect
         side_effect.append(1)
@@ -515,6 +484,23 @@ async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
     rusers.post(post, scoped=True)
     res = await lc.call_endpoint(
         rusers.get_endpoint("POST"), path_params={"user_id": "123"}
+    )
+
+    text = await res.text()
+    assert text == "ok"
+
+
+type GET_RESP = Resp[Text, status.OK]
+
+
+async def test_endpoint_with_resp_alias(rusers: Route, lc: LocalClient):
+
+    async def get(user_id: str) -> GET_RESP:
+        return "ok"
+
+    rusers.get(get)
+    res = await lc.call_endpoint(
+        rusers.get_endpoint("GET"), path_params={"user_id": "123"}
     )
 
     text = await res.text()

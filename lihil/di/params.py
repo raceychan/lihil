@@ -2,6 +2,7 @@ from copy import deepcopy
 from inspect import Parameter
 from types import GenericAlias, UnionType
 from typing import Annotated, Any, Literal, Sequence, TypeGuard, Union, cast, get_args
+from warnings import warn
 
 from ididi import DependentNode, Graph, Resolver
 from ididi.config import USE_FACTORY_MARK
@@ -148,7 +149,8 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
     alias: str
     decoder: IDecoder[T]
     location: ParamLocation
-    content_type: ParamContentType = "application/json"
+    # this only applies to body so we might want separate interface
+    content_type: ParamContentType | None = None
     # meta: ParamMeta | None = None
 
     def __repr__(self) -> str:
@@ -444,7 +446,7 @@ class PluginLoader(Protocol):
 """
 
 
-class ParsedParams(Base):
+class EndpointParams(Base):
     params: dict[str, RequestParam[Any]] = field(default_factory=dict)
     bodies: dict[str, RequestParam[Any]] = field(default_factory=dict)
     nodes: dict[str, DependentNode] = field(default_factory=dict)
@@ -478,24 +480,40 @@ class ParsedParams(Base):
             )
         return body_param
 
-
-def analyze_request_params(
-    func_params: tuple[tuple[str, Parameter], ...],
-    graph: Graph,
-    seen_path: set[str],
-    path_keys: tuple[str],
-) -> ParsedParams:
-    parsed_params = ParsedParams()
-    for name, param in func_params:
-        ptype, default = param.annotation, param.default
-        default = MISSING if param.default is Parameter.empty else param.default
-        param_list = analyze_param(
-            graph=graph,
-            name=name,
-            seen=seen_path,
-            path_keys=path_keys,
-            type_=ptype,
-            default=default,
-        )
-        parsed_params.collect_param(name, param_list)
-    return parsed_params
+    @classmethod
+    def from_func_params(
+        cls,
+        func_params: tuple[tuple[str, Parameter], ...],
+        graph: Graph,
+        path_keys: tuple[str],
+    ):
+        seen_path = set(path_keys)
+        params = dict[str, RequestParam[Any]]()
+        bodies = dict[str, RequestParam[Any]]()
+        nodes = dict[str, DependentNode]()
+        plugins = dict[str, PluginParam[Any]]()
+        for name, param in func_params:
+            ptype, default = param.annotation, param.default
+            default = MISSING if param.default is Parameter.empty else param.default
+            param_list = analyze_param(
+                graph=graph,
+                name=name,
+                seen=seen_path,
+                path_keys=path_keys,
+                type_=ptype,
+                default=default,
+            )
+            for element in param_list:
+                if isinstance(element, DependentNode):
+                    nodes[name] = element
+                else:
+                    param_name, req_param = element
+                    if isinstance(req_param, PluginParam):
+                        plugins[param_name] = req_param
+                    elif req_param.location == "body":
+                        bodies[param_name] = req_param
+                    else:
+                        params[param_name] = req_param
+        if seen_path:
+            warn(f"Unused path keys {seen_path}")
+        return cls(params=params, bodies=bodies, nodes=nodes, plugins=plugins)

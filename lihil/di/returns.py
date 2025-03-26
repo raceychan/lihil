@@ -40,7 +40,7 @@ from lihil.interface.marks import (
     lhl_get_origin,
 )
 from lihil.utils.phasing import encode_json, encode_text
-from lihil.utils.typing import flatten_annotated
+from lihil.utils.typing import flatten_annotated, is_py_singleton
 
 
 def parse_status(status: Any) -> int:
@@ -92,7 +92,7 @@ def is_empty_return(t: Any):
     return False
 
 
-class ReturnParam[T](Record):
+class EndpointReturn[T](Record):
     # TODO: generate response from this
     encoder: IEncoder[T]
     status: int
@@ -111,11 +111,11 @@ class ReturnParam[T](Record):
     @classmethod
     def from_mark(
         cls, annt: TypeAliasType | GenericAlias | UnionType, origin: Any, status: int
-    ) -> "ReturnParam[Any]":
+    ) -> "EndpointReturn[Any]":
         origin = lhl_get_origin(annt) or annt
         if origin is Text:
             content_type = get_media(origin)
-            rtp = ReturnParam(
+            rtp = EndpointReturn(
                 type_=bytes,
                 encoder=encode_text,
                 status=status,
@@ -125,7 +125,7 @@ class ReturnParam[T](Record):
             return rtp
         elif origin is HTML:
             content_type = get_media(origin)
-            return ReturnParam(
+            return EndpointReturn(
                 type_=str,
                 encoder=encode_text,
                 status=status,
@@ -134,7 +134,7 @@ class ReturnParam[T](Record):
             )
         elif origin is Stream:
             content_type = get_media(origin)
-            return ReturnParam(
+            return EndpointReturn(
                 type_=bytes,
                 encoder=encode_text,
                 status=status,
@@ -145,25 +145,24 @@ class ReturnParam[T](Record):
             type_args = get_args(annt)
             retype, *_ = type_args
             content_type = get_media(origin)
-            return ReturnParam(
+            return EndpointReturn(
                 type_=retype,
                 encoder=encode_json,
                 status=status,
                 annotation=annt,
                 content_type=content_type,
             )
+        elif origin is Empty:
+            return EndpointReturn.from_annotated(origin.__value__, origin, status)
         elif origin is Resp:
             resp = get_args(annt)
             if len(resp) > 1:
                 retype, status = resp  # type: ignore
             else:
                 retype = resp[0]  # type: ignore
-            return analyze_return(retype, status)
-        elif origin is Annotated:
-            return ReturnParam.from_annotated(annt, origin, status)
-        elif origin is Empty:
-            annt = cast(TypeAliasType, annt)
-            return ReturnParam.from_annotated(annt.__value__, origin, status)
+            return cls.from_return(retype, status)
+        elif isinstance(origin, TypeAliasType):
+            return cls.from_return(origin.__value__, status)
         else:
             raise InvalidParamTypeError(annt)
 
@@ -173,10 +172,9 @@ class ReturnParam[T](Record):
         annt: Annotated[Any, "Annotated"],
         origin: Maybe[Any] = MISSING,
         status: int = 200,
-    ) -> "ReturnParam[Any]":
+    ) -> "EndpointReturn[Any]":
         if not is_provided(origin):
             origin = lhl_get_origin(annt)
-
         # encoder = encode_json
         custom_encoder = None
         ret_type, metas = flatten_annotated(annt)
@@ -184,12 +182,12 @@ class ReturnParam[T](Record):
         custom_encoder = get_encoder_from_metas(metas) if metas else None
 
         if is_resp_mark(ret_type):
-            rp = ReturnParam.from_mark(ret_type, origin, status)
+            rp = EndpointReturn.from_mark(ret_type, origin, status)
             if custom_encoder:
                 return rp.replace(encoder=custom_encoder)
             return rp
         else:
-            ret = ReturnParam(
+            ret = EndpointReturn(
                 type_=ret_type,
                 encoder=custom_encoder or encode_json,
                 annotation=annt,
@@ -198,74 +196,75 @@ class ReturnParam[T](Record):
             return ret
 
     @classmethod
-    def from_generic(cls, annt: Any, origin: Any, status: int) -> "ReturnParam[Any]":
-        # TODO: from generator
-        if is_resp_mark(annt):
-            return ReturnParam.from_mark(annt, origin, status)
-        elif origin is Annotated or origin in (
+    def from_generic(cls, annt: Any, origin: Any, status: int) -> "EndpointReturn[Any]":
+        if origin is Annotated or origin in (
             Generator,
             ABCGen,
             AsyncGenerator,
             ABCAsyncGen,
         ):
-            return ReturnParam.from_annotated(annt, origin, status)
+            return EndpointReturn.from_annotated(annt, origin, status)
+        elif is_resp_mark(annt):  # Text,
+            return EndpointReturn.from_mark(annt, origin, status)
         elif nested_origin := lhl_get_origin(origin):
-            return ReturnParam.from_generic(origin, nested_origin, status)
+            return EndpointReturn.from_generic(origin, nested_origin, status)
         else:  # vanilla case, dict[str, str], list[str], etc.
             if not isinstance(origin, type):
                 raise InvalidParamTypeError(annt)
-            ret = ReturnParam[Any](
+            ret = EndpointReturn[Any](
                 type_=origin, encoder=encode_json, annotation=annt, status=status
             )
             return ret
 
+    @classmethod
+    def from_return[R](
+        cls,
+        annt: Maybe[type[R] | UnionType | TypeAliasType | GenericAlias],
+        status: int = 200,
+    ) -> "EndpointReturn[R]":
+        if annt is Parameter.empty or not is_provided(annt):
+            return EndpointReturn(encoder=encode_json, status=200)
 
-def is_py_singleton(t: Any) -> Literal[None, True, False]:
-    return t in {True, False, None, ...}
+        status = parse_status(status)
+        ret_origin = lhl_get_origin(annt) or annt
 
+        if isinstance(annt, UnionType) or ret_origin is Union:
+            """
+            TODO:
+            we need to handle case of multiple return e.g
+            async def userfunc() -> Resp[User, 200] | Resp[Order, 201]
+            for decoder it is just User | Order
+            but we can show at openapi schema
+            """
+            annt_args = get_args(annt)
+            rets: list[EndpointReturn[Any]] = []
 
-def analyze_return[R](
-    annt: Maybe[type[R] | UnionType | TypeAliasType | GenericAlias], status: int = 200
-) -> ReturnParam[R]:
-    if annt is Parameter.empty or not is_provided(annt):
-        return ReturnParam(encoder=encode_json, status=200)
-    status = parse_status(status)
+            for arg in annt_args:
+                if not is_resp_mark(arg):
+                    continue
+                rets.append(cls.from_return(arg))
 
-    ret_origin = lhl_get_origin(annt)
-    if isinstance(annt, UnionType) or ret_origin is Union:
-        """
-        TODO:
-        we need to handle case of multiple return e.g
-        async def userfunc() -> Resp[User, 200] | Resp[Order, 201]
-        """
-        # TODO: analyze all if more than one raise excepiton
-        annt_args = get_args(annt)
-        rets: list[ReturnParam[Any]] = []
+            if len(annt_args) > 1 and rets:
+                raise NotSupportedError(
+                    "Multiple return param is currently not supported"
+                )
 
-        for arg in annt_args:
-            if not is_resp_mark(arg):
-                continue
-            rets.append(analyze_return(arg))
+            ret = EndpointReturn(
+                type_=annt, annotation=annt, encoder=encode_json, status=status
+            )
 
-        if len(annt_args) > 1 and rets:
-            raise NotSupportedError("Multiple return param is currently not supported")
+        elif ret_origin or is_resp_mark(annt):
+            ret = EndpointReturn.from_generic(annt, ret_origin, status)
+        else:
+            # default case, should be a single non-generic type,
+            # e.g. User, str, bytes, etc.
+            if not is_py_singleton(annt) and not isinstance(annt, type):
+                raise InvalidParamTypeError(annt)
 
-        ret = ReturnParam(
-            type_=annt, annotation=annt, encoder=encode_json, status=status
-        )
-    elif ret_origin or is_resp_mark(annt):
-        # NOTE: we have to check both condition, since some resp marks are not generic
-        ret = ReturnParam.from_generic(annt, ret_origin, status)
-    else:  # default case, should be a single non-generic type,
-        # e.g. User, str, bytes, etc.
-        if not is_py_singleton(annt) and not isinstance(annt, type):
-
-            raise InvalidParamTypeError(annt)
-
-        ret = ReturnParam(
-            type_=annt,
-            annotation=annt,
-            encoder=encode_json,
-            status=status,
-        )
-    return ret
+            ret = EndpointReturn(
+                type_=annt,
+                annotation=annt,
+                encoder=encode_json,
+                status=status,
+            )
+        return ret

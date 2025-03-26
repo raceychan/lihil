@@ -5,21 +5,20 @@ import pytest
 from ididi import DependentNode, Graph
 from starlette.requests import Request
 
-from lihil.errors import NotSupportedError
 from lihil.di.params import (
     CustomDecoder,
-    ParsedParams,
-    RequestParam,
+    EndpointParams,
     PluginParam,
+    RequestParam,
     analyze_annoated,
     analyze_nodeparams,
     analyze_param,
-    analyze_request_params,
     analyze_union_param,
     flatten_annotated,
     is_param_mark,
     textdecoder_factory,
 )
+from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, Payload
 from lihil.interface.marks import Body, Header, Path, Query, Use
 from lihil.plugins.bus import EventBus
@@ -88,7 +87,7 @@ def test_singleton_param():
 
 def test_parsed_params():
     graph = Graph()
-    params = ParsedParams()
+    params = EndpointParams()
 
     # Create test parameters
     query_param = RequestParam(
@@ -337,10 +336,9 @@ def test_analyze_nodeparams():
     assert result[0] == node
 
 
-# Test analyze_request_params
-def test_analyze_request_params():
+# Test analyze_endpoint_params
+def test_analyze_endpoint_params():
     graph = Graph()
-    seen = set(["id"])
     path_keys = ("id",)
 
     # Create function parameters
@@ -349,9 +347,9 @@ def test_analyze_request_params():
 
     func_params = [("id", param1), ("q", param2)]
 
-    result = analyze_request_params(func_params, graph, seen, path_keys)
+    result = EndpointParams.from_func_params(func_params, graph, path_keys)
 
-    assert isinstance(result, ParsedParams)
+    assert isinstance(result, EndpointParams)
     assert len(result.params) == 2  # Both id and q should be in params
 
     # Check that path parameter was correctly identified

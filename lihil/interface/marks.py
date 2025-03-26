@@ -19,12 +19,12 @@ LIHIL_RESPONSE_MARK = "__LIHIL_RESPONSE_MARK"
 LIHIL_PARAM_MARK = "__LIHIL_PARAM_MARK"
 
 
-def lhl_get_origin(annt: Any):
+def lhl_get_origin(annt: Any) -> Any:
     "a extended get origin that handles TypeAliasType"
     if is_marked_param(annt):
         return ty_get_origin(annt)
     elif isinstance(annt, TypeAliasType):
-        return annt.__value__
+        return lhl_get_origin(annt.__value__)
     return ty_get_origin(annt)
 
 

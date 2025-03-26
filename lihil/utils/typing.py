@@ -2,6 +2,7 @@ from types import GenericAlias, UnionType
 from typing import (
     Annotated,
     Any,
+    Literal,
     Sequence,
     TypeAliasType,
     Union,
@@ -9,6 +10,10 @@ from typing import (
     get_args,
     get_origin,
 )
+
+
+def is_py_singleton(t: Any) -> Literal[None, True, False]:
+    return t in {True, False, None, ...}
 
 
 def flatten_annotated[T](

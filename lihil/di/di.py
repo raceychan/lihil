@@ -1,13 +1,12 @@
 from inspect import signature
 from typing import Any, Awaitable, Callable, Mapping, cast
-from warnings import warn
 
 from ididi import DependentNode, Graph
 from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
-from lihil.di.params import PluginParam, RequestParam, analyze_request_params
-from lihil.di.returns import ReturnParam, analyze_return
+from lihil.di.params import EndpointParams, PluginParam, RequestParam
+from lihil.di.returns import EndpointReturn
 from lihil.interface import MISSING, Base, Record
 from lihil.problems import (
     InvalidDataType,
@@ -47,7 +46,7 @@ class EndpointDeps[R](Base):
     dependencies: ParamMap[DependentNode]
     plugins: ParamMap[PluginParam[Any]]
 
-    return_param: ReturnParam[R]  # | UnionType
+    return_param: EndpointReturn[R]  # | UnionType
     scoped: bool
     form_body: bool = False
 
@@ -162,14 +161,11 @@ def analyze_endpoint[R](
     f: Callable[..., R | Awaitable[R]],
 ) -> "EndpointDeps[R]":
     path_keys = find_path_keys(route_path)
-    seen_path: set[str] = set(path_keys)
     func_sig = signature(f)
     func_params = tuple(func_sig.parameters.items())
 
-    params = analyze_request_params(func_params, graph, seen_path, path_keys)
-    retparam = analyze_return(func_sig.return_annotation)
-    if seen_path:
-        warn(f"Unused path keys {seen_path}")
+    params = EndpointParams.from_func_params(func_params, graph, path_keys)
+    retparam = EndpointReturn.from_return(func_sig.return_annotation)
 
     scoped = any(
         graph.should_be_scoped(node.dependent) for node in params.nodes.values()
@@ -186,7 +182,7 @@ def analyze_endpoint[R](
         body_param=body_param,
         plugins=params.plugins,
         dependencies=params.nodes,
-        return_param=cast(ReturnParam[R], retparam),
+        return_param=cast(EndpointReturn[R], retparam),
         scoped=scoped,
         form_body=form_body,
     )

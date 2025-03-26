@@ -6,9 +6,8 @@ import pytest
 from lihil.constant.status import OK
 from lihil.di.returns import (
     CustomEncoder,
-    ReturnParam,
+    EndpointReturn,
     agen_encode_wrapper,
-    analyze_return,
     get_media,
     is_py_singleton,
     parse_status,
@@ -89,43 +88,43 @@ def test_syncgen_encode_wrapper():
     assert results == [b"encoded:test1", b"encoded:test2"]
 
 
-# Test ReturnParam class (lines 102-103, 126, 131, 143-146, 151-152)
+# Test EndpointReturn class (lines 102-103, 126, 131, 143-146, 151-152)
 def test_return_param_init():
     # Test __post_init__ with valid status (line 102-103)
-    param = ReturnParam(encoder=lambda x: b"", status=200, type_=str)
+    param = EndpointReturn(encoder=lambda x: b"", status=200, type_=str)
     assert param.type_ == str
 
     # Test __post_init__ with invalid status (line 103)
     with pytest.raises(StatusConflictError):
-        ReturnParam(encoder=lambda x: b"", status=204, type_=str)
+        EndpointReturn(encoder=lambda x: b"", status=204, type_=str)
 
     # Test __repr__ (line 126)
-    param = ReturnParam(encoder=lambda x: b"", status=200, annotation="test")
+    param = EndpointReturn(encoder=lambda x: b"", status=200, annotation="test")
     assert "Return(test, 200)" in repr(param)
 
 
 def test_return_param_from_mark():
     # Test with Text mark (line 131)
-    param = ReturnParam.from_mark(Text, Text, 200)
+    param = EndpointReturn.from_mark(Text, Text, 200)
     assert "text/plain" in param.content_type
     assert param.type_ == bytes
 
     # Test with HTML mark (line 143-146)
-    param = ReturnParam.from_mark(HTML, HTML, 200)
+    param = EndpointReturn.from_mark(HTML, HTML, 200)
     assert "text/html" in param.content_type
     assert param.type_ == str
 
     # Test with Stream mark (line 151-152)
-    param = ReturnParam.from_mark(Stream[bytes], Stream, 200)
+    param = EndpointReturn.from_mark(Stream[bytes], Stream, 200)
     assert "text/event-stream" in param.content_type
     assert param.type_ == bytes
 
     # Test with Json mark
-    param = ReturnParam.from_mark(Json[dict], Json, 200)
+    param = EndpointReturn.from_mark(Json[dict], Json, 200)
     assert "application/json" in param.content_type
 
     # Test with Resp mark
-    param = ReturnParam.from_mark(Resp[str, 201], Resp, 200)
+    param = EndpointReturn.from_mark(Resp[str, 201], Resp, 200)
     assert param.status == 201
     assert param.type_ == str
 
@@ -133,7 +132,7 @@ def test_return_param_from_mark():
 def test_return_param_from_annotated1():
     encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
 
-    param = ReturnParam.from_annotated(Annotated[str, encoder], Annotated, 200)
+    param = EndpointReturn.from_annotated(Annotated[str, encoder], Annotated, 200)
     assert param.type_ == str
     assert param.encoder == encoder.encode
 
@@ -142,27 +141,27 @@ def test_return_param_from_annotated2():
     encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
 
     # Test with Annotated and Resp
-    param = ReturnParam.from_annotated(Annotated[Resp[str, 201], encoder])
+    param = EndpointReturn.from_annotated(Annotated[Resp[str, 201], encoder])
     assert param.status == 201
     assert param.type_ == str
     assert param.encoder == encoder.encode
 
 
-# Test ReturnParam.from_generic method (line 196)
+# Test EndpointReturn.from_generic method (line 196)
 def test_return_param_from_generic():
     # Test with non-resp mark, non-annotated type (line 196)
-    param = ReturnParam.from_generic(dict, dict, 200)
+    param = EndpointReturn.from_generic(dict, dict, 200)
     assert param.type_ == dict
     assert param.status == 200
 
     # Test with Resp mark
-    param = ReturnParam.from_generic(Resp[str, 201], Resp, 200)
+    param = EndpointReturn.from_generic(Resp[str, 201], Resp, 200)
     assert param.status == 201
     assert param.type_ == str
 
     # Test with Annotated
     encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
-    param = ReturnParam.from_generic(Annotated[str, encoder], Annotated, 200)
+    param = EndpointReturn.from_generic(Annotated[str, encoder], Annotated, 200)
     assert param.type_ == str
 
 
@@ -177,50 +176,50 @@ def test_is_py_singleton():
 
 
 def test_analyze_return_with_union_type():
-    result = analyze_return(Union[str, int])
+    result = EndpointReturn.from_return(Union[str, int])
     assert result.status == 200
 
     # Test with Parameter.empty
-    result = analyze_return(Parameter.empty)
+    result = EndpointReturn.from_return(Parameter.empty)
     assert result.type_ is MISSING
     assert result.status == 200
 
     # Test with a simple type
-    result = analyze_return(str)
+    result = EndpointReturn.from_return(str)
     assert result.type_ == str
     assert result.status == 200
 
     # Test with a non-type value that's not a singleton
     with pytest.raises(InvalidParamTypeError):
-        analyze_return("not a type")
+        EndpointReturn.from_return("not a type")
 
 
 def test_analyze_return_with_stream_text():
-    result = analyze_return(Stream[Text])
-    assert result.encoder is (analyze_return(Text).encoder)
+    result = EndpointReturn.from_return(Stream[Text])
+    assert result.encoder is (EndpointReturn.from_return(Text).encoder)
 
 
 def test_analyze_return_with_generator_text():
-    result = analyze_return(Generator[Text, None, None])
-    assert result.encoder is (analyze_return(Text).encoder)
+    result = EndpointReturn.from_return(Generator[Text, None, None])
+    assert result.encoder is (EndpointReturn.from_return(Text).encoder)
 
 
 def test_resp_with_only_ret_tpye():
-    res = ReturnParam.from_mark(Resp[str], Resp, 200)
+    res = EndpointReturn.from_mark(Resp[str], Resp, 200)
     assert res.type_ is str
 
 
 def test_invalid_resp():
     with pytest.raises(InvalidParamTypeError):
-        res = ReturnParam.from_mark("fadsf", str, 200)
+        res = EndpointReturn.from_mark("fadsf", str, 200)
 
 
 def test_random_metas():
-    ret = ReturnParam.from_mark(Annotated[Resp[str], "aloha"], Annotated, 422)
+    ret = EndpointReturn.from_return(Annotated[Resp[str], "aloha"], 422)
     assert ret.type_ is str
     assert ret.status == 422
 
 
 def test_analyze_invalid_union():
     with pytest.raises(NotSupportedError):
-        analyze_return(int | Resp[str])
+        EndpointReturn.from_return(int | Resp[str])

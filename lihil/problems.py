@@ -51,7 +51,10 @@ def parse_exception(
         raise TypeError(f"Invalid exception type {exc}")
 
     elif exc_origin is Literal:
-        return get_args(exc)[0]
+        try:
+            return get_args(exc)[0]
+        except IndexError:
+            return get_args(exc.__value__)[0]
     elif is_union_type(exc):
         res: list[Any] = []
         sub_excs = get_args(exc)
