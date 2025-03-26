@@ -64,7 +64,7 @@ asgi middlewares are also `ASGIApp`.
 
 ### `ASGI Call Chain`
 
-`ASGIApp` are often chained together like a linked list, where each call to the chain go through every node on the chain, for example, a ordinary call stack looks like this
+`ASGIApp` are often chained together like a linked list(you might recognize this as the `chain of responsibility` pattern), where each call to the chain go through every node on the chain, for example, a ordinary call stack looks like this
 
 ```mermaid
 flowchart LR
@@ -74,7 +74,6 @@ flowchart LR
     C --> D[Endpoint Function]
 ```
 
-
 - `Endpoint Function`  is the function you registered with `Route.{http method}`, such as `Route.get`
 
 - If you server lihil with an ASGI server such as uvicorn, `lihil.Lihil` will be called by uvicorn.
@@ -82,9 +81,9 @@ flowchart LR
 
 ## Inversion of Control & Dependency Injection
 
-### Dependency Inversion
+### Inversion of Control 
 
-Although the term `Inversion of Control` might sound exotic and fancy, and can be interpreted at different level of abstractions, we only talk about one of its narrow sense here,
+Although the term `Inversion of Control` might sound exotic and fancy, and can be interpreted at different levels of software design, we only talk about one of its narrow sense here,
 
 Imagine you are writing a module that creates a user in database, you might have something like:
 
@@ -115,21 +114,41 @@ Here you are calling `create_user` from your `main` function inside a `main.py`,
 Comparing with what would you do with lihil:
 
 ```python
-user_route = Route("/users")
+users_route = Route("/users")
 
-@user_route.post
+@users_route.post
 async def create_user(user: User, repo: Repository):
     await repo.add_user(user)
 
 lhl = Lihil(routes=[user_route])
 ```
 
-Notice that, instead of you actively calling `create_user` from your function, your function is called by lihil upon request arrival.
-and the dependencies of your `create_user` is managed and injected by lihil.
+Notice here, instead of you actively calling `create_user` from your function, your function is called by lihil upon request arrival, and the dependencies of your `create_user` is managed and injected by lihil.
+
+This is an example of `Inversion of Control` and also one of the major reasons why a dedicated dependency injection tool `ididi` is used by lihil.
+
+### Compare to menually building dependency inside endpoint function
+
+You might wonder why not building dependencies yourself inside the endpoint function.
+
+```python
+@users_route.post
+async def create_user(user: User):
+    engine = create_engine(url=url)
+    repo = Repo(engine)
+    await repo.add_user(user)
+```
+
+As we are not dynamically injecting `Repo` into `create_user`, we lose the benifits of 
+
+- separation of interface and implementation:
+    1. often we want to build engine differently depending on the environment we are deploying our app on, for example, you might want to increase the size of connection pool in prod.
+    2. we won't be executing real query during test so we would need to mock the `Engine` object.
+    3. if we create a new `AdvacnedEngine(Engine)` to cater our business need, we can't let `create_user` use it without modifying the code inside.
+
+- lifetime control:
+    Dependencies have differernt lfietime, for example,
+    you might want to reuse a same `AsyncEngine` across different requests, but open a new `AsyncConnection` to handle each request.
 
 
-This is an example of `IOC` and also a major reason why a dedicated dependency injection tool `ididi` is used by lihil.
 
-### Compare to menually constructing dependency inside endpoint function
-
-alternatively, you might constructing dependencies yourself inside the endpoint function.
