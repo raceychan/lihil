@@ -476,7 +476,7 @@ Lihil has built-in support for both in-process message handling (Beta) and out-o
 
 There are three primitives for event:
 
-1. publish: asynchronous and blocking event handling that shares the same scoep with caller.
+1. publish: asynchronous and blocking event handling that shares the same scope with caller.
 2. emit: non-blocking asynchrounous event hanlding, has its own scope.
 3. sink: a thin wrapper around external dependency for data persistence, such as message queue or database.
 
@@ -550,7 +550,7 @@ use it anywhere with DI
 - init at middleware
 
 plugin can be initialized and injected into middleware,
-middleware can be bind to differernt route, for example `Throttle`
+middleware can be bind to different route, for example `Throttle`
 
 ```python
 # pseudo code
@@ -565,7 +565,7 @@ class ThrottleMiddleware:
 
 ```
 
-lihil accepts a factory to build your middleware, so that you can use di inside the factory, and it will perserve typing info as well. anything callble that requires only one positonal argument can be a factory, which include most ASGI middleware classes.
+lihil accepts a factory to build your middleware, so that you can use di inside the factory, and it will perserve typing info as well. Anything callable that requires only one positonal argument can be a factory, which include most ASGI middleware classes.
 
 ```python
 lihil.add_middleware(lambda app: app.graph.resolve(ThrottleMiddleware))
@@ -593,17 +593,17 @@ async def get_user(token: UserToken) -> Ignore[User]: ...
 
 - all graph will eventually merged into the main graph holding by `Lihil`, which means that, if you register a dependency with a factory in route `A`, the same factory can be used in every other route if it is required.
 
-- you can menually construct graph and inject into `Lihil`
+- you can manually construct graph and inject into `Lihil`
 
 
 
 ### Testing
 
-Lihil provide you two technques for testing, `TestClient` and `LocalClient`
+Lihil provide you two techniques for testing, `TestClient` and `LocalClient`
 
 #### `TestClient`
 
-`TestClient` provide you something that is close to menually constructing a request as client and post it to your server.
+`TestClient` provide you something that is close to manually constructing a request as client and post it to your server.
 
 For integration testing where each request should go through every part of your application, `TestClient` keep your test close to user behavior.
 

@@ -61,7 +61,7 @@ Lihil automatically generates comprehensive OpenAPI documentation:
 
 Lihil implements the RFC 7807 Problem Details standard for error reporting
 
-lihil maps your expcetion to a `Problem` and genrate detailed response based on your exception.
+lihil maps your exception to a `Problem` and generate detailed response based on your exception.
 
 ```python
 class OutOfStockError(HTTPException[str]):
@@ -92,7 +92,7 @@ Lihil has built-in support for both in-process message handling
 
 There are three primitives for event:
 
-1. publish: asynchronous and blocking event handling that shares the same scoep with caller.
+1. publish: asynchronous and blocking event handling that shares the same scope with caller.
 2. emit: non-blocking asynchrounous event hanlding, has its own scope.
 3. sink: a thin wrapper around external dependency for data persistence, such as message queue or database.
 
@@ -129,7 +129,7 @@ An event can have multiple event handlers, they will be called in sequence, conf
 
 - An event handler can have as many dependencies as you want, but it should at least contain two params: a sub type of `Event`, and a sub type of `MessageContext`.
 
-- if a handler is reigstered with a parent event, it will listen to all of its sub event.
+- if a handler is registered with a parent event, it will listen to all of its sub events.
 for example,
 
 - a handler that listens to `UserEvent`, will also be called when `UserCreated(UserEvent)`, `UserDeleted(UserEvent)` event is published/emitted.

@@ -58,7 +58,7 @@ lhl = Lihil(config_file="pyproject.toml")
 ```
 Note: currently only toml file is supported
 
-or by inheriting `lihil.config.AppConfig` instance menually,
+or by inheriting `lihil.config.AppConfig` instance manually,
 
 ```python
 lhl = Lihil(app_config=AppConfig(version="0.1.1"))
@@ -277,7 +277,7 @@ async def post(login_form: Form[UserInfo]) -> Resp[Text, status.OK]:
     return "ok"
 ```
 
-Note that, currently only `Form[bytes]` and `Form[DataModel]` is accpeted, where DataModel is any subclass of `Struct`
+Note that, currently only `Form[bytes]` and `Form[DataModel]` is accepted, where DataModel is any subclass of `Struct`
 
 - user can now declare `UploadFile` in their endpoint.
 
@@ -390,7 +390,7 @@ This patch focuses on refactoring to improve code maintainence
 
 ### Improvements
 
-- lazy analysis on endpoint, now dependencies declare in the endpoint won't be analyzed untill lifespan event. this is for better analysis on dependencies, for example:
+- lazy analysis on endpoint, now dependencies declare in the endpoint won't be analyzed until lifespan event. this is for better analysis on dependencies, for example:
 
 ```python
 

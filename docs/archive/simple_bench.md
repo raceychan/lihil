@@ -1,8 +1,8 @@
 # Minibench
 
-This is a benchmark shows the performance difference between lihil and other asgi frameworks.
+This is a benchmark shows the performance difference between lihil and other ASGI frameworks.
 
-Note thta This benchmark will be updated frequently and test results are subject to change.
+Note that this benchmark will be updated frequently and test results are subject to change.
 
 ## Context
 
