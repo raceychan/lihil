@@ -31,7 +31,7 @@ class AppConfiguringError(LihilError): ...
 
 class MiddlewareBuildError(LihilError):
     def __init__(self, factory: Any):
-        super().__init__(f"Unable to instantate middleware from {factory}")
+        super().__init__(f"Unable to instantiate middleware from {factory}")
 
 
 class InvalidParamTypeError(LihilError):
