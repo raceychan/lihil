@@ -7,7 +7,7 @@ from starlette.requests import Request
 
 from lihil.di.params import EndpointParams, PluginParam, RequestBodyParam, RequestParam
 from lihil.di.returns import EndpointReturn
-from lihil.interface import MISSING, Base, IEncoder, Record
+from lihil.interface import MISSING, Base, IEncoder, Record, is_provided
 from lihil.problems import (
     InvalidDataType,
     InvalidJsonReceived,
@@ -73,7 +73,7 @@ class EndpointDeps[R](Base):
         req_path: Mapping[str, Any] | None = None,
         req_query: Mapping[str, Any] | None = None,
         req_header: Mapping[str, Any] | None = None,
-        body: Any | None = None,
+        body: bytes | FormData | None = None,
     ) -> ParseResult:
         verrors: list[Any] = []
         params: dict[str, Any] = {}
@@ -94,7 +94,7 @@ class EndpointDeps[R](Base):
                     val = received[alias]
 
                     try:
-                        params[name] = param.convertor(val)
+                        params[name] = param.decode(val)
                     except ValidationError as mve:
                         error = InvalidDataType(param.location, name, str(mve))
                         verrors.append(error)
@@ -110,13 +110,13 @@ class EndpointDeps[R](Base):
         if self.body_param and body is not None:
             name, param = self.body_param
             if body == b"":  # empty bytes
-                if not param.required:
-                    body = param.default
+                if is_provided(param.default):
+                    body = param.default  # TODO: is_provided
                 else:
                     err = MissingRequestParam("body", name)
                     verrors.append(err)
             elif isinstance(body, FormData) and len(body) == 0:
-                if not param.required:
+                if is_provided(param.default):
                     body = param.default
                 else:
                     err = MissingRequestParam("body", name)

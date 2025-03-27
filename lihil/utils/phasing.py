@@ -6,7 +6,7 @@ from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import Encoder as JsonEncoder
 from msgspec.json import encode as json_encode
 
-from lihil.errors import NotSupportedError
+# from lihil.errors import NotSupportedError
 from lihil.interface import IDecoder, IEncoder
 from lihil.utils.typing import is_union_type
 
@@ -48,7 +48,7 @@ def build_union_decoder(
 
     raw_decoder = to_str if target_type is str else to_bytes
 
-    def decode_reunion(content: bytes | str):
+    def decode_reunion(content: bytes):
         try:
             res = rest_decoder(content)
         except DecodeError:

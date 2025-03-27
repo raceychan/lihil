@@ -13,13 +13,18 @@ from msgspec.structs import asdict as struct_asdict
 from msgspec.structs import replace as struct_replace
 
 from lihil.interface.marks import EMPTY_RETURN_MARK
+from lihil.vendor_types import FormData
 
 
 class IDecoder[T](Protocol):
-    def __call__(self, content: Any, /) -> T: ...
+    def __call__(self, content: bytes, /) -> T: ...
 
 
-class IConvertor[T](Protocol):
+class IFormDecoder[T](Protocol):
+    def __call__(self, content: FormData, /) -> T: ...
+
+
+class ITextDecoder[T](Protocol):
     "for non-body params"
 
     def __call__(self, content: str, /) -> T: ...
@@ -79,7 +84,7 @@ class CustomDecoder(Base):
     async def create_user(i: Annotated[IType, CustomDecoder(decode_itype)])
     """
 
-    decode: Callable[[bytes | str], Any]
+    decode: ITextDecoder[Any] | IDecoder[Any] | IFormDecoder[Any]
 
 
 def empty_encoder(param: Any) -> bytes:

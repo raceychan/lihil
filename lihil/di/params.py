@@ -14,11 +14,8 @@ from starlette.datastructures import FormData
 from lihil.errors import NotSupportedError
 from lihil.interface import (
     MISSING,
-    Base,
     BodyContentType,
     CustomDecoder,
-    IConvertor,
-    IDecoder,
     Maybe,
     ParamLocation,
 )
@@ -33,6 +30,7 @@ from lihil.interface.marks import (
     is_param_mark,
     lhl_get_origin,
 )
+from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, to_str
@@ -88,20 +86,6 @@ def convertor_factory(
     return decoder_factory(t)
 
 
-# def str_dec_hook(type_: type, obj: Any) -> str:
-#     if type_ is str:
-#         return obj
-#     raise NotImplementedError
-
-
-# def convertor_factory[T](t: type[T] | UnionType) -> IConvertor[T]:
-
-#     def convertor(content: str):
-#         return convert(content, t, dec_hook=str_dec_hook, strict=False)
-
-#     return convertor
-
-
 def filedeocder_factory(filename: str):
     def file_decoder(form_data: FormData) -> UploadFile | None:
         if upload_file := form_data.get(filename):
@@ -154,7 +138,7 @@ class RequestParamBase[T](Base):
 
 
 class RequestParam[T](RequestParamBase[T], kw_only=True):
-    convertor: IConvertor[T]
+    text_decoder: ITextDecoder[T]
     location: ParamLocation
 
     def __repr__(self) -> str:
@@ -162,11 +146,11 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         return f"RequestParam<{self.location}>({self.name}: {type_repr})"
 
     def decode(self, content: str) -> T:
-        return self.convertor(content)
+        return self.text_decoder(content)
 
 
 class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
-    decoder: IDecoder[T]
+    decoder: IDecoder[T] | IFormDecoder[T]
     content_type: BodyContentType = "application/json"
 
     def __repr__(self) -> str:
@@ -279,7 +263,7 @@ def analyze_markedparam(
                 alias=alias,
                 type_=atype,
                 default=default,
-                decoder=decoder,
+                decoder=cast(IFormDecoder[Any], decoder),
                 content_type=content_type,
             )
             return [(name, body_param)]
@@ -288,12 +272,12 @@ def analyze_markedparam(
         else:
             location = "query"
 
-        convertor = custom_decoder or convertor_factory(atype)
+        txtdecoder = custom_decoder or convertor_factory(atype)
         req_param = RequestParam(
             type_=atype,
             name=name,
             alias=alias,
-            convertor=convertor,
+            text_decoder=cast(ITextDecoder[Any], txtdecoder),
             location=location,
             default=default,
         )
@@ -337,19 +321,21 @@ def analyze_union_param(
             )
             return req_param
     else:
-        convertor = convertor_factory(cast(type[Any], type_))
+        txt_decoder = cast(ITextDecoder[Any], convertor_factory(type_))
         req_param = RequestParam(
             type_=type_,
             name=name,
             alias=name,
-            convertor=convertor,
+            text_decoder=txt_decoder,
             location="query",
             default=default,
         )
     return req_param
 
 
-def get_decoder_from_metas(metas: list[Any]) -> IDecoder[Any] | None:
+def get_decoder_from_metas(
+    metas: list[Any],
+) -> ITextDecoder[Any] | IDecoder[Any] | IFormDecoder[Any] | None:
     # TODO: custom convertor
     for meta in metas:
         if isinstance(meta, CustomDecoder):
@@ -398,12 +384,12 @@ def analyze_param[T](
 
     if name in path_keys:  # simplest case
         seen.discard(name)
-        convertor = custom_decoder or convertor_factory(type_)
+        txtdecoder = custom_decoder or convertor_factory(type_)
         req_param = RequestParam(
             type_=type_,
             name=name,
             alias=name,
-            convertor=convertor,
+            text_decoder=cast(ITextDecoder[Any], txtdecoder),
             location="path",
             default=default,
         )
@@ -417,7 +403,7 @@ def analyze_param[T](
                 name=name,
                 default=default,
                 alias=name,
-                decoder=decoder,
+                decoder=cast(IDecoder[Any], decoder),
             )
     elif isinstance(type_, UnionType) or lhl_get_origin(type_) is Union:
         req_param = analyze_union_param(name, type_, default)
@@ -440,12 +426,12 @@ def analyze_param[T](
         # user should be able to menually init their plugin then register as a singleton
         return [(name, PluginParam(type_=type_, name=name, default=default))]
     else:  # default case, treat as query
-        convertor = custom_decoder or convertor_factory(type_)
+        txtdecoder = custom_decoder or convertor_factory(type_)
         req_param = RequestParam(
             type_=type_,
             name=name,
             alias=name,
-            convertor=convertor,
+            text_decoder=cast(ITextDecoder[Any], txtdecoder),
             location="query",
             default=default,
         )

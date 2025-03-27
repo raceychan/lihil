@@ -59,7 +59,7 @@ def test_request_param():
         type_=str,
         name="test",
         alias="test",
-        convertor=lambda x: str(x),
+        text_decoder=lambda x: str(x),
         location="query",
         default="default",
     )
@@ -70,7 +70,7 @@ def test_request_param():
         type_=int,
         name="test",
         alias="test",
-        convertor=lambda x: int(x),
+        text_decoder=lambda x: int(x),
         location="query",
     )
     assert param.required is True
@@ -97,7 +97,7 @@ def test_parsed_params():
 
     # Create test parameters
     query_param = RequestParam(
-        type_=str, name="q", alias="q", convertor=lambda x: str(x), location="query"
+        type_=str, name="q", alias="q", text_decoder=lambda x: str(x), location="query"
     )
 
     body_param = RequestBodyParam(
@@ -391,7 +391,7 @@ def test_analyze_markedparam_with_custom_decoder():
     assert name == "page"
     assert isinstance(param, RequestParam)
     assert param.location == "query"
-    assert param.convertor is custom_decode
+    assert param.text_decoder is custom_decode
 
 
 def test_analyze_markedparam_with_factory():
