@@ -4,9 +4,24 @@ we will go through some of the common concept related to web development that wo
 
 ## `Resource`
 
-### Any identifiable entity that can be accessed via a URL
+### Any identifiable `entity` that can be accessed via a URL
 
 Don't overthink it—if you don’t like the term `resource`, think of it as an `object`.
+
+## `Entity`
+
+Anyting that can be uniquely identified. for example
+
+```python
+from dataclasses import dataclass, field
+from uuid import uuid4
+
+class User:
+    user_id: str = field(default_factory=lambda: str(uuid4()))
+```
+
+Here, `User` is an entity as can be uniquely identified through `user_id`.
+meaing that, for any given two instances of `User`, `u1` and `u2`, if `u1.user_id` == `u2.user_id` then `u1 == u2`.
 
 ## `URI`
 

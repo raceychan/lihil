@@ -19,10 +19,14 @@ from .interface import Stream as Stream
 from .interface import Text as Text
 from .interface import Use as Use
 from .lihil import Lihil as Lihil
+from .plugins.bus import BusTerminal as BusTerminal
+from .plugins.bus import EventBus as EventBus
+from .plugins.testclient import LocalClient as LocalClient
 from .problems import HTTPException as HTTPException
 from .routing import Route as Route
 from .vendor_types import Request as Request
 from .vendor_types import Response as Response
+from .vendor_types import TestClient as TestClient
 from .vendor_types import UploadFile as UploadFile
 
 # from .server.runner import run as run

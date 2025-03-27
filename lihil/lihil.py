@@ -126,12 +126,14 @@ class Lihil[T](ASGIBase):
 
         user_ls = self._userls(self)
         try:
-            self.setup()
             self._app_state = await user_ls.__aenter__()
             await send({"type": "lifespan.startup.complete"})
         except BaseException:
             exc_text = traceback.format_exc()
             await send({"type": "lifespan.startup.failed", "message": exc_text})
+        finally:
+            self.setup()
+
         await receive()
 
         try:

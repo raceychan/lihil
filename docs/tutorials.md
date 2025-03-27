@@ -226,9 +226,9 @@ scoped: Literal[True] | None
 
 ### Route
 
-When you define a route, you expose a resource through a specific **path** that clients can request. you then define `endpoints` on the route to determin what clients can do with the resource.
+When you define a route, you expose a resource through a specific **path** that clients can request. you then add an `Endpoint` on the route to determin what clients can do with the resource.
 
-take url `https://dontclickme.com/users` as an example, path `/users` would locate resource `users`.
+Take url `https://dontclickme.com/users` as an example, path `/users` would locate resource `users`.
 
 #### Defining an route
 
@@ -238,20 +238,33 @@ from lihil import Route
 users_route = Route("/users")
 ```
 
+If you have existing `lihil.Graph` and `lihil.MessageRegistry` that you would like to use, put then in the route constructor.
+
+This is useful when, say if you have keep dependencies and event listeners in separate files, example:
+
+```python
+from project.users.deps import user_graph
+from project.users.listeners import user_eventregistry
+
+user_route = Route(graph=uesr_graph, registry=user_eventregistry)
+```
+
+You might also add middlewares to route if you want the middlewares only take effect in the current route.
+
 ##### register endpoint to an route.
 
 In previous dicussion, we expose `create_user` as an endpoint for `POST` request of `users_route`.
 we can also declare other http methods with similar syntax, this includes:
 
-- GET
-- POST
-- HEAD
-- OPTIONS
-- TRACE
-- PUT
-- DELETE
-- PATCH
-- CONNECT
+- `GET`
+- `POST`
+- `HEAD`
+- `OPTIONS`
+- `TRACE`
+- `PUT`
+- `DELETE`
+- `PATCH`
+- `CONNECT`
 
 This means that an route can have 0-9 endpoints.
 
@@ -296,6 +309,32 @@ here both `get_user` and `update_user` are under the same route.
 #### The root route
 
 an route with path `/` is the root route, if not provided, root route is created with `Lihil` by default, anything registered via `Lihil.{http method}` is the under the root route.
+
+### Middlewares
+
+Both `Lihil` and `Route` has `add_middleware` API that accept one, or a sequence of `MiddlewareFactory`.
+
+a `MiddlewareFactory` is a callable that receives one positional argument of type `ASGIApp` and returns a `ASGIApp`. for example:
+
+```python
+# This piece of code is for demonstration only.
+
+def tracingmw_factory(next_app: ASGIApp) -> ASGIApp:
+    async def tracemw(scope, receive, send):
+        scope["trace_id"] = str(uuid.uuid4())
+        await next_app(scope, receive, send)
+    return trace_mw
+```
+
+lihil uses starlette internally, you can directly import middlewares from starlette, for example:
+
+```python
+from starlette.middleware.cors import CORSSMiddleware
+
+lhl = Lihil(middlewares=[lambda app: CORSMiddleware(app, add_methods="*")])
+```
+
+for complex middleware that require many external dependencies, you might to construct them inside lifespan.
 
 ## Config Your App
 
@@ -538,10 +577,22 @@ async def get_user(token: UserToken) -> Ignore[User]: ...
 
 ### Testing
 
-Lihil provide you a test helper `LocalClient` to call `Lihil` instance, `Route`, and `endpoint` locally,
+Lihil provide you two technques for testing, `TestClient` and `LocalClient`
+
+#### `TestClient`
+
+`TestClient` provide you something that is close to menually constructing a request as client and post it to your server.
+
+For integration testing where each request should go through every part of your application, `TestClient` keep your test close to user behavior.
+
+However, if you want something less verbose and with smaller granularity, you can check out `LocalClient`
+
+#### `LocalClient`
+
+`LocalClient` is more a test helper than a full-fledged request client as opposed to `TestClient`, you might use it to call `Lihil` instance, `Route`, and `Endpoint` locally in a fast and ergonomic manner.
 
 ```python
-from lihil.plugins.testclient import LocalClient
+from lihil import LocalClient
 
 ...TBC
 ```
