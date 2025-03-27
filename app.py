@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from lihil import (
+    HTML,
     Empty,
     HTTPException,
     Json,

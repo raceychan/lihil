@@ -11,6 +11,7 @@ from lihil.interface.asgi import IReceive as IReceive
 from lihil.interface.asgi import IScope as IScope
 from lihil.interface.asgi import ISend as ISend
 from lihil.interface.asgi import MiddlewareFactory as MiddlewareFactory
+from lihil.interface.marks import HTML as HTML
 from lihil.interface.marks import Body as Body
 from lihil.interface.marks import Form as Form
 from lihil.interface.marks import Header as Header

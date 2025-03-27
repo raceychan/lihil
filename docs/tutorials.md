@@ -82,11 +82,33 @@ There are several other return marks you might want to use:
 - `Text` for response with content-type `text/plain`
 - `HTML` for response with content-type `text/html`
 - `Empty` for empty response
-- `Resp[T, 200]` for response with status code `200`
+
+**Compound Case**
+
+- `Resp[T, 200]` for response with status code `200`. where `T` can be anything json serializable, or another return mark.
+
+for instance, in the `create_user` example, we use `Resp[UserDB, status.Created]` to declare our return type, here `T` is `UserDB`.
+
+by default, the return convert is json-serialized, so that it is equiavlent to `Resp[Json[UserDB], status.Created]`.
+
+if you would like to return a response with content type `text/html`, you might use `HTML`
+
+```python
+async def hello() -> HTML:
+    return "<p>hello, world!</p>"
+```
+
+##### Return Union
+
+it is valid to return union of multiple types, they will be shown as `anyOf` schemas in the open api specification.
+
+```python
+async def create_user() -> User | TemporaryUser: ...
+```
 
 #### Param Parsing & Dependency Injection
 
-you can also use marks provide meta data for your params. for example:
+You can also use marks provide meta data for your params. for example:
 
 ```python
 from lihil import use, Ignore

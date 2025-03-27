@@ -7,6 +7,7 @@ from ididi import Resolver as Resolver
 from ididi import use as use
 
 from .constant import status as status
+from .interface import HTML as HTML
 from .interface import Body as Body
 from .interface import Empty as Empty
 from .interface import Form as Form
