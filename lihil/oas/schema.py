@@ -101,39 +101,39 @@ def detail_base_to_content(
 
     # Get the problem schema from schemas
     problem_schema = schemas.get(pb_name)
-    if not problem_schema:
-        raise ValueError(f"Schema for {pb_name} not found in schemas")
 
-    example = err_type.__json_example__()
+    # if not problem_schema: unreachable
+    #     raise ValueError(f"Schema for {pb_name} not found in schemas")
 
     # Create a new schema for this specific error type
-    if isinstance(problem_schema, oasmodel.Schema):
-        # Clone the problem schema properties
-        assert problem_schema.properties
-        properties = problem_schema.properties.copy()
+    assert isinstance(problem_schema, oasmodel.Schema)
 
-        if ref is not None:
-            properties["detail"] = ref
-        # Add a link to the problems page for this error type
-        problem_link = f"/problems?search={example["type_"]}"
-        schemas[err_name] = oasmodel.Schema(
-            type="object",
-            properties=properties,
-            examples=[example],
-            description=trimdoc(err_type.__doc__) or f"{err_name}",
-            externalDocs=oasmodel.ExternalDocumentation(
-                description=f"Learn more about {err_name}", url=problem_link
-            ),
+    # Clone the problem schema properties
+    assert problem_schema.properties
+    properties = problem_schema.properties.copy()
+
+    if ref is not None:
+        properties["detail"] = ref
+
+    example = err_type.__json_example__()
+    # Add a link to the problems page for this error type
+    problem_link = f"/problems?search={example["type_"]}"
+    schemas[err_name] = oasmodel.Schema(
+        type="object",
+        properties=properties,
+        examples=[example],
+        description=trimdoc(err_type.__doc__) or f"{err_name}",
+        externalDocs=oasmodel.ExternalDocumentation(
+            description=f"Learn more about {err_name}", url=problem_link
+        ),
+    )
+
+    # Return a reference to this schema
+    return {
+        content_type: oasmodel.MediaType(
+            schema_=oasmodel.Reference(ref=f"#/components/schemas/{err_name}")
         )
-
-        # Return a reference to this schema
-        return {
-            content_type: oasmodel.MediaType(
-                schema_=oasmodel.Reference(ref=f"#/components/schemas/{err_name}")
-            )
-        }
-    else:
-        return problem_content
+    }
 
 
 def _single_field_schema(

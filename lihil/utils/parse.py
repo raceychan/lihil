@@ -120,7 +120,10 @@ def build_path_regex(path: str, path_params: None = None) -> Pattern[str]:
     return path_regex
 
 
-def parse_header_key(name: str, metas: list[Any]) -> str:
+def parse_header_key(name: str, metas: list[Any] | None = None) -> str:
+    if metas is None:
+        return to_kebab_case(name)
+
     try:
         header_key = metas[0]
     except IndexError:
@@ -132,7 +135,7 @@ def parse_header_key(name: str, metas: list[Any]) -> str:
     if lhl_get_origin(header_key) is Literal:
         return header_key.__args__[0]
 
-    raise NotSupportedError("invalid header key")
+    raise NotSupportedError("Invalid header key")
 
 
 def trimdoc(doc: str | None):

@@ -588,6 +588,21 @@ def test_get_endpoint_with_sync_func_fail():
         route.get_endpoint(dummy)
 
 
+def test_route_add_endpint_without_config():
+    r = Route("r")
+
+    @r.get
+    @r.post
+    @r.put
+    @r.delete
+    @r.options
+    @r.head
+    @r.patch
+    @r.connect
+    @r.trace
+    async def dummy(): ...
+
+
 def test_route_add_endpint_with_config():
     r = Route("r")
 
@@ -598,6 +613,8 @@ def test_route_add_endpint_with_config():
     @r.options(to_thread=False)
     @r.head(to_thread=False)
     @r.patch(to_thread=False)
+    @r.connect(to_thread=False)
+    @r.trace(to_thread=False)
     async def dummy(): ...
 
 

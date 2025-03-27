@@ -2,12 +2,14 @@ from types import UnionType
 from typing import Annotated
 
 import pytest
+from msgspec import Struct
 
 from lihil import Empty, HTTPException, Payload, Resp, Route, Text, status
 from lihil.config import OASConfig
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.oas.doc_ui import get_problem_ui_html
 from lihil.oas.schema import (
+    detail_base_to_content,
     generate_oas,
     generate_op_from_ep,
     get_path_item_from_route,
@@ -190,3 +192,11 @@ async def test_route_not_include_schema():
 
     res = generate_oas([route], oas_config, "")
     assert not res.paths
+
+
+class Random(Struct):
+    name: str
+
+
+def test_detail_base_to_content():
+    assert detail_base_to_content(Random, {}, {})

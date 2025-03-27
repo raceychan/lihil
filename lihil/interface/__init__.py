@@ -1,4 +1,6 @@
-from typing import Callable, Literal, TypeGuard, get_args
+from typing import Callable, Literal
+from typing import Protocol as Protocol
+from typing import TypeGuard, get_args
 
 from msgspec import Struct as Struct
 from msgspec import field as field

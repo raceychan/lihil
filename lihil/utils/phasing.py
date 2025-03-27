@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, Callable, Union, get_args
+from typing import Any, Callable, Union
 
 from msgspec import DecodeError
 from msgspec.json import Decoder as JsonDecoder
@@ -8,7 +8,6 @@ from msgspec.json import encode as json_encode
 
 # from lihil.errors import NotSupportedError
 from lihil.interface import IDecoder, IEncoder
-from lihil.utils.typing import is_union_type
 
 
 def to_str(content: str | bytes) -> str:
@@ -21,15 +20,6 @@ def to_bytes(content: str | bytes) -> bytes:
     if isinstance(content, str):
         return content.encode()
     return content
-
-
-def is_text_type(t: type) -> bool:
-
-    if is_union_type(t):
-        union_args = get_args(t)
-        return any(u in (str, bytes) for u in union_args)
-
-    return t in (str, bytes)
 
 
 def build_union_decoder(

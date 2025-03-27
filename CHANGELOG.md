@@ -386,6 +386,8 @@ async def create_user(engine: Engine, resolver: AsyncScope):
 
 ## version 0.1.12
 
+This patch focuses on refactoring to improve code maintainence
+
 ### Improvements
 
 - lazy analysis on endpoint, now dependencies declare in the endpoint won't be analyzed untill lifespan event. this is for better analysis on dependencies, for example:
@@ -406,5 +408,13 @@ async def get_order(engine: Engine):
 
 before this change, when `get_order` is added to `order_route`, `Engine` will be recognized as a query param, as `Engine` is registered through `user_route`
 
+- chain up middlewares after lifespan, this means that user might add middlewares inside lifespan function, the benefit of doing so is that user can use graph to resolve and manage complex dependencies (if the middleware need them to be built).
+
+
 - add http methods `connect`, `trace` to `Lihil` and `Route`.
 - add `endpoint_factory` param to `Route`, where user can provide a endpoint factory to generate custom endpoint.
+
+
+### Fix
+
+- fix a bug where `lihil.utils.typing.is_nontextual_sequence` would negate generic sequence type such as `list[int]`

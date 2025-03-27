@@ -17,7 +17,7 @@ def is_py_singleton(t: Any) -> Literal[None, True, False]:
 
 
 def flatten_annotated[T](
-    annt: Annotated[type[T], Any] | UnionType | TypeAliasType | GenericAlias,
+    annt: Annotated[type[T], "Annotated"] | UnionType | GenericAlias,
 ) -> tuple[type[T], list[Any]] | tuple[type[T], None]:
     type_args = get_args(annt)
     size = len(type_args)
@@ -45,10 +45,23 @@ def is_union_type(t: type | UnionType | GenericAlias | TypeAliasType):
 
 
 def is_nontextual_sequence(type_: Any):
-    if not isinstance(type_, type):
+    while isinstance(type_, TypeAliasType):
+        type_ = type_.__value__
+
+    type_origin = get_origin(type_) or type_
+
+    if not isinstance(type_origin, type):
         return False
 
-    if type_ in (str, bytes):
+    if type_origin in (str, bytes):
         return False
 
-    return issubclass(type_, Sequence)
+    return issubclass(type_origin, Sequence)
+
+
+def is_text_type(t: type | UnionType) -> bool:
+    if is_union_type(t):
+        union_args = get_args(t)
+        return any(u in (str, bytes) for u in union_args)
+
+    return t in (str, bytes)

@@ -9,8 +9,16 @@ from lihil.asgi import ASGIBase
 from lihil.config import EndPointConfig, IEndPointConfig
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.endpoint import Endpoint
-from lihil.interface import HTTP_METHODS, Func, IReceive, IScope, ISend
-from lihil.interface.asgi import ASGIApp, MiddlewareFactory
+from lihil.interface import (
+    HTTP_METHODS,
+    ASGIApp,
+    Func,
+    IReceive,
+    IScope,
+    ISend,
+    MiddlewareFactory,
+    Protocol,
+)
 from lihil.oas.model import RouteConfig
 from lihil.plugins.bus import BusTerminal, Event, MessageRegistry
 from lihil.utils.parse import (
@@ -19,6 +27,19 @@ from lihil.utils.parse import (
     merge_path,
     trim_path,
 )
+
+
+class EndpointFactory[R](Protocol):
+    def __call__(
+        self,
+        method: HTTP_METHODS,
+        path: str,
+        tag: str,
+        func: Callable[..., R],
+        busterm: BusTerminal,
+        graph: Graph,
+        epconfig: EndPointConfig,
+    ) -> Endpoint[R]: ...
 
 
 def endpoint_factory[R](
@@ -69,7 +90,7 @@ class Route(ASGIBase):
         listeners: list[Callable[..., Any]] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
         route_config: RouteConfig | None = None,
-        endpoint_factory: Callable[..., Endpoint[Any]] = endpoint_factory,
+        endpoint_factory: EndpointFactory[Any] = endpoint_factory,
     ):
         super().__init__(middlewares)
 

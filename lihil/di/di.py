@@ -109,13 +109,13 @@ class EndpointDeps[R](Base):
 
         if self.body_param and body is not None:
             name, param = self.body_param
-            if body == b"":  # empty bytes
+            if body == b"":  # empty bytes body
                 if is_provided(param.default):
                     body = param.default  # TODO: is_provided
                 else:
                     err = MissingRequestParam("body", name)
                     verrors.append(err)
-            elif isinstance(body, FormData) and len(body) == 0:
+            elif isinstance(body, FormData) and len(body) == 0:  # empty form body
                 if is_provided(param.default):
                     body = param.default
                 else:
