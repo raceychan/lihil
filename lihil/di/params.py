@@ -34,7 +34,7 @@ from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, to_str
-from lihil.utils.typing import flatten_annotated, is_nontextual_sequence, is_union_type
+from lihil.utils.typing import deannotate, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
 
 type ParamPair = tuple[str, RequestParam[Any] | RequestBodyParam[Any]] | tuple[
@@ -228,7 +228,7 @@ def analyze_markedparam(
     default: Any = MISSING,
 ) -> list[ParamPair | DependentNode]:
 
-    atype, local_metas = flatten_annotated(type_)
+    atype, local_metas = deannotate(type_)
     if local_metas:
         metas += local_metas
 
@@ -359,7 +359,7 @@ def analyze_param[T](
 
     custom_decoder = get_decoder_from_metas(metas) if metas else None
     if (porigin := lhl_get_origin(type_)) is Annotated:
-        atype, metas = flatten_annotated(type_)
+        atype, metas = deannotate(type_)
         return analyze_annoated(
             graph=graph,
             name=name,

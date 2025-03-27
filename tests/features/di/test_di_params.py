@@ -16,7 +16,7 @@ from lihil.di.params import (
     analyze_param,
     analyze_union_param,
     convertor_factory,
-    flatten_annotated,
+    deannotate,
     is_lhl_dep,
     is_param_mark,
 )
@@ -374,7 +374,7 @@ def test_analyze_markedparam_with_custom_decoder():
 
     query_type = Annotated[Query[int], CustomDecoder(custom_decode)]
 
-    atype, metas = flatten_annotated(query_type)
+    atype, metas = deannotate(query_type)
 
     result = analyze_annoated(
         graph=graph,

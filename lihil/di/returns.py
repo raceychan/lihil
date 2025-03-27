@@ -39,7 +39,7 @@ from lihil.interface.marks import (
     lhl_get_origin,
 )
 from lihil.utils.phasing import encode_json, encode_text
-from lihil.utils.typing import flatten_annotated, is_py_singleton
+from lihil.utils.typing import deannotate, is_py_singleton
 
 
 def parse_status(status: Any) -> int:
@@ -176,7 +176,7 @@ class EndpointReturn[T](Record):
             origin = lhl_get_origin(annt)
         # encoder = encode_json
         custom_encoder = None
-        ret_type, metas = flatten_annotated(annt)
+        ret_type, metas = deannotate(annt)
 
         custom_encoder = get_encoder_from_metas(metas) if metas else None
 

@@ -107,7 +107,7 @@ this comes handy when for overriding configs that are differernt according to th
 
 - fix a bug with request param type being GenericAliasType
 
-we did not handle GenericAliasType case and treat it as `Annotated` with `flatten_annotated`.
+we did not handle GenericAliasType case and treat it as `Annotated` with `deannnotate`.
 
 and we think if a type have less than 2 arguments then it is not `Annotated`,
 but thats not the case with GenericAlias

@@ -14,7 +14,7 @@ from lihil.oas import model as oasmodel
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
 from lihil.routing import Endpoint, Route
 from lihil.utils.parse import to_kebab_case, trimdoc
-from lihil.utils.typing import flatten_annotated
+from lihil.utils.typing import deannotate
 
 # from lihil.utils.phasing import encode_json
 
@@ -307,7 +307,7 @@ def get_resp_schemas(
     else:
         ret_origin = lhl_get_origin(ep_return.annotation)
         if ret_origin is Annotated:
-            return_type, metas = flatten_annotated(ep_return.annotation)
+            return_type, metas = deannotate(ep_return.annotation)
             if metas and EMPTY_RETURN_MARK in metas:
                 resps[str(ep_return.status)] = oasmodel.Response(
                     description="No Content", content=None

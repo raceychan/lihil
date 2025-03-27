@@ -16,7 +16,7 @@ def is_py_singleton(t: Any) -> Literal[None, True, False]:
     return t in {True, False, None, ...}
 
 
-def flatten_annotated[T](
+def deannotate[T](
     annt: Annotated[type[T], "Annotated"] | UnionType | GenericAlias,
 ) -> tuple[type[T], list[Any]] | tuple[type[T], None]:
     type_args = get_args(annt)
@@ -32,7 +32,7 @@ def flatten_annotated[T](
 
         for item in metadata:
             if get_origin(item) is Annotated:
-                _, metas = flatten_annotated(item)
+                _, metas = deannotate(item)
                 if metas:
                     flattened_metadata.extend(metas)
             else:
