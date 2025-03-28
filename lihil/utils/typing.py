@@ -103,20 +103,22 @@ def get_origin_pro[T](
         elif current_origin is UnionType:
             union_args = get_args(type_)
             utypes: list[type] = []
-            union_metas: list[Any] = []
-            for uarg in union_args:
-                utype, umeta = get_origin_pro(uarg, metas)
-                utypes.append(utype)
-                if umeta is not None:
-                    union_metas.append(umeta)
 
-            if not union_metas:
+            new_metas: list[Any] = []
+            for uarg in union_args:
+                utype, umeta = get_origin_pro(uarg, None)
+                utypes.append(utype)
+                if umeta:
+                    new_metas.extend(umeta)
+
+            if not new_metas:
                 return get_origin_pro(Union[*utypes], metas)
 
+
             if metas is None:
-                metas = union_metas
+                metas = new_metas
             else:
-                metas.extend(union_metas)
+                metas.extend(new_metas)
             return get_origin_pro(Union[*utypes], metas)
         else:
             return (type_, metas)
