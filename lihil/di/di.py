@@ -166,6 +166,12 @@ class EndpointDeps[R](Base):
         func_params = tuple(func_sig.parameters.items())
 
         # TODO: add to endpoint params: plugin identifier
+        # TODO: use param parser to parse these two
+        """
+        parser = ParamParser(graph)
+        req_params, ret_params = parser.parse_endpoint(path_keys, function)
+        """
+
         params = EndpointParams.from_func_params(func_params, graph, path_keys)
         retparam = EndpointReturn.from_return(func_sig.return_annotation)
 

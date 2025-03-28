@@ -87,8 +87,7 @@ def get_origin_pro[T](
             annt_type, local_metas = deannotate(type_)
             if local_metas:
                 if metas is None:
-                    metas = []
-                metas.extend(local_metas)
+                    metas = local_metas
             return get_origin_pro(annt_type, metas)
         elif isinstance(current_origin, TypeAliasType):
             dealiased = type_.__value__
@@ -104,27 +103,20 @@ def get_origin_pro[T](
         elif current_origin is UnionType:
             union_args = get_args(type_)
             utypes: list[type] = []
-            umetas: list[Any] = []
+            union_metas: list[Any] = []
             for uarg in union_args:
                 utype, umeta = get_origin_pro(uarg, metas)
                 utypes.append(utype)
-                if umeta:
-                    for i in umeta:
-                        if i in umetas:
-                            continue
-                        umetas.append(i)
+                if umeta is not None:
+                    union_metas.append(umeta)
 
-            if not umetas:
+            if not union_metas:
                 return get_origin_pro(Union[*utypes], metas)
 
-            if not metas:
-                metas = umetas
+            if metas is None:
+                metas = union_metas
             else:
-                for i in umetas:
-                    if i in metas:
-                        continue
-                    metas.append(i)
-
+                metas.extend(union_metas)
             return get_origin_pro(Union[*utypes], metas)
         else:
             return (type_, metas)

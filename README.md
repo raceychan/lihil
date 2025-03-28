@@ -195,7 +195,9 @@ then in command line
 uv run python -m myproject.app --server.port=8080
 ```
 
-This provides you the advantage to override configuration using command line arguments.
+This allows you to override configurations using command-line arguments.
+
+If your app is deployed in a containerized environment, such as Kubernetes, providing secrets this way is usually safer than storing them in files.
 
 ### serve with uvicorn
 

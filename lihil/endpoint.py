@@ -79,6 +79,7 @@ class Endpoint[R]:
         return self._unwrapped_func
 
     def setup(self) -> None:
+
         self._deps = EndpointDeps.from_function(
             graph=self._graph,
             route_path=self._path,

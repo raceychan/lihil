@@ -15,7 +15,7 @@ from lihil.di.params import (
     analyze_nodeparams,
     analyze_param,
     analyze_union_param,
-    convertor_factory,
+    txtdecoder_factory,
     deannotate,
     is_lhl_dep,
     is_param_mark,
@@ -548,30 +548,30 @@ def test_analyze_param_union_with_payload():
     assert decoder is not None
 
 
-def test_convertor_factory_basic_types():
-    """Test convertor_factory with basic types"""
+def test_txtdecoder_factory_basic_types():
+    """Test txtdecoder_factory with basic types"""
     # Test with str
-    str_decoder_func = convertor_factory(str)
+    str_decoder_func = txtdecoder_factory(str)
     assert str_decoder_func("hello") == "hello"
 
     # Test with bytes
-    bytes_decoder_func = convertor_factory(bytes)
+    bytes_decoder_func = txtdecoder_factory(bytes)
     assert bytes_decoder_func("hello") == b"hello"
 
     # Test with int
-    int_decoder_func = convertor_factory(int)
+    int_decoder_func = txtdecoder_factory(int)
     assert int_decoder_func("42") == 42
 
     # Test with bool
-    bool_decoder_func = convertor_factory(bool)
+    bool_decoder_func = txtdecoder_factory(bool)
     assert bool_decoder_func("true") is True
     with pytest.raises(TypeError):
         assert bool_decoder_func(True) is True
 
 
-def test_convertor_factory_with_bytes():
-    """Test convertor_factory specifically with bytes type"""
-    decoder = convertor_factory(bytes)
+def test_txtdecoder_factory_with_bytes():
+    """Test txtdecoder_factory specifically with bytes type"""
+    decoder = txtdecoder_factory(bytes)
 
     # Test with bytes input
     assert decoder("hello world") == b"hello world"
@@ -580,10 +580,10 @@ def test_convertor_factory_with_bytes():
     assert decoder("hello world") == b"hello world"
 
 
-def test_convertor_factory_with_union_containing_bytes():
-    """Test convertor_factory with unions containing bytes"""
+def test_txtdecoder_factory_with_union_containing_bytes():
+    """Test txtdecoder_factory with unions containing bytes"""
     # Union of bytes and dict
-    union_decoder = convertor_factory(dict | bytes)
+    union_decoder = txtdecoder_factory(dict | bytes)
 
     # Should decode valid JSON as dict
     # assert union_decoder(b'{"key": "value"}') == {"key": "value"}
@@ -592,7 +592,7 @@ def test_convertor_factory_with_union_containing_bytes():
     assert union_decoder(b"not a json") == b"not a json"
 
     # Union of bytes, list and int
-    complex_decoder = convertor_factory(Union[list, int, bytes])
+    complex_decoder = txtdecoder_factory(Union[list, int, bytes])
 
     # Should decode valid int
     assert complex_decoder("42") == 42
@@ -601,25 +601,25 @@ def test_convertor_factory_with_union_containing_bytes():
     assert complex_decoder(b"hello") == b"hello"
 
 
-def test_convertor_factory_with_union_types():
-    """Test convertor_factory with various union types"""
+def test_txtdecoder_factory_with_union_types():
+    """Test txtdecoder_factory with various union types"""
     # Union with str
-    str_union_decoder = convertor_factory(Union[int, bytes])
+    str_union_decoder = txtdecoder_factory(Union[int, bytes])
     assert str_union_decoder("42") == 42
     assert str_union_decoder("hello") == b"hello"
 
     # Union with bytes
-    bytes_union_decoder = convertor_factory(Union[bytes, dict])
+    bytes_union_decoder = txtdecoder_factory(Union[bytes, dict])
     assert bytes_union_decoder(b'{"a": 1}') == {"a": 1}
     assert bytes_union_decoder(b"not json") == b"not json"
 
     # Complex union without str/bytes
-    complex_decoder = convertor_factory(Union[int, list, dict])
+    complex_decoder = txtdecoder_factory(Union[int, list, dict])
     assert complex_decoder("42") == 42
 
 
-def test_convertor_factory_with_python_3_10_union_syntax():
-    """Test convertor_factory with Python 3.10+ union syntax (if supported)"""
+def test_txtdecoder_factory_with_python_3_10_union_syntax():
+    """Test txtdecoder_factory with Python 3.10+ union syntax (if supported)"""
     # Skip if UnionType is not available (Python < 3.10)
     if not hasattr(pytest, "skip_if"):
         try:
@@ -627,43 +627,43 @@ def test_convertor_factory_with_python_3_10_union_syntax():
             type_expr = eval("int | str")
 
             # Test with the new union syntax
-            union_decoder = convertor_factory(type_expr)
+            union_decoder = txtdecoder_factory(type_expr)
             assert union_decoder("42") == 42
             assert union_decoder("hello") == "hello"
         except SyntaxError:
             pytest.skip("Python 3.10+ union syntax not supported")
 
 
-def test_convertor_factory_with_optional():
-    """Test convertor_factory with Optional types (Union[T, None])"""
+def test_txtdecoder_factory_with_optional():
+    """Test txtdecoder_factory with Optional types (Union[T, None])"""
     # Optional[int] is Union[int, None]
-    optional_decoder = convertor_factory(int | None)
+    optional_decoder = txtdecoder_factory(int | None)
 
     assert optional_decoder("42") == 42
     assert optional_decoder("null") is None
 
     # Optional[bytes]
-    optional_bytes_decoder = convertor_factory(bytes | None)
+    optional_bytes_decoder = txtdecoder_factory(bytes | None)
 
     assert optional_bytes_decoder(b"hello") == b"hello"
     assert optional_bytes_decoder("null") is None
 
 
-def test_convertor_factory_with_complex_types():
-    """Test convertor_factory with more complex types"""
+def test_txtdecoder_factory_with_complex_types():
+    """Test txtdecoder_factory with more complex types"""
     # List type
-    list_decoder = convertor_factory(list[int])
+    list_decoder = txtdecoder_factory(list[int])
     assert list_decoder("[1, 2, 3]") == [1, 2, 3]
 
     # Dict type
-    dict_decoder = convertor_factory(dict[str, int])
+    dict_decoder = txtdecoder_factory(dict[str, int])
 
     result = dict_decoder('{"a": 1, "b": 2}')
 
     assert result == {"a": 1, "b": 2}
 
     # Nested type
-    nested_decoder = convertor_factory(list[dict[str, int]])
+    nested_decoder = txtdecoder_factory(list[dict[str, int]])
     assert nested_decoder('[{"a": 1}, {"b": 2}]') == [{"a": 1}, {"b": 2}]
 
 
