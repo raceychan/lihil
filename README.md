@@ -69,6 +69,15 @@ when such exception is raised from endpoint, client would receive a response lik
 
 - **Message System Bulitin**: publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
 
+```python
+from lihil import Route, EventBus, Empty, Resp, status
+
+@Route("users").post
+async def create_user(data: UserCreate, service: UserService, bus: EventBus)->Resp[Empty, status.Created]:
+    user_id = await service.create_user(data)
+    await bus.publish(UserCreated(**data, user_id=user_id))
+```
+
 - **Great Testability**: bulit-in `LocalClient` to easily test your endpoints, routes, middlewares, app, everything.
 
 - **Strong support for AI featuers**: lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
@@ -80,9 +89,15 @@ Lihil is ASGI compatible and uses starlette as ASGI toolkit, which means that:
 
 - starlette `Request`, `Response` and its subclasses, should work just fine with lihil.
 
-However, this should be treated as an implementation detail, in other words, lihil might replace `starlette.Request` with somethings sharing the same interface.
+Meaning you can declare `Request` in your endpoint and return an instance of `Response`(or subclass of it).
 
-asgi middlewares should always work tho.
+```python
+@users.post
+async def create_user(req: Request):
+    return Response(...)
+```
+
+- lihil is ASGI-Compatible, ASGI middlewares that works for any ASGIApp should also work with lihil.
 
 ## Quick Start
 
@@ -219,6 +234,8 @@ check detailed tutorials at https://lihil.cc/lihil/tutorials/, covering
 - ...and much more
 
 ## Contribution & RoadMap
+
+No contribution is trivial, and every contribution is appreciated. However, our focus and goals vary at different stages of this project.
 
 ### version 0.1.x: Feature Parity
 
