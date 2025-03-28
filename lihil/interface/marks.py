@@ -1,4 +1,4 @@
-from types import GenericAlias, UnionType
+from types import GenericAlias
 from typing import (
     Annotated,
     Any,
@@ -7,7 +7,6 @@ from typing import (
     LiteralString,
     TypeAliasType,
     TypeGuard,
-    Union,
     get_args,
 )
 from typing import get_origin as ty_get_origin
@@ -15,76 +14,9 @@ from typing import get_origin as ty_get_origin
 from msgspec import Struct as Struct
 
 from lihil.constant.status import Status
-from lihil.utils.typing import deannotate
 
 LIHIL_RESPONSE_MARK = "__LIHIL_RESPONSE_MARK"
 LIHIL_PARAM_MARK = "__LIHIL_PARAM_MARK"
-
-
-def get_origin_pro[T](
-    type_: type[T] | UnionType | GenericAlias | TypeAliasType,
-    metas: list[Any] | None = None,
-) -> tuple[type, list[Any]] | tuple[type, None]:
-    """
-    type MyTypeAlias = Annotated[Query[int], CustomEncoder]
-    type NewAnnotated = Annotated[MyTypeAlias, "aloha"]
-
-
-    get_param_origin(Body[SamplePayload | None]) -> (SamplePayload | None, [BODY_REQUEST_MARK])
-    get_param_origin(MyTypeAlias) -> (int, [QUERY_REQUEST_MARK, CustomEncoder])
-    get_param_origin(NewAnnotated) -> (int, [QUERY_REQUEST_MARK, CustomEncoder])
-    """
-
-    if isinstance(type_, TypeAliasType):
-        return get_origin_pro(type_.__value__, None)
-    elif current_origin := ty_get_origin(type_):
-        if current_origin is Annotated:
-            annt_type, local_metas = deannotate(type_)
-            if local_metas:
-                if metas is None:
-                    metas = []
-                metas.extend(local_metas)
-            return get_origin_pro(annt_type, metas)
-        elif isinstance(current_origin, TypeAliasType):
-            dealiased = type_.__value__
-            if (als_args := get_args(dealiased)) and (ty_args := get_args(type_)):
-                ty_type, *local_args = ty_args + als_args[len(ty_args) :]
-                if ty_get_origin(dealiased) is Annotated:
-                    if metas:
-                        new_metas = metas + local_args
-                    else:
-                        new_metas = local_args
-
-                    return get_origin_pro(ty_type, new_metas)
-            return get_origin_pro(dealiased, metas)
-        elif current_origin is UnionType:
-            union_args = get_args(type_)
-            utypes: list[type] = []
-            umetas: list[Any] = []
-            for uarg in union_args:
-                utype, umeta = get_origin_pro(uarg, metas)
-                utypes.append(utype)
-                if umeta:
-                    for i in umeta:
-                        if i in umetas:
-                            continue
-                        umetas.append(i)
-
-            if not umetas:
-                return get_origin_pro(Union[*utypes], metas)
-
-            if not metas:
-                metas = umetas
-            else:
-                for i in umetas:
-                    if i in metas:
-                        continue
-                    metas.append(i)
-            return get_origin_pro(Union[*utypes], metas)
-        else:
-            return (type_, metas)
-    else:
-        return (type_, metas)
 
 
 def lhl_get_origin(annt: Any) -> Any:
