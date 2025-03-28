@@ -70,7 +70,7 @@ def is_text_type(t: type | UnionType) -> bool:
 def get_origin_pro[T](
     type_: type[T] | UnionType | GenericAlias | TypeAliasType,
     metas: list[Any] | None = None,
-) -> tuple[type, list[Any]] | tuple[type, None]:
+) -> tuple[type | UnionType, list[Any] | None]:
     """
     type MyTypeAlias = Annotated[Query[int], CustomEncoder]
     type NewAnnotated = Annotated[MyTypeAlias, "aloha"]
@@ -90,7 +90,7 @@ def get_origin_pro[T](
                     metas = local_metas
             return get_origin_pro(annt_type, metas)
         elif isinstance(current_origin, TypeAliasType):
-            dealiased = type_.__value__
+            dealiased = cast(TypeAliasType, type_).__value__
             if (als_args := get_args(dealiased)) and (ty_args := get_args(type_)):
                 ty_type, *local_args = ty_args + als_args[len(ty_args) :]
                 if ty_get_origin(dealiased) is Annotated:
@@ -102,8 +102,7 @@ def get_origin_pro[T](
             return get_origin_pro(dealiased, metas)
         elif current_origin is UnionType:
             union_args = get_args(type_)
-            utypes: list[type] = []
-
+            utypes: list[type | UnionType] = []
             new_metas: list[Any] = []
             for uarg in union_args:
                 utype, umeta = get_origin_pro(uarg, None)
@@ -114,13 +113,12 @@ def get_origin_pro[T](
             if not new_metas:
                 return get_origin_pro(Union[*utypes], metas)
 
-
             if metas is None:
                 metas = new_metas
             else:
                 metas.extend(new_metas)
             return get_origin_pro(Union[*utypes], metas)
         else:
-            return (type_, metas)
+            return (cast(type, type_), cast(None, metas))
     else:
-        return (type_, metas)
+        return (cast(type, type_), cast(None, metas))

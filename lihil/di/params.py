@@ -57,6 +57,9 @@ type ParamPair = tuple[str, RequestParam[Any] | RequestBodyParam[Any]] | tuple[
 type RequiredParams = Sequence[ParamPair]
 
 
+LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver)
+
+
 def is_lhl_dep(
     param_type: type | GenericAlias,
 ) -> TypeGuard[type[Request | EventBus | Resolver]]:
@@ -64,7 +67,7 @@ def is_lhl_dep(
     if not isinstance(param_type, type):
         param_type = lhl_get_origin(param_type) or param_type
         param_type = cast(type, param_type)
-    return issubclass(param_type, (Request, EventBus, Resolver))
+    return issubclass(param_type, LIHIL_DEPENDENCIES)
 
 
 def is_file_body(annt: Any) -> TypeGuard[type[UploadFile]]:
@@ -463,27 +466,24 @@ def analyze_param[T](
 
 
 def contains_mark(metas: list[Any]):
-    for m in meats:
-        if m is USE_FACTORY_MARK:
-            return True
-        elif is_param_mark(m):
-            return True
-    return False
+    return any((m is USE_FACTORY_MARK or is_param_mark(m)) for m in metas)
 
 
 class ParamParser:
-
     def __init__(
         self,
         graph: Graph,
-        seen: set[str],
         path_keys: tuple[str],
-        plugin_types: tuple[type, ...],
+        plugin_types: tuple[type, ...] | None = None,
     ):
         self.graph = graph
-        self.seen = seen
         self.path_keys = path_keys
-        self.plugin_types = plugin_types
+        self.seen = set(path_keys)
+
+        if plugin_types:
+            self.plugin_types = LIHIL_DEPENDENCIES + plugin_types
+        else:
+            self.plugin_types = LIHIL_DEPENDENCIES
 
         self.parsed_params = EndpointParams()
 
@@ -554,11 +554,22 @@ class ParamParser:
         return [(name, req_param)]
 
     def parse_marked[T](
-        self, name: str, type_: type[T], default: Maybe[T], metas: list[Any]
+        self, name: str, type_: type[T] | UnionType, default: Maybe[T], metas: list[Any]
     ):
         breakpoint()
 
-    def parse_generic(self): ...
+    def parse_generic[T](
+        self,
+        name: str,
+        type_: type[T] | UnionType,
+        default: Maybe[T],
+        metas: list[Any],
+    ):
+        # extract from metas then do parse rule_base
+        # we might let user provide hook, so that they can
+        # inject anything they want
+        ...
+        raise NotImplementedError
 
     def parse_param[T](
         self,
@@ -573,9 +584,11 @@ class ParamParser:
         elif contains_mark(pmetas):
             res = self.parse_marked(name, porigin, default, pmetas)
         else:
-            res = self.parse_generic()
+            # res = self.parse_rule_based(name, porigin, default, pmetas)
+            res = self.parse_generic(name, porigin, default, pmetas)
 
-        self.parsed_params.collect_param(name, res)
+        return res
+        # self.parsed_params.collect_param(name, res)
 
 
 class EndpointParams(Base):

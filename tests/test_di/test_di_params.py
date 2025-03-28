@@ -19,6 +19,7 @@ from lihil.di.params import (
     deannotate,
     is_lhl_dep,
     is_param_mark,
+    ParamParser,
 )
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, Payload
@@ -703,11 +704,21 @@ def test_union_param_with_non_file():
     assert param.type_ == (bytes | QModel)
 
 
-type talias = int
+type TIntAlias = int
 
-type treq = Request
+type TReqAlias = Request
 
 
 def test_verify_lhl_dep_with_type_alias():
-    assert not is_lhl_dep(talias)
-    assert is_lhl_dep(treq)
+    assert not is_lhl_dep(TIntAlias)
+    assert is_lhl_dep(TReqAlias)
+
+
+# def test_param_parser():
+#     dg = Graph()
+#     parser = ParamParser(dg, ("user_id",))
+
+#     decoder = lambda x: x
+
+#     res = parser.parse_param("user_id", type_=Annotated[str | int, CustomDecoder(decoder)])
+#     breakpoint()
