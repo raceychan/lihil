@@ -1,8 +1,9 @@
 from copy import deepcopy
-from inspect import Parameter, signature
+from inspect import Parameter
 from types import GenericAlias, UnionType
 from typing import (
     Any,
+    Protocol,
     Sequence,
     TypeAliasType,
     TypeGuard,
@@ -177,6 +178,8 @@ class PluginParam[T](Base):
     default: Maybe[Any] = MISSING
     required: bool = False
 
+    # def loader(self, request: Request, resolver: Resolver) -> T: ...
+
     def __post_init__(self):
         self.required = self.default is MISSING
 
@@ -205,16 +208,6 @@ def get_decoder_from_metas(
     for meta in metas:
         if isinstance(meta, CustomDecoder):
             return meta.decode
-
-
-# """
-# class PluginLoader(Protocol):
-#     def is_plugin(self, param) -> bool:
-#         ...
-
-#     def inject_plugin(self, param, request, resolver):
-#         ...
-# """
 
 
 def contains_mark(metas: list[Any]):
@@ -260,32 +253,18 @@ class ParamMetas(Base):
         )
 
 
-"""
-idea: we should accept param hook from user
+class PluginProvider[T](Protocol):
+    mark_type: str
 
-from lihil.interface.makrs import make_param_mark
-from lihil.di.parser import register_mark_hook
-
-ALOHA_MARK = param_mark("aloha")
-
-type Aloha[T] = Annotated[T, ALOHA_MARK]
-
-async def create_user(aloha: Aloha[str]):
-    ...
-
-def parse_aloha(
-    graph, name: str,
-    type_: type[T] | UnionType,
-    default: Maybe[T],
-    param_meta: ParamMetas
-) -> RequestParam:
-    ...
-
-register_mark_hook(Aloha, parse_aloha)
-
-
-so that user do not have to menually provide decoder everytime.
-"""
+    def parser(
+        self,
+        name: str,
+        type_: type[T] | UnionType,
+        annotation: Any,
+        default: Maybe[T],
+        param_meta: ParamMetas,
+    ) -> list[PluginParam[T]]:
+        raise NotImplementedError
 
 
 class ParamParser:
@@ -296,7 +275,6 @@ class ParamParser:
         self,
         graph: Graph,
         path_keys: tuple[str, ...] | None = None,
-        plugin_types: tuple[type, ...] | None = None,
     ):
         self.graph = graph
 
@@ -307,10 +285,9 @@ class ParamParser:
             self.path_keys = ()
             self.seen = set()
 
-        if plugin_types:
-            self.plugin_types = LIHIL_DEPENDENCIES + plugin_types
-        else:
-            self.plugin_types = LIHIL_DEPENDENCIES
+        # mark type or param type, dict[str | type, PluginProvider]
+        self.plugin_provider: dict[str, PluginProvider[Any]] = {}
+        self.plugin_types = LIHIL_DEPENDENCIES
 
     def is_plugin_type(self, param_type: Any) -> TypeGuard[type]:
         "Dependencies that should be injected and managed by lihil"
@@ -462,6 +439,7 @@ class ParamParser:
                 return body_param
             elif mark_type == "path":
                 location = "path"
+
             else:
                 location = "query"
 
@@ -494,6 +472,15 @@ class ParamParser:
                 default=default,
                 param_meta=param_meta,
             )
+        elif provider := self.plugin_provider.get(param_meta.mark_type):
+            res = provider.parser(
+                name=name,
+                type_=parsed_type,
+                annotation=annotation,
+                default=default,
+                param_meta=param_meta,
+            )
+            res = cast(list[ParsedParam[T]], res)
         else:
             res = self._parse_marked(
                 name=name,
@@ -505,7 +492,9 @@ class ParamParser:
         return res if isinstance(res, list) else [res]
 
     def parse_endpoint_params(
-        self, func_params: tuple[tuple[str, Parameter], ...], path_keys: tuple[str, ...]
+        self,
+        func_params: tuple[tuple[str, Parameter], ...],
+        path_keys: tuple[str, ...] | None = None,
     ) -> "EndpointParams":
         if path_keys:
             self.path_keys += path_keys
@@ -537,10 +526,6 @@ class ParamParser:
         return EndpointParams(
             params=params, bodies=bodies, nodes=nodes, plugins=plugins
         )
-
-    def parse_func(self, func: Any):
-        func_params = tuple(signature(func).parameters.items())
-        return self.parse_endpoint_params(func_params, self.path_keys)
 
 
 class EndpointParams(Base):

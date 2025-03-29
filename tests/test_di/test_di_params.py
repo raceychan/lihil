@@ -1,4 +1,4 @@
-from inspect import Parameter
+from inspect import Parameter, signature
 from typing import Annotated, Union
 
 import pytest
@@ -109,7 +109,9 @@ def test_parsed_params(param_parser: ParamParser):
         service: DependentService,
     ): ...
 
-    res = param_parser.parse_func(endpoint)
+    func_params = tuple(signature(endpoint).parameters.items())
+
+    res = param_parser.parse_endpoint_params(func_params)
 
     q = res.params["q"]
     data = res.bodies["data"]
@@ -280,26 +282,49 @@ def test_analyze_nodeparams(param_parser: ParamParser):
     assert isinstance(result[0], DependentNode)
 
 
-# # Test analyze_endpoint_params
-# def test_analyze_endpoint_params(param_parser: ParamParser):
-#     param_parser.path_keys = ("id",)
+# Test analyze_endpoint_params
+def test_analyze_endpoint_params(param_parser: ParamParser):
+    param_parser.path_keys = ("id",)
 
-#     # Create function parameters
-#     param1 = Parameter("id", Parameter.POSITIONAL_OR_KEYWORD, annotation=int)
-#     param2 = Parameter("q", Parameter.POSITIONAL_OR_KEYWORD, annotation=str, default="")
+    # Create function parameters
+    param1 = Parameter("id", Parameter.POSITIONAL_OR_KEYWORD, annotation=int)
+    param2 = Parameter("q", Parameter.POSITIONAL_OR_KEYWORD, annotation=str, default="")
 
-#     func_params = [("id", param1), ("q", param2)]
+    func_params = [("id", param1), ("q", param2)]
 
-#     for name, p in func_params:
-#         result = param_parser.parse_param(name, p)
+    result = param_parser.parse_endpoint_params(func_params)
 
-#     assert isinstance(result, EndpointParams)
-#     assert len(result.params) == 2  # Both id and q should be in params
+    assert isinstance(result, EndpointParams)
+    assert len(result.params) == 2  # Both id and q should be in params
 
-#     # Check that path parameter was correctly identified
-#     path_params = result.get_location("path")
-#     assert len(path_params) == 1
-#     assert "id" in path_params
+    # Check that path parameter was correctly identified
+    path_params = result.get_location("path")
+    assert len(path_params) == 1
+    assert "id" in path_params
+
+
+def test_param_parser_parse_unions(param_parser: ParamParser):
+    res = param_parser.parse_param("test", dict[str, int] | list[int])
+
+    param = res[0]
+    assert param.location == "query"
+    assert param.type_ == Union[dict[str, int], list[int]]
+
+    res = param.decode('{"test": 2}')
+    assert isinstance(res, dict)
+
+
+
+
+def test_param_parser_parse_bytes_union(param_parser: ParamParser):
+    res = param_parser.parse_param("test", list[int] | bytes)
+
+    param = res[0]
+    assert param.location == "query"
+    assert param.type_ == Union[list[int], bytes]
+
+    res = param.decode('{"test": 2}')
+    assert isinstance(res, bytes)
 
 
 # ... existing code ...

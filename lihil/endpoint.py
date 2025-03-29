@@ -102,16 +102,6 @@ class Endpoint[R]:
     def inject_plugins(
         self, params: dict[str, Any], request: Request, resolver: Resolver
     ):
-        """
-        elif self.plugin_loaders:
-            for loader in self.plugin_loaders:
-                try:
-                    plugin = loader.resolver(request, resolver)
-                except NotImplementedError:
-                    continue
-
-                params[name] = plugin
-        """
         for name, p in self._plugin_items:
             ptype = p.type_
             if issubclass(ptype, Request):

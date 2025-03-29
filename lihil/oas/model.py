@@ -377,3 +377,6 @@ class RouteConfig(BaseStruct):
     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]] = field(
         default_factory=tuple
     )
+
+    # ep_config: EndpointConfig | None = None
+    # if provided, apply to all endpoint
