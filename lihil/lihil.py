@@ -70,8 +70,9 @@ class StaticRoute:
         return scope["path"] in self.static_cache
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
-        for msg in self.static_cache[scope["path"]]:
-            await send(msg)
+        header, body = self.static_cache[scope["path"]]
+        await send(header)
+        await send(body)
 
     def add_cache(self, path: str, content: tuple[dict[str, bytes], dict[str, bytes]]):
         self.static_cache[sys.intern(path)] = content
@@ -192,13 +193,6 @@ class Lihil[T](ASGIBase):
         content_type: str = "text/plain",
         charset: str = "utf-8",
     ) -> None:
-        """
-        Todo:
-        class StaticRoute:
-            def match(self, path):
-                return self.endpoints[path]
-
-        """
         if not is_plain_path(path):
             raise NotSupportedError(
                 "staic resource with dynamic route is not supported"

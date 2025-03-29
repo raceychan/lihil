@@ -1,3 +1,4 @@
+import re
 from types import GenericAlias
 from typing import (
     Annotated,
@@ -17,6 +18,7 @@ from lihil.constant.status import Status
 
 LIHIL_RESPONSE_MARK = "__LIHIL_RESPONSE_MARK"
 LIHIL_PARAM_MARK = "__LIHIL_PARAM_MARK"
+LIHIL_PARAM_PATTERN = re.compile(r"__LIHIL_PARAM_MARK_([^_]*)__")
 
 
 def lhl_get_origin(annt: Any) -> Any:
@@ -49,6 +51,17 @@ def is_lihil_marked(m: Any, mark_prefix: str) -> bool:
         return is_lihil_marked(value, mark_prefix) if value else False
     else:
         return False
+
+
+def extra_mark_type(mark: Any) -> str | None:
+    if not isinstance(mark, str):
+        return None
+
+    match = LIHIL_PARAM_PATTERN.search(mark)
+
+    if match:
+        return match.group(1)
+    return None
 
 
 def is_resp_mark(m: Any) -> TypeGuard[TypeAliasType]:

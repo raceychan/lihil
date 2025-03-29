@@ -41,10 +41,11 @@ oas_config = OASConfig()
 
 
 def test_get_order_schema():
-    @user_route.post(errors=OrderNotFound)
     async def get_order(
         user_id: str | int, order_id: str, q: int | str, l: str, u: User
     ) -> Order | User: ...
+
+    user_route.post(errors=OrderNotFound)(get_order)
 
     current_ep = user_route.endpoints["POST"]
     current_ep.setup()
