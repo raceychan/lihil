@@ -123,7 +123,7 @@ class EndpointDeps[R](Base):
                     verrors.append(err)
             else:
                 try:
-                    params[name] = param.decoder(body)
+                    params[name] = param.decode(body)
                 except ValidationError as mve:
                     error = InvalidDataType("body", name, str(mve))
                     verrors.append(error)

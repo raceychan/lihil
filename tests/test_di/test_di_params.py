@@ -8,6 +8,7 @@ from starlette.requests import Request
 from lihil.di.params import (
     CustomDecoder,
     EndpointParams,
+    ParamParser,
     PluginParam,
     RequestBodyParam,
     RequestParam,
@@ -15,11 +16,10 @@ from lihil.di.params import (
     analyze_nodeparams,
     analyze_param,
     analyze_union_param,
-    txtdecoder_factory,
     deannotate,
     is_lhl_dep,
     is_param_mark,
-    ParamParser,
+    txtdecoder_factory,
 )
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, Payload
@@ -714,11 +714,22 @@ def test_verify_lhl_dep_with_type_alias():
     assert is_lhl_dep(TReqAlias)
 
 
-# def test_param_parser():
-#     dg = Graph()
-#     parser = ParamParser(dg, ("user_id",))
+def test_param_parser_annotated():
+    dg = Graph()
+    parser = ParamParser(dg, ("user_id", "order_id"))
 
-#     decoder = lambda x: x
+    def decode_text(content: str) -> str:
+        return content
 
-#     res = parser.parse_param("user_id", type_=Annotated[str | int, CustomDecoder(decoder)])
-#     breakpoint()
+    res = parser.parse_param(
+        "user_id", type_=Annotated[float | int, CustomDecoder(decode_text)]
+    )
+    param = res[0]
+    assert param.location == "path"
+    assert param.text_decoder is decode_text
+    assert param.type_ == Union[float, int]
+
+    res = parser.parse_param("user_name", type_=str | int)
+    param = res[0]
+    assert param.location == "query"
+    assert param.type_ == Union[str, int]
