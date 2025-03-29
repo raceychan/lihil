@@ -30,6 +30,11 @@ from lihil.vendor_types import FormData, Request, UploadFile
 type ParamPair = tuple[str, RequestParam[Any] | RequestBodyParam[Any]] | tuple[
     str, PluginParam[Any]
 ]
+
+type ParsedParam[T] = RequestParam[T] | RequestBodyParam[T] | PluginParam[
+    T
+] | DependentNode
+
 type RequiredParams = Sequence[ParamPair]
 
 
@@ -241,6 +246,34 @@ class ParamMetas(Base):
         )
 
 
+"""
+idea: we should accept param hook from user
+
+from lihil.interface.makrs import make_param_mark
+from lihil.di.parser import register_mark_hook
+
+ALOHA_MARK = param_mark("aloha")
+
+type Aloha[T] = Annotated[T, ALOHA_MARK]
+
+async def create_user(aloha: Aloha[str]):
+    ...
+
+def parse_aloha(
+    graph, name: str,
+    type_: type[T] | UnionType,
+    default: Maybe[T],
+    param_meta: ParamMetas
+) -> RequestParam:
+    ...
+
+register_mark_hook(Aloha, parse_aloha)
+
+
+so that user do not have to menually provide decoder everytime.
+"""
+
+
 class ParamParser:
     path_keys: tuple[str, ...]
     seen: set[str]
@@ -275,7 +308,6 @@ class ParamParser:
                 return any(self.is_plugin_type(u) for u in uargs)
             else:
                 raise RuntimeError("get_origin_pro should prevent this")
-
         return issubclass(param_type, self.plugin_types)
 
     def _parse_rule_based[T](
@@ -284,7 +316,7 @@ class ParamParser:
         param_type: type[T] | UnionType,
         default: Maybe[T],
         param_meta: ParamMetas | None = None,
-    ) -> list[ParamPair | DependentNode]:
+    ) -> ParsedParam[T] | list[ParsedParam[T]]:
         if name in self.path_keys:  # simplest case
             self.seen.discard(name)
             if param_meta and param_meta.custom_decoder:
@@ -300,7 +332,7 @@ class ParamParser:
                 default=default,
             )
         elif self.is_plugin_type(param_type):
-            return [(name, PluginParam(type_=param_type, name=name, default=default))]
+            return [PluginParam(type_=param_type, name=name, default=default)]
         elif is_body_param(param_type):
             if is_file_body(param_type):
                 req_param = file_body_param(name, param_type, default)
@@ -318,7 +350,7 @@ class ParamParser:
                 )
         elif param_type in self.graph.nodes:
             node = self.graph.analyze(cast(type, param_type))
-            params: list[ParamPair | DependentNode] = [node]
+            params: list[ParsedParam[Any]] = [node]
             for dep_name, dep in node.dependencies.items():
                 ptype, dep_dfault = dep.param_type, dep.default_
                 if dep_dfault is IDIDI_MISSING:
@@ -348,9 +380,9 @@ class ParamParser:
                 location="query",
                 default=default,
             )
-        return [(name, req_param)]
+        return req_param
 
-    def _parse_node(self, node: DependentNode):
+    def _parse_node(self, node: DependentNode) -> list[ParsedParam[Any]]:
         params: list[Any | DependentNode] = [node]
         for dep_name, dep in node.dependencies.items():
             ptype, default = dep.param_type, dep.default_
@@ -365,7 +397,7 @@ class ParamParser:
         type_: type[T] | UnionType,
         default: Maybe[T],
         param_meta: ParamMetas,
-    ):
+    ) -> ParsedParam[T] | list[ParsedParam[T]]:
         custom_decoder = param_meta.custom_decoder
 
         mark_type = param_meta.mark_type or ""
@@ -392,7 +424,7 @@ class ParamParser:
                     decoder=decoder_factory(type_),
                     content_type=content_type,
                 )
-                return [(name, body_param)]
+                return body_param
             elif mark_type == "form":
                 content_type = "multipart/form-data"
                 decoder = custom_decoder or formdecoder_factory(type_)
@@ -404,7 +436,7 @@ class ParamParser:
                     decoder=cast(IFormDecoder[Any], decoder),
                     content_type=content_type,
                 )
-                return [(name, body_param)]
+                return body_param
             elif mark_type == "path":
                 location = "path"
             else:
@@ -419,8 +451,7 @@ class ParamParser:
                 location=location,
                 default=default,
             )
-            pair = (name, req_param)
-            return [pair]
+            return req_param
 
     # TODO: overload, carry param only when type is type[T]
 
@@ -429,7 +460,7 @@ class ParamParser:
         name: str,
         annotation: type[T] | UnionType | GenericAlias | TypeAliasType,
         default: Maybe[T] = MISSING,
-    ) -> list[ParamPair | DependentNode]:
+    ) -> list[ParsedParam[T]]:
         parsed_type, pmetas = get_origin_pro(annotation)
         # TODO: keep type_
 
@@ -438,7 +469,7 @@ class ParamParser:
             res = self._parse_rule_based(name, parsed_type, default, param_meta)
         else:
             res = self._parse_marked(name, parsed_type, default, param_meta)
-        return res
+        return res if isinstance(res, list) else [res]
 
 
 class EndpointParams(Base):
@@ -493,17 +524,16 @@ class EndpointParams(Base):
             default = MISSING if param.default is Parameter.empty else param.default
             param_list = parser.parse_param(name, annotation, default)
 
-            for element in param_list:
-                if isinstance(element, DependentNode):
-                    nodes[name] = element
+            for req_param in param_list:
+                if isinstance(req_param, DependentNode):
+                    nodes[name] = req_param
                     continue
-                param_name, req_param = element
                 if isinstance(req_param, PluginParam):
-                    plugins[param_name] = req_param
+                    plugins[req_param.name] = req_param
                 elif isinstance(req_param, RequestBodyParam):
-                    bodies[param_name] = req_param
+                    bodies[req_param.name] = req_param
                 else:
-                    params[param_name] = req_param
+                    params[req_param.name] = req_param
         if seen_path:
             warn(f"Unused path keys {seen_path}")
         return cls(params=params, bodies=bodies, nodes=nodes, plugins=plugins)

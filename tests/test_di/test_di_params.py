@@ -144,8 +144,8 @@ def test_analyze_param_path(param_parser: ParamParser):
     result = param_parser.parse_param("id", int, MISSING)
 
     assert len(result) == 1
-    name, param = result[0]
-    assert name == "id"
+    param = result[0]
+    assert param.name == "id"
     assert isinstance(param, RequestParam)
     assert param.location == "path"
     assert param.type_ == int
@@ -157,8 +157,8 @@ def test_analyze_param_payload(param_parser):
     result = param_parser.parse_param("data", SamplePayload, MISSING)
 
     assert len(result) == 1
-    name, param = result[0]
-    assert name == "data"
+    param = result[0]
+    assert param.name == "data"
     assert isinstance(param, RequestBodyParam)
 
     assert param.type_ == SamplePayload
@@ -172,8 +172,8 @@ def test_analyze_param_union_payload(param_parser: ParamParser):
     if isinstance(result[0], DependentNode):
         raise Exception
 
-    name, param = result[0]
-    assert name == "data"
+    param = result[0]
+    assert param.name == "data"
     assert isinstance(param, RequestBodyParam)
 
 
@@ -181,8 +181,8 @@ def test_analyze_param_union_payload(param_parser: ParamParser):
 def test_analyze_param_query(param_parser: ParamParser):
     result = param_parser.parse_param("q", str, MISSING)
     assert len(result) == 1
-    name, param = result[0]
-    assert name == "q"
+    param = result[0]
+    assert param.name == "q"
     assert isinstance(param, RequestParam)
     assert param.location == "query"
 
@@ -204,8 +204,8 @@ def test_analyze_param_lihil_dep(param_parser: ParamParser):
     result = param_parser.parse_param("request", Request, MISSING)
 
     assert len(result) == 1
-    name, param = result[0]
-    assert name == "request"
+    param = result[0]
+    assert param.name == "request"
     assert isinstance(param, PluginParam)
     assert param.type_ == Request
 
@@ -220,8 +220,8 @@ def test_analyze_markedparam_query(param_parser: ParamParser):
     )
 
     assert len(result) == 1
-    name, param = result[0]
-    assert name == "page"
+    param = result[0]
+    assert param.name == "page"
     assert isinstance(param, RequestParam)
     assert param.location == "query"
 
@@ -230,8 +230,8 @@ def test_analyze_markedparam_query(param_parser: ParamParser):
 def test_analyze_markedparam_header(param_parser: ParamParser):
     result = param_parser.parse_param("user_agent", Header[str], Header)
     assert len(result) == 1
-    name, param = result[0]
-    assert name == "user_agent"
+    param = result[0]
+    assert param.name == "user_agent"
     assert isinstance(param, RequestParam)
     assert param.location == "header"
 
@@ -239,11 +239,11 @@ def test_analyze_markedparam_header(param_parser: ParamParser):
 def test_analyze_markedparam_header_with_alias(param_parser: ParamParser):
     result = param_parser.parse_param("user_agent", Header[str, "test-alias"], Header)
     assert len(result) == 1
-    name, param = result[0]
-    assert name == "user_agent"
+    param = result[0]
+    assert param.name == "user_agent"
     assert isinstance(param, RequestParam)
     assert param.location == "header"
-    assert result[0][1].alias == "test-alias"
+    assert param.alias == "test-alias"
 
 
 # Test analyze_markedparam for Body
@@ -252,8 +252,8 @@ def test_analyze_markedparam_body(param_parser: ParamParser):
     result = param_parser.parse_param("data", body_type)
 
     assert len(result) == 1
-    name, param = result[0]
-    assert name == "data"
+    param = result[0]
+    assert param.name == "data"
     assert isinstance(param, RequestBodyParam)
 
 
@@ -263,8 +263,8 @@ def test_analyze_markedparam_path(param_parser: ParamParser):
     result = param_parser.parse_param("id", path_type)
     assert len(result) == 1
     assert not isinstance(result[0], DependentNode)
-    name, param = result[0]
-    assert name == "id"
+    param = result[0]
+    assert param.name == "id"
     assert isinstance(param, RequestParam)
     assert param.location == "path"
 
