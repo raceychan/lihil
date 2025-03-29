@@ -52,6 +52,7 @@ def test_request_param():
     # Test with default value
     param = RequestParam(
         type_=str,
+        annotation=str,
         name="test",
         alias="test",
         decoder=lambda x: str(x),
@@ -63,6 +64,7 @@ def test_request_param():
     # Test without default value
     param = RequestParam(
         type_=int,
+        annotation=str,
         name="test",
         alias="test",
         decoder=lambda x: int(x),
@@ -91,51 +93,38 @@ def param_parser() -> ParamParser:
     return ParamParser(Graph())
 
 
-def test_parsed_params():
-    graph = Graph()
-    params = EndpointParams()
+def test_parsed_params(param_parser: ParamParser):
+    param_parser.graph.analyze(DependentService)
 
-    # Create test parameters
-    query_param = RequestParam(
-        type_=str, name="q", alias="q", decoder=lambda x: str(x), location="query"
-    )
+    def str_decoder(x: str) -> str:
+        return str(x)
 
-    body_param = RequestBodyParam(
-        type_=dict, name="data", alias="data", decoder=lambda x: dict()
-    )
+    def dict_decoder(x: bytes):
+        return x
 
-    singleton_param = PluginParam(type_=Request, name="request")
+    async def endpoint(
+        q: Annotated[str, CustomDecoder(str_decoder)],
+        data: Annotated[Body[dict[str, str]], CustomDecoder(dict_decoder)],
+        req: Request,
+        service: DependentService,
+    ): ...
 
-    # Create a mock DependentNode
-    node = graph.analyze(DependentService)
+    res = param_parser.parse_func(endpoint)
 
-    # Test collect_param
-    params.collect_param("q", [("q", query_param)])
-    params.collect_param("data", [("data", body_param)])
-    params.collect_param("request", [("request", singleton_param)])
-    params.collect_param("service", [node])
+    q = res.params["q"]
+    data = res.bodies["data"]
+    # data = res.params["data"]
 
-    # Test get_location
-    query_params = params.get_location("query")
-    assert len(query_params) == 1
-    assert query_params.__contains__("q")
+    assert q.location == "query"
+    assert q.type_ == str
 
-    # Test get_body
-    body = params.get_body()
-    assert body is not None
-    assert body[0] == "data"
+    assert data.type_ == dict[str, str]
 
-    # Test multiple bodies (should raise NotImplementedError)
-    another_body = RequestBodyParam(
-        type_=dict,
-        name="another",
-        alias="another",
-        decoder=lambda x: dict(),
-    )
-    params.collect_param("another", [("another", another_body)])
+    service = res.nodes["service"]
+    assert service.dependent == DependentService
 
-    with pytest.raises(NotSupportedError):
-        params.get_body()
+    req = res.plugins["req"]
+    assert req.type_ == Request
 
 
 # Test analyze_param for path parameters

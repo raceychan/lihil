@@ -5,7 +5,7 @@ from ididi import DependentNode, Graph
 from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
-from lihil.di.params import EndpointParams, PluginParam, RequestBodyParam, RequestParam
+from lihil.di.params import ParamParser, PluginParam, RequestBodyParam, RequestParam
 from lihil.di.returns import EndpointReturn
 from lihil.interface import MISSING, Base, IEncoder, Record, is_provided
 from lihil.problems import (
@@ -172,7 +172,9 @@ class EndpointDeps[R](Base):
         req_params, ret_params = parser.parse_endpoint(path_keys, function)
         """
 
-        params = EndpointParams.from_func_params(func_params, graph, path_keys)
+        parser = ParamParser(graph, path_keys)
+
+        params = parser.parse_endpoint_params(func_params, path_keys)
         retparam = EndpointReturn.from_return(func_sig.return_annotation)
 
         scoped = any(
