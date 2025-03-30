@@ -1,5 +1,4 @@
-from inspect import Parameter
-from typing import Annotated, Generator, Union
+from typing import Annotated
 
 import pytest
 
@@ -8,22 +7,13 @@ from lihil.di.returns import (
     CustomEncoder,
     EndpointReturn,
     agen_encode_wrapper,
-    get_media,
-    get_origin_pro,
-    is_py_singleton,
-    parse_return_pro,
     parse_single_return,
     parse_status,
     syncgen_encode_wrapper,
 )
-from lihil.errors import (
-    InvalidParamTypeError,
-    InvalidStatusError,
-    NotSupportedError,
-    StatusConflictError,
-)
-from lihil.interface import MISSING
+from lihil.errors import InvalidStatusError, StatusConflictError
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text
+from lihil.utils.typing import is_py_singleton
 
 
 # Test parse_status function (lines 28, 32-35)
@@ -40,15 +30,6 @@ def test_parse_status():
     # Test invalid type (line 37)
     with pytest.raises(InvalidStatusError, match="Invalid status code"):
         parse_status(None)
-
-
-# Test get_media function (lines 50-51)
-def test_get_media():
-    # Use the actual Text, HTML, etc. types
-    assert "text/plain" in get_media(Text)
-    assert "text/html" in get_media(HTML)
-    assert "application/json" in get_media(Json)
-    assert "text/event-stream" in get_media(Stream)
 
 
 # Test CustomEncoder class (lines 57-58)

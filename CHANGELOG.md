@@ -426,7 +426,7 @@ before this change, when `get_order` is added to `order_route`, `Engine` will be
 
 ### Improvements
 
-lihil is capable of handling more complex type variable
+- lihil is now capable of handling more complex type variable
 
 ```python
 type Base[T] = Annotated[T, 1]
@@ -445,3 +445,16 @@ def test_get_origin_nested():
     assert res[0] == Union[bytes, float, list[int]]
     assert res[1] == [str, 3, 2, 1]
 ```
+
+
+- now supports multiple responses
+
+```python
+@rprofile.post
+async def profile(
+    pid: str, q: int, user: User, engine: Engine
+) -> Resp[User, status.OK] | Resp[Order, status.CREATED]:
+    return User(id=user.id, name=user.name, email=user.email)
+```
+
+now openapi docs would show that `profile` returns `User` with `200`, `Order` with `201`

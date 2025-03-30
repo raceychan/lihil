@@ -1,4 +1,3 @@
-from types import UnionType
 from typing import Union
 
 import pytest
@@ -35,5 +34,3 @@ def test_endpoint_deps():
     ep.setup()
     rt = ep.deps.return_params[200]
     assert rt.type_ == Union[Order, str]
-    # assert str in rt.type_
-    # assert Order in rt.type_

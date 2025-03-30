@@ -195,6 +195,7 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
     assert await res.body() == b""
 
+
 async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
 
     class UserInfo(Payload):
@@ -433,7 +434,7 @@ async def test_ep_with_random_annoated_path2(rusers: Route, lc: LocalClient):
 
 async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
 
-    side_effect = []
+    side_effect: list[int] = []
 
     async def call_back() -> Ignore[None]:
         nonlocal side_effect
