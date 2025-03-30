@@ -54,6 +54,10 @@ def is_body_param(annt: Any) -> bool:
     if is_union_type(annt):
         return any(is_body_param(arg) for arg in get_args(annt))
     else:
+        if annt_origin := get_origin(annt):
+            return is_body_param(annt_origin)
+        if not isinstance(annt, type):
+            raise NotSupportedError(f"Not Supported type {annt}")
         return issubclass(annt, Struct) or is_file_body(annt)
 
 
