@@ -6,7 +6,7 @@ from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
 from lihil.di.params import ParamParser, PluginParam, RequestBodyParam, RequestParam
-from lihil.di.returns import EndpointReturn, parse_single_return  # pparse_returns,
+from lihil.di.returns import EndpointReturn, parse_all_returns  # pparse_returns,
 from lihil.interface import MISSING, Base, IEncoder, Record, is_provided
 from lihil.problems import (
     InvalidDataType,
@@ -53,19 +53,14 @@ class EndpointDeps[R](Base):
     dependencies: ParamMap[DependentNode]
     plugins: ParamMap[PluginParam[Any]]
 
-    return_param: EndpointReturn[R]  # | UnionType
+    default_status: int
     scoped: bool
-    form_body: bool = False
+    form_body: bool
+
+    return_encoder: IEncoder[R]
+    return_params: dict[int, EndpointReturn[R]]
 
     def override(self) -> None: ...
-
-    @property
-    def default_status(self) -> int:
-        return self.return_param.status
-
-    @property
-    def return_encoder(self) -> IEncoder[R]:
-        return self.return_param.encoder
 
     # TODO:we shou rewrite this in cython, along with the request object
     def prepare_params(
@@ -165,10 +160,12 @@ class EndpointDeps[R](Base):
         func_sig = signature(f)
         func_params = tuple(func_sig.parameters.items())
 
-        # self.param_parser
         parser = ParamParser(graph, path_keys)
         params = parser.parse_endpoint_params(func_params, path_keys)
-        retparam = parse_single_return(func_sig.return_annotation)
+        return_params = parse_all_returns(func_sig.return_annotation)
+
+        default_status = next(iter(return_params))
+        default_encoder = return_params[default_status].encoder
 
         scoped = any(
             graph.should_be_scoped(node.dependent) for node in params.nodes.values()
@@ -185,7 +182,9 @@ class EndpointDeps[R](Base):
             body_param=body_param,
             plugins=params.plugins,
             dependencies=params.nodes,
-            return_param=retparam,
+            return_params=return_params,
+            default_status=default_status,
+            return_encoder=default_encoder,
             scoped=scoped,
             form_body=form_body,
         )

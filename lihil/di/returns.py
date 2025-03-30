@@ -23,6 +23,7 @@ from lihil.errors import (
 )
 from lihil.interface import (
     MISSING,
+    Base,
     CustomEncoder,
     Empty,
     IEncoder,
@@ -32,10 +33,13 @@ from lihil.interface import (
 )
 from lihil.interface.marks import (
     HTML,
+    RESP_RETURN_MARK,
     Json,
     Resp,
+    ResponseMark,
     Stream,
     Text,
+    extra_resp_type,
     is_resp_mark,
     lhl_get_origin,
 )
@@ -103,196 +107,240 @@ def is_annotated(annt: Any) -> TypeGuard[type | UnionType]:
 
 class EndpointReturn[T](Record):
     # TODO: generate response from this
-    encoder: IEncoder[T]
+    type_: Maybe[type[T]] | UnionType | GenericAlias | TypeAliasType | None
     status: int
-    type_: Maybe[type[T]] | UnionType | GenericAlias | TypeAliasType | None = MISSING
-    content_type: str = "application/json"
+    encoder: IEncoder[T]
+    mark_type: ResponseMark = "resp"
     annotation: Any = MISSING
+    content_type: str = "application/json"
 
     def __post_init__(self):
         if self.status < 200 or self.status in (204, 205, 304):
             if not is_empty_return(self.type_):
                 raise StatusConflictError(self.status, self.type_)
 
+        # TODO: warns if return is None
+        # use Literal[None] to declare a return with value being None
+        # or Empty to declare no return at all
+
     def __repr__(self) -> str:
         return f"Return({self.annotation}, {self.status})"
 
 
-DEFAULT_RETURN = EndpointReturn(encoder=encode_json, status=200)
+DEFAULT_RETURN = EndpointReturn(
+    type_=MISSING, status=200, encoder=encode_json, annotation=MISSING
+)
 
 
-def _parse_marked(
-    annt: TypeAliasType | GenericAlias | UnionType, origin: Any, status: int
-) -> "EndpointReturn[Any]":
-    origin = lhl_get_origin(annt) or annt
-    if origin is Text:
-        content_type = get_media(origin)
-        rtp = EndpointReturn(
-            type_=bytes,
-            encoder=encode_text,
-            status=status,
-            annotation=annt,
-            content_type=content_type,
-        )
-        return rtp
-    elif origin is HTML:
-        content_type = get_media(origin)
+# def _parse_marked(
+#     annt: TypeAliasType | GenericAlias | UnionType, origin: Any, status: int
+# ) -> "EndpointReturn[Any]":
+#     origin = lhl_get_origin(annt) or annt
+#     if origin is Text:
+#         content_type = get_media(origin)
+#         rtp = EndpointReturn(
+#             type_=bytes,
+#             encoder=encode_text,
+#             status=status,
+#             annotation=annt,
+#             content_type=content_type,
+#         )
+#         return rtp
+#     elif origin is HTML:
+#         content_type = get_media(origin)
+#         return EndpointReturn(
+#             type_=str,
+#             encoder=encode_text,
+#             status=status,
+#             annotation=annt,
+#             content_type=content_type,
+#         )
+#     elif origin is Stream:
+#         content_type = get_media(origin)
+#         return EndpointReturn(
+#             type_=bytes,
+#             encoder=encode_text,
+#             status=status,
+#             annotation=annt,
+#             content_type=content_type,
+#         )
+#     elif origin is Json:
+#         type_args = get_args(annt)
+#         retype, *_ = type_args
+#         content_type = get_media(origin)
+#         return EndpointReturn(
+#             type_=retype,
+#             encoder=encode_json,
+#             status=status,
+#             annotation=annt,
+#             content_type=content_type,
+#         )
+#     elif origin is Empty:
+#         return _parse_annotated(origin.__value__, origin, status)
+#     elif origin is Resp:
+#         resp = get_args(annt)
+#         if len(resp) > 1:
+#             retype, status = resp  # type: ignore
+#         else:
+#             retype = resp[0]  # type: ignore
+#         return parse_single_return(retype, status)
+#     elif isinstance(origin, TypeAliasType):
+#         return parse_single_return(origin.__value__, status)
+#     else:
+#         raise InvalidParamTypeError(annt)
+
+
+# def _parse_annotated(
+#     annt: Annotated[Any, "Annotated"],
+#     origin: Maybe[Any] = MISSING,
+#     status: int = 200,
+# ) -> "EndpointReturn[Any]":
+#     if not is_provided(origin):
+#         origin = lhl_get_origin(annt)
+#     # encoder = encode_json
+#     custom_encoder = None
+#     ret_type, metas = deannotate(annt)
+#     custom_encoder = get_encoder_from_metas(metas) if metas else None
+
+#     if is_resp_mark(ret_type):
+#         rp = _parse_marked(ret_type, origin, status)
+#         if custom_encoder:
+#             return rp.replace(encoder=custom_encoder)
+#         return rp
+#     else:
+#         ret = EndpointReturn(
+#             type_=ret_type,
+#             encoder=custom_encoder or encode_json,
+#             annotation=annt,
+#             status=status,
+#         )
+#         return ret
+
+
+# def _parse_generic(annt: Any, origin: Any, status: int) -> "EndpointReturn[Any]":
+#     if origin is Annotated or origin in (
+#         Generator,
+#         ABCGen,
+#         AsyncGenerator,
+#         ABCAsyncGen,
+#     ):
+#         return _parse_annotated(annt, origin, status)
+#     elif is_resp_mark(annt):  # Text,
+#         return _parse_marked(annt, origin, status)
+#     elif nested_origin := lhl_get_origin(origin):
+#         return _parse_generic(origin, nested_origin, status)
+#     else:  # vanilla case, dict[str, str], list[str], etc.
+#         if not isinstance(origin, type):
+#             raise InvalidParamTypeError(annt)
+#         ret = EndpointReturn[Any](
+#             type_=origin, encoder=encode_json, annotation=annt, status=status
+#         )
+#         return ret
+
+
+# @overload
+# def parse_single_return[R](
+#     annt: Maybe[type[R]],
+#     status: int = 200,
+# ) -> "EndpointReturn[R]": ...
+
+
+# @overload
+# def parse_single_return(
+#     annt: Maybe[TypeAliasType | GenericAlias | UnionType],
+#     status: int = 200,
+# ) -> "EndpointReturn[Any]": ...
+
+
+# def parse_single_return[R](
+#     annt: Maybe[type[R] | TypeAliasType | GenericAlias | UnionType],
+#     status: int = 200,
+# ) -> "EndpointReturn[R]":
+#     if not is_annotated(annt):
+#         return DEFAULT_RETURN
+#     # TODO: we need to handle multiple return first
+
+#     status = parse_status(status)
+#     ret_origin = lhl_get_origin(annt) or annt
+
+#     # should not detect this case, handled by parse_all_resps
+
+#     if ret_origin or is_resp_mark(annt):
+#         ret = _parse_generic(annt, ret_origin, status)
+#     else:
+#         # default case, should be a single non-generic type,
+#         # e.g. User, str, bytes, etc.
+#         if not is_py_singleton(annt) and not isinstance(annt, type):
+#             raise InvalidParamTypeError(annt)
+#         ret = EndpointReturn(
+#             type_=annt,
+#             annotation=annt,
+#             encoder=encode_json,
+#             status=status,
+#         )
+#     return ret
+
+
+def parse_return_pro(
+    ret_type: Any, annotation: Any, metas: list[Any] | None
+) -> EndpointReturn[Any]:
+    if metas is None:
         return EndpointReturn(
-            type_=str,
-            encoder=encode_text,
-            status=status,
-            annotation=annt,
-            content_type=content_type,
+            type_=ret_type, annotation=annotation, encoder=encode_json, status=200
         )
-    elif origin is Stream:
-        content_type = get_media(origin)
-        return EndpointReturn(
-            type_=bytes,
-            encoder=encode_text,
-            status=status,
-            annotation=annt,
-            content_type=content_type,
-        )
-    elif origin is Json:
-        type_args = get_args(annt)
-        retype, *_ = type_args
-        content_type = get_media(origin)
-        return EndpointReturn(
-            type_=retype,
-            encoder=encode_json,
-            status=status,
-            annotation=annt,
-            content_type=content_type,
-        )
-    elif origin is Empty:
-        return _parse_annotated(origin.__value__, origin, status)
-    elif origin is Resp:
-        resp = get_args(annt)
-        if len(resp) > 1:
-            retype, status = resp  # type: ignore
+
+    encoder = None
+    status = 200
+    mark_type = "resp"
+    content_type = "application/json"
+    for idx, meta in enumerate(metas):
+        if isinstance(meta, CustomEncoder):
+            encoder = meta.encode
+        elif resp_type := extra_resp_type(meta):
+            if resp_type == "resp":
+                try:
+                    status = parse_status(metas[idx - 1])
+                except IndexError:
+                    status = 200
+            elif resp_type == "text":
+                content_type = metas[idx + 1]
+            elif resp_type == "html":
+                content_type = metas[idx + 1]
+            elif resp_type == "stream":
+                ret_type = get_args(annotation)[0]
+                content_type = metas[idx + 1]
+            mark_type = resp_type
         else:
-            retype = resp[0]  # type: ignore
-        return parse_single_return(retype, status)
-    elif isinstance(origin, TypeAliasType):
-        return parse_single_return(origin.__value__, status)
-    else:
-        raise InvalidParamTypeError(annt)
+            continue
 
+    if encoder is None:
+        content, _ = content_type.split("/")
+        if content == "text":
+            encoder = encode_text
+            ret_type = bytes
+        else:
+            encoder = encode_json
 
-def _parse_annotated(
-    annt: Annotated[Any, "Annotated"],
-    origin: Maybe[Any] = MISSING,
-    status: int = 200,
-) -> "EndpointReturn[Any]":
-    if not is_provided(origin):
-        origin = lhl_get_origin(annt)
-    # encoder = encode_json
-    custom_encoder = None
-    ret_type, metas = deannotate(annt)
-
-    custom_encoder = get_encoder_from_metas(metas) if metas else None
-
-    if is_resp_mark(ret_type):
-        rp = _parse_marked(ret_type, origin, status)
-        if custom_encoder:
-            return rp.replace(encoder=custom_encoder)
-        return rp
-    else:
-        ret = EndpointReturn(
-            type_=ret_type,
-            encoder=custom_encoder or encode_json,
-            annotation=annt,
-            status=status,
-        )
-        return ret
-
-
-def _parse_generic(annt: Any, origin: Any, status: int) -> "EndpointReturn[Any]":
-    if origin is Annotated or origin in (
-        Generator,
-        ABCGen,
-        AsyncGenerator,
-        ABCAsyncGen,
-    ):
-        return _parse_annotated(annt, origin, status)
-    elif is_resp_mark(annt):  # Text,
-        return _parse_marked(annt, origin, status)
-    elif nested_origin := lhl_get_origin(origin):
-        return _parse_generic(origin, nested_origin, status)
-    else:  # vanilla case, dict[str, str], list[str], etc.
-        if not isinstance(origin, type):
-            raise InvalidParamTypeError(annt)
-        ret = EndpointReturn[Any](
-            type_=origin, encoder=encode_json, annotation=annt, status=status
-        )
-        return ret
-
-
-@overload
-def parse_single_return[R](
-    annt: Maybe[type[R]],
-    status: int = 200,
-) -> "EndpointReturn[R]": ...
-
-
-@overload
-def parse_single_return(
-    annt: Maybe[UnionType | TypeAliasType | GenericAlias],
-    status: int = 200,
-) -> "EndpointReturn[Any]": ...
-
-
-# parse_single_return, exclude UnionType, TypeAliasType, GenericAlias
+    ret = EndpointReturn(
+        type_=ret_type,
+        encoder=encoder,
+        status=status,
+        mark_type=mark_type,
+        annotation=annotation,
+        content_type=content_type,
+    )
+    return ret
 
 
 def parse_single_return[R](
-    annt: Maybe[type[R] | UnionType | TypeAliasType | GenericAlias],
-    status: int = 200,
+    annt: Maybe[type[R] | TypeAliasType | GenericAlias | UnionType],
 ) -> "EndpointReturn[R]":
     if not is_annotated(annt):
         return DEFAULT_RETURN
-    # TODO: we need to handle multiple return first
 
-    status = parse_status(status)
-    ret_origin = lhl_get_origin(annt) or annt
+    ret_type, metas = get_origin_pro(annt)
 
-    if is_union_type(annt):
-        """
-        TODO:
-        we need to handle case of multiple return e.g
-        async def userfunc() -> Resp[User, 200] | Resp[Order, 201]
-        for decoder it is just User | Order
-        but we can show at openapi schema
-        """
-        annt_args = get_args(annt)
-        rets: list[EndpointReturn[Any]] = []
-
-        for arg in annt_args:
-            if not is_resp_mark(arg):
-                continue
-            rets.append(parse_single_return(arg))
-
-        if len(annt_args) > 1 and rets:
-            raise NotSupportedError("Multiple return param is currently not supported")
-
-        ret = EndpointReturn(
-            type_=annt, annotation=annt, encoder=encode_json, status=status
-        )
-
-    elif ret_origin or is_resp_mark(annt):
-        ret = _parse_generic(annt, ret_origin, status)
-    else:
-        # default case, should be a single non-generic type,
-        # e.g. User, str, bytes, etc.
-        if not is_py_singleton(annt) and not isinstance(annt, type):
-            raise InvalidParamTypeError(annt)
-        ret = EndpointReturn(
-            type_=annt,
-            annotation=annt,
-            encoder=encode_json,
-            status=status,
-        )
-    return ret
+    return parse_return_pro(ret_type, annt, metas)
 
 
 def parse_all_returns(
@@ -312,9 +360,27 @@ def parse_all_returns(
         return {DEFAULT_RETURN.status: DEFAULT_RETURN}
 
     if not is_union_type(annt):
-        res = parse_single_return(annt)
+        rt_type, metas = get_origin_pro(annt)
+        res = parse_return_pro(rt_type, annt, metas)
+        return {res.status: res}
     else:
-        breakpoint()
-        raise NotImplementedError
+        unions = get_args(annt)
+        temp_union = [get_origin_pro(utype) for utype in unions]
 
-    return {res.status: res}
+        resp_cnt = 0
+        for ret_type, ret_meta in temp_union:
+            if ret_meta and RESP_RETURN_MARK in ret_meta:
+                resp_cnt += 1
+
+        if resp_cnt and resp_cnt != len(unions):
+            raise NotSupportedError("union size and resp mark dismatched")
+
+        if resp_cnt == 0:  # Union[int, str]
+            union_origin, union_meta = get_origin_pro(annt)
+            resp = parse_return_pro(union_origin, annt, union_meta)
+            return {resp.status: resp}
+        else:
+            resps = [
+                parse_return_pro(uorigin, annt, umeta) for uorigin, umeta in temp_union
+            ]
+            return {resp.status: resp for resp in resps}

@@ -63,8 +63,8 @@ def test_return_status(rusers: Route):
     assert "func_dep" in ep.deps.dependencies
     assert "user_id" in ep.deps.path_params
 
-    ep_ret = ep.deps.return_param
-    assert ep_ret.status == 201
+    ep_ret = ep.deps.return_params[201]
+    assert ep_ret.type_ is User
 
 
 def test_status_conflict(rusers: Route):
@@ -87,7 +87,7 @@ def test_annotated_generic(rusers: Route):
     ep = rusers.get_endpoint(update_user)
     ep.setup()
     repr(ep)
-    assert ep.deps.return_param.type_ == dict[str, str]
+    assert ep.deps.return_params[200].type_ == dict[str, str]
 
 
 def sync_func():
@@ -195,14 +195,13 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
     assert await res.body() == b""
 
-
 async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
 
     class UserInfo(Payload):
         username: str
         email: str
 
-    async def get(req: Request, fm: Form[UserInfo]) -> Resp[str, 200]:
+    async def get(req: Request, fm: Form[UserInfo]) -> Resp[str, status.OK]:
         return fm
 
     rusers.get(get)

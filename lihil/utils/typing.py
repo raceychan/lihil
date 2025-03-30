@@ -5,7 +5,6 @@ from typing import (
     Literal,
     Sequence,
     TypeAliasType,
-    TypeGuard,
     TypeVar,
     Union,
     cast,

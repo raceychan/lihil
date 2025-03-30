@@ -54,6 +54,7 @@ def is_body_param(annt: Any) -> bool:
     if is_union_type(annt):
         return any(is_body_param(arg) for arg in get_args(annt))
     else:
+        # issubclass does not work with GenericAlias, e.g. dict[str, str], in python 3.13. so we check its origin
         if annt_origin := get_origin(annt):
             return is_body_param(annt_origin)
         if not isinstance(annt, type):

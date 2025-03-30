@@ -293,7 +293,7 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
 def get_resp_schemas(
     ep: Endpoint[Any], schemas: SchemasDict, problem_path: str
 ) -> dict[str, oasmodel.Response]:
-    ep_return = ep.deps.return_param
+    ep_return = ep.deps.return_params[200]
     content_type = ep_return.content_type
     return_type = ep_return.type_
 
@@ -305,19 +305,10 @@ def get_resp_schemas(
         # TODO: show no return type here
         return resps
     else:
-        ret_origin = lhl_get_origin(ep_return.annotation)
-        if ret_origin is Annotated:
-            return_type, metas = deannotate(ep_return.annotation)
-            if metas and EMPTY_RETURN_MARK in metas:
-                resps[str(ep_return.status)] = oasmodel.Response(
-                    description="No Content", content=None
-                )
-            else:
-                content = type_to_content(return_type, schemas, content_type)
-                resp = oasmodel.Response(
-                    description="Successful Response", content=content
-                )
-                resps[str(ep_return.status)] = resp
+        if ep_return.mark_type == "empty":
+            resps[str(ep_return.status)] = oasmodel.Response(
+                description="No Content", content=None
+            )
         elif isinstance(return_type, UnionType):
             """
             TODO: handle union Resp

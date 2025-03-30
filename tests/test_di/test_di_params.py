@@ -307,7 +307,6 @@ def test_analyze_endpoint_params(param_parser: ParamParser):
     assert "id" in path_params
 
 
-@pytest.mark.debug
 def test_param_parser_parse_unions(param_parser: ParamParser):
     res = param_parser.parse_param("test", dict[str, int] | list[int])
 

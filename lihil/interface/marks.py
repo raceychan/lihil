@@ -20,6 +20,7 @@ from lihil.constant.status import Status
 LIHIL_RESPONSE_MARK = "__LIHIL_RESPONSE_MARK"
 LIHIL_PARAM_MARK = "__LIHIL_PARAM_MARK"
 LIHIL_PARAM_PATTERN = re.compile(r"__LIHIL_PARAM_MARK_([^_]*)__")
+LIHIL_RETURN_PATTERN = re.compile(r"__LIHIL_RESPONSE_MARK_([^_]*)__")
 
 
 # TODO: prefer get_origin_pro over this
@@ -64,6 +65,18 @@ def extra_mark_type(mark: Any) -> "ParamMarkType | None":
     if match:
         res = match.group(1)
         return res.lower()  # type: ignore
+    return None
+
+
+def extra_resp_type(mark: Any) -> "ResponseMark | None":
+    if not isinstance(mark, str):
+        return None
+
+    match = LIHIL_RETURN_PATTERN.search(mark)
+
+    if match:
+        res = match.group(1)
+        return res.lower() # type: ignore
     return None
 
 
@@ -121,3 +134,5 @@ type Stream[T] = Annotated[
 ]
 type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
 type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
+
+type ResponseMark = Literal["text", "html", "stream", "json", "resp", "empty"]

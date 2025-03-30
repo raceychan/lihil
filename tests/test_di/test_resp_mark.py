@@ -1,4 +1,7 @@
 from types import UnionType
+from typing import Union
+
+import pytest
 
 from lihil import Payload, status
 from lihil.interface.marks import Json, Resp, is_resp_mark
@@ -24,12 +27,13 @@ async def get_order(
 ) -> Order | str: ...
 
 
+@pytest.mark.debug
 def test_endpoint_deps():
     route = Route()
     route.get(get_order)
     ep = route.get_endpoint("GET")
     ep.setup()
-    rt = ep.deps.return_param
-    assert isinstance(rt.type_, UnionType)
+    rt = ep.deps.return_params[200]
+    assert rt.type_ == Union[Order, str]
     # assert str in rt.type_
     # assert Order in rt.type_
