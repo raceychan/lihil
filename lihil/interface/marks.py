@@ -21,6 +21,7 @@ LIHIL_PARAM_MARK = "__LIHIL_PARAM_MARK"
 LIHIL_PARAM_PATTERN = re.compile(r"__LIHIL_PARAM_MARK_([^_]*)__")
 
 
+# TODO: prefer get_origin_pro over this
 def lhl_get_origin(annt: Any) -> Any:
     "a extended get origin that handles TypeAliasType"
     if is_marked_param(annt):

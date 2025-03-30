@@ -30,7 +30,7 @@ from lihil.interface import (
     Maybe,
     ParamLocation,
 )
-from lihil.interface.marks import Struct, extra_mark_type, is_param_mark, lhl_get_origin
+from lihil.interface.marks import Struct, extra_mark_type
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
@@ -53,7 +53,7 @@ LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver)
 
 
 def is_file_body(annt: Any) -> TypeGuard[type[UploadFile]]:
-    annt_origin = lhl_get_origin(annt) or annt
+    annt_origin = get_origin(annt) or annt
     return annt_origin is UploadFile
 
 
@@ -201,19 +201,6 @@ def file_body_param(
     return req_param
 
 
-def get_decoder_from_metas(
-    metas: list[Any],
-) -> ITextDecoder[Any] | IDecoder[Any] | IFormDecoder[Any] | None:
-    # TODO: custom convertor
-    for meta in metas:
-        if isinstance(meta, CustomDecoder):
-            return meta.decode
-
-
-def contains_mark(metas: list[Any]):
-    return any((m is USE_FACTORY_MARK or is_param_mark(m)) for m in metas)
-
-
 class ParamMetas(Base):
     custom_decoder: CustomDecoder | None
     mark_type: str | None
@@ -233,8 +220,8 @@ class ParamMetas(Base):
                 decoder = meta
             else:
                 if mark_type := extra_mark_type(meta):
-                    if current_mark_type is not None:
-                        raise ValueError("can't use more than one param mark")
+                    if current_mark_type and mark_type is not current_mark_type:
+                        raise NotSupportedError("can't use more than one param mark")
                     else:
                         if mark_type == "HEADER":
                             header_key = metas[idx - 1]
@@ -253,10 +240,12 @@ class ParamMetas(Base):
         )
 
 
-class PluginProvider[T](Protocol):
-    mark_type: str
+class PluginLoader[T](Protocol):
+    def __call__(self, request: Request, resolver: Resolver) -> T: ...
+class PluginParser[T](Protocol):
+    loader: PluginLoader[T]
 
-    def parser(
+    def __call__(
         self,
         name: str,
         type_: type[T] | UnionType,
@@ -265,6 +254,28 @@ class PluginProvider[T](Protocol):
         param_meta: ParamMetas,
     ) -> list[PluginParam[T]]:
         raise NotImplementedError
+
+
+class EndpointParams(Base):
+    params: dict[str, RequestParam[Any]] = field(default_factory=dict)
+    bodies: dict[str, RequestBodyParam[Any]] = field(default_factory=dict)
+    nodes: dict[str, DependentNode] = field(default_factory=dict)
+    plugins: dict[str, PluginParam[Any]] = field(default_factory=dict)
+
+    def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
+        return {n: p for n, p in self.params.items() if p.location == location}
+
+    def get_body(self) -> tuple[str, RequestBodyParam[Any]] | None:
+        if not self.bodies:
+            body_param = None
+        elif len(self.bodies) == 1:
+            body_param = next(iter(self.bodies.items()))
+        else:
+            # "use defstruct to dynamically define a type"
+            raise NotSupportedError(
+                "Endpoint with multiple body params is not yet supported"
+            )
+        return body_param
 
 
 class ParamParser:
@@ -286,7 +297,7 @@ class ParamParser:
             self.seen = set()
 
         # mark type or param type, dict[str | type, PluginProvider]
-        self.plugin_provider: dict[str, PluginProvider[Any]] = {}
+        self.plugin_parser: dict[str, PluginParser[Any]] = {}
         self.plugin_types = LIHIL_DEPENDENCIES
 
     def is_plugin_type(self, param_type: Any) -> TypeGuard[type]:
@@ -472,8 +483,8 @@ class ParamParser:
                 default=default,
                 param_meta=param_meta,
             )
-        elif provider := self.plugin_provider.get(param_meta.mark_type):
-            res = provider.parser(
+        elif provider := self.plugin_parser.get(param_meta.mark_type):
+            res = provider(
                 name=name,
                 type_=parsed_type,
                 annotation=annotation,
@@ -526,25 +537,3 @@ class ParamParser:
         return EndpointParams(
             params=params, bodies=bodies, nodes=nodes, plugins=plugins
         )
-
-
-class EndpointParams(Base):
-    params: dict[str, RequestParam[Any]] = field(default_factory=dict)
-    bodies: dict[str, RequestBodyParam[Any]] = field(default_factory=dict)
-    nodes: dict[str, DependentNode] = field(default_factory=dict)
-    plugins: dict[str, PluginParam[Any]] = field(default_factory=dict)
-
-    def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
-        return {n: p for n, p in self.params.items() if p.location == location}
-
-    def get_body(self) -> tuple[str, RequestBodyParam[Any]] | None:
-        if not self.bodies:
-            body_param = None
-        elif len(self.bodies) == 1:
-            body_param = next(iter(self.bodies.items()))
-        else:
-            # "use defstruct to dynamically define a type"
-            raise NotSupportedError(
-                "Endpoint with multiple body params is not yet supported"
-            )
-        return body_param

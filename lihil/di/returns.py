@@ -39,7 +39,7 @@ from lihil.interface.marks import (
     lhl_get_origin,
 )
 from lihil.utils.phasing import encode_json, encode_text
-from lihil.utils.typing import deannotate, is_py_singleton
+from lihil.utils.typing import deannotate, is_py_singleton, get_origin_pro
 
 
 def parse_status(status: Any) -> int:

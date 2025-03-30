@@ -168,8 +168,8 @@ class EndpointDeps[R](Base):
         # TODO: add to endpoint params: plugin identifier
         # TODO: use param parser to parse these two
         """
-        parser = ParamParser(graph)
-        req_params, ret_params = parser.parse_endpoint(path_keys, function)
+        parser = ParamParser(graph, route_path)
+        endpoint_deps = parser.parse_endpoint(path_keys, function)
         """
 
         parser = ParamParser(graph, path_keys)

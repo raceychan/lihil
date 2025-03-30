@@ -13,7 +13,6 @@ from lihil.di.params import (
     PluginParam,
     RequestBodyParam,
     RequestParam,
-    is_param_mark,
     txtdecoder_factory,
 )
 from lihil.errors import NotSupportedError
@@ -219,7 +218,7 @@ def test_analyze_markedparam_query(param_parser: ParamParser):
 
 # Test analyze_markedparam for Header
 def test_analyze_markedparam_header(param_parser: ParamParser):
-    result = param_parser.parse_param("user_agent", Header[str], Header)
+    result = param_parser.parse_param("user_agent", Header[str])
     assert len(result) == 1
     param = result[0]
     assert param.name == "user_agent"
@@ -228,7 +227,7 @@ def test_analyze_markedparam_header(param_parser: ParamParser):
 
 
 def test_analyze_markedparam_header_with_alias(param_parser: ParamParser):
-    result = param_parser.parse_param("user_agent", Header[str, "test-alias"], Header)
+    result = param_parser.parse_param("user_agent", Header[str, "test-alias"])
     assert len(result) == 1
     param = result[0]
     assert param.name == "user_agent"
@@ -258,6 +257,11 @@ def test_analyze_markedparam_path(param_parser: ParamParser):
     assert param.name == "id"
     assert isinstance(param, RequestParam)
     assert param.location == "path"
+
+
+def test_analyze_multiple_marks(param_parser: ParamParser):
+    with pytest.raises(NotSupportedError):
+        param_parser.parse_param("page", Query[int] | Path[int])
 
 
 # Test analyze_markedparam for Use
@@ -312,8 +316,6 @@ def test_param_parser_parse_unions(param_parser: ParamParser):
 
     res = param.decode('{"test": 2}')
     assert isinstance(res, dict)
-
-
 
 
 def test_param_parser_parse_bytes_union(param_parser: ParamParser):
