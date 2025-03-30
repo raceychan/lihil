@@ -4,7 +4,6 @@ from types import GenericAlias, UnionType
 from typing import (
     Any,
     Protocol,
-    Sequence,
     TypeAliasType,
     TypeGuard,
     Union,
@@ -30,7 +29,7 @@ from lihil.interface import (
     Maybe,
     ParamLocation,
 )
-from lihil.interface.marks import Struct, extra_mark_type
+from lihil.interface.marks import ParamMarkType, Struct, extra_mark_type
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
@@ -38,15 +37,9 @@ from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, 
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
 
-type ParamPair = tuple[str, RequestParam[Any] | RequestBodyParam[Any]] | tuple[
-    str, PluginParam[Any]
-]
-
 type ParsedParam[T] = RequestParam[T] | RequestBodyParam[T] | PluginParam[
     T
 ] | DependentNode
-
-type RequiredParams = Sequence[ParamPair]
 
 
 LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver)
@@ -132,7 +125,6 @@ class RequestParamBase[T](Base):
     location: ParamLocation
     default: Maybe[Any] = MISSING
     required: bool = False
-    # meta: ParamMeta | None = None
 
     @property
     def type_repr(self) -> str:
@@ -177,6 +169,7 @@ class PluginParam[T](Base):
     name: str
     default: Maybe[Any] = MISSING
     required: bool = False
+    loader: "PluginLoader[T] | None" = None
 
     # def loader(self, request: Request, resolver: Resolver) -> T: ...
 
@@ -203,7 +196,7 @@ def file_body_param(
 
 class ParamMetas(Base):
     custom_decoder: CustomDecoder | None
-    mark_type: str | None
+    mark_type: ParamMarkType | None
     metas: tuple[Any, ...]
     factory: INode[..., Any] | None = None
     config: NodeConfig | None = None
@@ -218,18 +211,16 @@ class ParamMetas(Base):
         for idx, meta in enumerate(metas):
             if isinstance(meta, CustomDecoder):
                 decoder = meta
-            else:
-                if mark_type := extra_mark_type(meta):
-                    if current_mark_type and mark_type is not current_mark_type:
-                        raise NotSupportedError("can't use more than one param mark")
-                    else:
-                        if mark_type == "HEADER":
-                            header_key = metas[idx - 1]
-                            if not isinstance(header_key, str):
-                                metas[idx - 1] = None
-                        current_mark_type = mark_type
-                elif meta == USE_FACTORY_MARK:
-                    factory, config = metas[idx + 1], metas[idx + 2]
+            elif mark_type := extra_mark_type(meta):
+                if current_mark_type and mark_type is not current_mark_type:
+                    raise NotSupportedError("can't use more than one param mark")
+                elif mark_type == "header":
+                    header_key = metas[idx - 1]
+                    if not isinstance(header_key, str):
+                        metas[idx - 1] = None
+                current_mark_type = mark_type
+            elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
+                factory, config = metas[idx + 1], metas[idx + 2]
 
         return ParamMetas(
             custom_decoder=decoder,
@@ -243,7 +234,6 @@ class ParamMetas(Base):
 class PluginLoader[T](Protocol):
     def __call__(self, request: Request, resolver: Resolver) -> T: ...
 class PluginParser[T](Protocol):
-    loader: PluginLoader[T]
 
     def __call__(
         self,
@@ -296,8 +286,8 @@ class ParamParser:
             self.path_keys = ()
             self.seen = set()
 
-        # mark type or param type, dict[str | type, PluginProvider]
-        self.plugin_parser: dict[str, PluginParser[Any]] = {}
+        # mark_type or param_type, dict[str | type, PluginProvider]
+        self.plugin_parsers: dict[str, PluginParser[Any]] = {}
         self.plugin_types = LIHIL_DEPENDENCIES
 
     def is_plugin_type(self, param_type: Any) -> TypeGuard[type]:
@@ -409,8 +399,7 @@ class ParamParser:
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
         custom_decoder = param_meta.custom_decoder
 
-        mark_type = param_meta.mark_type or ""
-        mark_type = mark_type.lower()
+        mark_type = param_meta.mark_type
 
         if mark_type == "use":
             node = self.graph.analyze(type_)
@@ -450,7 +439,6 @@ class ParamParser:
                 return body_param
             elif mark_type == "path":
                 location = "path"
-
             else:
                 location = "query"
 
@@ -473,7 +461,6 @@ class ParamParser:
         default: Maybe[T] = MISSING,
     ) -> list[ParsedParam[T]]:
         parsed_type, pmetas = get_origin_pro(annotation)
-
         param_meta = ParamMetas.from_metas(pmetas) if pmetas else None
         if param_meta is None or not param_meta.mark_type:  # non generic version
             res = self._parse_rule_based(
@@ -483,8 +470,8 @@ class ParamParser:
                 default=default,
                 param_meta=param_meta,
             )
-        elif provider := self.plugin_parser.get(param_meta.mark_type):
-            res = provider(
+        elif parser := self.plugin_parsers.get(param_meta.mark_type):
+            res = parser(
                 name=name,
                 type_=parsed_type,
                 annotation=annotation,

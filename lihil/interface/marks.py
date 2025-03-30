@@ -5,6 +5,7 @@ from typing import (
     Any,
     AsyncGenerator,
     Generator,
+    Literal,
     LiteralString,
     TypeAliasType,
     TypeGuard,
@@ -24,12 +25,12 @@ LIHIL_PARAM_PATTERN = re.compile(r"__LIHIL_PARAM_MARK_([^_]*)__")
 # TODO: prefer get_origin_pro over this
 def lhl_get_origin(annt: Any) -> Any:
     "a extended get origin that handles TypeAliasType"
+
     if is_marked_param(annt):
         return ty_get_origin(annt)
-    elif isinstance(annt, TypeAliasType):
-        while isinstance(annt, TypeAliasType):
-            annt = annt.__value__
-        return annt
+
+    while isinstance(annt, TypeAliasType):
+        annt = annt.__value__
     return ty_get_origin(annt)
 
 
@@ -54,14 +55,15 @@ def is_lihil_marked(m: Any, mark_prefix: str) -> bool:
         return False
 
 
-def extra_mark_type(mark: Any) -> str | None:
+def extra_mark_type(mark: Any) -> "ParamMarkType | None":
     if not isinstance(mark, str):
         return None
 
     match = LIHIL_PARAM_PATTERN.search(mark)
 
     if match:
-        return match.group(1)
+        res = match.group(1)
+        return res.lower()  # type: ignore
     return None
 
 
@@ -99,6 +101,8 @@ type Form[T] = Annotated[T, FORM_REQUEST_MARK]
 type Path[T] = Annotated[T, PATH_REQUEST_MARK]
 type Use[T] = Annotated[T, USE_DEPENDENCY_MARK]
 
+
+type ParamMarkType = Literal["query", "header", "body", "form", "path", "use"]
 # ================ Response ================
 
 TEXT_RETURN_MARK = resp_mark("text")

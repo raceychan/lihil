@@ -1,5 +1,7 @@
 from typing import Annotated, Union
 
+import pytest
+
 from lihil.utils.typing import (
     deannotate,
     get_origin_pro,
@@ -85,11 +87,31 @@ def test_get_origin_pro_type_alias():
     assert get_origin_pro(MyType[str | int]) == (Union[str | int], ["mymark"])
     assert get_origin_pro(Body[str | None]) == (Union[str, None], [BODY_REQUEST_MARK])
     assert get_origin_pro(MyTypeAlias) == (int, [CustomEncoder, QUERY_REQUEST_MARK])
-    assert get_origin_pro(NewAnnotated) == (int, [CustomEncoder, QUERY_REQUEST_MARK])
+    assert get_origin_pro(NewAnnotated) == (
+        int,
+        ["aloha", CustomEncoder, QUERY_REQUEST_MARK],
+    )
     assert get_origin_pro(Resp[str, 200] | Resp[int, 201]) == (
         Union[str, int],
         [200, "__LIHIL_RESPONSE_MARK_RESP__", 201, "__LIHIL_RESPONSE_MARK_RESP__"],
     )
+
+
+type Base[T] = Annotated[T, 1]
+type NewBase[T] = Annotated[Base[T], 2]
+type AnotherBase[T, K] = Annotated[NewBase[T], K, 3]
+
+
+def test_get_origin_nested():
+    base = get_origin_pro(Base[str])
+    assert base[0] == str and base[1] == [1]
+
+    nbase = get_origin_pro(NewBase[str])
+    assert nbase[0] == str and nbase[1] == [2, 1]
+
+    res = get_origin_pro(AnotherBase[bytes | float, str] | list[int])
+    assert res[0] == Union[bytes, float, list[int]]
+    assert res[1] == [str, 3, 2, 1]
 
 
 # def test_get_origin_pro_type_alias_generic():

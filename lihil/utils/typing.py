@@ -5,6 +5,7 @@ from typing import (
     Literal,
     Sequence,
     TypeAliasType,
+    TypeVar,
     Union,
     cast,
     get_args,
@@ -67,6 +68,7 @@ def is_text_type(t: type | UnionType) -> bool:
     return t in (str, bytes)
 
 
+# TODO: carry type_args, StriDict[int] -> tyargs = ()
 def get_origin_pro[T](
     type_: type[T] | UnionType | GenericAlias | TypeAliasType,
     metas: list[Any] | None = None,
@@ -81,35 +83,41 @@ def get_origin_pro[T](
     """
 
     if isinstance(type_, TypeAliasType):
-        return get_origin_pro(type_.__value__, None)
+        return get_origin_pro(type_.__value__, metas)
     elif current_origin := ty_get_origin(type_):
         if current_origin is Annotated:
             annt_type, local_metas = deannotate(type_)
-            if local_metas:
-                if metas is None:
-                    metas = local_metas
+
+            if local_metas and metas:
+                metas.extend(local_metas)
+            elif local_metas:
+                metas = local_metas
             return get_origin_pro(annt_type, metas)
         elif isinstance(current_origin, TypeAliasType):
             dealiased = cast(TypeAliasType, type_).__value__
-            if (als_args := get_args(dealiased)) and (ty_args := get_args(type_)):
-                ty_type, *local_args = ty_args + als_args[len(ty_args) :]
-                if ty_get_origin(dealiased) is Annotated:
-                    if metas:
-                        new_metas = metas + local_args
-                    else:
-                        new_metas = local_args
-                    return get_origin_pro(ty_type, new_metas)
-            return get_origin_pro(dealiased, metas)
+            dtype, demetas = get_origin_pro(dealiased, metas)
+
+            if demetas and isinstance(dtype, TypeVar):
+                targs = get_args(type_)
+                nontyvar = [arg for arg in targs if not isinstance(arg, TypeVar)]
+                while nontyvar:
+                    # dtype should be the first ty_args, rest replace the tyvars in dmetas
+                    dtype = nontyvar.pop(0)
+                    for idx, meta in enumerate(demetas):
+                        if nontyvar and isinstance(meta, TypeVar):
+                            demetas[idx] = nontyvar.pop(0)
+                return get_origin_pro(dtype, demetas)
+            else:
+                return get_origin_pro(dealiased, metas)
         elif current_origin is UnionType:
             union_args = get_args(type_)
             utypes: list[type | UnionType] = []
             new_metas: list[Any] = []
             for uarg in union_args:
-                utype, umeta = get_origin_pro(uarg, None)
+                utype, umeta = get_origin_pro(uarg)
                 utypes.append(utype)
                 if umeta:
                     new_metas.extend(umeta)
-
             if not new_metas:
                 return get_origin_pro(Union[*utypes], metas)
 
@@ -118,6 +126,8 @@ def get_origin_pro[T](
             else:
                 metas.extend(new_metas)
             return get_origin_pro(Union[*utypes], metas)
+        # elif ty_args := get_args(type_):
+        #     breakpoint()
         else:
             return (cast(type, type_), cast(None, metas))
     else:

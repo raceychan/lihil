@@ -418,3 +418,30 @@ before this change, when `get_order` is added to `order_route`, `Engine` will be
 ### Fix
 
 - fix a bug where `lihil.utils.typing.is_nontextual_sequence` would negate generic sequence type such as `list[int]`
+
+
+
+## version 0.1.13
+
+
+### Improvements
+
+lihil is capable of handling more complex type variable
+
+```python
+type Base[T] = Annotated[T, 1]
+type NewBase[T] = Annotated[Base[T], 2]
+type AnotherBase[T, K] = Annotated[NewBase[T], K, 3]
+
+
+def test_get_origin_nested():
+    base = get_origin_pro(Base[str])
+    assert base[0] == str and base[1] == [1]
+
+    nbase = get_origin_pro(NewBase[str])
+    assert nbase[0] == str and nbase[1] == [2, 1]
+
+    res = get_origin_pro(AnotherBase[bytes | float, str] | list[int])
+    assert res[0] == Union[bytes, float, list[int]]
+    assert res[1] == [str, 3, 2, 1]
+```
