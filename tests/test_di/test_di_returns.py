@@ -10,6 +10,7 @@ from lihil.di.returns import (
     agen_encode_wrapper,
     get_media,
     is_py_singleton,
+    parse_all_returns,
     parse_single_return,
     parse_status,
     syncgen_encode_wrapper,
@@ -226,5 +227,9 @@ def test_analyze_invalid_union():
         parse_single_return(int | Resp[str])
 
 
-# from lihil.utils.typing import get_origin_pro
-# breakpoint()
+def test_parse_multiple_returns_with_single_return():
+    str_resp = parse_all_returns(str)
+    assert str_resp[200].type_ == str
+
+    dict_resp = parse_all_returns(Resp[dict[str, str], 202])
+    assert dict_resp[202].type_

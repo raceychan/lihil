@@ -5,6 +5,7 @@ from typing import (
     Literal,
     Sequence,
     TypeAliasType,
+    TypeGuard,
     TypeVar,
     Union,
     cast,
@@ -41,7 +42,9 @@ def deannotate[T](
         return (atype, flattened_metadata)
 
 
-def is_union_type(t: type | UnionType | GenericAlias | TypeAliasType):
+def is_union_type(
+    t: type | UnionType | GenericAlias | TypeAliasType,
+):
     return ty_get_origin(t) in (Union, UnionType)
 
 
@@ -98,13 +101,14 @@ def get_origin_pro[T](
             dtype, demetas = get_origin_pro(dealiased, metas)
 
             if demetas and isinstance(dtype, TypeVar):
-                targs = get_args(type_)
-                nontyvar = [arg for arg in targs if not isinstance(arg, TypeVar)]
+                nontyvar = [
+                    arg for arg in get_args(type_) if not isinstance(arg, TypeVar)
+                ]
+                dtype = nontyvar.pop(0) if nontyvar else dtype
+                # dtype should be the first nontyvar, rest replace the tyvars in dmetas
                 while nontyvar:
-                    # dtype should be the first ty_args, rest replace the tyvars in dmetas
-                    dtype = nontyvar.pop(0)
                     for idx, meta in enumerate(demetas):
-                        if nontyvar and isinstance(meta, TypeVar):
+                        if isinstance(meta, TypeVar):
                             demetas[idx] = nontyvar.pop(0)
                 return get_origin_pro(dtype, demetas)
             else:

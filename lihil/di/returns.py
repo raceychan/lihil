@@ -9,6 +9,7 @@ from typing import (
     Generator,
     Literal,
     TypeAliasType,
+    TypeGuard,
     get_args,
     overload,
 )
@@ -96,6 +97,10 @@ def is_empty_return(t: Any):
     return False
 
 
+def is_annotated(annt: Any) -> TypeGuard[type | UnionType]:
+    return is_provided(annt) and annt is not Parameter.empty
+
+
 class EndpointReturn[T](Record):
     # TODO: generate response from this
     encoder: IEncoder[T]
@@ -113,7 +118,7 @@ class EndpointReturn[T](Record):
         return f"Return({self.annotation}, {self.status})"
 
 
-# ===
+DEFAULT_RETURN = EndpointReturn(encoder=encode_json, status=200)
 
 
 def _parse_marked(
@@ -244,9 +249,8 @@ def parse_single_return[R](
     annt: Maybe[type[R] | UnionType | TypeAliasType | GenericAlias],
     status: int = 200,
 ) -> "EndpointReturn[R]":
-    if annt is Parameter.empty or not is_provided(annt):
-        return EndpointReturn(encoder=encode_json, status=200)
-
+    if not is_annotated(annt):
+        return DEFAULT_RETURN
     # TODO: we need to handle multiple return first
 
     status = parse_status(status)
@@ -269,11 +273,6 @@ def parse_single_return[R](
             rets.append(parse_single_return(arg))
 
         if len(annt_args) > 1 and rets:
-            # int | Resp[str] is not valid
-
-            # int | str,  valid
-            # Resp[int] | Resp[str], valid
-            # Resp[int | str], valid
             raise NotSupportedError("Multiple return param is currently not supported")
 
         ret = EndpointReturn(
@@ -296,29 +295,26 @@ def parse_single_return[R](
     return ret
 
 
-# def parse_returns[R](
-#     annt: Maybe[type[R] | UnionType | TypeAliasType | GenericAlias],
-#     status: int = 200,
-# ) -> dict[int, EndpointReturn[Any]]:
-#     """
-#     Resp[int] | Resp[str] -> Resp[int | str]
-#     int | str -> Resp[int | str]
+def parse_all_returns(
+    annt: Maybe[type[Any] | UnionType | TypeAliasType | GenericAlias],
+) -> dict[int, EndpointReturn[Any]]:
+    """
+    Resp[int] | Resp[str] -> Resp[int | str]
+    int | str -> Resp[int | str]
 
-#     Resp[int] | str -> NotSupportedError
+    Resp[int] | str -> NotSupportedError
 
-#     # Rule: if type is union type
-#     # then either every type is Return[T]
-#     # or none of them is Return[T]
-#     """
+    # Rule: if type is union type
+    # then either every type is Return[T]
+    # or none of them is Return[T]
+    """
+    if not is_annotated(annt):
+        return {DEFAULT_RETURN.status: DEFAULT_RETURN}
 
-#     if not is_union_type(annt):
-#         res = parse_single_return(annt)
-#         breakpoint()
-#         return
+    if not is_union_type(annt):
+        res = parse_single_return(annt)
+    else:
+        breakpoint()
+        raise NotImplementedError
 
-#     # if not ty_get_origin is UnionType or Union
-#     #      return parse_return
-
-#     # assert count(ret_mark) in metas == len(ret_args) or == 0
-#     rorigin, rmetas = get_origin_pro(annt)
-#     breakpoint()
+    return {res.status: res}

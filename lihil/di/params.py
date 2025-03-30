@@ -51,9 +51,7 @@ def is_file_body(annt: Any) -> TypeGuard[type[UploadFile]]:
 
 
 def is_body_param(annt: Any) -> bool:
-    param_origin = get_origin(annt)
-
-    if param_origin is Union:
+    if is_union_type(annt):
         return any(is_body_param(arg) for arg in get_args(annt))
     else:
         return issubclass(annt, Struct) or is_file_body(annt)
