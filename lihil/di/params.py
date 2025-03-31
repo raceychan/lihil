@@ -1,12 +1,23 @@
 from copy import deepcopy
 from inspect import Parameter
 from types import GenericAlias, UnionType
-from typing import Annotated, Any, Sequence, TypeGuard, Union, cast, get_args
+from typing import (
+    Any,
+    Protocol,
+    Sequence,
+    TypeAliasType,
+    TypeGuard,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 from warnings import warn
 
-from ididi import DependentNode, Graph, Resolver
+from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
+from ididi.utils.typing_utils import is_builtin_type
 from msgspec import convert, field
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
@@ -19,55 +30,40 @@ from lihil.interface import (
     Maybe,
     ParamLocation,
 )
-from lihil.interface.marks import (
-    Body,
-    Form,
-    Header,
-    Path,
-    Query,
-    Struct,
-    Use,
-    is_param_mark,
-    lhl_get_origin,
-)
+from lihil.interface.marks import ParamMarkType, Struct, extra_mark_type
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, to_str
-from lihil.utils.typing import flatten_annotated, is_nontextual_sequence, is_union_type
+from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
 
-type ParamPair = tuple[str, RequestParam[Any] | RequestBodyParam[Any]] | tuple[
-    str, PluginParam[Any]
-]
-type RequiredParams = Sequence[ParamPair]
+type ParsedParam[T] = RequestParam[T] | RequestBodyParam[T] | PluginParam[
+    T
+] | DependentNode
 
 
-def is_lhl_dep(
-    param_type: type | GenericAlias,
-) -> TypeGuard[type[Request | EventBus | Resolver]]:
-    "Dependencies that should be injected and managed by lihil"
-    if not isinstance(param_type, type):
-        param_type = lhl_get_origin(param_type) or param_type
-        param_type = cast(type, param_type)
-    return issubclass(param_type, (Request, EventBus, Resolver))
+LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver)
 
 
 def is_file_body(annt: Any) -> TypeGuard[type[UploadFile]]:
-    annt_origin = lhl_get_origin(annt) or annt
+    annt_origin = get_origin(annt) or annt
     return annt_origin is UploadFile
 
 
 def is_body_param(annt: Any) -> bool:
-    if not isinstance(annt, type):
-        return False
+    if is_union_type(annt):
+        return any(is_body_param(arg) for arg in get_args(annt))
+    else:
+        # issubclass does not work with GenericAlias, e.g. dict[str, str], in python 3.13. so we check its origin
+        if annt_origin := get_origin(annt):
+            return is_body_param(annt_origin)
+        if not isinstance(annt, type):
+            raise NotSupportedError(f"Not Supported type {annt}")
+        return issubclass(annt, Struct) or is_file_body(annt)
 
-    if is_lhl_dep(annt):
-        return False
-    return issubclass(annt, Struct) or is_file_body(annt)
 
-
-def convertor_factory(
+def txtdecoder_factory(
     t: type | UnionType | GenericAlias,
 ) -> IDecoder[Any]:
     if is_union_type(t):
@@ -92,6 +88,23 @@ def filedeocder_factory(filename: str):
             return cast(UploadFile, upload_file)
 
     return file_decoder
+
+
+def file_body_param(
+    name: str, type_: type[UploadFile], annotation: Any, default: Any
+) -> "RequestBodyParam[Any]":
+    decoder = filedeocder_factory(name)
+    content_type = "multipart/form-data"
+    req_param = RequestBodyParam(
+        name=name,
+        alias=name,
+        type_=type_,
+        annotation=annotation,
+        decoder=decoder,
+        default=default,
+        content_type=content_type,
+    )
+    return req_param
 
 
 def formdecoder_factory[T](ptype: type[T] | UnionType):
@@ -129,33 +142,47 @@ class RequestParamBase[T](Base):
     name: str
     alias: str
     type_: type[T] | UnionType | GenericAlias
+    annotation: Any
+    location: ParamLocation
     default: Maybe[Any] = MISSING
     required: bool = False
-    # meta: ParamMeta | None = None
+
+    @property
+    def type_repr(self) -> str:
+        ty_origin = getattr(self.type_, "__origin__", None)
+        if ty_origin is Union:
+            type_repr = repr(self.type_).lstrip("typing.")
+        else:
+            type_repr = getattr(self.type_, "__name__", repr(self.type_))
+        return type_repr
 
     def __post_init__(self):
         self.required = self.default is MISSING
 
 
 class RequestParam[T](RequestParamBase[T], kw_only=True):
-    text_decoder: ITextDecoder[T]
-    location: ParamLocation
+    decoder: ITextDecoder[T]
 
     def __repr__(self) -> str:
-        type_repr = getattr(self.type_, "__name__", repr(self.type_))
-        return f"RequestParam<{self.location}>({self.name}: {type_repr})"
+        return f"RequestParam<{self.location}>({self.name}: {self.type_repr})"
 
     def decode(self, content: str) -> T:
-        return self.text_decoder(content)
+        return self.decoder(content)
 
 
 class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
+    location: ParamLocation = "body"
     decoder: IDecoder[T] | IFormDecoder[T]
     content_type: BodyContentType = "application/json"
 
+    def __post_init__(self):
+        assert self.location == "body"
+
     def __repr__(self) -> str:
-        type_repr = getattr(self.type_, "__name__", repr(self.type_))
-        return f"RequestBodyParam<{self.content_type}>({self.name}: {type_repr})"
+        return f"RequestBodyParam<{self.content_type}>({self.name}: {self.type_repr})"
+
+    def decode(self, content: bytes | FormData) -> T:
+        return self.decoder(content)  # type: ignore
 
 
 class PluginParam[T](Base):
@@ -163,289 +190,69 @@ class PluginParam[T](Base):
     name: str
     default: Maybe[Any] = MISSING
     required: bool = False
+    loader: "PluginLoader[T] | None" = None
 
     def __post_init__(self):
         self.required = self.default is MISSING
 
 
-def analyze_nodeparams(
-    node: DependentNode, graph: Graph, seen: set[str], path_keys: tuple[str, ...]
-):
-    params: list[ParamPair | DependentNode] = [node]
-    for dep_name, dep in node.dependencies.items():
-        ptype, default = dep.param_type, dep.default_
-        ptype = cast(type, ptype)
-        sub_params = analyze_param(graph, dep_name, seen, path_keys, ptype, default)
-        params.extend(sub_params)
-    return params
+# PluginProvider[T]
+#  parse -> PluginParam[T]
+#  load -> T
 
 
-def analyze_annoated(
-    graph: Graph,
-    name: str,
-    seen: set[str],
-    path_keys: tuple[str, ...],
-    default: Any,
-    atype: type,
-    metas: list[Any],
-) -> list[ParamPair | DependentNode]:
-    if metas and (USE_FACTORY_MARK in metas):
-        idx = metas.index(USE_FACTORY_MARK)
-        factory, config = metas[idx + 1], metas[idx + 2]
-        node = graph.analyze(factory, config=config)
-        return analyze_nodeparams(node, graph, seen, path_keys)
-    elif new_origin := lhl_get_origin(atype):
-        return analyze_markedparam(
-            graph,
-            name,
-            seen,
-            path_keys,
-            type_=atype,
-            porigin=new_origin,
-            default=default,
-            metas=metas,
+class PluginLoader[T](Protocol):
+    def __call__(self, request: Request, resolver: Resolver) -> T: ...
+
+
+class PluginProvider[T](Protocol):
+    load: PluginLoader[T]
+
+    def parse(
+        self,
+        name: str,
+        type_: type[T] | UnionType,
+        annotation: Any,
+        default: Maybe[T],
+        param_meta: "ParamMetas",
+    ) -> list[PluginParam[T]]: ...
+
+
+class ParamMetas(Base):
+    custom_decoder: CustomDecoder | None
+    mark_type: ParamMarkType | None
+    metas: tuple[Any, ...]
+    factory: INode[..., Any] | None = None
+    config: NodeConfig | None = None
+
+    @classmethod
+    def from_metas(cls, metas: list[Any]) -> "ParamMetas":
+        current_mark_type = None
+        decoder = None
+        factory = None
+        config = None
+
+        for idx, meta in enumerate(metas):
+            if isinstance(meta, CustomDecoder):
+                decoder = meta
+            elif mark_type := extra_mark_type(meta):
+                if current_mark_type and mark_type is not current_mark_type:
+                    raise NotSupportedError("can't use more than one param mark")
+                elif mark_type == "header":
+                    header_key = metas[idx - 1]
+                    if not isinstance(header_key, str):
+                        metas[idx - 1] = None
+                current_mark_type = mark_type
+            elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
+                factory, config = metas[idx + 1], metas[idx + 2]
+
+        return ParamMetas(
+            custom_decoder=decoder,
+            mark_type=current_mark_type,
+            metas=tuple(metas),
+            factory=factory,
+            config=config,
         )
-    else:
-        return analyze_param(
-            graph,
-            name,
-            seen,
-            path_keys,
-            atype,
-            default,
-            metas=metas,
-        )
-
-
-def analyze_markedparam(
-    graph: Graph,
-    name: str,
-    seen: set[str],
-    path_keys: tuple[str, ...],
-    type_: type[Any] | UnionType | GenericAlias,
-    porigin: Maybe[Query[Any] | Header[Any, Any] | Use[Any] | Annotated[Any, ...]],
-    metas: list[Any],
-    default: Any = MISSING,
-) -> list[ParamPair | DependentNode]:
-
-    atype, local_metas = flatten_annotated(type_)
-    if local_metas:
-        metas += local_metas
-
-    custom_decoder = get_decoder_from_metas(metas)
-
-    if porigin is Use:
-        node = graph.analyze(atype)
-        return analyze_nodeparams(node, graph, seen, path_keys)
-    else:
-        # Easy case, Pure non-deps request params with param marks.
-        location: ParamLocation
-        alias = name
-        content_type: BodyContentType = "application/json"
-        if porigin is Header:
-            location = "header"
-            alias = parse_header_key(name, metas)
-        elif porigin is Body:
-            body_param = RequestBodyParam(
-                name=name,
-                alias=alias,
-                type_=type_,
-                default=default,
-                decoder=decoder_factory(atype),
-                content_type=content_type,
-            )
-            return [(name, body_param)]
-        elif porigin is Form:
-            content_type = "multipart/form-data"
-            decoder = custom_decoder or formdecoder_factory(atype)
-            body_param = RequestBodyParam(
-                name=name,
-                alias=alias,
-                type_=atype,
-                default=default,
-                decoder=cast(IFormDecoder[Any], decoder),
-                content_type=content_type,
-            )
-            return [(name, body_param)]
-        elif porigin is Path:
-            location = "path"
-        else:
-            location = "query"
-
-        txtdecoder = custom_decoder or convertor_factory(atype)
-        req_param = RequestParam(
-            type_=atype,
-            name=name,
-            alias=alias,
-            text_decoder=cast(ITextDecoder[Any], txtdecoder),
-            location=location,
-            default=default,
-        )
-        pair = (name, req_param)
-        return [pair]
-
-
-def file_body_param(
-    name: str, type_: type[UploadFile], default: Any
-) -> RequestBodyParam[Any]:
-    decoder = filedeocder_factory(name)
-    content_type = "multipart/form-data"
-
-    req_param = RequestBodyParam(
-        type_=type_,
-        name=name,
-        alias=name,
-        decoder=decoder,
-        default=default,
-        content_type=content_type,
-    )
-    return req_param
-
-
-def analyze_union_param(
-    name: str, type_: UnionType | type[Any] | GenericAlias, default: Any
-) -> RequestParam[Any] | RequestBodyParam[Any]:
-    type_args = get_args(type_)
-
-    for subt in type_args:
-        if is_body_param(subt):
-            if is_file_body(type_):
-                return file_body_param(name, type_=type_, default=default)
-            decoder = decoder_factory(subt)
-            req_param = RequestBodyParam(
-                type_=type_,
-                name=name,
-                alias=name,
-                decoder=decoder,
-                default=default,
-            )
-            return req_param
-    else:
-        txt_decoder = cast(ITextDecoder[Any], convertor_factory(type_))
-        req_param = RequestParam(
-            type_=type_,
-            name=name,
-            alias=name,
-            text_decoder=txt_decoder,
-            location="query",
-            default=default,
-        )
-    return req_param
-
-
-def get_decoder_from_metas(
-    metas: list[Any],
-) -> ITextDecoder[Any] | IDecoder[Any] | IFormDecoder[Any] | None:
-    # TODO: custom convertor
-    for meta in metas:
-        if isinstance(meta, CustomDecoder):
-            return meta.decode
-
-
-def analyze_param[T](
-    graph: Graph,
-    name: str,
-    seen: set[str],
-    path_keys: tuple[str, ...],
-    type_: type[T] | UnionType | GenericAlias,  # or GenericAlias
-    default: Maybe[T] = MISSING,
-    metas: list[Any] | None = None,
-) -> list[ParamPair | DependentNode]:
-    """
-    Analyzes a parameter and returns a tuple of:
-    - A list of request parameters extracted from this parameter and its dependencies
-    - The dependent node if this parameter is a dependency, otherwise None
-    """
-
-    custom_decoder = get_decoder_from_metas(metas) if metas else None
-    if (porigin := lhl_get_origin(type_)) is Annotated:
-        atype, metas = flatten_annotated(type_)
-        return analyze_annoated(
-            graph=graph,
-            name=name,
-            seen=seen,
-            path_keys=path_keys,
-            atype=atype,
-            default=default,
-            metas=metas or [],
-        )
-
-    if is_param_mark(type_):
-        return analyze_markedparam(
-            graph=graph,
-            name=name,
-            seen=seen,
-            path_keys=path_keys,
-            type_=type_,
-            porigin=porigin,
-            default=default,
-            metas=metas or [],
-        )
-
-    if name in path_keys:  # simplest case
-        seen.discard(name)
-        txtdecoder = custom_decoder or convertor_factory(type_)
-        req_param = RequestParam(
-            type_=type_,
-            name=name,
-            alias=name,
-            text_decoder=cast(ITextDecoder[Any], txtdecoder),
-            location="path",
-            default=default,
-        )
-    elif is_body_param(type_):
-        if is_file_body(type_):
-            req_param = file_body_param(name, type_, default)
-        else:
-            decoder = custom_decoder or decoder_factory(type_)
-            req_param = RequestBodyParam(
-                type_=type_,
-                name=name,
-                default=default,
-                alias=name,
-                decoder=cast(IDecoder[Any], decoder),
-            )
-    elif isinstance(type_, UnionType) or lhl_get_origin(type_) is Union:
-        req_param = analyze_union_param(name, type_, default)
-    elif type_ in graph.nodes:
-        node = graph.analyze(cast(type, type_))
-        params: list[ParamPair | DependentNode] = [node]
-        for dep_name, dep in node.dependencies.items():
-            ptype, dep_dfault = dep.param_type, dep.default_
-            if dep_dfault is IDIDI_MISSING:
-                default = MISSING
-            if ptype in graph.nodes:
-                # only add top level dependency, leave subs to ididi
-                continue
-            ptype = cast(type, ptype)
-            sub_params = analyze_param(graph, dep_name, seen, path_keys, ptype, default)
-            params.extend(sub_params)
-        return params
-
-    elif is_lhl_dep(type_):
-        # user should be able to menually init their plugin then register as a singleton
-        return [(name, PluginParam(type_=type_, name=name, default=default))]
-    else:  # default case, treat as query
-        txtdecoder = custom_decoder or convertor_factory(type_)
-        req_param = RequestParam(
-            type_=type_,
-            name=name,
-            alias=name,
-            text_decoder=cast(ITextDecoder[Any], txtdecoder),
-            location="query",
-            default=default,
-        )
-    return [(name, req_param)]
-
-
-"""
-class PluginLoader(Protocol):
-    def is_plugin(self, param) -> bool:
-        ...
-
-    def inject_plugin(self, param, request, resolver):
-        ...
-"""
 
 
 class EndpointParams(Base):
@@ -453,19 +260,6 @@ class EndpointParams(Base):
     bodies: dict[str, RequestBodyParam[Any]] = field(default_factory=dict)
     nodes: dict[str, DependentNode] = field(default_factory=dict)
     plugins: dict[str, PluginParam[Any]] = field(default_factory=dict)
-
-    def collect_param(self, name: str, param_list: list[ParamPair | DependentNode]):
-        for element in param_list:
-            if isinstance(element, DependentNode):
-                self.nodes[name] = element
-            else:
-                param_name, req_param = element
-                if isinstance(req_param, PluginParam):
-                    self.plugins[param_name] = req_param
-                elif isinstance(req_param, RequestBodyParam):
-                    self.bodies[param_name] = req_param
-                else:
-                    self.params[param_name] = req_param
 
     def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.location == location}
@@ -482,40 +276,272 @@ class EndpointParams(Base):
             )
         return body_param
 
-    @classmethod
-    def from_func_params(
-        cls,
-        func_params: tuple[tuple[str, Parameter], ...],
-        graph: Graph,
-        path_keys: tuple[str],
-    ):
-        seen_path = set(path_keys)
+
+class ParamParser:
+    path_keys: tuple[str, ...]
+    seen: set[str]
+
+    def __init__(self, graph: Graph, path_keys: tuple[str, ...] | None = None):
+        self.graph = graph
+
+        if path_keys:
+            self.path_keys = path_keys
+            self.seen = set(self.path_keys)
+        else:
+            self.path_keys = ()
+            self.seen = set()
+
+        # mark_type or param_type, dict[str | type, PluginProvider]
+        self.plugin_provider: dict[str, PluginProvider[Any]] = {}
+        self.plugin_types = LIHIL_DEPENDENCIES
+
+    def register_provider(
+        self, mark: TypeAliasType | GenericAlias, provider: PluginProvider[Any]
+    ) -> None:
+        _, metas = get_origin_pro(mark)
+
+        if not metas:
+            raise NotSupportedError("Invalid mark type")
+
+        for meta in metas:
+            if mark_type := extra_mark_type(meta):
+                break
+        else:
+            raise NotImplementedError("Invalid mark type")
+
+        self.plugin_provider[mark_type] = provider
+
+    def is_plugin_type(self, param_type: Any) -> TypeGuard[type]:
+        "Dependencies that should be injected and managed by lihil"
+        if not isinstance(param_type, type):
+            param_origin = get_origin(param_type)
+            if param_origin is Union:
+                return any(self.is_plugin_type(arg) for arg in get_args(param_type))
+            elif is_builtin_type(param_origin):
+                return False
+            else:
+                raise RuntimeError("get_origin_pro should prevent this")
+        return issubclass(param_type, self.plugin_types)
+
+    def _parse_rule_based[T](
+        self,
+        name: str,
+        param_type: type[T] | UnionType,
+        annotation: Any,
+        default: Maybe[T],
+        param_meta: ParamMetas | None = None,
+    ) -> ParsedParam[T] | list[ParsedParam[T]]:
+        if name in self.path_keys:  # simplest case
+            self.seen.discard(name)
+            if param_meta and param_meta.custom_decoder:
+                decoder = param_meta.custom_decoder.decode
+            else:
+                decoder = txtdecoder_factory(param_type)
+            req_param = RequestParam(
+                name=name,
+                alias=name,
+                type_=param_type,
+                annotation=annotation,
+                decoder=cast(ITextDecoder[T], decoder),
+                location="path",
+                default=default,
+            )
+        elif self.is_plugin_type(param_type):
+            return [PluginParam(type_=param_type, name=name, default=default)]
+        elif is_body_param(param_type):
+            if is_file_body(param_type):
+                req_param = file_body_param(
+                    name, param_type, annotation=annotation, default=default
+                )
+            else:
+                if param_meta and param_meta.custom_decoder:
+                    decoder = param_meta.custom_decoder.decode
+                else:
+                    decoder = decoder_factory(param_type)
+                req_param = RequestBodyParam(
+                    name=name,
+                    alias=name,
+                    annotation=annotation,
+                    type_=param_type,
+                    default=default,
+                    decoder=cast(IDecoder[T], decoder),
+                )
+        elif param_type in self.graph.nodes:
+            node = self.graph.analyze(cast(type, param_type))
+            params: list[ParsedParam[Any]] = [node]
+            for dep_name, dep in node.dependencies.items():
+                ptype, dep_dfault = dep.param_type, dep.default_
+                if dep_dfault is IDIDI_MISSING:
+                    default = MISSING
+                if ptype in self.graph.nodes:
+                    # only add top level dependency, leave subs to ididi
+                    continue
+                ptype = cast(type, ptype)
+                sub_params = self.parse_param(dep_name, ptype, default)
+                params.extend(sub_params)
+            return params
+
+        elif param_meta and param_meta.factory:  # Annotated[Dep, use(dep_factory)]
+            assert param_meta.config
+            node = self.graph.analyze(param_meta.factory, config=param_meta.config)
+            return self._parse_node(node)
+        else:  # default case, treat as query
+            if param_meta and param_meta.custom_decoder:
+                decoder = param_meta.custom_decoder.decode
+            else:
+                decoder = txtdecoder_factory(param_type)
+            req_param = RequestParam(
+                name=name,
+                alias=name,
+                type_=param_type,
+                annotation=annotation,
+                decoder=cast(ITextDecoder[Any], decoder),
+                location="query",
+                default=default,
+            )
+        return req_param
+
+    def _parse_node(self, node: DependentNode) -> list[ParsedParam[Any]]:
+        params: list[Any | DependentNode] = [node]
+        for dep_name, dep in node.dependencies.items():
+            ptype, default = dep.param_type, dep.default_
+            ptype = cast(type, ptype)
+            sub_params = self.parse_param(dep_name, ptype, default)
+            params.extend(sub_params)
+        return params
+
+    def _parse_marked[T](
+        self,
+        name: str,
+        type_: type[T] | UnionType,
+        annotation: Any,
+        default: Maybe[T],
+        param_meta: ParamMetas,
+    ) -> ParsedParam[T] | list[ParsedParam[T]]:
+        custom_decoder = param_meta.custom_decoder
+
+        mark_type = param_meta.mark_type
+
+        if mark_type == "use":
+            node = self.graph.analyze(type_)
+            return self._parse_node(node)
+        else:
+            # Easy case, Pure non-deps request params with param marks.
+            location: ParamLocation
+            alias = name
+            content_type: BodyContentType = "application/json"
+
+            if mark_type == "header":
+                location = "header"
+                alias = parse_header_key(name, param_meta.metas)
+            elif mark_type == "body":
+                body_param = RequestBodyParam(
+                    name=name,
+                    alias=alias,
+                    type_=type_,
+                    annotation=annotation,
+                    default=default,
+                    decoder=decoder_factory(type_),
+                    content_type=content_type,
+                )
+                return body_param
+            elif mark_type == "form":
+                content_type = "multipart/form-data"
+                decoder = custom_decoder or formdecoder_factory(type_)
+                body_param = RequestBodyParam(
+                    name=name,
+                    alias=alias,
+                    type_=type_,
+                    annotation=annotation,
+                    default=default,
+                    decoder=cast(IFormDecoder[Any], decoder),
+                    content_type=content_type,
+                )
+                return body_param
+            elif mark_type == "path":
+                location = "path"
+            else:
+                location = "query"
+
+            txtdecoder = custom_decoder or txtdecoder_factory(type_)
+            req_param = RequestParam(
+                name=name,
+                alias=alias,
+                type_=type_,
+                annotation=annotation,
+                decoder=cast(ITextDecoder[Any], txtdecoder),
+                location=location,
+                default=default,
+            )
+            return req_param
+
+    def parse_param[T](
+        self,
+        name: str,
+        annotation: type[T] | UnionType | GenericAlias | TypeAliasType,
+        default: Maybe[T] = MISSING,
+    ) -> list[ParsedParam[T]]:
+        parsed_type, pmetas = get_origin_pro(annotation)
+        param_meta = ParamMetas.from_metas(pmetas) if pmetas else None
+        if param_meta is None or not param_meta.mark_type:  # non generic version
+            res = self._parse_rule_based(
+                name=name,
+                param_type=parsed_type,
+                annotation=annotation,
+                default=default,
+                param_meta=param_meta,
+            )
+        elif provider := self.plugin_provider.get(param_meta.mark_type):
+            res = provider.parse(
+                name=name,
+                type_=parsed_type,
+                annotation=annotation,
+                default=default,
+                param_meta=param_meta,
+            )
+            res = cast(list[ParsedParam[T]], res)
+        else:
+            res = self._parse_marked(
+                name=name,
+                type_=parsed_type,
+                annotation=annotation,
+                default=default,
+                param_meta=param_meta,
+            )
+        return res if isinstance(res, list) else [res]
+
+    def parse(
+        self,
+        func_params: Sequence[tuple[str, Parameter]],
+        path_keys: tuple[str, ...] | None = None,
+    ) -> "EndpointParams":
+        if path_keys:
+            self.path_keys += path_keys
+
         params = dict[str, RequestParam[Any]]()
         bodies = dict[str, RequestBodyParam[Any]]()
         nodes = dict[str, DependentNode]()
         plugins = dict[str, PluginParam[Any]]()
+
         for name, param in func_params:
-            ptype, default = param.annotation, param.default
+            annotation, default = param.annotation, param.default
             default = MISSING if param.default is Parameter.empty else param.default
-            param_list = analyze_param(
-                graph=graph,
-                name=name,
-                seen=seen_path,
-                path_keys=path_keys,
-                type_=ptype,
-                default=default,
-            )
-            for element in param_list:
-                if isinstance(element, DependentNode):
-                    nodes[name] = element
+            parsed_params = self.parse_param(name, annotation, default)
+
+            for req_param in parsed_params:
+                if isinstance(req_param, DependentNode):
+                    nodes[name] = req_param
                     continue
-                param_name, req_param = element
                 if isinstance(req_param, PluginParam):
-                    plugins[param_name] = req_param
+                    plugins[req_param.name] = req_param
                 elif isinstance(req_param, RequestBodyParam):
-                    bodies[param_name] = req_param
+                    bodies[req_param.name] = req_param
                 else:
-                    params[param_name] = req_param
-        if seen_path:
-            warn(f"Unused path keys {seen_path}")
-        return cls(params=params, bodies=bodies, nodes=nodes, plugins=plugins)
+                    params[req_param.name] = req_param
+
+        if self.seen:
+            warn(f"Unused path keys {self.seen}")
+
+        return EndpointParams(
+            params=params, bodies=bodies, nodes=nodes, plugins=plugins
+        )

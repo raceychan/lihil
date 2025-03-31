@@ -4,7 +4,7 @@ from typing import Any, Callable, Union
 from msgspec import DecodeError
 from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import Encoder as JsonEncoder
-from msgspec.json import encode as json_encode
+# from msgspec.json import encode as json_encode
 
 # from lihil.errors import NotSupportedError
 from lihil.interface import IDecoder, IEncoder
@@ -49,7 +49,7 @@ def build_union_decoder(
 
 
 @lru_cache(256)
-def decoder_factory[T](t: type[T], strict: bool = False) -> IDecoder[T]:
+def decoder_factory[T](t: type[T], strict: bool = True) -> IDecoder[T]:
     return JsonDecoder(t, strict=strict).decode
 
 
@@ -58,7 +58,7 @@ def encoder_factory[R](enc_hook: Callable[[Any], R] | None = None) -> IEncoder[R
     return JsonEncoder(enc_hook=enc_hook).encode
 
 
-encode_json = json_encode
+encode_json = JsonEncoder().encode
 
 
 def encode_text(content: bytes | str) -> bytes:

@@ -527,6 +527,144 @@ async def listen_create(created: TodoCreated, _: Any, bus: EventBus):
         await bus.publish(event)
 ```
 
+### DI (dependency injection)
+
+lihil uses ididi(https://lihil.cc/ididi) for dependency injection.
+
+
+#### Usage in lihil
+
+#### register a dependency with a route
+
+If a dependency is registered with any route, it will be available in every route included in `Lihil`.
+
+```python
+class Engine: ...
+def get_engine() -> Engine: ...
+
+user_route = Route("/user")
+user_route.add_nodes(get_engine) # register Engine as a dependency in user_route
+
+order_route = Route("/order") # order will use `get_engine` to resolve `Engine` as well.
+
+lhl = Lihil(routes=[user_route, order_route])
+```
+
+- use `Route.factory` to add a dependency, or `Route.add_nodes` to add many dependencies.
+- It is recommended to register dependency where you use them, but you can register them to any route if you want.
+- You might create a `ididi.Graph` first, register dependencies with it, then inject it into any route.
+
+#### Declare dependency with endpoint signature
+
+If you would like to declare dependencies directly in your endpoint function:
+(as opposed to register with route)
+
+##### Use `lihil.Use` mark to declare a class as a dependency.
+
+```python
+route = Route("/users")
+
+@route.get
+async def get_user(engine: Use[Engine]) : ...
+```
+
+##### Use `typing.Annotated[T, use(Callable[..., T]])` to declare a factory in your endpoint
+
+```python
+from lihil import use
+
+@route.get
+async def get_user(engine: Annotated[Engine, use(get_engine)]) : ...
+```
+
+##### Use `Ignore` in return annotation to declare a function dependencies
+
+You can create function as dependency by `Annotated[Any, use(your_function)]`. Do note that you will need to annotate your dependency function return type with `Ignore` like this
+
+```python
+async def get_user(token: UserToken) -> Ignore[User]: ...
+```
+
+#### Tehcnical details
+
+- If your factory function is a generator(function that contains `yield` keyword), it will be treated as `scoped`, meaning that it will be created before your endpoint function and destoried after. you can use this to achieve business purpose via clients that offer `atomic operation`, such as database connection.
+
+
+- if your function is a sync generator, it will be solved within a separate thread.
+
+- all graph will eventually merged into the main graph holding by `Lihil`, which means that, if you register a dependency with a factory in route `A`, the same factory can be used in every other route if it is required.
+
+#### Ididi cheatsheet
+
+This cheatsheet is designed to give you a quick glance at some of the basic usages of ididi.
+
+```python
+from ididi import Graph, Resolver, Ignore
+
+class Base:
+    def __init__(self, source: str="class"):
+        self.source = source
+
+class CTX(Base):
+    def __init__(self, source: str="class"):
+        super().__init__(source)
+        self.status = "init"
+    async def __aenter__(self):
+        self.status = "started"
+        return self
+    async def __aexit__(self, *args):
+        self.status = "closed"
+
+class Engine(Base): ...
+
+class Connection(CTX):
+    def __init__(self, engine: Engine):
+        super().__init__()
+        self.engine = engine
+
+def get_engine() -> Engine:
+    return Engine("factory")
+
+async def get_conn(engine: Engine) -> Connection:
+    async with Connection(engine) as conn:
+        yield conn
+
+async def func_dep(engine: Engine, conn: Connection) -> Ignore[int]:
+    return 69
+
+async def test_ididi_cheatsheet():
+    dg = Graph()
+    assert isinstance(dg, Resolver)
+
+    engine = dg.resolve(Engine)  # resolve a class
+    assert isinstance(engine, Engine) and engine.source == "class"
+
+    faq_engine = dg.resolve(get_engine)  # resolve a factory function of a class
+    assert isinstance(faq_engine, Engine) and faq_engine.source == "factory"
+
+    side_effect: list[str] = []
+    assert not side_effect
+
+    async with dg.ascope() as ascope:
+        ascope.register_exit_callback(random_callback)
+        # register a callback to be called when scope is exited
+        assert isinstance(ascope, Resolver)
+        # NOTE: scopes are also resolvers, thus can have sub-scope
+        conn = await ascope.aresolve(get_conn)
+        # generator function will be transformed into context manager and can only be resolved within scope.
+        assert isinstance(conn, Connection)
+        assert conn.status == "started"
+        # context manager is entered when scoped is entered.
+        res = await ascope.aresolve(func_dep)
+        assert res == 69
+        # function dependencies are also supported
+
+    assert conn.status == "closed"
+    # context manager is exited when scope is exited.
+    assert side_effect[0] == "callbacked"
+    # registered callback will aslo be called.
+```
+
 
 ## Plugins
 
@@ -596,7 +734,6 @@ async def get_user(token: UserToken) -> Ignore[User]: ...
 - you can manually construct graph and inject into `Lihil`
 
 
-
 ### Testing
 
 Lihil provide you two techniques for testing, `TestClient` and `LocalClient`
@@ -626,3 +763,7 @@ default ot `/docs`, change it via `AppConfig.oas`
 ## problem page
 
 default to `/problems`, change it via `AppConfig.oas`
+
+### What else you would like to know?
+
+Have not found what you are looking for? please let us know by posting in the discussion.

@@ -1,6 +1,6 @@
 import re
 from re import Pattern
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
 from starlette.routing import compile_path
 
@@ -120,13 +120,16 @@ def build_path_regex(path: str, path_params: None = None) -> Pattern[str]:
     return path_regex
 
 
-def parse_header_key(name: str, metas: list[Any] | None = None) -> str:
+def parse_header_key(name: str, metas: Sequence[Any] | None = None) -> str:
     if metas is None:
         return to_kebab_case(name)
 
     try:
         header_key = metas[0]
     except IndexError:
+        return to_kebab_case(name)
+
+    if header_key is None:
         return to_kebab_case(name)
 
     if isinstance(header_key, str):

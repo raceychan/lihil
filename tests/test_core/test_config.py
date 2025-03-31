@@ -24,7 +24,6 @@ from lihil.config import (
 from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, Maybe
 from lihil.plugins.bus import EventBus
-from lihil.di.params import is_lhl_dep
 
 
 def test_get_thread_cnt():
@@ -84,13 +83,13 @@ def test_store_true_if_provided():
     assert getattr(args, "flag_provided", False) is False
 
 
-def test_is_lhl_dep():
-    """Test identification of lihil dependencies"""
-    assert is_lhl_dep(Request) is True
-    assert is_lhl_dep(EventBus) is True
-    assert is_lhl_dep(str) is False
-    assert is_lhl_dep(int) is False
-    assert is_lhl_dep(AppConfig) is False
+# def test_is_lhl_dep():
+#     """Test identification of lihil dependencies"""
+#     assert is_lhl_dep(Request) is True
+#     assert is_lhl_dep(EventBus) is True
+#     assert is_lhl_dep(str) is False
+#     assert is_lhl_dep(int) is False
+#     assert is_lhl_dep(AppConfig) is False
 
 
 def test_parse_field_type():

@@ -92,7 +92,9 @@ rprofile.factory(get_engine)
 
 
 @rprofile.post
-async def profile(pid: str, q: int, user: User, engine: Engine) -> User:
+async def profile(
+    pid: str, q: int, user: User, engine: Engine
+) -> Resp[User, status.OK] | Resp[Order, status.CREATED]:
     return User(id=user.id, name=user.name, email=user.email)
 
 

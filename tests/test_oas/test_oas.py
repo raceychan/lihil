@@ -1,5 +1,4 @@
-from types import UnionType
-from typing import Annotated
+from typing import Annotated, Union
 
 import pytest
 from msgspec import Struct
@@ -41,15 +40,16 @@ oas_config = OASConfig()
 
 
 def test_get_order_schema():
-    @user_route.post(errors=OrderNotFound)
     async def get_order(
         user_id: str | int, order_id: str, q: int | str, l: str, u: User
     ) -> Order | User: ...
 
+    user_route.post(errors=OrderNotFound)(get_order)
+
     current_ep = user_route.endpoints["POST"]
     current_ep.setup()
-    ep_rt = current_ep.deps.return_param
-    assert isinstance(ep_rt.type_, UnionType)
+    ep_rt = current_ep.deps.return_params[200]
+    ep_rt.type_ == Union[Order, User]
     components = {"schemas": {}}
     ep_oas = generate_op_from_ep(
         current_ep, components["schemas"], oas_config.problem_path
@@ -64,8 +64,8 @@ def test_get_hello_return():
 
     current_ep = user_route.get_endpoint(get_hello)
     current_ep.setup()
-    ep_rt = current_ep.deps.return_param
-    assert ep_rt.type_ is bytes
+    ep_rt = current_ep.deps.return_params[200]
+    assert ep_rt.type_ == bytes
 
 
 def test_generate_oas():
@@ -200,3 +200,27 @@ class Random(Struct):
 
 def test_detail_base_to_content():
     assert detail_base_to_content(Random, {}, {})
+
+
+def test_ep_with_status_larger_than_300():
+    async def create_user() -> (
+        Resp[str, status.NOT_FOUND] | Resp[int, status.INTERNAL_SERVER_ERROR]
+    ): ...
+
+    route = Route()
+    route.post(create_user)
+    ep = route.get_endpoint(create_user)
+    ep.setup()
+
+    get_resp_schemas(ep, {}, "")
+
+
+def test_ep_without_ret():
+    async def create_user(): ...
+
+    route = Route()
+    route.post(create_user)
+    ep = route.get_endpoint(create_user)
+    ep.setup()
+
+    get_resp_schemas(ep, {}, "")

@@ -69,6 +69,15 @@ when such exception is raised from endpoint, client would receive a response lik
 
 - **Message System Bulitin**: publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
 
+```python
+from lihil import Route, EventBus, Empty, Resp, status
+
+@Route("users").post
+async def create_user(data: UserCreate, service: UserService, bus: EventBus)->Resp[Empty, status.Created]:
+    user_id = await service.create_user(data)
+    await bus.publish(UserCreated(**data, user_id=user_id))
+```
+
 - **Great Testability**: bulit-in `LocalClient` to easily test your endpoints, routes, middlewares, app, everything.
 
 - **Strong support for AI featuers**: lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
@@ -80,9 +89,15 @@ Lihil is ASGI compatible and uses starlette as ASGI toolkit, which means that:
 
 - starlette `Request`, `Response` and its subclasses, should work just fine with lihil.
 
-However, this should be treated as an implementation detail, in other words, lihil might replace `starlette.Request` with somethings sharing the same interface.
+Meaning you can declare `Request` in your endpoint and return an instance of `Response`(or subclass of it).
 
-asgi middlewares should always work tho.
+```python
+@users.post
+async def create_user(req: Request):
+    return Response(...)
+```
+
+- lihil is ASGI-Compatible, ASGI middlewares that works for any ASGIApp should also work with lihil.
 
 ## Quick Start
 
@@ -180,7 +195,9 @@ then in command line
 uv run python -m myproject.app --server.port=8080
 ```
 
-This provides you the advantage to override configuration using command line arguments.
+This allows you to override configurations using command-line arguments.
+
+If your app is deployed in a containerized environment, such as Kubernetes, providing secrets this way is usually safer than storing them in files.
 
 ### serve with uvicorn
 
@@ -218,20 +235,37 @@ check detailed tutorials at https://lihil.cc/lihil/tutorials/, covering
 - Error Handling
 - ...and much more
 
-## RoadMap
+## Contribution & RoadMap
 
-### version 0.1.x
+No contribution is trivial, and every contribution is appreciated. However, our focus and goals vary at different stages of this project.
 
-complete core functionalities and make sure lihil is well tested, we will reach 100% test coverage before moving to 0.2.x.
+### version 0.1.x: Feature Parity
 
-### version 0.2.x
+- Feature Parity: we should offer core functionalities of a web framework ASAP, similar to what fastapi is offering right now. Given both fastapi and lihil uses starlette, this should not take too much effort.
 
-- Tutorials & videos on lihil and web dev in general
+- Correctness: We should have a preliminary understanding of lihil's capabilities—knowing what should be supported and what shouldn't. This allows us to distinguish between correct and incorrect usage by users.
+
+- Test Coverage: There's no such thing as too many tests. For every patch, we should maintain at least 99% test coverage, and 100% for the last patch of 0.1.x. For core code, 100% coverage is just the baseline—we should continuously add test cases to ensure reliability.
+
+Based on the above points, in version v0.1.x, we welcome contributions in the following areas:
+
+- Documentation: Fix and expand the documentation. Since lihil is actively evolving, features may change or extend, and we need to keep the documentation up to date.
+
+- Testing: Contribute both successful and failing test cases to improve coverage and reliability.
+
+- Feature Requests: We are open to discussions on what features lihil should have or how existing features can be improved. However, at this stage, we take a conservative approach to adding new features unless there is a significant advantage.
+
+
+### version 0.2.x Cool Stuff
+
 - Out-of-process event system (RabbitMQ, Kafka, etc.).
 - A highly performant schema-based query builder based on asyncpg
 - Local command handler(http rpc) and remote command handler (gRPC)
 - More middleware and official plugins (e.g., throttling, caching, auth).
 
-### version 0.3.x
 
-- roll out our own server written in c & cython, 60K RPS+
+### version 0.3.x performance boost
+
+- rewrite starlette request form:
+    1. use multipart
+    2. rewrite starlette `Multidict`, `Formdata`, perhaps using https://github.com/aio-libs/multidict

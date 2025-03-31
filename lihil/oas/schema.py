@@ -14,7 +14,7 @@ from lihil.oas import model as oasmodel
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
 from lihil.routing import Endpoint, Route
 from lihil.utils.parse import to_kebab_case, trimdoc
-from lihil.utils.typing import flatten_annotated
+from lihil.utils.typing import deannotate
 
 # from lihil.utils.phasing import encode_json
 
@@ -293,44 +293,39 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
 def get_resp_schemas(
     ep: Endpoint[Any], schemas: SchemasDict, problem_path: str
 ) -> dict[str, oasmodel.Response]:
-    ep_return = ep.deps.return_param
-    content_type = ep_return.content_type
-    return_type = ep_return.type_
-
     resps: dict[str, oasmodel.Response] = {
         "200": oasmodel.Response(description="Sucessful Response")
     }
 
-    if not is_provided(return_type):
-        # TODO: show no return type here
-        return resps
-    else:
-        ret_origin = lhl_get_origin(ep_return.annotation)
-        if ret_origin is Annotated:
-            return_type, metas = flatten_annotated(ep_return.annotation)
-            if metas and EMPTY_RETURN_MARK in metas:
-                resps[str(ep_return.status)] = oasmodel.Response(
+    for status, ep_return in ep.deps.return_params.items():
+        return_type = ep_return.type_
+        content_type = ep_return.content_type or "Missing"
+        if status < 400:
+            description = "Successful Response"
+        elif status < 500:
+            description = "ClientSide Error"
+        else:
+            description = "ServerSide Error"
+
+        status = str(status)
+
+        if not is_provided(return_type):
+            # TODO: show no return type here
+            return resps
+        else:
+            if ep_return.mark_type == "empty":
+                resps[status] = oasmodel.Response(
                     description="No Content", content=None
                 )
+            elif isinstance(return_type, UnionType):
+                content = type_to_content(return_type, schemas, content_type)
+                resp = oasmodel.Response(description=description, content=content)
+                resps[status] = resp
             else:
                 content = type_to_content(return_type, schemas, content_type)
-                resp = oasmodel.Response(
-                    description="Successful Response", content=content
-                )
-                resps[str(ep_return.status)] = resp
-        elif isinstance(return_type, UnionType):
-            """
-            TODO: handle union Resp
-            def create_user() -> Resp[User, 200] | Resp[UserNotFound, 404]
-            """
-            content = type_to_content(return_type, schemas, content_type)
-            resp = oasmodel.Response(description="Successful Response", content=content)
-            resps[str(ep_return.status)] = resp
-        else:
-            content = type_to_content(return_type, schemas, content_type)
-            resp = oasmodel.Response(description="Successful Response", content=content)
-            resps[str(ep_return.status)] = resp
-        return resps
+                resp = oasmodel.Response(description=description, content=content)
+                resps[status] = resp
+    return resps
 
 
 def generate_param_schema(ep_deps: EndpointDeps[Any], schemas: SchemasDict):

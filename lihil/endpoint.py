@@ -102,16 +102,6 @@ class Endpoint[R]:
     def inject_plugins(
         self, params: dict[str, Any], request: Request, resolver: Resolver
     ):
-        """
-        elif self.plugin_loaders:
-            for loader in self.plugin_loaders:
-                try:
-                    plugin = loader.resolver(request, resolver)
-                except NotImplementedError:
-                    continue
-
-                params[name] = plugin
-        """
         for name, p in self._plugin_items:
             ptype = p.type_
             if issubclass(ptype, Request):
@@ -121,6 +111,8 @@ class Endpoint[R]:
                 params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
+            elif p.loader:
+                params[name] = p.loader(request, resolver)
             else:
                 raise InvalidParamTypeError(ptype)
         return params

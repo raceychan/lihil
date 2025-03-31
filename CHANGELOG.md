@@ -107,7 +107,7 @@ this comes handy when for overriding configs that are differernt according to th
 
 - fix a bug with request param type being GenericAliasType
 
-we did not handle GenericAliasType case and treat it as `Annotated` with `flatten_annotated`.
+we did not handle GenericAliasType case and treat it as `Annotated` with `deannnotate`.
 
 and we think if a type have less than 2 arguments then it is not `Annotated`,
 but thats not the case with GenericAlias
@@ -418,3 +418,92 @@ before this change, when `get_order` is added to `order_route`, `Engine` will be
 ### Fix
 
 - fix a bug where `lihil.utils.typing.is_nontextual_sequence` would negate generic sequence type such as `list[int]`
+
+
+
+## version 0.1.13
+
+
+### Improvements
+
+- lihil is now capable of handling more complex type variable
+
+```python
+type Base[T] = Annotated[T, 1]
+type NewBase[T] = Annotated[Base[T], 2]
+type AnotherBase[T, K] = Annotated[NewBase[T], K, 3]
+
+
+def test_get_origin_nested():
+    base = get_origin_pro(Base[str])
+    assert base[0] == str and base[1] == [1]
+
+    nbase = get_origin_pro(NewBase[str])
+    assert nbase[0] == str and nbase[1] == [2, 1]
+
+    res = get_origin_pro(AnotherBase[bytes | float, str] | list[int])
+    assert res[0] == Union[bytes, float, list[int]]
+    assert res[1] == [str, 3, 2, 1]
+```
+
+This is mainly to support user defined nested type alias.
+
+For Example
+
+```python
+from lihil import Resp, status
+
+type ProfileReturn = Resp[User, status.OK] | Resp[Order, status.CREATED] | Resp[
+    None,
+    status.NOT_ACCEPTABLE
+    | Resp[int, status.INTERNAL_SERVER_ERROR]
+    | Resp[str, status.LOOP_DETECTED]
+    | Resp[list[int, status.INSUFFICIENT_STORAGE]],
+]
+
+@rprofile.post
+async def profile(
+    pid: str, q: int, user: User, engine: Engine
+) -> ProfileReturn:
+    return User(id=user.id, name=user.name, email=user.email)
+```
+
+### Features
+
+- now supports multiple responses
+
+```python
+@rprofile.post
+async def profile(
+    pid: str, q: int, user: User, engine: Engine
+) -> Resp[User, status.OK] | Resp[Order, status.CREATED]:
+    return User(id=user.id, name=user.name, email=user.email)
+```
+
+now openapi docs would show that `profile` returns `User` with `200`, `Order` with `201`
+
+
+- `PluginProvider`, use might now provide customized mark
+
+```python
+from lihil import Request, Resolver
+
+type Cached[T] = Annotated[T, param_mark("cached")]
+
+
+class CachedProvider:
+    def load(self, request: Request, resolver: Resolver) -> str:
+        return "cached"
+
+    def parse(self, name: str, type_: type, default, annotation, param_meta)->PluginParam[str]:
+        return PluginParam(type_=type_, name=name, loader=self.load)
+
+
+def test_param_provider(param_parser: ParamParser):
+    provider = CachedProvider()
+    param_parser.register_provider(Cached[str], provider)
+
+    param = param_parser.parse_param("data", Cached[str])[0]
+    assert isinstance(param, PluginParam)
+    assert param.type_ == str
+```

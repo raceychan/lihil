@@ -34,7 +34,7 @@ from lihil.interface.struct import ParamBase as ParamBase
 from lihil.interface.struct import Payload as Payload
 from lihil.interface.struct import Record as Record
 
-type ParamLocation = Literal["path", "query", "header"]
+type ParamLocation = Literal["path", "query", "header", "body"]
 type BodyContentType = Literal[
     "application/json", "multipart/form-data", "application/x-www-form-urlencoded"
 ]

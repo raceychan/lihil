@@ -1,9 +1,11 @@
+import re
 from types import GenericAlias
 from typing import (
     Annotated,
     Any,
     AsyncGenerator,
     Generator,
+    Literal,
     LiteralString,
     TypeAliasType,
     TypeGuard,
@@ -17,16 +19,19 @@ from lihil.constant.status import Status
 
 LIHIL_RESPONSE_MARK = "__LIHIL_RESPONSE_MARK"
 LIHIL_PARAM_MARK = "__LIHIL_PARAM_MARK"
+LIHIL_PARAM_PATTERN = re.compile(r"__LIHIL_PARAM_MARK_([^_]*)__")
+LIHIL_RETURN_PATTERN = re.compile(r"__LIHIL_RESPONSE_MARK_([^_]*)__")
 
 
+# TODO: prefer get_origin_pro over this
 def lhl_get_origin(annt: Any) -> Any:
     "a extended get origin that handles TypeAliasType"
+
     if is_marked_param(annt):
         return ty_get_origin(annt)
-    elif isinstance(annt, TypeAliasType):
-        while isinstance(annt, TypeAliasType):
-            annt = annt.__value__
-        return annt
+
+    while isinstance(annt, TypeAliasType):
+        annt = annt.__value__
     return ty_get_origin(annt)
 
 
@@ -49,6 +54,30 @@ def is_lihil_marked(m: Any, mark_prefix: str) -> bool:
         return is_lihil_marked(value, mark_prefix) if value else False
     else:
         return False
+
+
+def extra_mark_type(mark: Any) -> "ParamMarkType | None":
+    if not isinstance(mark, str):
+        return None
+
+    match = LIHIL_PARAM_PATTERN.search(mark)
+
+    if match:
+        res = match.group(1)
+        return res.lower()  # type: ignore
+    return None
+
+
+def extra_resp_type(mark: Any) -> "ResponseMark | None":
+    if not isinstance(mark, str):
+        return None
+
+    match = LIHIL_RETURN_PATTERN.search(mark)
+
+    if match:
+        res = match.group(1)
+        return res.lower() # type: ignore
+    return None
 
 
 def is_resp_mark(m: Any) -> TypeGuard[TypeAliasType]:
@@ -85,6 +114,8 @@ type Form[T] = Annotated[T, FORM_REQUEST_MARK]
 type Path[T] = Annotated[T, PATH_REQUEST_MARK]
 type Use[T] = Annotated[T, USE_DEPENDENCY_MARK]
 
+
+type ParamMarkType = Literal["query", "header", "body", "form", "path", "use"]
 # ================ Response ================
 
 TEXT_RETURN_MARK = resp_mark("text")
@@ -103,3 +134,5 @@ type Stream[T] = Annotated[
 ]
 type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
 type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
+
+type ResponseMark = Literal["text", "html", "stream", "json", "resp", "empty"]

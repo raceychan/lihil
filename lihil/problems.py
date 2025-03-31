@@ -17,10 +17,10 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from lihil.constant import status as http_status
-from lihil.interface import IEncoder, ParamLocation, Record, lhl_get_origin
+from lihil.interface import ParamLocation, Record, lhl_get_origin
 from lihil.interface.problem import DetailBase, ProblemDetail
 from lihil.utils.parse import to_kebab_case, trimdoc
-from lihil.utils.phasing import encoder_factory
+from lihil.utils.phasing import encode_json
 from lihil.utils.typing import is_union_type
 from lihil.utils.visitor import all_subclasses
 
@@ -206,7 +206,6 @@ class HTTPException[T](Exception, DetailBase[T]):
 
 
 class ErrorResponse[T](Response):
-    problem_encoder = encoder_factory()
 
     def __init__(
         self,
@@ -215,7 +214,7 @@ class ErrorResponse[T](Response):
         headers: Mapping[str, str] | None = None,
         media_type: str = "application/problem+json",
     ):
-        content = self.problem_encoder(detail)  # type: ignore
+        content = encode_json(detail)
         super().__init__(
             content, status_code=status_code, headers=headers, media_type=media_type
         )
@@ -245,9 +244,6 @@ class InvalidDataType(ValidationProblem, tag=True):
 
 # @dataclass(kw_only=True)
 class InvalidRequestErrors(HTTPException[list[ValidationProblem]]):
-
-    problem_encoder: ClassVar[IEncoder[Any]] = encoder_factory()
-
     title: str = "Check Your Params"
     instance: str = "uri of the entity"
 
