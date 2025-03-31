@@ -5,9 +5,18 @@ from ididi import DependentNode, Graph
 from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
-from lihil.di.params import ParamParser, PluginParam, RequestBodyParam, RequestParam
+from lihil.di.params import (
+    EndpointParams,
+    ParamParser,
+    PluginParam,
+    RequestBodyParam,
+    RequestParam,
+    Resolver,
+)
 from lihil.di.returns import EndpointReturn, parse_returns  # pparse_returns,
+from lihil.errors import InvalidParamTypeError
 from lihil.interface import MISSING, Base, IEncoder, Record, is_provided
+from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import (
     InvalidDataType,
     InvalidJsonReceived,
@@ -42,16 +51,9 @@ class ParseResult(Record):
         return bool(self.callbacks)
 
 
-# TODO: separate param parsing and dependency injection
-class EndpointDeps[R](Base):
+class EndpointSignature[R](Base):
     route_path: str
-
-    query_params: RequestParamMap
-    path_params: RequestParamMap
-    header_params: RequestParamMap
-    body_param: tuple[str, RequestBodyParam[Struct]] | None
-    dependencies: ParamMap[DependentNode]
-    plugins: ParamMap[PluginParam[Any]]
+    params: EndpointParams
 
     default_status: int
     scoped: bool
@@ -60,9 +62,74 @@ class EndpointDeps[R](Base):
     return_encoder: IEncoder[R]
     return_params: dict[int, EndpointReturn[R]]
 
+    @property
+    def path_params(self) -> RequestParamMap:
+        return self.params.get_location("path")
+
+    @property
+    def query_params(self) -> RequestParamMap:
+        return self.params.get_location("query")
+
+    @property
+    def header_params(self) -> RequestParamMap:
+        return self.params.get_location("header")
+
+    @property
+    def body_param(self) -> tuple[str, RequestBodyParam[Any]] | None:
+        return self.params.get_body()
+
     def override(self) -> None: ...
 
-    # TODO:we shou rewrite this in cython, along with the request object
+    @classmethod
+    def from_function[FR](
+        cls,
+        graph: Graph,
+        route_path: str,
+        f: Callable[..., FR | Awaitable[FR]],
+    ) -> "EndpointSignature[FR]":
+        path_keys = find_path_keys(route_path)
+        func_sig = signature(f)
+        func_params = tuple(func_sig.parameters.items())
+
+        parser = ParamParser(graph, path_keys)
+        params = parser.parse(func_params, path_keys)
+        return_params = parse_returns(func_sig.return_annotation)
+
+        default_status = next(iter(return_params))
+        default_encoder = return_params[default_status].encoder
+
+        scoped = any(
+            graph.should_be_scoped(node.dependent) for node in params.nodes.values()
+        )
+
+        body_param = params.get_body()
+        form_body: bool = is_form_body(body_param)
+
+        info = EndpointSignature(
+            route_path=route_path,
+            params=params,
+            return_params=return_params,
+            default_status=default_status,
+            return_encoder=default_encoder,
+            scoped=scoped,
+            form_body=form_body,
+        )
+        return info
+
+
+class ParamLoader:
+    def __init__(self, ep_sig: EndpointSignature[Any], busterm: BusTerminal):
+        self.ep_sig = ep_sig
+        self._busterm = busterm
+
+        self.path_params = self.ep_sig.path_params
+        self.query_params = self.ep_sig.query_params
+        self.header_params = self.ep_sig.header_params
+        self.body_param = self.ep_sig.body_param
+        self.form_body = is_form_body(self.body_param)
+
+        self.plugins = self.ep_sig.params.plugins.items()
+
     def prepare_params(
         self,
         req_path: Mapping[str, Any] | None = None,
@@ -129,14 +196,14 @@ class EndpointDeps[R](Base):
         parsed_result = ParseResult(params, verrors)
         return parsed_result
 
-    def parse_query(self, req: Request) -> ParseResult:
+    def load_for_query(self, req: Request) -> ParseResult:
         req_path = req.path_params if self.path_params else None
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
         params = self.prepare_params(req_path, req_query, req_header, None)
         return params
 
-    async def parse_command(self, req: Request) -> ParseResult:
+    async def load_for_command(self, req: Request) -> ParseResult:
         req_path = req.path_params if self.path_params else None
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
@@ -149,43 +216,23 @@ class EndpointDeps[R](Base):
             params = self.prepare_params(req_path, req_query, req_header, body)
         return params
 
-    @classmethod
-    def from_function[FR](
-        cls,
-        graph: Graph,
-        route_path: str,
-        f: Callable[..., FR | Awaitable[FR]],
-    ) -> "EndpointDeps[FR]":
-        path_keys = find_path_keys(route_path)
-        func_sig = signature(f)
-        func_params = tuple(func_sig.parameters.items())
+    # TODO: make this async
+    def load_plugins(
+        self, params: dict[str, Any], request: Request, resolver: Resolver
+    ):
+        for name, p in self.plugins:
+            ptype = p.type_
+            if issubclass(ptype, Request):
+                params[name] = request
+            elif issubclass(ptype, EventBus):
+                bus = self._busterm.create_event_bus(resolver)
+                params[name] = bus
+            elif issubclass(ptype, Resolver):
+                params[name] = resolver
+            elif p.loader:
+                params[name] = p.loader(request, resolver)
+            else:
+                raise InvalidParamTypeError(ptype)
+        return params
 
-        parser = ParamParser(graph, path_keys)
-        params = parser.parse(func_params, path_keys)
-        return_params = parse_returns(func_sig.return_annotation)
-
-        default_status = next(iter(return_params))
-        default_encoder = return_params[default_status].encoder
-
-        scoped = any(
-            graph.should_be_scoped(node.dependent) for node in params.nodes.values()
-        )
-
-        body_param = params.get_body()
-        form_body: bool = is_form_body(body_param)
-
-        info = EndpointDeps(
-            route_path=route_path,
-            header_params=params.get_location("header"),
-            query_params=params.get_location("query"),
-            path_params=params.get_location("path"),
-            body_param=body_param,
-            plugins=params.plugins,
-            dependencies=params.nodes,
-            return_params=return_params,
-            default_status=default_status,
-            return_encoder=default_encoder,
-            scoped=scoped,
-            form_body=form_body,
-        )
-        return info
+    async def load_dependencies(self) -> None: ...

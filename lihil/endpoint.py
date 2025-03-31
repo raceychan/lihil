@@ -7,11 +7,10 @@ from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
 from lihil.config import EndPointConfig
-from lihil.di import EndpointDeps, ParseResult
+from lihil.di.di import EndpointSignature, ParamLoader, ParseResult
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
-from lihil.errors import InvalidParamTypeError
 from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend
-from lihil.plugins.bus import BusTerminal, EventBus
+from lihil.plugins.bus import BusTerminal
 from lihil.problems import InvalidRequestErrors, get_solver
 from lihil.utils.threading import async_wrapper
 
@@ -55,8 +54,8 @@ class Endpoint[R]:
         return self._name
 
     @property
-    def deps(self) -> EndpointDeps[R]:
-        return self._deps
+    def deps(self) -> EndpointSignature[R]:
+        return self._sig
 
     @property
     def method(self) -> HTTP_METHODS:
@@ -68,7 +67,7 @@ class Endpoint[R]:
 
     @property
     def encoder(self):
-        return self._encoder
+        return self._sig.return_encoder
 
     @property
     def tag(self) -> str:
@@ -79,47 +78,26 @@ class Endpoint[R]:
         return self._unwrapped_func
 
     def setup(self) -> None:
-        self._deps = EndpointDeps.from_function(
+        # TODO: Endpoint.param_loader
+        self._sig = EndpointSignature.from_function(
             graph=self._graph,
             route_path=self._path,
             f=self._unwrapped_func,
         )
 
-        self._dep_items = self._deps.dependencies.items()
-        self._plugin_items = self._deps.plugins.items()
+        self._loader = ParamLoader(self._sig, self._busterm)
 
         scoped_by_config = bool(self._config and self._config.scoped is True)
-
-        self._require_body: bool = self._deps.body_param is not None
-        self._status_code = self._deps.default_status
-        self._scoped: bool = self._deps.scoped or scoped_by_config
-        self._encoder = self._deps.return_encoder
+        self._scoped: bool = self._sig.scoped or scoped_by_config
 
     def sync_deps(self, graph: Graph, busterm: BusTerminal):
         self._graph = graph
         self._busterm = busterm
 
-    def inject_plugins(
-        self, params: dict[str, Any], request: Request, resolver: Resolver
-    ):
-        for name, p in self._plugin_items:
-            ptype = p.type_
-            if issubclass(ptype, Request):
-                params[name] = request
-            elif issubclass(ptype, EventBus):
-                bus = self._busterm.create_event_bus(resolver)
-                params[name] = bus
-            elif issubclass(ptype, Resolver):
-                params[name] = resolver
-            elif p.loader:
-                params[name] = p.loader(request, resolver)
-            else:
-                raise InvalidParamTypeError(ptype)
-        return params
-
     async def make_call(
         self, scope: IScope, receive: IReceive, send: ISend, resolver: Resolver
     ) -> R | ParseResult | Response:
+        # TODO: static endpoint
         request = Request(scope, receive, send)
         callbacks = None
         try:
@@ -131,6 +109,7 @@ class Endpoint[R]:
             if errors := parsed_result.errors:
                 raise InvalidRequestErrors(detail=errors)
 
+            # self.loader.load_plugins
             params = self.inject_plugins(parsed_result.params, request, resolver)
 
             for name, dep in self._dep_items:

@@ -505,3 +505,15 @@ async def test_endpoint_with_resp_alias(rusers: Route, lc: LocalClient):
 
     text = await res.text()
     assert text == "ok"
+
+@pytest.mark.debug
+async def test_static_endpoint(rusers: Route, lc: LocalClient):
+
+    async def static() -> Text:
+        return "ok"
+
+    rusers.get(static)
+    res = await lc.call_endpoint(rusers.get_endpoint("GET"))
+
+    text = await res.text()
+    assert text == "ok"

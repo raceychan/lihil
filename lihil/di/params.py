@@ -261,6 +261,9 @@ class EndpointParams(Base):
     nodes: dict[str, DependentNode] = field(default_factory=dict)
     plugins: dict[str, PluginParam[Any]] = field(default_factory=dict)
 
+    def __bool__(self) -> bool:
+        return any((bool(getattr(self, field)) for field in self.__struct_fields__))
+
     def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.location == location}
 
