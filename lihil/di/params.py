@@ -126,7 +126,7 @@ def formdecoder_factory[T](ptype: type[T] | UnionType):
             else:
                 val = form_data.get(ffield.encode_name)
 
-            if not val:
+            if val is None:
                 if ffield.required:  # has not diffult
                     continue  # let msgspec `convert` raise error
                 val = deepcopy(ffield.default)
@@ -191,6 +191,7 @@ class PluginParam[T](Base):
     default: Maybe[Any] = MISSING
     required: bool = False
     loader: "PluginLoader[T] | None" = None
+    # async_loader: bool
 
     def __post_init__(self):
         self.required = self.default is MISSING
@@ -307,7 +308,7 @@ class ParamParser:
             if mark_type := extra_mark_type(meta):
                 break
         else:
-            raise NotImplementedError("Invalid mark type")
+            raise NotSupportedError("Invalid mark type")
 
         self.plugin_provider[mark_type] = provider
 
@@ -317,11 +318,12 @@ class ParamParser:
             param_origin = get_origin(param_type)
             if param_origin is Union:
                 return any(self.is_plugin_type(arg) for arg in get_args(param_type))
-            elif is_builtin_type(param_origin):
+            elif param_origin and is_builtin_type(param_origin):
                 return False
             else:
-                raise RuntimeError("get_origin_pro should prevent this")
-        return issubclass(param_type, self.plugin_types)
+                return self.is_plugin_type(type(param_type))
+        else:
+            return issubclass(param_type, self.plugin_types)
 
     def _parse_rule_based[T](
         self,
@@ -331,12 +333,13 @@ class ParamParser:
         default: Maybe[T],
         param_meta: ParamMetas | None = None,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
+        custom_decoder = None
+        if param_meta and param_meta.custom_decoder:
+            custom_decoder = param_meta.custom_decoder.decode
+
         if name in self.path_keys:  # simplest case
             self.seen.discard(name)
-            if param_meta and param_meta.custom_decoder:
-                decoder = param_meta.custom_decoder.decode
-            else:
-                decoder = txtdecoder_factory(param_type)
+            decoder = custom_decoder or txtdecoder_factory(param_type)
             req_param = RequestParam(
                 name=name,
                 alias=name,
@@ -354,10 +357,7 @@ class ParamParser:
                     name, param_type, annotation=annotation, default=default
                 )
             else:
-                if param_meta and param_meta.custom_decoder:
-                    decoder = param_meta.custom_decoder.decode
-                else:
-                    decoder = decoder_factory(param_type)
+                decoder = custom_decoder or decoder_factory(param_type)
                 req_param = RequestBodyParam(
                     name=name,
                     alias=name,
@@ -386,10 +386,8 @@ class ParamParser:
             node = self.graph.analyze(param_meta.factory, config=param_meta.config)
             return self._parse_node(node)
         else:  # default case, treat as query
-            if param_meta and param_meta.custom_decoder:
-                decoder = param_meta.custom_decoder.decode
-            else:
-                decoder = txtdecoder_factory(param_type)
+
+            decoder = custom_decoder or txtdecoder_factory(param_type)
             req_param = RequestParam(
                 name=name,
                 alias=name,

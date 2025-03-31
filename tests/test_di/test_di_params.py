@@ -370,8 +370,20 @@ def test_form_with_sequence_field(param_parser: ParamParser):
     assert res == SequenceForm([1, 2, 3])
 
 
-@pytest.mark.skip("do this later")
-def test_form_with_default_val(param_parser: ParamParser): ...
+def test_form_body_with_default_val(param_parser: ParamParser):
+    class LoginInfo(Payload):
+        name: str = "name"
+        age: int = 15
+
+    class FakeForm:
+        def get(self, name):
+            return None
+
+    infn = LoginInfo("user", 20)
+    param = param_parser.parse_param("data", Form[LoginInfo], infn)[0]
+    res = param.decode(FakeForm())
+    assert res.name == "name"
+    assert res.age == 15
 
 
 def test_param_repr_with_union_args(param_parser: ParamParser):
@@ -402,3 +414,14 @@ def test_param_provider(param_parser: ParamParser):
     param = param_parser.parse_param("data", Cached[str])[0]
     assert isinstance(param, PluginParam)
     assert param.type_ == str
+
+
+def test_param_provider_with_invalid_mark(param_parser):
+    with pytest.raises(NotSupportedError):
+        param_parser.register_provider("asdf", None)
+
+    with pytest.raises(NotSupportedError):
+        param_parser.register_provider(Annotated[str, "asdf"], None)
+
+def test_param_provider_with_invalid_plugin(param_parser):
+    assert not param_parser.is_plugin_type(5)

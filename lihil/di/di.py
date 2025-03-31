@@ -6,7 +6,7 @@ from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
 from lihil.di.params import ParamParser, PluginParam, RequestBodyParam, RequestParam
-from lihil.di.returns import EndpointReturn, parse_returns  # pparse_returns,
+from lihil.di.returns import EndpointReturn, parse_returns
 from lihil.interface import MISSING, Base, IEncoder, Record, is_provided
 from lihil.problems import (
     InvalidDataType,
@@ -37,12 +37,9 @@ class ParseResult(Record):
     def __getitem__(self, key: str):
         return self.params[key]
 
-    @property
-    def require_callback(self):
-        return bool(self.callbacks)
-
 
 # TODO: separate param parsing and dependency injection
+# TODO: we should rewrite this in cython, along with the request object
 class EndpointSignature[R](Base):
     route_path: str
 
@@ -62,7 +59,6 @@ class EndpointSignature[R](Base):
 
     def override(self) -> None: ...
 
-    # TODO:we shou rewrite this in cython, along with the request object
     def prepare_params(
         self,
         req_path: Mapping[str, Any] | None = None,
@@ -140,6 +136,7 @@ class EndpointSignature[R](Base):
         req_path = req.path_params if self.path_params else None
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
+
         if self.form_body:
             body = await req.form()
             params = self.prepare_params(req_path, req_query, req_header, body)

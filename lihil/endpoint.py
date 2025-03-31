@@ -153,7 +153,10 @@ class Endpoint[R]:
             if errors := parsed_result.errors:
                 raise InvalidRequestErrors(detail=errors)
 
-            params = self.inject_plugins(parsed_result.params, request, resolver)
+            if self._plugin_items:
+                params = self.inject_plugins(parsed_result.params, request, resolver)
+            else:
+                params = parsed_result.params
 
             for name, dep in self._dep_items:
                 params[name] = await resolver.aresolve(dep.dependent, **params)
@@ -191,7 +194,7 @@ class Endpoint[R]:
         return resp
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
-        if self._static:  # no params at all
+        if self._static:  # when there is no params at all
             raw_return = await self.make_static_call(scope, receive, send)
             await self.return_to_response(raw_return)(scope, receive, send)
             return
