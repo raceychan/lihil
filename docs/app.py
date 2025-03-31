@@ -115,17 +115,20 @@ rempty = Route("empty")
 async def empty_resp() -> Empty: ...
 
 
+root = Route("/")
+
+
+@root.get
+async def roses_are_red():
+    raise VioletsAreBlue("I am a pythonista")
+
+
 lhl = Lihil(
-    routes=[rusers, rprofile, rstream, rempty],
+    routes=[root, rusers, rprofile, rstream, rempty],
     lifespan=lifespan,
     config_file="pyproject.toml",
 )
 lhl.static("/ping", "pong")
-
-
-@lhl.post(errors=VioletsAreBlue)
-async def roses_are_red():
-    raise VioletsAreBlue("I am a pythonista")
 
 
 if __name__ == "__main__":

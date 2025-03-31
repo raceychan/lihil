@@ -143,8 +143,8 @@ class LocalClient:
         app: ASGIApp,
         method: str,
         path: str,
-        path_params: dict[str, str] | None = None,
-        query_params: dict[str, str] | None = None,
+        path_params: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         body: Union[bytes, str, dict[str, Any], Payload] | None = None,
         stream: bool = False,
@@ -253,7 +253,7 @@ class LocalClient:
     async def call_endpoint(
         self,
         ep: Endpoint[Any],
-        path_params: dict[str, str] | None = None,
+        path_params: dict[str, Any] | None = None,
         query_params: dict[str, Any] | None = None,
         body: Any = None,
         headers: dict[str, str] | None = None,
@@ -311,7 +311,7 @@ class LocalClient:
     async def call_app(
         self,
         app: ASGIApp,
-        method: str,
+        method: HTTP_METHODS,
         path: str,
         path_params: dict[str, Any] | None = None,
         query_params: Optional[dict[str, Any]] = None,
@@ -329,6 +329,47 @@ class LocalClient:
             headers=headers,
             body=body,
         )
+
+    async def __call__(
+        self,
+        app: ASGIApp,
+        method: HTTP_METHODS | None,
+        path: str | None,
+        path_params: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | None = None,
+        body: Any = None,
+        headers: dict[str, str] | None = None,
+    ):
+        if isinstance(app, Endpoint):
+            await self.call_endpoint(
+                app,
+                path_params=path_params,
+                query_params=query_params,
+                body=body,
+                headers=headers,
+            )
+        elif isinstance(app, Route):
+            assert method, "method is required"
+            await self.call_route(
+                app,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                body=body,
+                headers=headers,
+            )
+        else:
+            assert method, "method is required"
+            assert path, "path is required"
+            await self.call_app(
+                app,
+                method=method,
+                path=path,
+                path_params=path_params,
+                query_params=query_params,
+                body=body,
+                headers=headers,
+            )
 
     async def send_app_lifespan(self, app: ASGIApp) -> None:
         """
