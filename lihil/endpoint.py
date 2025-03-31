@@ -110,8 +110,7 @@ class Endpoint[R]:
         self._graph = graph
         self._busterm = busterm
 
-    # TODO?: make this async
-    def inject_plugins(
+    async def inject_plugins(
         self, params: dict[str, Any], request: Request, resolver: Resolver
     ):
         for name, p in self._plugin_items:
@@ -124,7 +123,7 @@ class Endpoint[R]:
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
             elif p.loader:
-                params[name] = p.loader(request, resolver)
+                params[name] = await p.loader(request, resolver)
             else:
                 raise InvalidParamTypeError(ptype)
         return params
@@ -154,7 +153,9 @@ class Endpoint[R]:
                 raise InvalidRequestErrors(detail=errors)
 
             if self._plugin_items:
-                params = self.inject_plugins(parsed_result.params, request, resolver)
+                params = await self.inject_plugins(
+                    parsed_result.params, request, resolver
+                )
             else:
                 params = parsed_result.params
 

@@ -138,7 +138,7 @@ class EndpointSignature[R](Base):
         req_header = req.headers if self.header_params else None
 
         if self.form_body:
-            body = await req.form()
+            body = await req.form()  # TODO: let user decide form configs
             params = self.prepare_params(req_path, req_query, req_header, body)
             params.callbacks.append(body.close)
         else:

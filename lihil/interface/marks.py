@@ -76,7 +76,7 @@ def extra_resp_type(mark: Any) -> "ResponseMark | None":
 
     if match:
         res = match.group(1)
-        return res.lower() # type: ignore
+        return res.lower()  # type: ignore
     return None
 
 
@@ -99,6 +99,7 @@ def is_marked_param(m: Any) -> bool:
 
 
 # ================ Request ================
+
 
 QUERY_REQUEST_MARK = param_mark("query")
 HEADER_REQUEST_MARK = param_mark("header")

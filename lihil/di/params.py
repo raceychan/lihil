@@ -7,6 +7,7 @@ from typing import (
     Sequence,
     TypeAliasType,
     TypeGuard,
+    Awaitable,
     Union,
     cast,
     get_args,
@@ -197,13 +198,8 @@ class PluginParam[T](Base):
         self.required = self.default is MISSING
 
 
-# PluginProvider[T]
-#  parse -> PluginParam[T]
-#  load -> T
-
-
 class PluginLoader[T](Protocol):
-    def __call__(self, request: Request, resolver: Resolver) -> T: ...
+    async def __call__(self, request: Request, resolver: Resolver) -> T: ...
 
 
 class PluginProvider[T](Protocol):
