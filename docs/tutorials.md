@@ -476,7 +476,7 @@ Lihil has built-in support for both in-process message handling (Beta) and out-o
 
 There are three primitives for event:
 
-1. publish: asynchronous and blocking event handling that shares the same scoep with caller.
+1. publish: asynchronous and blocking event handling that shares the same scope with caller.
 2. emit: non-blocking asynchrounous event hanlding, has its own scope.
 3. sink: a thin wrapper around external dependency for data persistence, such as message queue or database.
 
@@ -688,7 +688,7 @@ use it anywhere with DI
 - init at middleware
 
 plugin can be initialized and injected into middleware,
-middleware can be bind to differernt route, for example `Throttle`
+middleware can be bind to different route, for example `Throttle`
 
 ```python
 # pseudo code
@@ -703,7 +703,7 @@ class ThrottleMiddleware:
 
 ```
 
-lihil accepts a factory to build your middleware, so that you can use di inside the factory, and it will perserve typing info as well. anything callble that requires only one positonal argument can be a factory, which include most ASGI middleware classes.
+lihil accepts a factory to build your middleware, so that you can use di inside the factory, and it will perserve typing info as well. Anything callable that requires only one positonal argument can be a factory, which include most ASGI middleware classes.
 
 ```python
 lihil.add_middleware(lambda app: app.graph.resolve(ThrottleMiddleware))
@@ -715,13 +715,32 @@ lihil.add_middleware(lambda app: app.graph.resolve(ThrottleMiddleware))
 async def create_user(user_name: str, plugin: YourPlugin): ...
 ```
 
+### DI (dependency injection)
+
+- You can use `Route.factory` to decorate a dependency class/factory function for the class for your dependency, or `Route.add_nodes` to batch add&config many dependencies at once. it is recommended to register dependency where you use them, but you can register them to any route if you want.
+
+- If your factory function is a generator(function that contains `yield` keyword), it will be treated as `scoped`, meaning that it will be created before your endpoint function and destoried after. you can use this to achieve business purpose via clients that offer `atomic operation`, such as database connection.
+
+- You can create function as dependency by `Annotated[Any, use(your_function)]`. Do note that you will need to annotate your dependency function return type with `Ignore` like this
+
+```python
+async def get_user(token: UserToken) -> Ignore[User]: ...
+```
+
+- if your function is a sync generator, it will be solved within a separate thread.
+
+- all graph will eventually merged into the main graph holding by `Lihil`, which means that, if you register a dependency with a factory in route `A`, the same factory can be used in every other route if it is required.
+
+- you can manually construct graph and inject into `Lihil`
+
+
 ### Testing
 
-Lihil provide you two technques for testing, `TestClient` and `LocalClient`
+Lihil provide you two techniques for testing, `TestClient` and `LocalClient`
 
 #### `TestClient`
 
-`TestClient` provide you something that is close to menually constructing a request as client and post it to your server.
+`TestClient` provide you something that is close to manually constructing a request as client and post it to your server.
 
 For integration testing where each request should go through every part of your application, `TestClient` keep your test close to user behavior.
 
