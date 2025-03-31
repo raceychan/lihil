@@ -47,7 +47,7 @@ async def test_non_use_dep():
 
     ep = route.get_endpoint(get_todo)
     ep.setup()
-    deps = ep.deps.dependencies
+    deps = ep.sig.dependencies
     assert len(deps) == 1  # only service not engine
 
 

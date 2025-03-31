@@ -59,11 +59,11 @@ def test_return_status(rusers: Route):
     rusers.post(create_user)
     ep = rusers.get_endpoint(create_user)
     ep.setup()
-    assert "q" in ep.deps.query_params
-    assert "func_dep" in ep.deps.dependencies
-    assert "user_id" in ep.deps.path_params
+    assert "q" in ep.sig.query_params
+    assert "func_dep" in ep.sig.dependencies
+    assert "user_id" in ep.sig.path_params
 
-    ep_ret = ep.deps.return_params[201]
+    ep_ret = ep.sig.return_params[201]
     assert ep_ret.type_ is User
 
 
@@ -87,7 +87,7 @@ def test_annotated_generic(rusers: Route):
     ep = rusers.get_endpoint(update_user)
     ep.setup()
     repr(ep)
-    assert ep.deps.return_params[200].type_ == dict[str, str]
+    assert ep.sig.return_params[200].type_ == dict[str, str]
 
 
 def sync_func():
@@ -384,8 +384,8 @@ async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
 
     ep = rusers.get_endpoint("GET")
     ep.setup()
-    assert ep.deps.query_params
-    assert not ep.deps.path_params
+    assert ep.sig.query_params
+    assert not ep.sig.path_params
 
 
 async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
@@ -397,9 +397,9 @@ async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
 
     ep = rusers.get_endpoint("GET")
     ep.setup()
-    assert ep.deps.query_params
-    assert "aloha" in ep.deps.query_params
-    assert ep.deps.query_params["aloha"].type_ is int
+    assert ep.sig.query_params
+    assert "aloha" in ep.sig.query_params
+    assert ep.sig.query_params["aloha"].type_ is int
 
 
 async def test_ep_with_random_annoated_path1(rusers: Route, lc: LocalClient):
@@ -411,9 +411,9 @@ async def test_ep_with_random_annoated_path1(rusers: Route, lc: LocalClient):
 
     ep = rusers.get_endpoint("GET")
     ep.setup()
-    assert ep.deps.path_params
-    assert "user_id" in ep.deps.path_params
-    assert ep.deps.path_params["user_id"].type_ is int
+    assert ep.sig.path_params
+    assert "user_id" in ep.sig.path_params
+    assert ep.sig.path_params["user_id"].type_ is int
 
 
 async def test_ep_with_random_annoated_path2(rusers: Route, lc: LocalClient):
@@ -428,8 +428,8 @@ async def test_ep_with_random_annoated_path2(rusers: Route, lc: LocalClient):
 
     ep = rusers.get_endpoint("GET")
     ep.setup()
-    assert ep.deps.body_param
-    assert ep.deps.body_param[1].type_ is UserInfo
+    assert ep.sig.body_param
+    assert ep.sig.body_param[1].type_ is UserInfo
 
 
 async def test_ep_require_resolver(rusers: Route, lc: LocalClient):

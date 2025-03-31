@@ -3,7 +3,7 @@ from typing import Any, Literal
 import pytest
 from ididi import Graph
 
-from lihil.endpoint import EndpointDeps
+from lihil.endpoint import EndpointSignature
 from lihil.interface import Header, Payload
 from lihil.utils.phasing import encode_json
 
@@ -23,22 +23,22 @@ async def create_user(user: User) -> User: ...
 
 
 @pytest.fixture
-def get_order_dep() -> EndpointDeps[Any]:
+def get_order_dep() -> EndpointSignature[Any]:
     dg = Graph()
     path = "/users/{user_id}/orders/{order_id}"
-    dep = EndpointDeps.from_function(dg, path, get_order)
+    dep = EndpointSignature.from_function(dg, path, get_order)
     return dep
 
 
 @pytest.fixture
-def create_user_dep() -> EndpointDeps[Any]:
+def create_user_dep() -> EndpointSignature[Any]:
     dg = Graph()
     path = "/user"
-    dep = EndpointDeps.from_function(dg, path, create_user)
+    dep = EndpointSignature.from_function(dg, path, create_user)
     return dep
 
 
-def test_prepare_params(get_order_dep: EndpointDeps[Any]):
+def test_prepare_params(get_order_dep: EndpointSignature[Any]):
     user_id = "u11b22"
     order_id = "o22d33"
     token = "token"
@@ -59,7 +59,7 @@ def test_prepare_params(get_order_dep: EndpointDeps[Any]):
     assert parsed["x_token"] == token
 
 
-def test_missing_param(get_order_dep: EndpointDeps[Any]):
+def test_missing_param(get_order_dep: EndpointSignature[Any]):
     user_id = "u11b22"
     token = "token"
 
@@ -74,7 +74,7 @@ def test_missing_param(get_order_dep: EndpointDeps[Any]):
     assert parsed.errors
 
 
-def test_user_params_(create_user_dep: EndpointDeps[User]):
+def test_user_params_(create_user_dep: EndpointSignature[User]):
     u = User(1, "2", "user@email.com")
     body = encode_json(u)
 
@@ -83,7 +83,7 @@ def test_user_params_(create_user_dep: EndpointDeps[User]):
     assert parsed["user"] == u
 
 
-def test_user_params_fail(create_user_dep: EndpointDeps[User]):
+def test_user_params_fail(create_user_dep: EndpointSignature[User]):
     invalid_user = User(1, 2, 3)  # type: ignore
     body = encode_json(invalid_user)
 

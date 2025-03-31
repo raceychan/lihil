@@ -48,7 +48,7 @@ def test_get_order_schema():
 
     current_ep = user_route.endpoints["POST"]
     current_ep.setup()
-    ep_rt = current_ep.deps.return_params[200]
+    ep_rt = current_ep.sig.return_params[200]
     ep_rt.type_ == Union[Order, User]
     components = {"schemas": {}}
     ep_oas = generate_op_from_ep(
@@ -64,7 +64,7 @@ def test_get_hello_return():
 
     current_ep = user_route.get_endpoint(get_hello)
     current_ep.setup()
-    ep_rt = current_ep.deps.return_params[200]
+    ep_rt = current_ep.sig.return_params[200]
     assert ep_rt.type_ == bytes
 
 

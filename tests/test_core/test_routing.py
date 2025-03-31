@@ -693,7 +693,7 @@ async def test_route_with_literal_resp():
     # with pytest.raises(InvalidParamTypeError):
     route.setup()
 
-    ret_param = route.endpoints["POST"].deps.return_params[200]
+    ret_param = route.endpoints["POST"].sig.return_params[200]
 
 
 async def test_route_with_nested_empty_response():

@@ -1,20 +1,18 @@
 import re
 from types import UnionType
-from typing import Annotated, Any, Sequence, cast, get_args
+from typing import Any, Sequence, cast, get_args
 
 from msgspec import Struct
 from msgspec.json import schema_components
 
 from lihil.config import OASConfig
 from lihil.constant.status import phrase
-from lihil.di import EndpointDeps, RequestParam
-from lihil.interface import is_provided, lhl_get_origin
-from lihil.interface.marks import EMPTY_RETURN_MARK
+from lihil.di import EndpointSignature, RequestParam
+from lihil.interface import is_provided
 from lihil.oas import model as oasmodel
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
 from lihil.routing import Endpoint, Route
 from lihil.utils.parse import to_kebab_case, trimdoc
-from lihil.utils.typing import deannotate
 
 # from lihil.utils.phasing import encode_json
 
@@ -153,7 +151,7 @@ def _single_field_schema(
 
 
 def param_schema(
-    ep_deps: EndpointDeps[Any], schemas: SchemasDict
+    ep_deps: EndpointSignature[Any], schemas: SchemasDict
 ) -> list[oasmodel.Parameter | oasmodel.Reference]:
     parameters: list[oasmodel.Parameter | oasmodel.Reference] = []
 
@@ -192,7 +190,7 @@ def example_from_detail_base(
 
 
 def body_schema(
-    ep_deps: EndpointDeps[Any], schemas: SchemasDict
+    ep_deps: EndpointSignature[Any], schemas: SchemasDict
 ) -> oasmodel.RequestBody | None:
     if not (body_param := ep_deps.body_param):
         return None
@@ -297,7 +295,7 @@ def get_resp_schemas(
         "200": oasmodel.Response(description="Sucessful Response")
     }
 
-    for status, ep_return in ep.deps.return_params.items():
+    for status, ep_return in ep.sig.return_params.items():
         return_type = ep_return.type_
         content_type = ep_return.content_type or "Missing"
         if status < 400:
@@ -328,7 +326,7 @@ def get_resp_schemas(
     return resps
 
 
-def generate_param_schema(ep_deps: EndpointDeps[Any], schemas: SchemasDict):
+def generate_param_schema(ep_deps: EndpointSignature[Any], schemas: SchemasDict):
     params = param_schema(ep_deps, schemas)
     body = body_schema(ep_deps, schemas)
     return params, body
@@ -348,7 +346,7 @@ def generate_op_from_ep(
     summary = ep.name.replace("_", " ").title()
     description = trimdoc(ep.unwrapped_func.__doc__) or "Missing Description"
     operationId = generate_unique_id(ep)
-    params, body = generate_param_schema(ep.deps, schemas)
+    params, body = generate_param_schema(ep.sig, schemas)
 
     resps = get_resp_schemas(ep, schemas, problem_path)
     err_resps = get_err_resp_schemas(ep, schemas, problem_path)

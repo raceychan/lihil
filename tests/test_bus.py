@@ -34,8 +34,8 @@ async def test_bus_is_singleton():
 
     ep = bus_route.get_endpoint("POST")
     ep.setup()
-    assert ep.deps.plugins
-    assert any(p.type_ is EventBus for p in ep.deps.plugins.values())
+    assert ep.sig.plugins
+    assert any(p.type_ is EventBus for p in ep.sig.plugins.values())
 
 
 async def test_call_ep_invoke_bus():

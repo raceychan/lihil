@@ -43,7 +43,7 @@ class ParseResult(Record):
 
 
 # TODO: separate param parsing and dependency injection
-class EndpointDeps[R](Base):
+class EndpointSignature[R](Base):
     route_path: str
 
     query_params: RequestParamMap
@@ -155,7 +155,7 @@ class EndpointDeps[R](Base):
         graph: Graph,
         route_path: str,
         f: Callable[..., FR | Awaitable[FR]],
-    ) -> "EndpointDeps[FR]":
+    ) -> "EndpointSignature[FR]":
         path_keys = find_path_keys(route_path)
         func_sig = signature(f)
         func_params = tuple(func_sig.parameters.items())
@@ -174,7 +174,7 @@ class EndpointDeps[R](Base):
         body_param = params.get_body()
         form_body: bool = is_form_body(body_param)
 
-        info = EndpointDeps(
+        info = EndpointSignature(
             route_path=route_path,
             header_params=params.get_location("header"),
             query_params=params.get_location("query"),
