@@ -4,6 +4,7 @@ from types import GenericAlias, UnionType
 from typing import (
     Any,
     Protocol,
+    Sequence,
     TypeAliasType,
     TypeGuard,
     Union,
@@ -87,6 +88,23 @@ def filedeocder_factory(filename: str):
             return cast(UploadFile, upload_file)
 
     return file_decoder
+
+
+def file_body_param(
+    name: str, type_: type[UploadFile], annotation: Any, default: Any
+) -> "RequestBodyParam[Any]":
+    decoder = filedeocder_factory(name)
+    content_type = "multipart/form-data"
+    req_param = RequestBodyParam(
+        name=name,
+        alias=name,
+        type_=type_,
+        annotation=annotation,
+        decoder=decoder,
+        default=default,
+        content_type=content_type,
+    )
+    return req_param
 
 
 def formdecoder_factory[T](ptype: type[T] | UnionType):
@@ -174,27 +192,30 @@ class PluginParam[T](Base):
     required: bool = False
     loader: "PluginLoader[T] | None" = None
 
-    # def loader(self, request: Request, resolver: Resolver) -> T: ...
-
     def __post_init__(self):
         self.required = self.default is MISSING
 
 
-def file_body_param(
-    name: str, type_: type[UploadFile], annotation: Any, default: Any
-) -> RequestBodyParam[Any]:
-    decoder = filedeocder_factory(name)
-    content_type = "multipart/form-data"
-    req_param = RequestBodyParam(
-        name=name,
-        alias=name,
-        type_=type_,
-        annotation=annotation,
-        decoder=decoder,
-        default=default,
-        content_type=content_type,
-    )
-    return req_param
+# PluginProvider[T]
+#  parse -> PluginParam[T]
+#  load -> T
+
+
+class PluginLoader[T](Protocol):
+    def __call__(self, request: Request, resolver: Resolver) -> T: ...
+
+
+class PluginProvider[T](Protocol):
+    load: PluginLoader[T]
+
+    def parse(
+        self,
+        name: str,
+        type_: type[T] | UnionType,
+        annotation: Any,
+        default: Maybe[T],
+        param_meta: "ParamMetas",
+    ) -> list[PluginParam[T]]: ...
 
 
 class ParamMetas(Base):
@@ -234,21 +255,6 @@ class ParamMetas(Base):
         )
 
 
-class PluginLoader[T](Protocol):
-    def __call__(self, request: Request, resolver: Resolver) -> T: ...
-class PluginParser[T](Protocol):
-
-    def __call__(
-        self,
-        name: str,
-        type_: type[T] | UnionType,
-        annotation: Any,
-        default: Maybe[T],
-        param_meta: ParamMetas,
-    ) -> list[PluginParam[T]]:
-        raise NotImplementedError
-
-
 class EndpointParams(Base):
     params: dict[str, RequestParam[Any]] = field(default_factory=dict)
     bodies: dict[str, RequestBodyParam[Any]] = field(default_factory=dict)
@@ -275,11 +281,7 @@ class ParamParser:
     path_keys: tuple[str, ...]
     seen: set[str]
 
-    def __init__(
-        self,
-        graph: Graph,
-        path_keys: tuple[str, ...] | None = None,
-    ):
+    def __init__(self, graph: Graph, path_keys: tuple[str, ...] | None = None):
         self.graph = graph
 
         if path_keys:
@@ -290,8 +292,24 @@ class ParamParser:
             self.seen = set()
 
         # mark_type or param_type, dict[str | type, PluginProvider]
-        self.plugin_parsers: dict[str, PluginParser[Any]] = {}
+        self.plugin_provider: dict[str, PluginProvider[Any]] = {}
         self.plugin_types = LIHIL_DEPENDENCIES
+
+    def register_provider(
+        self, mark: TypeAliasType | GenericAlias, provider: PluginProvider[Any]
+    ) -> None:
+        _, metas = get_origin_pro(mark)
+
+        if not metas:
+            raise NotSupportedError("Invalid mark type")
+
+        for meta in metas:
+            if mark_type := extra_mark_type(meta):
+                break
+        else:
+            raise NotImplementedError("Invalid mark type")
+
+        self.plugin_provider[mark_type] = provider
 
     def is_plugin_type(self, param_type: Any) -> TypeGuard[type]:
         "Dependencies that should be injected and managed by lihil"
@@ -473,8 +491,8 @@ class ParamParser:
                 default=default,
                 param_meta=param_meta,
             )
-        elif parser := self.plugin_parsers.get(param_meta.mark_type):
-            res = parser(
+        elif provider := self.plugin_provider.get(param_meta.mark_type):
+            res = provider.parse(
                 name=name,
                 type_=parsed_type,
                 annotation=annotation,
@@ -492,9 +510,9 @@ class ParamParser:
             )
         return res if isinstance(res, list) else [res]
 
-    def parse_endpoint_params(
+    def parse(
         self,
-        func_params: tuple[tuple[str, Parameter], ...],
+        func_params: Sequence[tuple[str, Parameter]],
         path_keys: tuple[str, ...] | None = None,
     ) -> "EndpointParams":
         if path_keys:

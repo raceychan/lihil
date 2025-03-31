@@ -13,11 +13,11 @@ fast:
 
 .PHONY: test
 test:
-	uv run python -m pytest -svx tests/
+	uv run python -m pytest -vx --capture=sys tests/
 
 .PHONY: cov
 cov:
-	uv run python -m pytest tests/ --cov=lihil --cov-report term-missing
+	uv run python -m pytest --capture=sys tests/ --cov=lihil --cov-report term-missing
 
 .PHONY: debug
 debug:

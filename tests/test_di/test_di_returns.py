@@ -1,13 +1,16 @@
+from inspect import Parameter
 from typing import Annotated
 
 import pytest
 
 from lihil.constant.status import OK
 from lihil.di.returns import (
+    DEFAULT_RETURN,
     CustomEncoder,
     EndpointReturn,
     agen_encode_wrapper,
     parse_single_return,
+    parse_returns,
     parse_status,
     syncgen_encode_wrapper,
 )
@@ -160,74 +163,18 @@ def test_is_py_singleton():
     assert is_py_singleton("string") is False
 
 
-# def test_analyze_return_with_union_type():
-#     result = parse_single_return(Union[str, int])
-#     assert result.status == 200
-
-#     # Test with Parameter.empty
-#     result = parse_single_return(Parameter.empty)
-#     assert result.type_ is MISSING
-#     assert result.status == 200
-
-#     # Test with a simple type
-#     result = parse_single_return(str)
-#     assert result.type_ == str
-#     assert result.status == 200
-
-#     # Test with a non-type value that's not a singleton
-#     with pytest.raises(InvalidParamTypeError):
-#         parse_single_return("not a type")
+def test_parse_return_with_no_status():
+    res = parse_single_return(Resp[str])
+    assert res.status == 200
+    assert res.type_ == str
 
 
-# def test_analyze_return_with_stream_text():
-#     result = parse_single_return(Stream[Text])
-#     assert result.encoder is (parse_single_return(Text).encoder)
+def test_empty_return():
+    res = parse_single_return(Parameter.empty)
+    assert res is DEFAULT_RETURN
 
 
-# def test_analyze_return_with_generator_text():
-#     result = parse_single_return(Generator[Text, None, None])
-#     assert result.encoder is (parse_single_return(Text).encoder)
-
-
-# def test_resp_with_only_ret_tpye():
-#     res = parse_single_return(Resp[str, 200])
-#     assert res.type_ is str
-
-
-# def test_invalid_resp():
-#     with pytest.raises(InvalidParamTypeError):
-#         res = parse_single_return("fadsf", 200)
-
-
-# def test_random_metas():
-#     ret = parse_single_return(Annotated[Resp[str], "aloha"], 422)
-#     assert ret.type_ is str
-#     assert ret.status == 422
-
-
-# def test_analyze_invalid_union():
-#     with pytest.raises(NotSupportedError):
-#         parse_single_return(int | Resp[str])
-
-
-# def test_parse_multiple_returns_with_single_return():
-#     str_resp = parse_all_returns(str)
-#     assert str_resp[200].type_ == str
-
-#     dict_resp = parse_all_returns(Resp[dict[str, str], 202])
-#     assert dict_resp[202].type_
-
-
-# def test_parse_multiple_returns_with_multiple_returns():
-#     many_resps = parse_all_returns(Resp[str, 200] | Resp[int, 201])
-
-#     assert many_resps[200].type_ == str
-#     assert many_resps[201].type_ == int
-
-
-# def test_parse_return_pro():
-#     rtype, metas = get_origin_pro(Resp[Text, 202])
-#     retmeta = parse_ret_meta(metas)
-#     assert retmeta.status == 202
-#     assert retmeta.mark_type == "text"
-#     assert retmeta.content_type == "text/plain"
+def test_parse_returns():
+    rets = parse_returns(Resp[str, 200] | Resp[int, 201])
+    assert rets[200].type_ == str
+    assert rets[201].type_ == int

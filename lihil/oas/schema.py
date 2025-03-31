@@ -299,7 +299,7 @@ def get_resp_schemas(
 
     for status, ep_return in ep.deps.return_params.items():
         return_type = ep_return.type_
-        content_type = ep_return.content_type
+        content_type = ep_return.content_type or "Missing"
         if status < 400:
             description = "Successful Response"
         elif status < 500:

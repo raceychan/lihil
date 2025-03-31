@@ -2,10 +2,22 @@ from inspect import Parameter, signature
 from typing import Annotated, Union
 
 import pytest
-from ididi import DependentNode, Graph
-from starlette.requests import Request
 
-from lihil import Body, Query
+from lihil import (
+    MISSING,
+    Body,
+    DependentNode,
+    EventBus,
+    Form,
+    Graph,
+    Header,
+    Path,
+    Payload,
+    Query,
+    Request,
+    Resolver,
+    Use,
+)
 from lihil.di.params import (
     CustomDecoder,
     EndpointParams,
@@ -13,12 +25,10 @@ from lihil.di.params import (
     PluginParam,
     RequestBodyParam,
     RequestParam,
-    txtdecoder_factory,
+    to_bytes,
 )
 from lihil.errors import NotSupportedError
-from lihil.interface import MISSING, Payload
-from lihil.interface.marks import Body, Header, Path, Query, Use
-from lihil.plugins.bus import EventBus
+from lihil.interface.marks import param_mark
 
 
 # Helper classes for testing
@@ -110,11 +120,10 @@ def test_parsed_params(param_parser: ParamParser):
 
     func_params = tuple(signature(endpoint).parameters.items())
 
-    res = param_parser.parse_endpoint_params(func_params)
+    res = param_parser.parse(func_params)
 
     q = res.params["q"]
     data = res.bodies["data"]
-    # data = res.params["data"]
 
     assert q.location == "query"
     assert q.type_ == str
@@ -296,7 +305,7 @@ def test_analyze_endpoint_params(param_parser: ParamParser):
 
     func_params = [("id", param1), ("q", param2)]
 
-    result = param_parser.parse_endpoint_params(func_params)
+    result = param_parser.parse(func_params)
 
     assert isinstance(result, EndpointParams)
     assert len(result.params) == 2  # Both id and q should be in params
@@ -329,396 +338,67 @@ def test_param_parser_parse_bytes_union(param_parser: ParamParser):
     assert isinstance(res, bytes)
 
 
-# ... existing code ...
+def test_invalid_param(param_parser: ParamParser):
+    with pytest.raises(NotSupportedError):
+        param_parser.parse_param("aloha", 5)
 
 
-# def test_analyze_markedparam_with_custom_decoder():
-#     graph = Graph()
-#     seen = set()
-#     path_keys = ()
+def test_textual_field(param_parser: ParamParser):
+    res = param_parser.parse_param("text", bytes)
+    assert isinstance(res[0], RequestParam)
+    assert res[0].decoder is to_bytes
 
-#     def custom_decode(value: str) -> int:
-#         return int(value)
 
-#     query_type = Annotated[Query[int], CustomDecoder(custom_decode)]
+def test_form_with_sequence_field(param_parser: ParamParser):
+    class SequenceForm(Payload):
+        nums: list[int]
 
-#     breakpoint()
+    res = param_parser.parse_param("form", Form[SequenceForm])[0]
+    assert isinstance(res, RequestBodyParam)
+    assert res.type_ is SequenceForm
 
-#     atype, metas = deannotate(query_type)
+    class FakeForm:
+        def __init__(self, content):
+            self.content = content
 
-#     result = analyze_annoated(
-#         graph=graph,
-#         name="page",
-#         seen=seen,
-#         path_keys=path_keys,
-#         atype=atype,
-#         metas=metas,
-#         default=MISSING,
-#     )
+        def getlist(self, name: str):
+            return self.content[name]
 
-#     assert len(result) == 1
-#     name, param = result[0]
-#     assert name == "page"
-#     assert isinstance(param, RequestParam)
-#     assert param.location == "query"
-#     assert param.decoder is custom_decode
+    decoder = res.decoder
 
+    res = decoder(FakeForm(dict(nums=[1, 2, 3])))
+    assert res == SequenceForm([1, 2, 3])
 
-# def test_analyze_markedparam_with_factory():
-#     from ididi import use
 
-#     graph = Graph()
-#     seen = set()
-#     path_keys = ()
+@pytest.mark.skip("do this later")
+def test_form_with_default_val(param_parser: ParamParser): ...
 
-#     def factory() -> SimpleDependency:
-#         return SimpleDependency("test")
 
-#     config = {"reuse": False}
-#     annotated_type = Annotated[SimpleDependency, use(factory, **config)]
+def test_param_repr_with_union_args(param_parser: ParamParser):
+    param = param_parser.parse_param("param", str | int)[0]
+    param.__repr__()
 
-#     result = analyze_param(
-#         graph, "dep", seen, path_keys, type_=annotated_type, default=MISSING
-#     )
 
-#     assert len(result) >= 1
-#     assert isinstance(result[0], DependentNode)
+def test_body_param_repr(param_parser: ParamParser):
+    param = param_parser.parse_param("data", Form[bytes])[0]
+    param.__repr__()
 
 
-# def test_analyze_markedparam_with_nested_origin():
-#     graph = Graph()
-#     seen = set()
-#     path_keys = ()
+type Cached[T] = Annotated[T, param_mark("cached")]
 
-#     # Create a nested annotated type
-#     inner_type = Query[int]
-#     outer_type = Annotated[inner_type, "metadata"]
 
-#     result = analyze_param(graph, "page", seen, path_keys, type_=outer_type)
+class CachedProvider:
+    def load(self, request: Request, resolver: Resolver) -> str:
+        return "cached"
 
-#     assert len(result) == 1
-#     name, param = result[0]
-#     assert name == "page"
-#     assert isinstance(param, RequestParam)
-#     assert param.location == "query"
+    def parse(self, name: str, type_: type, default, annotation, param_meta):
+        return PluginParam(type_=type_, name=name, loader=self.load)
 
 
-# def test_analyze_markedparam_with_plain_type():
-#     graph = Graph()
-#     seen = set()
-#     path_keys = ()
+def test_param_provider(param_parser: ParamParser):
+    provider = CachedProvider()
+    param_parser.register_provider(Cached[str], provider)
 
-#     # Use a plain type without annotation
-#     result = analyze_param(graph, "name", seen, path_keys, str, None, MISSING)
-
-#     assert len(result) == 1
-#     name, param = result[0]
-#     assert name == "name"
-#     assert isinstance(param, RequestParam)
-#     assert param.location == "query"  # Default location
-
-
-# def test_analyze_markedparam_with_use_origin():
-#     graph = Graph()
-#     graph.node(SimpleDependency)
-#     seen = set()
-#     path_keys = ()
-
-#     use_type = Use[SimpleDependency]
-
-#     result = analyze_param(graph, "dep", seen, path_keys, use_type)
-
-#     assert len(result) >= 1
-#     assert isinstance(result[0], DependentNode)
-
-
-# def test_analyze_param_union_no_payload():
-#     graph = Graph()
-#     seen = set()
-#     path_keys = ()
-
-#     union_type = Union[str, int, None]
-
-#     result = analyze_param(graph, "value", seen, path_keys, union_type, MISSING)
-
-#     assert len(result) == 1
-#     name, param = result[0]
-#     assert name == "value"
-#     assert isinstance(param, RequestParam)
-#     assert param.location == "query"
-
-
-# # Test for lines 237-238 - analyze_param with nested dependency in graph
-# def test_analyze_param_with_nested_dependency():
-#     graph = Graph()
-
-#     # Create a more complex dependency chain
-#     class DeepDependency:
-#         def __init__(self, value: str = "deep"):
-#             self.value = value
-
-#     class MiddleDependency:
-#         def __init__(self, deep: DeepDependency):
-#             self.deep = deep
-
-#     class TopDependency:
-#         def __init__(self, middle: MiddleDependency):
-#             self.middle = middle
-
-#     # Register all dependencies in the graph
-#     graph.node(DeepDependency)
-#     graph.node(MiddleDependency)
-#     graph.node(TopDependency)
-
-#     seen = set()
-#     path_keys = ()
-#     top_node = graph.analyze(TopDependency)
-#     result = analyze_param(graph, "top", seen, path_keys, TopDependency, MISSING)
-#     assert len(result) >= 1
-#     assert isinstance(result[0], DependentNode)
-#     result = analyze_nodeparams(top_node, graph, seen, path_keys)
-#     assert len(result) >= 1
-#     assert result[0] == top_node
-
-#     dep_types = [
-#         (
-#             type(node)
-#             if isinstance(node, DependentNode)
-#             else (
-#                 node[1].type_
-#                 if isinstance(node[1], (RequestParam, PluginParam))
-#                 else None
-#             )
-#         )
-#         for node in result
-#     ]
-#     assert TopDependency in dep_types or DependentNode in dep_types
-
-
-# def test_analyze_param_union_with_payload():
-#     graph = Graph()
-#     seen = set()
-#     path_keys = ()
-
-#     # Create a Union type that includes a Payload class and a non-Payload type
-#     union_type = Union[SamplePayload, int, None]
-
-#     result = analyze_param(graph, "mixed_data", seen, path_keys, union_type, MISSING)
-
-#     assert len(result) == 1
-#     name, param = result[0]
-#     assert name == "mixed_data"
-#     assert isinstance(param, RequestBodyParam)
-
-#     # The key point: when a Union includes a Payload, it should be treated as a body parameter
-
-#     # Test that the decoder can handle the union type
-#     # This indirectly tests that the decoder was created correctly in lines 237-238
-#     decoder = param.decoder
-#     assert decoder is not None
-
-
-# def test_txtdecoder_factory_basic_types():
-#     """Test txtdecoder_factory with basic types"""
-#     # Test with str
-#     str_decoder_func = txtdecoder_factory(str)
-#     assert str_decoder_func("hello") == "hello"
-
-#     # Test with bytes
-#     bytes_decoder_func = txtdecoder_factory(bytes)
-#     assert bytes_decoder_func("hello") == b"hello"
-
-#     # Test with int
-#     int_decoder_func = txtdecoder_factory(int)
-#     assert int_decoder_func("42") == 42
-
-#     # Test with bool
-#     bool_decoder_func = txtdecoder_factory(bool)
-#     assert bool_decoder_func("true") is True
-#     with pytest.raises(TypeError):
-#         assert bool_decoder_func(True) is True
-
-
-# def test_txtdecoder_factory_with_bytes():
-#     """Test txtdecoder_factory specifically with bytes type"""
-#     decoder = txtdecoder_factory(bytes)
-
-#     # Test with bytes input
-#     assert decoder("hello world") == b"hello world"
-
-#     # Test with string input (should be converted to bytes)
-#     assert decoder("hello world") == b"hello world"
-
-
-# def test_txtdecoder_factory_with_union_containing_bytes():
-#     """Test txtdecoder_factory with unions containing bytes"""
-#     # Union of bytes and dict
-#     union_decoder = txtdecoder_factory(dict | bytes)
-
-#     # Should decode valid JSON as dict
-#     # assert union_decoder(b'{"key": "value"}') == {"key": "value"}
-
-#     # Should keep invalid JSON as bytes
-#     assert union_decoder(b"not a json") == b"not a json"
-
-#     # Union of bytes, list and int
-#     complex_decoder = txtdecoder_factory(Union[list, int, bytes])
-
-#     # Should decode valid int
-#     assert complex_decoder("42") == 42
-
-#     # Should keep other content as bytes
-#     assert complex_decoder(b"hello") == b"hello"
-
-
-# def test_txtdecoder_factory_with_union_types():
-#     """Test txtdecoder_factory with various union types"""
-#     # Union with str
-#     str_union_decoder = txtdecoder_factory(Union[int, bytes])
-#     assert str_union_decoder("42") == 42
-#     assert str_union_decoder("hello") == b"hello"
-
-#     # Union with bytes
-#     bytes_union_decoder = txtdecoder_factory(Union[bytes, dict])
-#     assert bytes_union_decoder(b'{"a": 1}') == {"a": 1}
-#     assert bytes_union_decoder(b"not json") == b"not json"
-
-#     # Complex union without str/bytes
-#     complex_decoder = txtdecoder_factory(Union[int, list, dict])
-#     assert complex_decoder("42") == 42
-
-
-# def test_txtdecoder_factory_with_python_3_10_union_syntax():
-#     """Test txtdecoder_factory with Python 3.10+ union syntax (if supported)"""
-#     # Skip if UnionType is not available (Python < 3.10)
-#     if not hasattr(pytest, "skip_if"):
-#         try:
-#             # Python 3.10+ union syntax
-#             type_expr = eval("int | str")
-
-#             # Test with the new union syntax
-#             union_decoder = txtdecoder_factory(type_expr)
-#             assert union_decoder("42") == 42
-#             assert union_decoder("hello") == "hello"
-#         except SyntaxError:
-#             pytest.skip("Python 3.10+ union syntax not supported")
-
-
-# def test_txtdecoder_factory_with_optional():
-#     """Test txtdecoder_factory with Optional types (Union[T, None])"""
-#     # Optional[int] is Union[int, None]
-#     optional_decoder = txtdecoder_factory(int | None)
-
-#     assert optional_decoder("42") == 42
-#     assert optional_decoder("null") is None
-
-#     # Optional[bytes]
-#     optional_bytes_decoder = txtdecoder_factory(bytes | None)
-
-#     assert optional_bytes_decoder(b"hello") == b"hello"
-#     assert optional_bytes_decoder("null") is None
-
-
-# def test_txtdecoder_factory_with_complex_types():
-#     """Test txtdecoder_factory with more complex types"""
-#     # List type
-#     list_decoder = txtdecoder_factory(list[int])
-#     assert list_decoder("[1, 2, 3]") == [1, 2, 3]
-
-#     # Dict type
-#     dict_decoder = txtdecoder_factory(dict[str, int])
-
-#     result = dict_decoder('{"a": 1, "b": 2}')
-
-#     assert result == {"a": 1, "b": 2}
-
-#     # Nested type
-#     nested_decoder = txtdecoder_factory(list[dict[str, int]])
-#     assert nested_decoder('[{"a": 1}, {"b": 2}]') == [{"a": 1}, {"b": 2}]
-
-
-# def test_check_marked_param():
-#     assert is_param_mark(Annotated[Body[str], "aloha"])
-#     assert is_param_mark(Body[int])
-
-
-# def test_query_struct_is_query():
-#     class QModel(Payload):
-#         name: str
-#         age: int
-
-#     res = analyze_param(
-#         graph=Graph(),
-#         name="query_model",
-#         seen=set(),
-#         path_keys=("query_model",),
-#         type_=Query[QModel],
-#     )
-#     assert len(res) == 1
-
-#     assert not isinstance(res[0], DependentNode)
-
-#     name, pres = res[0]
-
-#     assert pres.location == "query"
-#     assert pres.type_ == QModel
-
-
-# def test_union_param_with_non_file():
-#     class QModel(Payload):
-#         name: str
-#         age: int
-
-#     param = analyze_union_param(name="q", type_=bytes | QModel, default=None)
-#     assert param.type_ == (bytes | QModel)
-
-
-# type TIntAlias = int
-
-# type TReqAlias = Request
-
-
-# # def test_verify_lhl_dep_with_type_alias():
-# #     assert not is_lhl_dep(TIntAlias)
-# #     assert is_lhl_dep(TReqAlias)
-
-
-# def test_param_parser_annotated():
-#     dg = Graph()
-#     parser = ParamParser(dg, ("user_id", "order_id"))
-
-#     def decode_text(content: str) -> str:
-#         return content
-
-#     res = parser.parse_param(
-#         "user_id", annotation=Annotated[float | int, CustomDecoder(decode_text)]
-#     )
-#     param = res[0]
-
-#     assert not isinstance(param, DependentNode)
-#     assert not isinstance(param, PluginParam)
-
-#     assert param.location == "path"
-#     assert param.decoder is decode_text
-#     assert param.type_ == Union[float, int]
-
-#     res = parser.parse_param("user_name", annotation=str | int)
-#     param = res[0]
-
-#     assert not isinstance(param, DependentNode)
-#     assert not isinstance(param, PluginParam)
-#     assert param.location == "query"
-#     assert param.type_ == Union[str, int]
-
-
-# def test_param_parser_marked():
-#     dg = Graph()
-#     parser = ParamParser(dg, ())
-
-#     def decode_text(content: str) -> str:
-#         return content
-
-#     res = parser.parse_param(
-#         "user_id",
-#         annotation=Annotated[Body[float | int], CustomDecoder(decode_text)],
-#     )
+    param = param_parser.parse_param("data", Cached[str])[0]
+    assert isinstance(param, PluginParam)
+    assert param.type_ == str

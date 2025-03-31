@@ -111,8 +111,8 @@ class Endpoint[R]:
                 params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-            # elif self.plugin.loader:
-            #    params[name] = self.plugin.loader(request, resolver)
+            elif p.loader:
+                params[name] = p.loader(request, resolver)
             else:
                 raise InvalidParamTypeError(ptype)
         return params

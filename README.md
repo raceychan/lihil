@@ -262,3 +262,10 @@ Based on the above points, in version v0.1.x, we welcome contributions in the fo
 - A highly performant schema-based query builder based on asyncpg
 - Local command handler(http rpc) and remote command handler (gRPC)
 - More middleware and official plugins (e.g., throttling, caching, auth).
+
+
+### version 0.3.x performance boost
+
+- rewrite starlette request form:
+    1. use multipart
+    2. rewrite starlette `Multidict`, `Formdata`, perhaps using https://github.com/aio-libs/multidict

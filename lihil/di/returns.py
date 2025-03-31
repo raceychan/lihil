@@ -7,6 +7,7 @@ from typing import (
     Literal,
     TypeAliasType,
     TypeGuard,
+    TypeVar,
     get_args,
 )
 
@@ -62,7 +63,7 @@ class EndpointReturn[T](Record):
     encoder: IEncoder[T]
     mark_type: ResponseMark = "resp"
     annotation: Any = MISSING
-    content_type: str = "application/json"
+    content_type: str | None = "application/json"
 
     def __post_init__(self):
         if self.status < 200 or self.status in (204, 205, 304):
@@ -94,28 +95,29 @@ def parse_return_pro(
         if isinstance(meta, CustomEncoder):
             encoder = meta.encode
         elif resp_type := extra_resp_type(meta):
-            if resp_type == "resp":
-                try:
-                    status = parse_status(metas[idx - 1])
-                except IndexError:
-                    status = 200
-            elif resp_type == "text":
-                content_type = metas[idx + 1]
-            elif resp_type == "html":
-                content_type = metas[idx + 1]
-            elif resp_type == "stream":
-                ret_type = get_args(annotation)[0]
-                content_type = metas[idx + 1]
             mark_type = resp_type
+            if resp_type == "resp":
+                status_var = metas[idx - 1]
+                if isinstance(status_var, TypeVar):
+                    status = 200
+                else:
+                    status = parse_status(metas[idx - 1])
+            elif resp_type == "empty":
+                content_type = None
+            else:
+                if resp_type == "stream":
+                    ret_type = get_args(annotation)[0]
+                content_type = metas[idx + 1]
         else:
             continue
 
-    if encoder is None:
-        content, _ = content_type.split("/")
-        if content == "text":
+    content, _ = content_type.split("/") if content_type else (None, None)
+    if content == "text":
+        if encoder is None:
             encoder = encode_text
-            ret_type = bytes
-        else:
+        ret_type = bytes
+    else:
+        if encoder is None:
             encoder = encode_json
 
     ret = EndpointReturn(
@@ -140,7 +142,7 @@ def parse_single_return[R](
     return parse_return_pro(ret_type, annt, metas)
 
 
-def parse_all_returns(
+def parse_returns(
     annt: Maybe[type[Any] | UnionType | TypeAliasType | GenericAlias],
 ) -> dict[int, EndpointReturn[Any]]:
     if not is_annotated(annt):
@@ -156,7 +158,9 @@ def parse_all_returns(
 
         resp_cnt = 0
         for _, ret_meta in temp_union:
-            if ret_meta and RESP_RETURN_MARK in ret_meta:
+            if not ret_meta:
+                continue
+            if RESP_RETURN_MARK in ret_meta:
                 resp_cnt += 1
 
         if resp_cnt and resp_cnt != len(unions):
@@ -168,6 +172,7 @@ def parse_all_returns(
             return {resp.status: resp}
         else:
             resps = [
-                parse_return_pro(uorigin, annt, umeta) for uorigin, umeta in temp_union
+                parse_return_pro(uorigin, uorigin, umeta) for uorigin, umeta in temp_union
             ]
+            # idea: number of unique status code should match with number of resp marks
             return {resp.status: resp for resp in resps}

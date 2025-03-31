@@ -200,3 +200,27 @@ class Random(Struct):
 
 def test_detail_base_to_content():
     assert detail_base_to_content(Random, {}, {})
+
+
+def test_ep_with_status_larger_than_300():
+    async def create_user() -> (
+        Resp[str, status.NOT_FOUND] | Resp[int, status.INTERNAL_SERVER_ERROR]
+    ): ...
+
+    route = Route()
+    route.post(create_user)
+    ep = route.get_endpoint(create_user)
+    ep.setup()
+
+    get_resp_schemas(ep, {}, "")
+
+
+def test_ep_without_ret():
+    async def create_user(): ...
+
+    route = Route()
+    route.post(create_user)
+    ep = route.get_endpoint(create_user)
+    ep.setup()
+
+    get_resp_schemas(ep, {}, "")

@@ -446,6 +446,29 @@ def test_get_origin_nested():
     assert res[1] == [str, 3, 2, 1]
 ```
 
+This is mainly to support user defined nested type alias.
+
+For Example
+
+```python
+from lihil import Resp, status
+
+type ProfileReturn = Resp[User, status.OK] | Resp[Order, status.CREATED] | Resp[
+    None,
+    status.NOT_ACCEPTABLE
+    | Resp[int, status.INTERNAL_SERVER_ERROR]
+    | Resp[str, status.LOOP_DETECTED]
+    | Resp[list[int, status.INSUFFICIENT_STORAGE]],
+]
+
+@rprofile.post
+async def profile(
+    pid: str, q: int, user: User, engine: Engine
+) -> ProfileReturn:
+    return User(id=user.id, name=user.name, email=user.email)
+```
+
+### Features
 
 - now supports multiple responses
 
@@ -458,3 +481,29 @@ async def profile(
 ```
 
 now openapi docs would show that `profile` returns `User` with `200`, `Order` with `201`
+
+
+- `PluginProvider`, use might now provide customized mark
+
+```python
+from lihil import Request, Resolver
+
+type Cached[T] = Annotated[T, param_mark("cached")]
+
+
+class CachedProvider:
+    def load(self, request: Request, resolver: Resolver) -> str:
+        return "cached"
+
+    def parse(self, name: str, type_: type, default, annotation, param_meta)->PluginParam[str]:
+        return PluginParam(type_=type_, name=name, loader=self.load)
+
+
+def test_param_provider(param_parser: ParamParser):
+    provider = CachedProvider()
+    param_parser.register_provider(Cached[str], provider)
+
+    param = param_parser.parse_param("data", Cached[str])[0]
+    assert isinstance(param, PluginParam)
+    assert param.type_ == str
+```

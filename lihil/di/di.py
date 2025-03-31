@@ -6,7 +6,7 @@ from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
 from lihil.di.params import ParamParser, PluginParam, RequestBodyParam, RequestParam
-from lihil.di.returns import EndpointReturn, parse_all_returns  # pparse_returns,
+from lihil.di.returns import EndpointReturn, parse_returns  # pparse_returns,
 from lihil.interface import MISSING, Base, IEncoder, Record, is_provided
 from lihil.problems import (
     InvalidDataType,
@@ -161,8 +161,8 @@ class EndpointDeps[R](Base):
         func_params = tuple(func_sig.parameters.items())
 
         parser = ParamParser(graph, path_keys)
-        params = parser.parse_endpoint_params(func_params, path_keys)
-        return_params = parse_all_returns(func_sig.return_annotation)
+        params = parser.parse(func_params, path_keys)
+        return_params = parse_returns(func_sig.return_annotation)
 
         default_status = next(iter(return_params))
         default_encoder = return_params[default_status].encoder
