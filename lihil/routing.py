@@ -118,17 +118,20 @@ class Route(ASGIBase):
     def __truediv__(self, path: str) -> "Route":
         return self.sub(path)
 
-    async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
+    async def __call__(self, scope: IScope, receive: IReceive, send: ISend)->None:
         http_method = scope["method"]
         try:
             await self.call_stacks[http_method](scope, receive, send)
         except KeyError:
             return await METHOD_NOT_ALLOWED_RESP(scope, receive, send)
 
-    def is_direct_child_of(self, other: "Route") -> bool:
-        if not self.path.startswith(other.path):
+    def is_direct_child_of(self, other_path: "Route | str") -> bool:
+        if isinstance(other_path, Route):
+            return self.is_direct_child_of(other_path.path)
+
+        if not self.path.startswith(other_path):
             return False
-        rest = self.path.removeprefix(other.path)
+        rest = self.path.removeprefix(other_path)
         return rest.count("/") < 2
 
     def setup(self):

@@ -102,11 +102,16 @@ class Lihil[T](ASGIBase):
         )
         self.graph = graph or Graph(self_inject=True, workers=self.workers)
         self.busterm = busterm or BusTerminal()
-        self.root = Route("/", graph=self.graph)
-        self.routes: list[Route] = [self.root]
         # =========== keep above order ============
+        self.routes: list[Route] = []
+
         if routes:
             self.include_routes(*routes)
+
+        if not any(route.path == "/" for route in self.routes):
+            self.root = Route("/", graph=self.graph)
+            self.routes.insert(0, self.root)
+
         self._userls = lifespan_wrapper(lifespan)
         self.static_route: StaticRoute | None = None
         self._app_state: T | None = None
@@ -175,15 +180,16 @@ class Lihil[T](ASGIBase):
             self.sync_deps(route)
 
             if route.path == "/":
-                if self.root.endpoints:
+                if self.routes and self.root.endpoints:
                     raise DuplicatedRouteError(route, self.root)
-                self.routes[0] = self.root = route
+                self.root = route
+                self.routes.insert(0, self.root)
             else:
-                if route.is_direct_child_of(self.root):
-                    self.root.subroutes.append(route)
                 self.routes.append(route)
             seen.add(route.path)
             for sub in route.subroutes:
+                if sub.path in seen:
+                    continue
                 self.include_routes(sub, __seen__=seen)
 
     def static(

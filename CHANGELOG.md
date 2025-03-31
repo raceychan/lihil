@@ -507,3 +507,25 @@ def test_param_provider(param_parser: ParamParser):
     assert isinstance(param, PluginParam)
     assert param.type_ == str
 ```
+
+
+## version 0.1.14
+
+
+### Fix
+
+- fix a bug where if user defined a Route with path "/"(the root route), it will be ignored.
+
+```python
+from lihil import Route, Lihil
+root = Route("/")
+root.get(lambda : "root")
+
+lhl = Lihil(routes=[root])
+
+assert not lhl.root.endpoints
+```
+
+This is because the previously we always create a root route in lhl before including any other route.
+
+and when we include the user created root route, it will be ignored by lihil.
