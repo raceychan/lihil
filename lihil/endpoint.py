@@ -7,6 +7,7 @@ from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
 from lihil.config import EndPointConfig
+
 from lihil.di.di import EndpointSignature, ParseResult
 from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.errors import InvalidParamTypeError

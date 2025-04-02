@@ -947,3 +947,24 @@ async def test_init_lihil_with_middlewares():
     lc = LocalClient()
     await lc.call_app(lhl, "GET", "/")
     assert se == [1, 2]
+
+
+
+async def test_lhl_http_methods():
+    lhl = Lihil()
+
+    @lhl.trace
+    @lhl.connect
+    async def root():
+        return "hello"
+
+
+async def test_lhl_add_sub_route_before_route():
+    parent_route = Route()
+
+    sub_route = parent_route / "sub"
+
+
+    lhl= Lihil()
+
+    lhl.include_routes(sub_route, parent_route)

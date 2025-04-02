@@ -532,9 +532,16 @@ and when we include the user created root route, it will be ignored by lihil.
 
 - fix a bug where static route would replace an existing route instead of being added as a new route.
 
+- fix a bug where if calling `Lihil.include_routes` with both parent route and child route would cause error.
 
 ### Improvements
 
 - better repr for `Lihil`
 
-- now user might add `headers` to `HttpException`
+- now user might add `headers` to `HttpException` and its subclass, it would be returned to the client
+
+```python
+@root.get
+async def get_user():
+    raise UserNotFoundError("user not found", headers={"error-id": "random-id"})
+```

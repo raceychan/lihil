@@ -56,7 +56,7 @@ def is_lihil_marked(m: Any, mark_prefix: str) -> bool:
         return False
 
 
-def extra_mark_type(mark: Any) -> "ParamMarkType | None":
+def extract_mark_type(mark: Any) -> "ParamMarkType | None":
     if not isinstance(mark, str):
         return None
 
@@ -68,7 +68,7 @@ def extra_mark_type(mark: Any) -> "ParamMarkType | None":
     return None
 
 
-def extra_resp_type(mark: Any) -> "ResponseMark | None":
+def extract_resp_type(mark: Any) -> "ResponseMark | None":
     if not isinstance(mark, str):
         return None
 

@@ -25,15 +25,11 @@ class BaseStruct(Struct, omit_defaults=True, frozen=True):
 GEZero = Annotated[int, Meta(ge=0)]
 
 
-class SecuritySchemeType(Enum):
-    apiKey = "apiKey"
-    http = "http"
-    oauth2 = "oauth2"
-    openIdConnect = "openIdConnect"
+type SecuritySchemes = Literal["apiKey", "http", "oauth2", "openIdConnect"]
 
 
 class SecurityBase(BaseStruct, kw_only=True):
-    type_: SecuritySchemeType = field(name="type")
+    type_: SecuritySchemes = field(name="type")
     description: Optional[str] = None
 
 
@@ -44,13 +40,13 @@ class APIKeyIn(Enum):
 
 
 class APIKey(SecurityBase, kw_only=True):
-    type_: SecuritySchemeType = field(default=SecuritySchemeType.apiKey, name="type")
+    type_: SecuritySchemes = field(default="apiKey", name="type")
     in_: APIKeyIn = field(name="in")
     name: str
 
 
 class HTTPBase(SecurityBase, kw_only=True):
-    type_: SecuritySchemeType = field(default=SecuritySchemeType.http, name="type")
+    type_: SecuritySchemes = field(default="http", name="type")
     scheme: str
 
 
@@ -89,14 +85,12 @@ class OAuthFlows(BaseStruct, kw_only=True):
 
 
 class OAuth2(SecurityBase, kw_only=True):
-    type_: SecuritySchemeType = field(default=SecuritySchemeType.oauth2, name="type")
+    type_: SecuritySchemes = field(default="oauth2", name="type")
     flows: OAuthFlows
 
 
 class OpenIdConnect(SecurityBase, kw_only=True):
-    type_: SecuritySchemeType = field(
-        default=SecuritySchemeType.openIdConnect, name="type"
-    )
+    type_: SecuritySchemes = field(default="openIdConnect", name="type")
     openIdConnectUrl: str
 
 
@@ -364,7 +358,6 @@ class OpenAPI(BaseStruct, kw_only=True):
     tags: Optional[list[Tag]] = None
     externalDocs: Optional[ExternalDocumentation] = None
     # responses: dict[str, Response]
-
 
 
 class RouteConfig(BaseStruct):

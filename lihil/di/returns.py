@@ -14,7 +14,7 @@ from typing import (
 from lihil.constant.status import code as get_status_code
 from lihil.errors import InvalidStatusError, NotSupportedError, StatusConflictError
 from lihil.interface import MISSING, CustomEncoder, IEncoder, Maybe, Record, is_provided
-from lihil.interface.marks import RESP_RETURN_MARK, ResponseMark, extra_resp_type
+from lihil.interface.marks import RESP_RETURN_MARK, ResponseMark, extract_resp_type
 from lihil.utils.phasing import encode_json, encode_text
 from lihil.utils.typing import get_origin_pro, is_union_type
 
@@ -94,7 +94,7 @@ def parse_return_pro(
     for idx, meta in enumerate(metas):
         if isinstance(meta, CustomEncoder):
             encoder = meta.encode
-        elif resp_type := extra_resp_type(meta):
+        elif resp_type := extract_resp_type(meta):
             mark_type = resp_type
             if resp_type == "resp":
                 status_var = metas[idx - 1]

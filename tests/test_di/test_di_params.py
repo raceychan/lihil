@@ -29,6 +29,7 @@ from lihil.di.params import (
 )
 from lihil.errors import NotSupportedError
 from lihil.interface.marks import param_mark
+from lihil.plugins.provider import register_plugin_provider, remove_plugin_provider
 
 
 # Helper classes for testing
@@ -403,25 +404,28 @@ class CachedProvider:
     def load(self, request: Request, resolver: Resolver) -> str:
         return "cached"
 
-    def parse(self, name: str, type_: type, default, annotation, param_meta):
+    def parse(self, name: str, type_: type, default, annotation, metas):
         return PluginParam(type_=type_, name=name, loader=self.load)
 
 
 def test_param_provider(param_parser: ParamParser):
     provider = CachedProvider()
-    param_parser.register_provider(Cached[str], provider)
+    register_plugin_provider(Cached[str], provider)
 
     param = param_parser.parse_param("data", Cached[str])[0]
     assert isinstance(param, PluginParam)
     assert param.type_ == str
 
+    remove_plugin_provider(Cached[str])
+
 
 def test_param_provider_with_invalid_mark(param_parser):
     with pytest.raises(NotSupportedError):
-        param_parser.register_provider("asdf", None)
+        register_plugin_provider("asdf", None)
 
     with pytest.raises(NotSupportedError):
-        param_parser.register_provider(Annotated[str, "asdf"], None)
+        register_plugin_provider(Annotated[str, "asdf"], None)
 
-def test_param_provider_with_invalid_plugin(param_parser):
+
+def test_param_provider_with_invalid_plugin(param_parser: ParamParser):
     assert not param_parser.is_plugin_type(5)

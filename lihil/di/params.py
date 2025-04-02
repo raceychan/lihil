@@ -3,7 +3,6 @@ from inspect import Parameter
 from types import GenericAlias, UnionType
 from typing import (
     Any,
-    Protocol,
     Sequence,
     TypeAliasType,
     TypeGuard,
@@ -30,9 +29,10 @@ from lihil.interface import (
     Maybe,
     ParamLocation,
 )
-from lihil.interface.marks import ParamMarkType, Struct, extra_mark_type
+from lihil.interface.marks import ParamMarkType, Struct, extract_mark_type
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
+from lihil.plugins.provider import PLUGIN_REGISTRY, PluginParam
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, to_str
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
@@ -185,37 +185,6 @@ class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
         return self.decoder(content)  # type: ignore
 
 
-class PluginParam[T](Base):
-    type_: type[T]
-    name: str
-    default: Maybe[Any] = MISSING
-    required: bool = False
-    loader: "PluginLoader[T] | None" = None
-
-    def __post_init__(self):
-        self.required = self.default is MISSING
-
-
-class PluginLoader[T](Protocol):
-    async def __call__(self, request: Request, resolver: Resolver) -> T: ...
-
-
-class PluginProvider[T](Protocol):
-    async def load(self, request: Request, resolver: Resolver) -> T: ...
-
-    def parse(
-        self,
-        name: str,
-        type_: type[T] | UnionType,
-        annotation: Any,
-        default: Maybe[T],
-        param_meta: "ParamMetas",
-    ) -> PluginParam[T]:
-        return PluginParam(
-            type_=cast(type[T], type_), name=name, default=default, loader=self.load
-        )
-
-
 class ParamMetas(Base):
     custom_decoder: CustomDecoder | None
     mark_type: ParamMarkType | None
@@ -233,7 +202,7 @@ class ParamMetas(Base):
         for idx, meta in enumerate(metas):
             if isinstance(meta, CustomDecoder):
                 decoder = meta
-            elif mark_type := extra_mark_type(meta):
+            elif mark_type := extract_mark_type(meta):
                 if current_mark_type and mark_type is not current_mark_type:
                     raise NotSupportedError("can't use more than one param mark")
                 elif mark_type == "header":
@@ -290,24 +259,7 @@ class ParamParser:
             self.seen = set()
 
         # mark_type or param_type, dict[str | type, PluginProvider]
-        self.plugin_provider: dict[str, PluginProvider[Any]] = {}
         self.plugin_types = LIHIL_DEPENDENCIES
-
-    def register_provider(
-        self, mark: TypeAliasType | GenericAlias, provider: PluginProvider[Any]
-    ) -> None:
-        _, metas = get_origin_pro(mark)
-
-        if not metas:
-            raise NotSupportedError("Invalid mark type")
-
-        for meta in metas:
-            if mark_type := extra_mark_type(meta):
-                break
-        else:
-            raise NotSupportedError("Invalid mark type")
-
-        self.plugin_provider[mark_type] = provider
 
     def is_plugin_type(self, param_type: Any) -> TypeGuard[type]:
         "Dependencies that should be injected and managed by lihil"
@@ -486,13 +438,13 @@ class ParamParser:
                 default=default,
                 param_meta=param_meta,
             )
-        elif provider := self.plugin_provider.get(param_meta.mark_type):
+        elif provider := PLUGIN_REGISTRY.get(param_meta.mark_type):
             res = provider.parse(
                 name=name,
                 type_=parsed_type,
                 annotation=annotation,
                 default=default,
-                param_meta=param_meta,
+                metas=pmetas,
             )
         else:
             res = self._parse_marked(
