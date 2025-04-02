@@ -149,7 +149,9 @@ def __erresp_factory_registry():
     ) -> ErrorResponse[Any]:
         "User can override this to extend problem detail"
         detail = exc.__problem_detail__(req.url.path)
-        return ErrorResponse[Any](detail, status_code=detail.status)
+        return ErrorResponse[Any](
+            detail, status_code=detail.status, headers=exc.headers
+        )
 
     _solver(default_error_catch)
 
@@ -169,11 +171,13 @@ class HTTPException[T](Exception, DetailBase[T]):
         self,
         detail: T = "MISSING",
         *,
+        headers: dict[str, str] | None = None,
         problem_status: http_status.Status | None = None,
         problem_detail_type: str | None = None,
         problem_detail_title: str | None = None,
     ):
         self.detail = detail
+        self.headers = headers
         self._problem_type = problem_detail_type
         self._problem_title = problem_detail_title
         self._problem_status: http_status.Status = problem_status or self.__status__
@@ -206,7 +210,6 @@ class HTTPException[T](Exception, DetailBase[T]):
 
 
 class ErrorResponse[T](Response):
-
     def __init__(
         self,
         detail: ProblemDetail[T],
@@ -242,10 +245,9 @@ class InvalidDataType(ValidationProblem, tag=True):
     message: str = "Param is not of right type"
 
 
-# @dataclass(kw_only=True)
 class InvalidRequestErrors(HTTPException[list[ValidationProblem]]):
     title: str = "Check Your Params"
-    instance: str = "uri of the entity"
+    instance: str = "URI of the entity"
 
     detail: list[ValidationProblem]
 

@@ -7,7 +7,6 @@ from typing import (
     Sequence,
     TypeAliasType,
     TypeGuard,
-    Awaitable,
     Union,
     cast,
     get_args,
@@ -192,7 +191,6 @@ class PluginParam[T](Base):
     default: Maybe[Any] = MISSING
     required: bool = False
     loader: "PluginLoader[T] | None" = None
-    # async_loader: bool
 
     def __post_init__(self):
         self.required = self.default is MISSING
@@ -203,7 +201,7 @@ class PluginLoader[T](Protocol):
 
 
 class PluginProvider[T](Protocol):
-    load: PluginLoader[T]
+    async def load(self, request: Request, resolver: Resolver) -> T: ...
 
     def parse(
         self,
@@ -212,7 +210,10 @@ class PluginProvider[T](Protocol):
         annotation: Any,
         default: Maybe[T],
         param_meta: "ParamMetas",
-    ) -> list[PluginParam[T]]: ...
+    ) -> PluginParam[T]:
+        return PluginParam(
+            type_=cast(type[T], type_), name=name, default=default, loader=self.load
+        )
 
 
 class ParamMetas(Base):
@@ -493,7 +494,6 @@ class ParamParser:
                 default=default,
                 param_meta=param_meta,
             )
-            res = cast(list[ParsedParam[T]], res)
         else:
             res = self._parse_marked(
                 name=name,

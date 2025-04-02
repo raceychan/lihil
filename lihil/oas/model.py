@@ -2,6 +2,7 @@ from enum import Enum
 from typing import (
     Annotated,
     Any,
+    Literal,
     Optional,
     Sequence,
     TypedDict,
@@ -14,85 +15,6 @@ from msgspec.structs import replace as struct_replace
 
 from lihil.problems import DetailBase
 
-# from typing_extensions import deprecated as typing_deprecated
-
-# class SecuritySchemeType(Enum):
-#     apiKey = "apiKey"
-#     http = "http"
-#     oauth2 = "oauth2"
-#     openIdConnect = "openIdConnect"
-
-
-# class SecurityBase(BaseStruct, kw_only=True):
-#     type_: SecuritySchemeType = field(name="type")
-#     description: Optional[str] = None
-
-
-# class APIKeyIn(Enum):
-#     query = "query"
-#     header = "header"
-#     cookie = "cookie"
-
-
-# class APIKey(SecurityBase):
-#     type_: SecuritySchemeType = field(default=SecuritySchemeType.apiKey, name="type")
-#     in_: APIKeyIn = field(name="in")
-#     name: str
-
-
-# class HTTPBase(SecurityBase):
-#     type_: SecuritySchemeType = field(default=SecuritySchemeType.http, name="type")
-#     scheme: str
-
-
-# class HTTPBearer(HTTPBase):
-#     scheme: Literal["bearer"] = "bearer"
-#     bearerFormat: Optional[str] = None
-
-
-# class OAuthFlow(BaseStruct, kw_only=True):
-#     refreshUrl: Optional[str] = None
-#     scopes: dict[str, str] = {}
-
-
-# class OAuthFlowImplicit(OAuthFlow):
-#     authorizationUrl: str
-
-
-# class OAuthFlowPassword(OAuthFlow):
-#     tokenUrl: str
-
-
-# class OAuthFlowClientCredentials(OAuthFlow):
-#     tokenUrl: str
-
-
-# class OAuthFlowAuthorizationCode(OAuthFlow):
-#     authorizationUrl: str
-#     tokenUrl: str
-
-
-# class OAuthFlows(BaseStruct, kw_only=True):
-#     implicit: Optional[OAuthFlowImplicit] = None
-#     password: Optional[OAuthFlowPassword] = None
-#     clientCredentials: Optional[OAuthFlowClientCredentials] = None
-#     authorizationCode: Optional[OAuthFlowAuthorizationCode] = None
-
-
-# class OAuth2(SecurityBase):
-#     type_: SecuritySchemeType = field(default=SecuritySchemeType.oauth2, name="type")
-#     flows: OAuthFlows
-
-
-# class OpenIdConnect(SecurityBase):
-#     type_: SecuritySchemeType = field(
-#         default=SecuritySchemeType.openIdConnect, name="type"
-#     )
-#     openIdConnectUrl: str
-
-
-# SecurityScheme = Union[APIKey, HTTPBase, OAuth2, OpenIdConnect, HTTPBearer]
-
 
 @dataclass_transform(frozen_default=True)
 class BaseStruct(Struct, omit_defaults=True, frozen=True):
@@ -101,6 +23,84 @@ class BaseStruct(Struct, omit_defaults=True, frozen=True):
 
 
 GEZero = Annotated[int, Meta(ge=0)]
+
+
+class SecuritySchemeType(Enum):
+    apiKey = "apiKey"
+    http = "http"
+    oauth2 = "oauth2"
+    openIdConnect = "openIdConnect"
+
+
+class SecurityBase(BaseStruct, kw_only=True):
+    type_: SecuritySchemeType = field(name="type")
+    description: Optional[str] = None
+
+
+class APIKeyIn(Enum):
+    query = "query"
+    header = "header"
+    cookie = "cookie"
+
+
+class APIKey(SecurityBase, kw_only=True):
+    type_: SecuritySchemeType = field(default=SecuritySchemeType.apiKey, name="type")
+    in_: APIKeyIn = field(name="in")
+    name: str
+
+
+class HTTPBase(SecurityBase, kw_only=True):
+    type_: SecuritySchemeType = field(default=SecuritySchemeType.http, name="type")
+    scheme: str
+
+
+class HTTPBearer(HTTPBase):
+    scheme: Literal["bearer"] = "bearer"
+    bearerFormat: Optional[str] = None
+
+
+class OAuthFlow(BaseStruct, kw_only=True):
+    refreshUrl: Optional[str] = None
+    scopes: dict[str, str] = {}
+
+
+class OAuthFlowImplicit(OAuthFlow):
+    authorizationUrl: str
+
+
+class OAuthFlowPassword(OAuthFlow):
+    tokenUrl: str
+
+
+class OAuthFlowClientCredentials(OAuthFlow):
+    tokenUrl: str
+
+
+class OAuthFlowAuthorizationCode(OAuthFlow):
+    authorizationUrl: str
+    tokenUrl: str
+
+
+class OAuthFlows(BaseStruct, kw_only=True):
+    implicit: Optional[OAuthFlowImplicit] = None
+    password: Optional[OAuthFlowPassword] = None
+    clientCredentials: Optional[OAuthFlowClientCredentials] = None
+    authorizationCode: Optional[OAuthFlowAuthorizationCode] = None
+
+
+class OAuth2(SecurityBase, kw_only=True):
+    type_: SecuritySchemeType = field(default=SecuritySchemeType.oauth2, name="type")
+    flows: OAuthFlows
+
+
+class OpenIdConnect(SecurityBase, kw_only=True):
+    type_: SecuritySchemeType = field(
+        default=SecuritySchemeType.openIdConnect, name="type"
+    )
+    openIdConnectUrl: str
+
+
+SecurityScheme = Union[APIKey, HTTPBase, OAuth2, OpenIdConnect, HTTPBearer]
 
 
 class Contact(BaseStruct, kw_only=True):
@@ -365,10 +365,6 @@ class OpenAPI(BaseStruct, kw_only=True):
     externalDocs: Optional[ExternalDocumentation] = None
     # responses: dict[str, Response]
 
-
-# class IOASConfig(TypedDict, total=False):
-#     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
-#     in_schema: bool
 
 
 class RouteConfig(BaseStruct):

@@ -119,6 +119,15 @@ class Lihil[T](ASGIBase):
         self.err_registry = LIHIL_ERRESP_REGISTRY
         self._generate_doc_route()
 
+    def __repr__(self) -> str:
+        conn_info = ""
+        host, port = self.app_config.server.host, self.app_config.server.port
+        if host and port:
+            conn_info += f"({host}:{port})"
+        lhl_repr = f"{self.__class__.__name__}{conn_info}[\n  "
+        routes_repr = "\n  ".join(r.__repr__() for r in self.routes)
+        return lhl_repr + routes_repr + "\n]"
+
     @property
     def app_state(self) -> T | None:
         return self._app_state
@@ -186,6 +195,7 @@ class Lihil[T](ASGIBase):
                 self.routes.insert(0, self.root)
             else:
                 self.routes.append(route)
+
             seen.add(route.path)
             for sub in route.subroutes:
                 if sub.path in seen:
@@ -218,7 +228,8 @@ class Lihil[T](ASGIBase):
 
         content_resp = uvicorn_static_resp(encoded, content_type, charset)
         if self.static_route is None:
-            self.routes[1] = self.static_route = StaticRoute()
+            self.static_route = StaticRoute()
+            self.routes.insert(1, self.static_route)
         self.static_route.add_cache(path, content_resp)
 
     async def call_route(self, scope: IScope, receive: IReceive, send: ISend) -> None:

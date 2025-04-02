@@ -122,7 +122,7 @@ class Endpoint[R]:
                 params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-            elif p.loader:
+            elif p.loader:  # TODO? read form here
                 params[name] = await p.loader(request, resolver)
             else:
                 raise InvalidParamTypeError(ptype)

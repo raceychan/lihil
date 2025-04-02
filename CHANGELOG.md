@@ -529,3 +529,12 @@ assert not lhl.root.endpoints
 This is because the previously we always create a root route in lhl before including any other route.
 
 and when we include the user created root route, it will be ignored by lihil.
+
+- fix a bug where static route would replace an existing route instead of being added as a new route.
+
+
+### Improvements
+
+- better repr for `Lihil`
+
+- now user might add `headers` to `HttpException`

@@ -49,7 +49,7 @@ class Order(Payload, tag=True):
     price: float
 
 
-rusers = Route("users")
+rusers = Route("/users")
 
 
 class MyState(Payload): ...
@@ -128,8 +128,7 @@ lhl = Lihil(
     lifespan=lifespan,
     config_file="pyproject.toml",
 )
-lhl.static("/ping", "pong")
+lhl.static("/ping", "pong")  # BUG: static route will make /users post disappear
 
-
-if __name__ == "__main__":
-    lhl.run(__file__)
+# if __name__ == "__main__":
+#     lhl.run(__file__)
