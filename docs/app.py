@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 
 from lihil import (
-    HTML,
     Empty,
     HTTPException,
     Json,
@@ -13,6 +12,8 @@ from lihil import (
     Text,
     status,
 )
+
+from lihil.plugins.oauth import LoginForm
 
 
 class Unhappiness(Payload):
@@ -121,6 +122,10 @@ root = Route("/")
 @root.get
 async def roses_are_red():
     raise VioletsAreBlue("I am a pythonista")
+
+
+@root.sub("login").post
+async def login(login_form: LoginForm): ...
 
 
 lhl = Lihil(
