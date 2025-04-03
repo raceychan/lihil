@@ -47,3 +47,8 @@ class InvalidParamTypeError(LihilError):
 class NotSupportedError(LihilError):
     def __init__(self, msg: str):
         super().__init__(msg)
+
+
+class InvalidMarkTypeError(LihilError):
+    def __init__(self, mark_type: Any):
+        super().__init__(f"Invalid mark type {mark_type}")

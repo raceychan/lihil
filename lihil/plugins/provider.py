@@ -3,9 +3,9 @@ from typing import Any, Protocol, TypeAliasType, cast
 
 from ididi import Resolver
 
-from lihil.errors import NotSupportedError
+from lihil.errors import InvalidMarkTypeError
 from lihil.interface import MISSING, Base, Maybe
-from lihil.interface.marks import extract_mark_type
+from lihil.interface.marks import LIHIL_PARAM_MARK, extract_mark_type
 from lihil.utils.typing import get_origin_pro
 from lihil.vendor_types import Request
 
@@ -25,7 +25,7 @@ class PluginLoader[T](Protocol):
     async def __call__(self, request: Request, resolver: Resolver) -> T: ...
 
 
-class ProviderBase[T]:
+class ProviderMixin[T]:
     async def load(self, request: Request, resolver: Resolver) -> T: ...
 
     def parse(
@@ -42,38 +42,51 @@ class ProviderBase[T]:
 
 
 def __plugin_registry():
-    plugin_providers: dict[str, ProviderBase[Any]] = {}
+    plugin_providers: dict[str, ProviderMixin[Any]] = {}
 
+    # TODO:
     def register_plugin_provider(
-        mark: TypeAliasType | GenericAlias, provider: ProviderBase[Any]
-    ) -> ProviderBase[Any]:
+        mark: TypeAliasType | GenericAlias | str, provider: ProviderMixin[Any]
+    ) -> ProviderMixin[Any]:
         nonlocal plugin_providers
 
-        _, metas = get_origin_pro(mark)
-
-        if not metas:
-            raise NotSupportedError("Invalid mark type")
-
-        for meta in metas:
-            if mark_type := extract_mark_type(meta):
-                break
+        if isinstance(mark, str):
+            if not mark.startswith(LIHIL_PARAM_MARK):
+                raise InvalidMarkTypeError(mark)
+            mark_type = mark
         else:
-            raise NotSupportedError("Invalid mark type")
+            _, metas = get_origin_pro(mark)
+
+            if not metas:
+                raise InvalidMarkTypeError(mark)
+
+            for meta in metas:
+                if mark_type := extract_mark_type(meta):
+                    break
+            else:
+                raise InvalidMarkTypeError(mark)
+
+        if mark_type in plugin_providers:
+            raise Exception(f"Duplicate mark {mark}, remove it first")
 
         plugin_providers[mark_type] = provider
         return provider
 
-    def remove_plugin_provider(mark: TypeAliasType | GenericAlias) -> None:
+    def remove_plugin_provider(mark: TypeAliasType | GenericAlias | str) -> None:
         nonlocal plugin_providers
-        _, metas = get_origin_pro(mark)
 
-        if not metas:
-            raise NotSupportedError("Invalid mark type")
-        for meta in metas:
-            if mark_type := extract_mark_type(meta):
-                break
+        if isinstance(mark, str):
+            mark_type = mark
         else:
-            raise NotSupportedError("Invalid mark type")
+            _, metas = get_origin_pro(mark)
+
+            if not metas:
+                raise InvalidMarkTypeError(mark)
+            for meta in metas:
+                if mark_type := extract_mark_type(meta):
+                    break
+            else:
+                raise InvalidMarkTypeError(mark)
 
         plugin_providers.pop(mark_type)
 

@@ -27,7 +27,7 @@ from lihil.endpoint.params import (
     RequestParam,
     to_bytes,
 )
-from lihil.errors import NotSupportedError
+from lihil.errors import NotSupportedError, InvalidMarkTypeError
 from lihil.interface.marks import param_mark
 from lihil.plugins.provider import register_plugin_provider, remove_plugin_provider
 
@@ -420,10 +420,10 @@ def test_param_provider(param_parser: ParamParser):
 
 
 def test_param_provider_with_invalid_mark(param_parser):
-    with pytest.raises(NotSupportedError):
-        register_plugin_provider("asdf", None)
+    with pytest.raises(InvalidMarkTypeError):
+        register_plugin_provider("adsf", None)
 
-    with pytest.raises(NotSupportedError):
+    with pytest.raises(InvalidMarkTypeError):
         register_plugin_provider(Annotated[str, "asdf"], None)
 
 

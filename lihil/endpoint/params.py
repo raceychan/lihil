@@ -161,11 +161,6 @@ class RequestParamBase[T](Base):
         self.required = self.default is MISSING
 
 
-# class AccessControl(Base):
-#     # security requirement
-#     security_scheme: AuthPlugin[Any]
-#     scopes: Sequence[str] | None = None
-
 
 class RequestParam[T](RequestParamBase[T], kw_only=True):
     decoder: ITextDecoder[T]

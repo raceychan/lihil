@@ -6,10 +6,13 @@ run:
 dev:
 	uv run uvicorn docs.app:lhl --interface asgi3 --http httptools --no-access-log --log-level "warning" --reload
 
-
 .PHONY: fast
 fast:
 	uv run uvicorn docs.fast:app
+
+.PHONY: example
+example:
+	uv run uvicorn docs.example:lhl --interface asgi3 --http httptools --no-access-log --log-level "warning" --reload
 
 .PHONY: test
 test:
