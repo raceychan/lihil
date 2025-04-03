@@ -7,7 +7,7 @@ from msgspec.json import schema_components
 
 from lihil.config import OASConfig
 from lihil.constant.status import phrase
-from lihil.di import EndpointSignature, RequestParam
+from lihil.endpoint import EndpointSignature, RequestParam
 from lihil.interface import is_provided
 from lihil.oas import model as oasmodel
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail

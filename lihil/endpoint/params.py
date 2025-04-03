@@ -21,6 +21,7 @@ from msgspec import convert, field
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
+# from lihil.auth.oauth import AuthPlugin
 from lihil.errors import NotSupportedError
 from lihil.interface import (
     MISSING,
@@ -160,6 +161,12 @@ class RequestParamBase[T](Base):
         self.required = self.default is MISSING
 
 
+# class AccessControl(Base):
+#     # security requirement
+#     security_scheme: AuthPlugin[Any]
+#     scopes: Sequence[str] | None = None
+
+
 class RequestParam[T](RequestParamBase[T], kw_only=True):
     decoder: ITextDecoder[T]
 
@@ -222,11 +229,12 @@ class ParamMetas(Base):
         )
 
 
-class EndpointParams(Base):
+class EndpointParams(Base, kw_only=True):
     params: dict[str, RequestParam[Any]] = field(default_factory=dict)
     bodies: dict[str, RequestBodyParam[Any]] = field(default_factory=dict)
     nodes: dict[str, DependentNode] = field(default_factory=dict)
     plugins: dict[str, PluginParam[Any]] = field(default_factory=dict)
+    # access_controls: list[AccessControl]  # = field(default_factory=list)
 
     def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.location == location}

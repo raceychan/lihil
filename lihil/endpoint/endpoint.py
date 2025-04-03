@@ -7,9 +7,8 @@ from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
 from lihil.config import EndPointConfig
-
-from lihil.di.di import EndpointSignature, ParseResult
-from lihil.di.returns import agen_encode_wrapper, syncgen_encode_wrapper
+from lihil.endpoint import EndpointSignature, ParseResult
+from lihil.endpoint.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.errors import InvalidParamTypeError
 from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend
 from lihil.plugins.bus import BusTerminal, EventBus
@@ -18,8 +17,6 @@ from lihil.utils.threading import async_wrapper
 
 
 class Endpoint[R]:
-    _method: HTTP_METHODS
-
     def __init__(
         self,
         path: str,
@@ -31,7 +28,7 @@ class Endpoint[R]:
         config: EndPointConfig,
     ):
         self._path = path
-        self._method = method
+        self._method: HTTP_METHODS = method
         self._tag = tag
         self._unwrapped_func = func
         self._func = async_wrapper(func, threaded=config.to_thread)
@@ -191,6 +188,7 @@ class Endpoint[R]:
             resp = Response(
                 content=self._encoder(raw_return), status_code=self._status_code
             )
+        # TODO: no longer do this by default, since we have `Empty`
         if (status := resp.status_code) < 200 or status in (204, 205, 304):
             resp.body = b""
         return resp

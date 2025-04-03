@@ -25,7 +25,7 @@ class PluginLoader[T](Protocol):
     async def __call__(self, request: Request, resolver: Resolver) -> T: ...
 
 
-class PluginProvider[T](Protocol):
+class ProviderBase[T]:
     async def load(self, request: Request, resolver: Resolver) -> T: ...
 
     def parse(
@@ -42,11 +42,11 @@ class PluginProvider[T](Protocol):
 
 
 def __plugin_registry():
-    plugin_providers: dict[str, PluginProvider[Any]] = {}
+    plugin_providers: dict[str, ProviderBase[Any]] = {}
 
     def register_plugin_provider(
-        mark: TypeAliasType | GenericAlias, provider: PluginProvider[Any]
-    ) -> PluginProvider[Any]:
+        mark: TypeAliasType | GenericAlias, provider: ProviderBase[Any]
+    ) -> ProviderBase[Any]:
         nonlocal plugin_providers
 
         _, metas = get_origin_pro(mark)

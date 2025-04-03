@@ -4,13 +4,13 @@ from typing import Annotated
 import pytest
 
 from lihil.constant.status import OK
-from lihil.di.returns import (
+from lihil.endpoint.returns import (
     DEFAULT_RETURN,
     CustomEncoder,
     EndpointReturn,
     agen_encode_wrapper,
-    parse_single_return,
     parse_returns,
+    parse_single_return,
     parse_status,
     syncgen_encode_wrapper,
 )

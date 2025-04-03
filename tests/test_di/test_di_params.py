@@ -18,7 +18,7 @@ from lihil import (
     Resolver,
     Use,
 )
-from lihil.di.params import (
+from lihil.endpoint.params import (
     CustomDecoder,
     EndpointParams,
     ParamParser,

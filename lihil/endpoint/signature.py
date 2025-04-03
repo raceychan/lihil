@@ -5,8 +5,13 @@ from ididi import DependentNode, Graph
 from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
-from lihil.di.params import ParamParser, PluginParam, RequestBodyParam, RequestParam
-from lihil.di.returns import EndpointReturn, parse_returns
+from lihil.endpoint.params import (
+    ParamParser,
+    PluginParam,
+    RequestBodyParam,
+    RequestParam,
+)
+from lihil.endpoint.returns import EndpointReturn, parse_returns
 from lihil.interface import MISSING, Base, IEncoder, Record, is_provided
 from lihil.problems import (
     InvalidDataType,
@@ -40,6 +45,8 @@ class ParseResult(Record):
 
 # TODO: separate param parsing and dependency injection
 # TODO: we should rewrite this in cython, along with the request object
+
+
 class EndpointSignature[R](Base):
     route_path: str
 
@@ -49,6 +56,8 @@ class EndpointSignature[R](Base):
     body_param: tuple[str, RequestBodyParam[Struct]] | None
     dependencies: ParamMap[DependentNode]
     plugins: ParamMap[PluginParam[Any]]
+
+    # access_controls: list[AccessControl]
 
     default_status: int
     scoped: bool
@@ -178,6 +187,7 @@ class EndpointSignature[R](Base):
             path_params=params.get_location("path"),
             body_param=body_param,
             plugins=params.plugins,
+            # access_controls=params.access_controls,
             dependencies=params.nodes,
             return_params=return_params,
             default_status=default_status,

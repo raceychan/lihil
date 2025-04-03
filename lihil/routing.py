@@ -118,7 +118,7 @@ class Route(ASGIBase):
     def __truediv__(self, path: str) -> "Route":
         return self.sub(path)
 
-    async def __call__(self, scope: IScope, receive: IReceive, send: ISend)->None:
+    async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         http_method = scope["method"]
         try:
             await self.call_stacks[http_method](scope, receive, send)

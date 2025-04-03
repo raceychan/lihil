@@ -28,7 +28,7 @@ GEZero = Annotated[int, Meta(ge=0)]
 type SecuritySchemes = Literal["apiKey", "http", "oauth2", "openIdConnect"]
 
 
-class SecurityBase(BaseStruct, kw_only=True):
+class AuthBase(BaseStruct, kw_only=True):
     type_: SecuritySchemes = field(name="type")
     description: Optional[str] = None
 
@@ -39,13 +39,13 @@ class APIKeyIn(Enum):
     cookie = "cookie"
 
 
-class APIKey(SecurityBase, kw_only=True):
+class APIKey(AuthBase, kw_only=True):
     type_: SecuritySchemes = field(default="apiKey", name="type")
     in_: APIKeyIn = field(name="in")
     name: str
 
 
-class HTTPBase(SecurityBase, kw_only=True):
+class HTTPBase(AuthBase, kw_only=True):
     type_: SecuritySchemes = field(default="http", name="type")
     scheme: str
 
@@ -84,12 +84,12 @@ class OAuthFlows(BaseStruct, kw_only=True):
     authorizationCode: Optional[OAuthFlowAuthorizationCode] = None
 
 
-class OAuth2(SecurityBase, kw_only=True):
+class OAuth2(AuthBase, kw_only=True):
     type_: SecuritySchemes = field(default="oauth2", name="type")
     flows: OAuthFlows
 
 
-class OpenIdConnect(SecurityBase, kw_only=True):
+class OpenIdConnect(AuthBase, kw_only=True):
     type_: SecuritySchemes = field(default="openIdConnect", name="type")
     openIdConnectUrl: str
 
