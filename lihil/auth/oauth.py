@@ -1,11 +1,10 @@
-from typing import Any
-
 from ididi import Resolver
 from msgspec import field
 
+from lihil.auth.base import AuthProvider
 from lihil.interface import Payload
 from lihil.interface.marks import param_mark
-from lihil.oas.model import AuthBase, OAuth2, OAuthFlowPassword, OAuthFlows
+from lihil.oas.model import OAuth2, OAuthFlowPassword, OAuthFlows
 from lihil.plugins.provider import ProviderMixin, register_plugin_provider
 from lihil.problems import HTTPException
 from lihil.vendor_types import Request
@@ -40,14 +39,6 @@ class OAuthLogin(Payload):
 
     def __post_init__(self):
         self.scopes.extend(self.scope.split())
-
-
-class AuthProvider[Model: AuthBase](ProviderMixin[Any]):
-    # security base
-
-    def __init__(self, model: Model, scheme_name: str):
-        self.model = model  # security base model
-        self.scheme_name = scheme_name
 
 
 # class AccessControl(Base):

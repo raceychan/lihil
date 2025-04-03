@@ -5,6 +5,7 @@ from typing import Any, Sequence, cast, get_args
 from msgspec import Struct
 from msgspec.json import schema_components
 
+from lihil.auth.base import AuthProvider
 from lihil.config import OASConfig
 from lihil.constant.status import phrase
 from lihil.endpoint import EndpointSignature, RequestParam
@@ -340,12 +341,17 @@ def generate_unique_id(ep: Endpoint[Any]) -> str:
     return operation_id
 
 
-def get_ep_security(ep: Endpoint[Any]):
-    pass
+def get_ep_security(ep: Endpoint[Any], security_schemas: SecurityDict):
+    for name, plugin in ep.sig.plugins.items():
+        if isinstance(plugin, AuthProvider):
+            breakpoint()
 
 
 def generate_op_from_ep(
-    ep: Endpoint[Any], schemas: SchemasDict, problem_path: str
+    ep: Endpoint[Any],
+    schemas: SchemasDict,
+    security_schemas: SecurityDict,
+    problem_path: str,
 ) -> oasmodel.Operation:
     tags = [ep.tag] if ep.tag else ["root"]
     summary = ep.name.replace("_", " ").title()
@@ -355,7 +361,7 @@ def generate_op_from_ep(
 
     resps = get_resp_schemas(ep, schemas, problem_path)
     err_resps = get_err_resp_schemas(ep, schemas, problem_path)
-    security = get_ep_security(ep)
+    security = get_ep_security(ep, security_schemas)
 
     resps.update(err_resps)
 
@@ -374,7 +380,10 @@ def generate_op_from_ep(
 
 
 def get_path_item_from_route(
-    route: Route, schemas: SchemasDict, security_schemas, problem_path: str
+    route: Route,
+    schemas: SchemasDict,
+    security_schemas: SecurityDict,
+    problem_path: str,
 ) -> oasmodel.PathItem:
     # 1 pathitem = 1 route
     # 1 operation = 1 endpoint
@@ -383,7 +392,9 @@ def get_path_item_from_route(
     for endpoint in route.endpoints.values():
         if not endpoint.config.in_schema:
             continue
-        operation = generate_op_from_ep(endpoint, schemas, problem_path)
+        operation = generate_op_from_ep(
+            endpoint, schemas, security_schemas, problem_path
+        )
         epoint_ops[endpoint.method.lower()] = operation
 
     path_item = oasmodel.PathItem(**epoint_ops)
@@ -405,6 +416,7 @@ def generate_oas(
     components: ComponentsDict = {}
     components["schemas"] = schemas = {}
     components["securitySchemes"] = security_schemas = {}
+    security_schemas: SecurityDict
     schemas: dict[str, Any]
 
     for route in routes:
