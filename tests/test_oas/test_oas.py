@@ -182,7 +182,7 @@ async def test_ep_not_include_schema():
     route.get(empty_ep, in_schema=False)
 
     ep = route.get_endpoint("GET")
-    schema = get_path_item_from_route(route, {}, "")
+    schema = get_path_item_from_route(route, {}, {}, "")
     assert schema.get is None
 
 

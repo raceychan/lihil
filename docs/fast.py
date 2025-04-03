@@ -2,8 +2,11 @@ from typing import Annotated
 
 import uvicorn
 from fastapi import APIRouter, Depends, FastAPI
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
-from starlette.middleware.gzip import GZipMiddleware
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 class User(BaseModel):
@@ -11,8 +14,10 @@ class User(BaseModel):
     name: str
     email: str
 
+
 class Order(BaseModel):
     order_id: str
+
 
 rprofile = APIRouter()
 
@@ -38,14 +43,19 @@ async def profile(
     return User(id=user.id, name=user.name, email=user.email)
 
 
-lhl = FastAPI(lifespan=lifespan)
-lhl.include_router(rprofile)
+app = FastAPI(lifespan=lifespan)
+app.include_router(rprofile)
 
 
-@lhl.get("/")
+@app.get("/")
 async def ping():
     return "pong"
 
 
+@app.get("/items/")
+async def read_items(token: Annotated[str, Depends(oauth2_scheme)]):
+    return {"token": token}
+
+
 if __name__ == "__main__":
-    uvicorn.run(lhl, access_log=None, log_level="warning")
+    uvicorn.run(app, access_log=None, log_level="warning")

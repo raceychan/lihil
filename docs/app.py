@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from lihil import (
+    Annotated,
     Empty,
     HTTPException,
     Json,
@@ -12,8 +13,7 @@ from lihil import (
     Text,
     status,
 )
-
-from lihil.plugins.oauth import LoginForm
+from lihil.plugins.oauth import OAuth2PasswordPlugin
 
 
 class Unhappiness(Payload):
@@ -124,8 +124,11 @@ async def roses_are_red():
     raise VioletsAreBlue("I am a pythonista")
 
 
+type Token = Annotated[str, OAuth2PasswordPlugin(tokenUrl="token")]
+
+
 @root.sub("login").post
-async def login(login_form: LoginForm): ...
+async def login(token: Token): ...
 
 
 lhl = Lihil(

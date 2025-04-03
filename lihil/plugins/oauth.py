@@ -1,14 +1,13 @@
-# TODO: builtin-jwt mechanism
-from typing import Annotated, Any, Literal
-
 from ididi import Resolver
 from msgspec import field
 
-from lihil.constant import status
-from lihil.interface import Base, CustomDecoder, Form, Header, Payload
-from lihil.interface.marks import param_mark
-from lihil.oas.model import OAuth2, OAuthFlowPassword, OAuthFlows
-from lihil.plugins.provider import PluginProvider
+# from lihil.constant import status
+from lihil.interface import Base, Payload
+
+# from lihil.interface.marks import param_mark
+from lihil.oas.model import OAuth2, OAuthFlowPassword, OAuthFlows, SecurityBase
+
+# from lihil.plugins.provider import PluginProvider, register_plugin_provider
 from lihil.problems import HTTPException
 from lihil.vendor_types import Request
 
@@ -29,18 +28,21 @@ class OauthLoginForm(Payload):
         self.scopes.extend(self.scope.split())
 
 
-type LoginForm = Form[OauthLoginForm]
-
-
-class OAuth2Plugin(PluginProvider[str | None], Base):
+class SecurityPlugin:
+    model: SecurityBase
     scheme_name: str
-    flows: OAuthFlows
+
+
+class OAuth2Plugin(Base):
+    flows: OAuthFlows = OAuthFlows()
+    scheme_name: str | None = None
     description: str | None = None
     auto_error: bool = True
     model: OAuth2 | None = None
 
     def __post_init__(self):
         self.model = OAuth2(flows=self.flows, description=self.description)
+        self.scheme_name = self.scheme_name or self.__class__.__name__
 
     async def load(self, request: Request, resolver: Resolver) -> str | None:
         authorization = request.headers.get("Authorization")
@@ -52,9 +54,8 @@ class OAuth2Plugin(PluginProvider[str | None], Base):
         return authorization
 
 
-class OAuth2Password(OAuth2Plugin, kw_only=True):
+class OAuth2PasswordPlugin(OAuth2Plugin, kw_only=True):
     tokenUrl: str
-    scheme_name: str
     scopes: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):

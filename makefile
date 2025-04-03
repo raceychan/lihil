@@ -9,7 +9,7 @@ dev:
 
 .PHONY: fast
 fast:
-	uv run fast.py
+	uv run uvicorn docs.fast:app
 
 .PHONY: test
 test:

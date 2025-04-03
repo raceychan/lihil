@@ -46,7 +46,7 @@ def __plugin_registry():
 
     def register_plugin_provider(
         mark: TypeAliasType | GenericAlias, provider: PluginProvider[Any]
-    ) -> None:
+    ) -> PluginProvider[Any]:
         nonlocal plugin_providers
 
         _, metas = get_origin_pro(mark)
@@ -61,6 +61,7 @@ def __plugin_registry():
             raise NotSupportedError("Invalid mark type")
 
         plugin_providers[mark_type] = provider
+        return provider
 
     def remove_plugin_provider(mark: TypeAliasType | GenericAlias) -> None:
         nonlocal plugin_providers

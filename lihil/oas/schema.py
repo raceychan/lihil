@@ -17,6 +17,7 @@ from lihil.utils.parse import to_kebab_case, trimdoc
 # from lihil.utils.phasing import encode_json
 
 type SchemasDict = dict[str, oasmodel.LenientSchema]
+type SecurityDict = dict[str, oasmodel.SecurityScheme | oasmodel.Reference]
 type ComponentsDict = dict[str, Any]
 
 
@@ -339,6 +340,10 @@ def generate_unique_id(ep: Endpoint[Any]) -> str:
     return operation_id
 
 
+def get_ep_security(ep: Endpoint[Any]):
+    pass
+
+
 def generate_op_from_ep(
     ep: Endpoint[Any], schemas: SchemasDict, problem_path: str
 ) -> oasmodel.Operation:
@@ -350,6 +355,8 @@ def generate_op_from_ep(
 
     resps = get_resp_schemas(ep, schemas, problem_path)
     err_resps = get_err_resp_schemas(ep, schemas, problem_path)
+    security = get_ep_security(ep)
+
     resps.update(err_resps)
 
     op = oasmodel.Operation(
@@ -358,6 +365,7 @@ def generate_op_from_ep(
         description=description,
         operationId=operationId,
         parameters=params,
+        security=security,
         requestBody=body,
     )
     for status, resp in resps.items():
@@ -366,8 +374,11 @@ def generate_op_from_ep(
 
 
 def get_path_item_from_route(
-    route: Route, schemas: SchemasDict, problem_path: str
+    route: Route, schemas: SchemasDict, security_schemas, problem_path: str
 ) -> oasmodel.PathItem:
+    # 1 pathitem = 1 route
+    # 1 operation = 1 endpoint
+
     epoint_ops: dict[str, Any] = {}
     for endpoint in route.endpoints.values():
         if not endpoint.config.in_schema:
@@ -391,16 +402,16 @@ def generate_oas(
 ) -> oasmodel.OpenAPI:
     "Return application/json response"
     paths: dict[str, oasmodel.PathItem] = {}
-
     components: ComponentsDict = {}
     components["schemas"] = schemas = {}
+    components["securitySchemes"] = security_schemas = {}
     schemas: dict[str, Any]
 
     for route in routes:
         if not route.config.in_schema:
             continue
         paths[route.path] = get_path_item_from_route(
-            route, schemas, oas_config.problem_path
+            route, schemas, security_schemas, oas_config.problem_path
         )
 
     icom = oasmodel.Components(**components)

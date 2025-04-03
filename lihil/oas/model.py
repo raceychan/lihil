@@ -332,9 +332,8 @@ class Components(BaseStruct, kw_only=True):
     examples: Optional[dict[str, Union[Example, Reference]]] = None
     requestBodies: Optional[dict[str, Union[RequestBody, Reference]]] = None
     headers: Optional[dict[str, Union[Header, Reference]]] = None
-    # securitySchemes: Optional[dict[str, Union[SecurityScheme, Reference]]] = None
+    securitySchemes: Optional[dict[str, Union[SecurityScheme, Reference]]] = None
     links: Optional[dict[str, Union[Link, Reference]]] = None
-    # Using Any for Specification Extensions
     callbacks: Optional[dict[str, Union[dict[str, PathItem], Reference, Any]]] = None
     pathItems: Optional[dict[str, Union[PathItem, Reference]]] = None
 
