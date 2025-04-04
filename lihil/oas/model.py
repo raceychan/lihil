@@ -1,25 +1,12 @@
 from enum import Enum
-from typing import (
-    Annotated,
-    Any,
-    Literal,
-    Optional,
-    Sequence,
-    TypedDict,
-    Union,
-    dataclass_transform,
-)
+from typing import Annotated, Any, Literal, Sequence, TypedDict, Union
 
-from msgspec import Meta, Struct, field
-from msgspec.structs import replace as struct_replace
+from msgspec import Meta, field
 
+from lihil.interface import UNSET, Record, Unset
 from lihil.problems import DetailBase
 
-
-@dataclass_transform(frozen_default=True)
-class BaseStruct(Struct, omit_defaults=True, frozen=True):
-    def replace(self, **kwargs: Any):
-        return struct_replace(self, **kwargs)
+# from msgspec.structs import replace as struct_replace
 
 
 GEZero = Annotated[int, Meta(ge=0)]
@@ -28,9 +15,12 @@ GEZero = Annotated[int, Meta(ge=0)]
 type SecuritySchemes = Literal["apiKey", "http", "oauth2", "openIdConnect"]
 
 
-class AuthBase(BaseStruct, kw_only=True):
+class OASRecord(Record): ...
+
+
+class AuthBase(OASRecord, kw_only=True):
     type_: SecuritySchemes = field(name="type")
-    description: str | None = None
+    description: Unset[str] = UNSET
 
 
 class APIKeyIn(Enum):
@@ -52,11 +42,11 @@ class HTTPBase(AuthBase, kw_only=True):
 
 class HTTPBearer(HTTPBase):
     scheme: Literal["bearer"] = "bearer"
-    bearerFormat: Optional[str] = None
+    bearerFormat: Unset[str] = UNSET
 
 
-class OAuthFlow(BaseStruct, kw_only=True):
-    refreshUrl: Optional[str] = None
+class OAuthFlow(OASRecord, kw_only=True):
+    refreshUrl: Unset[str] = UNSET
     scopes: dict[str, str] = {}
 
 
@@ -77,11 +67,11 @@ class OAuthFlowAuthorizationCode(OAuthFlow):
     tokenUrl: str
 
 
-class OAuthFlows(BaseStruct, kw_only=True):
-    implicit: Optional[OAuthFlowImplicit] = None
-    password: Optional[OAuthFlowPassword] = None
-    clientCredentials: Optional[OAuthFlowClientCredentials] = None
-    authorizationCode: Optional[OAuthFlowAuthorizationCode] = None
+class OAuthFlows(OASRecord, kw_only=True):
+    implicit: Unset[OAuthFlowImplicit] = UNSET
+    password: Unset[OAuthFlowPassword] = UNSET
+    clientCredentials: Unset[OAuthFlowClientCredentials] = UNSET
+    authorizationCode: Unset[OAuthFlowAuthorizationCode] = UNSET
 
 
 class OAuth2(AuthBase, kw_only=True):
@@ -97,132 +87,132 @@ class OpenIdConnect(AuthBase, kw_only=True):
 SecurityScheme = Union[APIKey, HTTPBase, OAuth2, OpenIdConnect, HTTPBearer]
 
 
-class Contact(BaseStruct, kw_only=True):
-    name: Optional[str] = None
-    url: Optional[str] = None
-    email: Optional[str] = None
+class Contact(OASRecord, kw_only=True):
+    name: Unset[str] = UNSET
+    url: Unset[str] = UNSET
+    email: Unset[str] = UNSET
 
 
-class License(BaseStruct, kw_only=True):
+class License(OASRecord, kw_only=True):
     name: str
-    identifier: Optional[str] = None
-    url: Optional[str] = None
+    identifier: Unset[str] = UNSET
+    url: Unset[str] = UNSET
 
 
-class Info(BaseStruct, kw_only=True):
+class Info(OASRecord, kw_only=True):
     title: str
-    summary: Optional[str] = None
-    description: Optional[str] = None
-    termsOfService: Optional[str] = None
-    contact: Optional[Contact] = None
-    license: Optional[License] = None
+    summary: Unset[str] = UNSET
+    description: Unset[str] = UNSET
+    termsOfService: Unset[str] = UNSET
+    contact: Unset[Contact] = UNSET
+    license: Unset[License] = UNSET
     version: str
 
 
-class ServerVariable(BaseStruct, kw_only=True):
-    enum: Annotated[Optional[list[str]], Meta(min_length=1)] = None
+class ServerVariable(OASRecord, kw_only=True):
+    enum: Annotated[Unset[list[str]], Meta(min_length=1)] = UNSET
     default: str
-    description: Optional[str] = None
+    description: Unset[str] = UNSET
 
 
-class Server(BaseStruct, kw_only=True):
+class Server(OASRecord, kw_only=True):
     url: Union[str, str]
-    description: Optional[str] = None
-    variables: Optional[dict[str, ServerVariable]] = None
+    description: Unset[str] = UNSET
+    variables: Unset[dict[str, ServerVariable]] = UNSET
 
 
-class Reference(BaseStruct, kw_only=True):
+class Reference(OASRecord, kw_only=True):
     ref: str = field(name="$ref")
 
 
-class Discriminator(BaseStruct, kw_only=True):
+class Discriminator(OASRecord, kw_only=True):
     propertyName: str
-    mapping: Optional[dict[str, str]] = None
+    mapping: Unset[dict[str, str]] = UNSET
 
 
-class XML(BaseStruct, kw_only=True):
-    name: Optional[str] = None
-    namespace: Optional[str] = None
-    prefix: Optional[str] = None
-    attribute: Optional[bool] = None
-    wrapped: Optional[bool] = None
+class XML(OASRecord, kw_only=True):
+    name: Unset[str] = UNSET
+    namespace: Unset[str] = UNSET
+    prefix: Unset[str] = UNSET
+    attribute: Unset[bool] = UNSET
+    wrapped: Unset[bool] = UNSET
 
 
-class ExternalDocumentation(BaseStruct, kw_only=True):
-    description: Optional[str] = None
+class ExternalDocumentation(OASRecord, kw_only=True):
+    description: Unset[str] = UNSET
     url: str
 
 
-class Schema(BaseStruct, kw_only=True):
-    schema_: Optional[str] = field(default=None, name="$schema")
-    vocabulary: Optional[str] = field(default=None, name="$vocabulary")
-    id: Optional[str] = field(default=None, name="$id")
-    anchor: Optional[str] = field(default=None, name="$anchor")
-    dynamicAnchor: Optional[str] = field(default=None, name="$dynamicAnchor")
-    ref: Optional[str] = field(default=None, name="$ref")
-    dynamicRef: Optional[str] = field(default=None, name="$dynamicRef")
-    defs: Optional[dict[str, "LenientSchema"]] = field(default=None, name="$defs")
-    comment: Optional[str] = field(default=None, name="$comment")
-    allOf: Optional[list["LenientSchema"]] = None
-    anyOf: Optional[list["LenientSchema"]] = None
-    oneOf: Optional[list["LenientSchema"]] = None
-    not_: Optional["LenientSchema"] = field(default=None, name="not")
-    if_: Optional["LenientSchema"] = field(default=None, name="if")
-    then: Optional["LenientSchema"] = None
-    else_: Optional["LenientSchema"] = field(default=None, name="else")
-    dependentSchemas: Optional[dict[str, "LenientSchema"]] = None
-    prefixItems: Optional[list["LenientSchema"]] = None
-    contains: Optional["LenientSchema"] = None
-    properties: Optional[dict[str, "LenientSchema"]] = None
-    patternProperties: Optional[dict[str, "LenientSchema"]] = None
-    additionalProperties: Optional["LenientSchema"] = None
-    propertyNames: Optional["LenientSchema"] = None
-    unevaluatedItems: Optional["LenientSchema"] = None
-    unevaluatedProperties: Optional["LenientSchema"] = None
-    type: Optional[str] = None
-    enum: Optional[list[Any]] = None
-    const: Optional[Any] = None
-    multipleOf: Optional[Annotated[float, Meta(gt=0)]] = None
-    maximum: Optional[float] = None
-    exclusiveMaximum: Optional[float] = None
-    minimum: Optional[float] = None
-    exclusiveMinimum: Optional[float] = None
-    maxLength: Optional[GEZero] = None
-    minLength: Optional[GEZero] = None
-    pattern: Optional[str] = None
-    maxItems: Optional[GEZero] = None
-    minItems: Optional[GEZero] = None
-    uniqueItems: Optional[bool] = None
-    maxContains: Optional[GEZero] = None
-    minContains: Optional[GEZero] = None
-    maxProperties: Optional[GEZero] = None
-    minProperties: Optional[GEZero] = None
-    required: Optional[list[str]] = None
-    dependentRequired: Optional[dict[str, set[str]]] = None
-    format: Optional[str] = None
-    contentEncoding: Optional[str] = None
-    contentMediaType: Optional[str] = None
-    contentSchema: Optional["LenientSchema"] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    default: Optional[Any] = None
-    deprecated: Optional[bool] = None
-    readOnly: Optional[bool] = None
-    writeOnly: Optional[bool] = None
-    examples: Optional[list[Any]] = None
-    discriminator: Optional[Discriminator] = None
-    xml: Optional[XML] = None
-    externalDocs: Optional[ExternalDocumentation] = None
+class Schema(OASRecord, kw_only=True):
+    schema_: Unset[str] = field(default=UNSET, name="$schema")
+    vocabulary: Unset[str] = field(default=UNSET, name="$vocabulary")
+    id: Unset[str] = field(default=UNSET, name="$id")
+    anchor: Unset[str] = field(default=UNSET, name="$anchor")
+    dynamicAnchor: Unset[str] = field(default=UNSET, name="$dynamicAnchor")
+    ref: Unset[str] = field(default=UNSET, name="$ref")
+    dynamicRef: Unset[str] = field(default=UNSET, name="$dynamicRef")
+    defs: Unset[dict[str, "LenientSchema"]] = field(default=UNSET, name="$defs")
+    comment: Unset[str] = field(default=UNSET, name="$comment")
+    allOf: Unset[list["LenientSchema"]] = UNSET
+    anyOf: Unset[list["LenientSchema"]] = UNSET
+    oneOf: Unset[list["LenientSchema"]] = UNSET
+    not_: Unset["LenientSchema"] = field(default=UNSET, name="not")
+    if_: Unset["LenientSchema"] = field(default=UNSET, name="if")
+    then: Unset["LenientSchema"] = UNSET
+    else_: Unset["LenientSchema"] = field(default=UNSET, name="else")
+    dependentSchemas: Unset[dict[str, "LenientSchema"]] = UNSET
+    prefixItems: Unset[list["LenientSchema"]] = UNSET
+    contains: Unset["LenientSchema"] = UNSET
+    properties: Unset[dict[str, "LenientSchema"]] = UNSET
+    patternProperties: Unset[dict[str, "LenientSchema"]] = UNSET
+    additionalProperties: Unset["LenientSchema"] = UNSET
+    propertyNames: Unset["LenientSchema"] = UNSET
+    unevaluatedItems: Unset["LenientSchema"] = UNSET
+    unevaluatedProperties: Unset["LenientSchema"] = UNSET
+    type: Unset[str] = UNSET
+    enum: Unset[list[Any]] = UNSET
+    const: Unset[Any] = UNSET
+    multipleOf: Unset[Annotated[float, Meta(gt=0)]] = UNSET
+    maximum: Unset[float] = UNSET
+    exclusiveMaximum: Unset[float] = UNSET
+    minimum: Unset[float] = UNSET
+    exclusiveMinimum: Unset[float] = UNSET
+    maxLength: Unset[GEZero] = UNSET
+    minLength: Unset[GEZero] = UNSET
+    pattern: Unset[str] = UNSET
+    maxItems: Unset[GEZero] = UNSET
+    minItems: Unset[GEZero] = UNSET
+    uniqueItems: Unset[bool] = UNSET
+    maxContains: Unset[GEZero] = UNSET
+    minContains: Unset[GEZero] = UNSET
+    maxProperties: Unset[GEZero] = UNSET
+    minProperties: Unset[GEZero] = UNSET
+    required: Unset[list[str]] = UNSET
+    dependentRequired: Unset[dict[str, set[str]]] = UNSET
+    format: Unset[str] = UNSET
+    contentEncoding: Unset[str] = UNSET
+    contentMediaType: Unset[str] = UNSET
+    contentSchema: Unset["LenientSchema"] = UNSET
+    title: Unset[str] = UNSET
+    description: Unset[str] = UNSET
+    default: Unset[Any] = UNSET
+    deprecated: Unset[bool] = UNSET
+    readOnly: Unset[bool] = UNSET
+    writeOnly: Unset[bool] = UNSET
+    examples: Unset[list[Any]] = UNSET
+    discriminator: Unset[Discriminator] = UNSET
+    xml: Unset[XML] = UNSET
+    externalDocs: Unset[ExternalDocumentation] = UNSET
 
 
 LenientSchema = Union[Schema, Reference, bool]
 
 
 class Example(TypedDict, total=False):
-    summary: Optional[str]
-    description: Optional[str]
-    value: Optional[Any]
-    externalValue: Optional[str]
+    summary: Unset[str]
+    description: Unset[str]
+    value: Unset[Any]
+    externalValue: Unset[str]
 
 
 class ParameterInType(Enum):
@@ -232,34 +222,34 @@ class ParameterInType(Enum):
     cookie = "cookie"
 
 
-class Encoding(BaseStruct, kw_only=True):
-    contentType: Optional[str] = None
-    headers: Optional[dict[str, Union["Header", Reference]]] = None
-    style: Optional[str] = None
-    explode: Optional[bool] = None
-    allowReserved: Optional[bool] = None
+class Encoding(OASRecord, kw_only=True):
+    contentType: Unset[str] = UNSET
+    headers: Unset[dict[str, Union["Header", Reference]]] = UNSET
+    style: Unset[str] = UNSET
+    explode: Unset[bool] = UNSET
+    allowReserved: Unset[bool] = UNSET
 
 
-class MediaType(BaseStruct, kw_only=True):
-    schema_: Optional[Union[Schema, Reference]] = field(default=None, name="schema")
-    example: Optional[Any] = None
-    examples: Optional[dict[str, Union[Example, Reference]]] = None
-    encoding: Optional[dict[str, Encoding]] = None
+class MediaType(OASRecord, kw_only=True):
+    schema_: Unset[Union[Schema, Reference]] = field(default=UNSET, name="schema")
+    example: Unset[Any] = UNSET
+    examples: Unset[dict[str, Union[Example, Reference]]] = UNSET
+    encoding: Unset[dict[str, Encoding]] = UNSET
 
 
-class ParameterBase(BaseStruct, kw_only=True):
-    description: Optional[str] = None
-    required: Optional[bool] = None
-    deprecated: Optional[bool] = None
+class ParameterBase(OASRecord, kw_only=True):
+    description: Unset[str] = UNSET
+    required: Unset[bool] = UNSET
+    deprecated: Unset[bool] = UNSET
     # Serialization rules for simple scenarios
-    style: Optional[str] = None
-    explode: Optional[bool] = None
-    allowReserved: Optional[bool] = None
-    schema_: Optional[Union[Schema, Reference]] = field(default=None, name="schema")
-    example: Optional[Any] = None
-    examples: Optional[dict[str, Union[Example, Reference]]] = None
+    style: Unset[str] = UNSET
+    explode: Unset[bool] = UNSET
+    allowReserved: Unset[bool] = UNSET
+    schema_: Unset[Union[Schema, Reference]] = field(default=UNSET, name="schema")
+    example: Unset[Any] = UNSET
+    examples: Unset[dict[str, Union[Example, Reference]]] = UNSET
     # Serialization rules for more complex scenarios
-    content: Optional[dict[str, MediaType]] = None
+    content: Unset[dict[str, MediaType]] = UNSET
 
 
 class Parameter(ParameterBase):
@@ -271,100 +261,100 @@ class Header(ParameterBase):
     pass
 
 
-class RequestBody(BaseStruct, kw_only=True):
-    description: Optional[str] = None
+class RequestBody(OASRecord, kw_only=True):
+    description: Unset[str] = UNSET
     content: dict[str, MediaType]
-    required: Optional[bool] = None
+    required: Unset[bool] = UNSET
 
 
-class Link(BaseStruct, kw_only=True):
-    operationRef: Optional[str] = None
-    operationId: Optional[str] = None
-    parameters: Optional[dict[str, Union[Any, str]]] = None
-    requestBody: Optional[Union[Any, str]] = None
-    description: Optional[str] = None
-    server: Optional[Server] = None
+class Link(OASRecord, kw_only=True):
+    operationRef: Unset[str] = UNSET
+    operationId: Unset[str] = UNSET
+    parameters: Unset[dict[str, Union[Any, str]]] = UNSET
+    requestBody: Unset[Union[Any, str]] = UNSET
+    description: Unset[str] = UNSET
+    server: Unset[Server] = UNSET
 
 
-class Response(BaseStruct, kw_only=True):
+class Response(OASRecord, kw_only=True):
     description: str
-    headers: Optional[dict[str, Union[Header, Reference]]] = None
-    content: Optional[dict[str, MediaType]] = None
-    links: Optional[dict[str, Union[Link, Reference]]] = None
+    headers: Unset[dict[str, Union[Header, Reference]]] = UNSET
+    content: Unset[dict[str, MediaType]] = UNSET
+    links: Unset[dict[str, Union[Link, Reference]]] = UNSET
 
 
-class Operation(BaseStruct, kw_only=True):
-    tags: Optional[list[str]] = None
-    summary: Optional[str] = None
-    description: Optional[str] = None
-    externalDocs: Optional[ExternalDocumentation] = None
-    operationId: Optional[str] = None
-    parameters: Optional[list[Union[Parameter, Reference]]] = None
-    requestBody: Optional[Union[RequestBody, Reference]] = None
+class Operation(OASRecord, kw_only=True):
+    tags: Unset[list[str]] = UNSET
+    summary: Unset[str] = UNSET
+    description: Unset[str] = UNSET
+    externalDocs: Unset[ExternalDocumentation] = UNSET
+    operationId: Unset[str] = UNSET
+    parameters: Unset[list[Union[Parameter, Reference]]] = UNSET
+    requestBody: Unset[Union[RequestBody, Reference]] = UNSET
     # Using Any for Specification Extensions
     responses: dict[str, Union[Response, Any]] = field(default_factory=dict)
-    callbacks: Optional[dict[str, Union[dict[str, "PathItem"], Reference]]] = None
-    deprecated: Optional[bool] = None
-    security: Optional[list[dict[str, list[str]]]] = None
-    servers: Optional[list[Server]] = None
+    callbacks: Unset[dict[str, Union[dict[str, "PathItem"], Reference]]] = UNSET
+    deprecated: Unset[bool] = UNSET
+    security: Unset[list[dict[str, list[str]]]] = UNSET
+    servers: Unset[list[Server]] = UNSET
 
 
-class PathItem(BaseStruct, kw_only=True):
-    ref: Optional[str] = field(default=None, name="$ref")
-    summary: Optional[str] = None
-    description: Optional[str] = None
-    get: Optional[Operation] = None
-    put: Optional[Operation] = None
-    post: Optional[Operation] = None
-    delete: Optional[Operation] = None
-    options: Optional[Operation] = None
-    head: Optional[Operation] = None
-    patch: Optional[Operation] = None
-    trace: Optional[Operation] = None
-    servers: Optional[list[Server]] = None
-    parameters: Optional[list[Union[Parameter, Reference]]] = None
+class PathItem(OASRecord, kw_only=True):
+    ref: Unset[str] = field(default=UNSET, name="$ref")
+    summary: Unset[str] = UNSET
+    description: Unset[str] = UNSET
+    get: Unset[Operation] = UNSET
+    put: Unset[Operation] = UNSET
+    post: Unset[Operation] = UNSET
+    delete: Unset[Operation] = UNSET
+    options: Unset[Operation] = UNSET
+    head: Unset[Operation] = UNSET
+    patch: Unset[Operation] = UNSET
+    trace: Unset[Operation] = UNSET
+    servers: Unset[list[Server]] = UNSET
+    parameters: Unset[list[Union[Parameter, Reference]]] = UNSET
 
 
-class Components(BaseStruct, kw_only=True):
-    schemas: Optional[dict[str, Union[Schema, Reference]]] = None
-    responses: Optional[dict[str, Union[Response, Reference]]] = None
-    parameters: Optional[dict[str, Union[Parameter, Reference]]] = None
-    examples: Optional[dict[str, Union[Example, Reference]]] = None
-    requestBodies: Optional[dict[str, Union[RequestBody, Reference]]] = None
-    headers: Optional[dict[str, Union[Header, Reference]]] = None
-    securitySchemes: Optional[dict[str, Union[SecurityScheme, Reference]]] = None
-    links: Optional[dict[str, Union[Link, Reference]]] = None
-    callbacks: Optional[dict[str, Union[dict[str, PathItem], Reference, Any]]] = None
-    pathItems: Optional[dict[str, Union[PathItem, Reference]]] = None
+class Components(OASRecord, kw_only=True):
+    schemas: Unset[dict[str, Union[Schema, Reference]]] = UNSET
+    responses: Unset[dict[str, Union[Response, Reference]]] = UNSET
+    parameters: Unset[dict[str, Union[Parameter, Reference]]] = UNSET
+    examples: Unset[dict[str, Union[Example, Reference]]] = UNSET
+    requestBodies: Unset[dict[str, Union[RequestBody, Reference]]] = UNSET
+    headers: Unset[dict[str, Union[Header, Reference]]] = UNSET
+    securitySchemes: Unset[dict[str, Union[SecurityScheme, Reference]]] = UNSET
+    links: Unset[dict[str, Union[Link, Reference]]] = UNSET
+    callbacks: Unset[dict[str, Union[dict[str, PathItem], Reference, Any]]] = UNSET
+    pathItems: Unset[dict[str, Union[PathItem, Reference]]] = UNSET
 
 
-class Tag(BaseStruct, kw_only=True):
+class Tag(OASRecord, kw_only=True):
     name: str
-    description: Optional[str] = None
-    externalDocs: Optional[ExternalDocumentation] = None
+    description: Unset[str] = UNSET
+    externalDocs: Unset[ExternalDocumentation] = UNSET
 
 
-class OpenAPI(BaseStruct, kw_only=True):
+class OpenAPI(OASRecord, kw_only=True):
     openapi: str
     info: Info
-    jsonSchemaDialect: Optional[str] = None
-    servers: Optional[list[Server]] = None
+    jsonSchemaDialect: Unset[str] = UNSET
+    servers: Unset[list[Server]] = UNSET
     # Using Any for Specification Extensions
-    paths: Optional[dict[str, Union[PathItem, Any]]] = None
-    webhooks: Optional[dict[str, Union[PathItem, Reference]]] = None
-    components: Optional[Components] = None
-    security: Optional[list[dict[str, list[str]]]] = None
-    tags: Optional[list[Tag]] = None
-    externalDocs: Optional[ExternalDocumentation] = None
+    paths: Unset[dict[str, Union[PathItem, Any]]] = UNSET
+    webhooks: Unset[dict[str, Union[PathItem, Reference]]] = UNSET
+    components: Unset[Components] = UNSET
+    security: Unset[list[dict[str, list[str]]]] = UNSET
+    tags: Unset[list[Tag]] = UNSET
+    externalDocs: Unset[ExternalDocumentation] = UNSET
     # responses: dict[str, Response]
 
 
-class RouteConfig(BaseStruct):
+class RouteConfig(Record):
     tag: str = ""
     in_schema: bool = True
     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]] = field(
         default_factory=tuple
     )
 
-    # ep_config: EndpointConfig | None = None
+    # ep_config: EndpointConfig | None = UNSET
     # if provided, apply to all endpoint

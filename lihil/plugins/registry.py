@@ -1,17 +1,18 @@
 from types import GenericAlias, MappingProxyType, UnionType
-from typing import Any, ClassVar, Protocol, TypeAliasType, cast
+from typing import Any, Protocol, TypeAliasType, cast
 
 from ididi import Resolver
 
 from lihil.errors import InvalidMarkTypeError
-from lihil.interface import Maybe, RequestParamBase
+from lihil.interface import MISSING, Maybe, RequestParamBase
 from lihil.interface.marks import extract_mark_type
 from lihil.utils.typing import get_origin_pro
 from lihil.vendor_types import Request
 
 
-class PluginParam[T](RequestParamBase[T]):
-    loader: "PluginLoader[T] | None" = None
+class PluginParam[T](RequestParamBase[T], kw_only=True):
+    loader: Maybe["PluginLoader[T]"] = MISSING
+    plugin: Maybe["type[PluginBase[T]]"] = MISSING
 
 
 class PluginLoader[T](Protocol):
@@ -19,10 +20,13 @@ class PluginLoader[T](Protocol):
 
 
 # Perhaps it is eaasier to just check for subclass of this
-class PluginMixin[T]:
-    __mark_type__: ClassVar[str]
+class PluginBase[T]:
+    # __mark_type__: ClassVar
 
-    async def load(self, request: Request, resolver: Resolver) -> T: ...
+    async def load(self, request: Request, resolver: Resolver) -> T:
+        raise NotImplementedError(
+            f"Plugin {self.__class__} did not implement `load` method"
+        )
 
     def parse(
         self,
@@ -34,6 +38,7 @@ class PluginMixin[T]:
         return PluginParam(
             type_=cast(type[T], type_),
             annotation=annotation,
+            plugin=self,
             name=name,
             default=default,
             loader=self.load,
@@ -41,12 +46,12 @@ class PluginMixin[T]:
 
 
 def __plugin_registry():
-    plugin_providers: dict[str, PluginMixin[Any]] = {}
+    plugin_providers: dict[str, PluginBase[Any]] = {}
 
     # TODO:
     def register_plugin_provider(
-        mark: TypeAliasType | GenericAlias | str, provider: PluginMixin[Any]
-    ) -> PluginMixin[Any]:
+        mark: TypeAliasType | GenericAlias | str, provider: PluginBase[Any]
+    ) -> PluginBase[Any]:
         nonlocal plugin_providers
 
         if isinstance(mark, str):

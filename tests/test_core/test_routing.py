@@ -714,7 +714,6 @@ async def test_route_with_nested_empty_response():
     assert await res.body() == b""
 
 
-@pytest.mark.debug
 async def test_auth_route():
 
     async def get_user(

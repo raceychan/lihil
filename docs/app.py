@@ -14,7 +14,7 @@ from lihil import (
     Text,
     status,
 )
-from lihil.auth.oauth import OAuth2PasswordPlugin, OAuthLoginForm
+# from lihil.auth.oauth import OAuth2PasswordPlugin, OAuthLoginForm
 
 
 class Unhappiness(Payload):

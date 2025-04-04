@@ -4,6 +4,7 @@ import pytest
 from msgspec import Struct
 
 from lihil import Empty, HTTPException, Payload, Resp, Route, Text, status
+from lihil.auth.oauth import OAuth2PasswordPlugin
 from lihil.config import OASConfig
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.oas.doc_ui import get_problem_ui_html
@@ -11,9 +12,11 @@ from lihil.oas.schema import (
     detail_base_to_content,
     generate_oas,
     generate_op_from_ep,
+    get_ep_security,
     get_path_item_from_route,
     get_resp_schemas,
 )
+from lihil.interface import is_set
 from lihil.plugins.testclient import LocalClient
 from lihil.problems import collect_problems
 from lihil.routing import RouteConfig
@@ -183,7 +186,7 @@ async def test_ep_not_include_schema():
 
     ep = route.get_endpoint("GET")
     schema = get_path_item_from_route(route, {}, {}, "")
-    assert schema.get is None
+    assert not is_set(schema.get)
 
 
 async def test_route_not_include_schema():
@@ -224,3 +227,23 @@ def test_ep_without_ret():
     ep.setup()
 
     get_resp_schemas(ep, {}, "")
+
+
+@pytest.mark.debug
+def test_ep_with_auth():
+
+    async def get_user(
+        token: Annotated[str, OAuth2PasswordPlugin(token_url="token")],
+    ): ...
+
+    route = Route()
+    route.get(get_user)
+
+    ep = route.get_endpoint("GET")
+    ep.setup()
+
+    token = ep.sig.plugins["token"]
+
+    sc = {}
+    get_ep_security(ep, sc)
+    assert sc["OAuth2PasswordBearer"]

@@ -26,7 +26,6 @@ async def get_order(
 ) -> Order | str: ...
 
 
-@pytest.mark.debug
 def test_endpoint_deps():
     route = Route()
     route.get(get_order)

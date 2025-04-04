@@ -1,11 +1,11 @@
+from typing import ClassVar
+
 from ididi import Resolver
 from msgspec import field
 
 from lihil.auth.base import AuthProvider
 from lihil.interface import Payload
-from lihil.interface.marks import param_mark
 from lihil.oas.model import OAuth2, OAuthFlowPassword, OAuthFlows
-from lihil.plugins.provider import register_plugin_provider
 from lihil.problems import HTTPException
 from lihil.vendor_types import Request
 
@@ -49,7 +49,11 @@ class OAuthLogin(Payload):
 
 # OAuth2Provider
 # Plugin[OAuth2PasswordPlugin, OAuth2PasswordPlugin]
-class OAuth2Provider(AuthProvider[OAuth2]):
+
+
+class OAuth2Provider(AuthProvider):
+    scheme_name: ClassVar[str]
+
     def __init__(
         self,
         description: str | None = None,
@@ -60,9 +64,11 @@ class OAuth2Provider(AuthProvider[OAuth2]):
         self.description = description
         self.auto_error = auto_error
 
+        assert self.scheme_name, "scheme name not set"
+
         super().__init__(
             model=OAuth2(flows=flows or OAuthFlows(), description=self.description),
-            scheme_name=scheme_name or self.__class__.__name__,
+            scheme_name=scheme_name or self.scheme_name,
         )
 
     async def load(self, request: Request, resolver: Resolver) -> str | None:
@@ -76,6 +82,8 @@ class OAuth2Provider(AuthProvider[OAuth2]):
 
 
 class OAuth2PasswordPlugin(OAuth2Provider):
+    scheme_name = "OAuth2PasswordBearer"
+
     def __init__(
         self,
         *,

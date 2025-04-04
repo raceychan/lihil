@@ -1,12 +1,12 @@
 from typing import Any
 
 from lihil.oas.model import AuthBase
-from lihil.plugins.provider import PluginMixin
+from lihil.plugins.registry import PluginBase
 
 
-class AuthProvider[Model: AuthBase](PluginMixin[Any]):
+class AuthProvider(PluginBase[Any]):
     # security base
 
-    def __init__(self, model: Model, scheme_name: str):
+    def __init__(self, model: AuthBase, scheme_name: str):
         self.model = model  # security base model
         self.scheme_name = scheme_name

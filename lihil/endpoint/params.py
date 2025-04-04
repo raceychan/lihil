@@ -34,13 +34,15 @@ from lihil.interface import (
 from lihil.interface.marks import ParamMarkType, Struct, extract_mark_type
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
-from lihil.plugins.provider import PLUGIN_REGISTRY, PluginMixin, PluginParam
+from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, to_str
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
 
-type ParsedParam[T] = RequestParamBase[T] | DependentNode
+type ParsedParam[T] = RequestParam[T] | PluginParam[T] | RequestBodyParam[
+    T
+] | DependentNode
 
 
 LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver)
@@ -424,9 +426,11 @@ class ParamParser:
         plugins: list[ParsedParam[Any]] = []
 
         for meta in metas:
-            if isinstance(meta, PluginMixin):
+            if isinstance(meta, PluginBase):
                 plugin = meta.parse(name, type_, annotation, default)
                 plugins.append(plugin)
+            elif isinstance(meta, type) and issubclass(meta, PluginBase):
+                raise NotSupportedError(f"Plugin {meta} is not Initialized")
             else:
                 mark_type = extract_mark_type(meta)
                 if mark_type and (provider := PLUGIN_REGISTRY.get(mark_type)):

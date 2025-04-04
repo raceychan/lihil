@@ -4,10 +4,11 @@ from typing import Any, Callable, Union
 from msgspec import DecodeError
 from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import Encoder as JsonEncoder
-# from msgspec.json import encode as json_encode
 
 # from lihil.errors import NotSupportedError
 from lihil.interface import IDecoder, IEncoder
+
+# from msgspec.json import encode as json_encode
 
 
 def to_str(content: str | bytes) -> str:

@@ -22,7 +22,7 @@ from lihil.endpoint.params import (
     CustomDecoder,
     EndpointParams,
     ParamParser,
-    PluginMixin,
+    PluginBase,
     PluginParam,
     RequestBodyParam,
     RequestParam,
@@ -30,7 +30,7 @@ from lihil.endpoint.params import (
 )
 from lihil.errors import InvalidMarkTypeError, NotSupportedError
 from lihil.interface.marks import param_mark
-from lihil.plugins.provider import register_plugin_provider, remove_plugin_provider
+from lihil.plugins.registry import register_plugin_provider, remove_plugin_provider
 
 
 # Helper classes for testing
@@ -401,7 +401,7 @@ def test_body_param_repr(param_parser: ParamParser):
 type Cached[T] = Annotated[T, param_mark("cached")]
 
 
-class CachedProvider(PluginMixin[str]):
+class CachedProvider(PluginBase[str]):
     async def load(self, request: Request, resolver: Resolver) -> str:
         return "cached"
 

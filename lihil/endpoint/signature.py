@@ -187,7 +187,6 @@ class EndpointSignature[R](Base):
             path_params=params.get_location("path"),
             body_param=body_param,
             plugins=params.plugins,
-            # access_controls=params.access_controls,
             dependencies=params.nodes,
             return_params=return_params,
             default_status=default_status,

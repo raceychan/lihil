@@ -511,7 +511,6 @@ def test_param_provider(param_parser: ParamParser):
 
 ## version 0.1.14
 
-
 ### Fix
 
 - fix a bug where if user defined a Route with path "/"(the root route), it will be ignored.
@@ -545,3 +544,22 @@ and when we include the user created root route, it will be ignored by lihil.
 async def get_user():
     raise UserNotFoundError("user not found", headers={"error-id": "random-id"})
 ```
+
+
+
+## version 0.1.14
+
+### Feature
+
+- register plugin by inheritance: now user might inherit from `PluginBase` and use is as metadata, example
+
+```python
+@lhl.get("/me")
+async def read_users_me(
+    token: Annotated[str, OAuth2PasswordPlugin(token_url="token")],
+):
+    return token
+```
+
+
+where `OAuth2PasswordPlugin` is a subclass of `PluginBase`

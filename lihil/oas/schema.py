@@ -342,9 +342,15 @@ def generate_unique_id(ep: Endpoint[Any]) -> str:
 
 
 def get_ep_security(ep: Endpoint[Any], security_schemas: SecurityDict):
-    for name, plugin in ep.sig.plugins.items():
+    security_scopes: list[dict[str, list[str] | None]] = []
+    for name, param in ep.sig.plugins.items():
+        plugin = param.plugin
         if isinstance(plugin, AuthProvider):
-            breakpoint()
+            security_scheme = oasmodel.SecurityScheme
+            security_schemas[plugin.scheme_name] = cast(security_scheme, plugin.model)
+            security_scopes.append({plugin.scheme_name: None})
+
+    return security_scopes
 
 
 def generate_op_from_ep(
@@ -393,7 +399,10 @@ def get_path_item_from_route(
         if not endpoint.config.in_schema:
             continue
         operation = generate_op_from_ep(
-            endpoint, schemas, security_schemas, problem_path
+            ep=endpoint,
+            schemas=schemas,
+            security_schemas=security_schemas,
+            problem_path=problem_path,
         )
         epoint_ops[endpoint.method.lower()] = operation
 
@@ -423,16 +432,22 @@ def generate_oas(
         if not route.config.in_schema:
             continue
         paths[route.path] = get_path_item_from_route(
-            route, schemas, security_schemas, oas_config.problem_path
+            route=route,
+            schemas=schemas,
+            security_schemas=security_schemas,
+            problem_path=oas_config.problem_path,
         )
 
-    icom = oasmodel.Components(**components)
+    # {'securitySchemes': {'OAuth2PasswordBearer': {'type': 'oauth2', 'flows': {'password': {'scopes': {}, 'tokenUrl': 'token'}}}}}
+    # b'{"OAuth2PasswordBearer":{"flows":{"password":{"tokenUrl":"token"}}}}'
+
+    comp = oasmodel.Components(**components)
     info = oasmodel.Info(title=oas_config.title, version=app_version)
 
     oas = oasmodel.OpenAPI(
         openapi=oas_config.version,
         info=info,
         paths=paths,
-        components=icom,
+        components=comp,
     )
     return oas
