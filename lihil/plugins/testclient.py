@@ -1,6 +1,7 @@
 from time import perf_counter
 from typing import Any, AsyncIterator, Literal, MutableMapping, Optional, Union
 from urllib.parse import urlencode
+from uuid import uuid4
 
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
@@ -137,6 +138,85 @@ class LocalClient:
         }
         if headers:
             self.base_headers.update(headers)
+
+    async def submit_form(
+        self,
+        app: ASGIApp,
+        form_data: dict[str, Any],
+        method: str | None = None,
+        path: str | None = None,
+        path_params: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> RequestResult:
+
+        boundary = f"----WebKitFormBoundary{uuid4().hex}"
+        content_type = f"multipart/form-data; boundary={boundary}"
+        # Prepare headers
+        if headers is None:
+            headers = {}
+        headers["Content-Type"] = content_type
+
+        # Build multipart form data
+        body_parts: list[str | bytes] = []
+
+        for field_name, field_value in form_data.items():
+            # Start boundary
+            body_parts.append(f"--{boundary}\r\n")
+
+            if isinstance(field_value, str):
+                # Simple text field
+                body_parts.append(
+                    f'Content-Disposition: form-data; name="{field_name}"\r\n\r\n'
+                )
+                body_parts.append(f"{field_value}\r\n")
+
+            elif isinstance(field_value, bytes):
+                # Raw bytes field
+                body_parts.append(
+                    f'Content-Disposition: form-data; name="{field_name}"\r\n\r\n'
+                )
+                body_parts.append(field_value)
+                body_parts.append(b"\r\n")
+
+            elif isinstance(field_value, tuple):
+                # File upload: (filename, file_bytes, content_type)
+                filename, file_bytes, file_content_type = field_value + (None,) * (
+                    3 - len(field_value)
+                )
+
+                body_parts.append(
+                    f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\n'
+                )
+
+                if file_content_type:
+                    body_parts.append(f"Content-Type: {file_content_type}\r\n\r\n")
+                else:
+                    body_parts.append("\r\n")
+
+                body_parts.append(file_bytes)
+                body_parts.append(b"\r\n")
+
+        # End boundary
+        body_parts.append(f"--{boundary}--\r\n")
+
+        # Combine all parts into single body
+        body = b""
+        for part in body_parts:
+            if isinstance(part, str):
+                body += part.encode("utf-8")
+            else:
+                body += part
+
+        return await self.__call__(
+            app=app,
+            method=method,
+            path=path,
+            path_params=path_params,
+            query_params=query_params,
+            headers=headers,
+            body=body,
+        )
 
     async def request(
         self,

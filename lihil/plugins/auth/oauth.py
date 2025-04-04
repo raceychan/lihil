@@ -19,9 +19,9 @@ class OAuthLogin(Payload):
 
     username: str
     password: str
-    grant_type: str | None
-    client_id: str | None
-    client_secret: str | None
+    grant_type: str | None = None
+    client_id: str | None = None
+    client_secret: str | None = None
     scope: str = ""
     scopes: list[str] = field(default_factory=list)
 

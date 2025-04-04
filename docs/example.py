@@ -15,7 +15,7 @@ token = Route("token")
 
 @token.post
 async def create_token(credentials: OAuthLoginForm):
-    breakpoint()
+    ...
 
 
 lhl = Lihil[None](routes=[users, token])
