@@ -4,7 +4,7 @@ from lihil.oas.model import AuthBase
 from lihil.plugins.registry import PluginBase
 
 
-class AuthProvider(PluginBase[Any]):
+class AuthPlugin(PluginBase[Any]):
     # security base
 
     def __init__(self, model: AuthBase, scheme_name: str):

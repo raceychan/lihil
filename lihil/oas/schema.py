@@ -5,12 +5,12 @@ from typing import Any, Sequence, cast, get_args
 from msgspec import Struct
 from msgspec.json import schema_components
 
-from lihil.auth.base import AuthProvider
 from lihil.config import OASConfig
 from lihil.constant.status import phrase
 from lihil.endpoint import EndpointSignature, RequestParam
-from lihil.interface import is_provided
+from lihil.interface import is_provided, is_set
 from lihil.oas import model as oasmodel
+from lihil.plugins.auth import AuthPlugin
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
 from lihil.routing import Endpoint, Route
 from lihil.utils.parse import to_kebab_case, trimdoc
@@ -109,7 +109,7 @@ def detail_base_to_content(
     assert isinstance(problem_schema, oasmodel.Schema)
 
     # Clone the problem schema properties
-    assert problem_schema.properties
+    assert is_set(problem_schema.properties)
     properties = problem_schema.properties.copy()
 
     if ref is not None:
@@ -314,9 +314,7 @@ def get_resp_schemas(
             return resps
         else:
             if ep_return.mark_type == "empty":
-                resps[status] = oasmodel.Response(
-                    description="No Content", content=None
-                )
+                resps[status] = oasmodel.Response(description="No Content")
             elif isinstance(return_type, UnionType):
                 content = type_to_content(return_type, schemas, content_type)
                 resp = oasmodel.Response(description=description, content=content)
@@ -345,7 +343,7 @@ def get_ep_security(ep: Endpoint[Any], security_schemas: SecurityDict):
     security_scopes: list[dict[str, list[str] | None]] = []
     for name, param in ep.sig.plugins.items():
         plugin = param.plugin
-        if isinstance(plugin, AuthProvider):
+        if isinstance(plugin, AuthPlugin):
             security_scheme = oasmodel.SecurityScheme
             security_schemas[plugin.scheme_name] = cast(security_scheme, plugin.model)
             security_scopes.append({plugin.scheme_name: None})
@@ -391,6 +389,7 @@ def get_path_item_from_route(
     security_schemas: SecurityDict,
     problem_path: str,
 ) -> oasmodel.PathItem:
+
     # 1 pathitem = 1 route
     # 1 operation = 1 endpoint
 
@@ -439,7 +438,7 @@ def generate_oas(
         )
 
     # {'securitySchemes': {'OAuth2PasswordBearer': {'type': 'oauth2', 'flows': {'password': {'scopes': {}, 'tokenUrl': 'token'}}}}}
-    # b'{"OAuth2PasswordBearer":{"flows":{"password":{"tokenUrl":"token"}}}}'
+    b'{"OAuth2PasswordBearer":{"flows":{"password":{"tokenUrl":"token"}}}}'
 
     comp = oasmodel.Components(**components)
     info = oasmodel.Info(title=oas_config.title, version=app_version)

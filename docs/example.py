@@ -1,5 +1,5 @@
 from lihil import Annotated, Form, Lihil, Route, Text
-from lihil.auth.oauth import OAuth2PasswordPlugin
+from lihil.plugins.auth import OAuth2PasswordPlugin, OAuthLoginForm
 
 users = Route("users")
 
@@ -10,11 +10,17 @@ async def get_user(
 ): ...
 
 
-get_user_ep = users.get_endpoint(get_user)
+token = Route("token")
 
-lhl = Lihil[None](routes=[users])
 
-# # =============================
+@token.post
+async def create_token(credentials: OAuthLoginForm):
+    breakpoint()
+
+
+lhl = Lihil[None](routes=[users, token])
+
+# =============================
 
 # from typing import Annotated
 

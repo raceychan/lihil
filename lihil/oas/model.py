@@ -3,7 +3,7 @@ from typing import Annotated, Any, Literal, Sequence, TypedDict, Union
 
 from msgspec import Meta, field
 
-from lihil.interface import UNSET, Record, Unset
+from lihil.interface import UNSET, Base, Unset
 from lihil.problems import DetailBase
 
 # from msgspec.structs import replace as struct_replace
@@ -15,12 +15,28 @@ GEZero = Annotated[int, Meta(ge=0)]
 type SecuritySchemes = Literal["apiKey", "http", "oauth2", "openIdConnect"]
 
 
-class OASRecord(Record): ...
+class OASB(Base):
+    """
+    Open API Specification Base
+    """
+
+    def __post_init__(self):
+        """
+        We replace all `None` value with msgspec.Unset
+
+        This is because if there is any None value being encoded as `null` by msgspec
+        Then swagger won't display anything.
+        On the other hand, msgspec will skip field with value `UNSET` when encoding.
+        """
+
+        for field in self.__struct_fields__:
+            if getattr(self, field) is None:
+                setattr(self, field, UNSET)
 
 
-class AuthBase(OASRecord, kw_only=True):
+class AuthBase(OASB, kw_only=True):
     type_: SecuritySchemes = field(name="type")
-    description: Unset[str] = UNSET
+    description: Unset[str]= UNSET
 
 
 class APIKeyIn(Enum):
@@ -45,7 +61,7 @@ class HTTPBearer(HTTPBase):
     bearerFormat: Unset[str] = UNSET
 
 
-class OAuthFlow(OASRecord, kw_only=True):
+class OAuthFlow(OASB, kw_only=True):
     refreshUrl: Unset[str] = UNSET
     scopes: dict[str, str] = {}
 
@@ -67,7 +83,7 @@ class OAuthFlowAuthorizationCode(OAuthFlow):
     tokenUrl: str
 
 
-class OAuthFlows(OASRecord, kw_only=True):
+class OAuthFlows(OASB, kw_only=True):
     implicit: Unset[OAuthFlowImplicit] = UNSET
     password: Unset[OAuthFlowPassword] = UNSET
     clientCredentials: Unset[OAuthFlowClientCredentials] = UNSET
@@ -87,19 +103,19 @@ class OpenIdConnect(AuthBase, kw_only=True):
 SecurityScheme = Union[APIKey, HTTPBase, OAuth2, OpenIdConnect, HTTPBearer]
 
 
-class Contact(OASRecord, kw_only=True):
+class Contact(OASB, kw_only=True):
     name: Unset[str] = UNSET
     url: Unset[str] = UNSET
     email: Unset[str] = UNSET
 
 
-class License(OASRecord, kw_only=True):
+class License(OASB, kw_only=True):
     name: str
     identifier: Unset[str] = UNSET
     url: Unset[str] = UNSET
 
 
-class Info(OASRecord, kw_only=True):
+class Info(OASB, kw_only=True):
     title: str
     summary: Unset[str] = UNSET
     description: Unset[str] = UNSET
@@ -109,28 +125,28 @@ class Info(OASRecord, kw_only=True):
     version: str
 
 
-class ServerVariable(OASRecord, kw_only=True):
+class ServerVariable(OASB, kw_only=True):
     enum: Annotated[Unset[list[str]], Meta(min_length=1)] = UNSET
     default: str
     description: Unset[str] = UNSET
 
 
-class Server(OASRecord, kw_only=True):
+class Server(OASB, kw_only=True):
     url: Union[str, str]
     description: Unset[str] = UNSET
     variables: Unset[dict[str, ServerVariable]] = UNSET
 
 
-class Reference(OASRecord, kw_only=True):
+class Reference(OASB, kw_only=True):
     ref: str = field(name="$ref")
 
 
-class Discriminator(OASRecord, kw_only=True):
+class Discriminator(OASB, kw_only=True):
     propertyName: str
     mapping: Unset[dict[str, str]] = UNSET
 
 
-class XML(OASRecord, kw_only=True):
+class XML(OASB, kw_only=True):
     name: Unset[str] = UNSET
     namespace: Unset[str] = UNSET
     prefix: Unset[str] = UNSET
@@ -138,12 +154,12 @@ class XML(OASRecord, kw_only=True):
     wrapped: Unset[bool] = UNSET
 
 
-class ExternalDocumentation(OASRecord, kw_only=True):
+class ExternalDocumentation(OASB, kw_only=True):
     description: Unset[str] = UNSET
     url: str
 
 
-class Schema(OASRecord, kw_only=True):
+class Schema(OASB, kw_only=True):
     schema_: Unset[str] = field(default=UNSET, name="$schema")
     vocabulary: Unset[str] = field(default=UNSET, name="$vocabulary")
     id: Unset[str] = field(default=UNSET, name="$id")
@@ -222,7 +238,7 @@ class ParameterInType(Enum):
     cookie = "cookie"
 
 
-class Encoding(OASRecord, kw_only=True):
+class Encoding(OASB, kw_only=True):
     contentType: Unset[str] = UNSET
     headers: Unset[dict[str, Union["Header", Reference]]] = UNSET
     style: Unset[str] = UNSET
@@ -230,14 +246,14 @@ class Encoding(OASRecord, kw_only=True):
     allowReserved: Unset[bool] = UNSET
 
 
-class MediaType(OASRecord, kw_only=True):
+class MediaType(OASB, kw_only=True):
     schema_: Unset[Union[Schema, Reference]] = field(default=UNSET, name="schema")
     example: Unset[Any] = UNSET
     examples: Unset[dict[str, Union[Example, Reference]]] = UNSET
     encoding: Unset[dict[str, Encoding]] = UNSET
 
 
-class ParameterBase(OASRecord, kw_only=True):
+class ParameterBase(OASB, kw_only=True):
     description: Unset[str] = UNSET
     required: Unset[bool] = UNSET
     deprecated: Unset[bool] = UNSET
@@ -261,13 +277,13 @@ class Header(ParameterBase):
     pass
 
 
-class RequestBody(OASRecord, kw_only=True):
+class RequestBody(OASB, kw_only=True):
     description: Unset[str] = UNSET
     content: dict[str, MediaType]
     required: Unset[bool] = UNSET
 
 
-class Link(OASRecord, kw_only=True):
+class Link(OASB, kw_only=True):
     operationRef: Unset[str] = UNSET
     operationId: Unset[str] = UNSET
     parameters: Unset[dict[str, Union[Any, str]]] = UNSET
@@ -276,14 +292,14 @@ class Link(OASRecord, kw_only=True):
     server: Unset[Server] = UNSET
 
 
-class Response(OASRecord, kw_only=True):
+class Response(OASB, kw_only=True):
     description: str
     headers: Unset[dict[str, Union[Header, Reference]]] = UNSET
     content: Unset[dict[str, MediaType]] = UNSET
     links: Unset[dict[str, Union[Link, Reference]]] = UNSET
 
 
-class Operation(OASRecord, kw_only=True):
+class Operation(OASB, kw_only=True):
     tags: Unset[list[str]] = UNSET
     summary: Unset[str] = UNSET
     description: Unset[str] = UNSET
@@ -299,7 +315,7 @@ class Operation(OASRecord, kw_only=True):
     servers: Unset[list[Server]] = UNSET
 
 
-class PathItem(OASRecord, kw_only=True):
+class PathItem(OASB, kw_only=True):
     ref: Unset[str] = field(default=UNSET, name="$ref")
     summary: Unset[str] = UNSET
     description: Unset[str] = UNSET
@@ -315,7 +331,7 @@ class PathItem(OASRecord, kw_only=True):
     parameters: Unset[list[Union[Parameter, Reference]]] = UNSET
 
 
-class Components(OASRecord, kw_only=True):
+class Components(OASB, kw_only=True):
     schemas: Unset[dict[str, Union[Schema, Reference]]] = UNSET
     responses: Unset[dict[str, Union[Response, Reference]]] = UNSET
     parameters: Unset[dict[str, Union[Parameter, Reference]]] = UNSET
@@ -328,13 +344,13 @@ class Components(OASRecord, kw_only=True):
     pathItems: Unset[dict[str, Union[PathItem, Reference]]] = UNSET
 
 
-class Tag(OASRecord, kw_only=True):
+class Tag(OASB, kw_only=True):
     name: str
     description: Unset[str] = UNSET
     externalDocs: Unset[ExternalDocumentation] = UNSET
 
 
-class OpenAPI(OASRecord, kw_only=True):
+class OpenAPI(OASB, kw_only=True):
     openapi: str
     info: Info
     jsonSchemaDialect: Unset[str] = UNSET
@@ -349,7 +365,7 @@ class OpenAPI(OASRecord, kw_only=True):
     # responses: dict[str, Response]
 
 
-class RouteConfig(Record):
+class RouteConfig(Base):
     tag: str = ""
     in_schema: bool = True
     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]] = field(

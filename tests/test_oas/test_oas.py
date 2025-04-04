@@ -4,7 +4,7 @@ import pytest
 from msgspec import Struct
 
 from lihil import Empty, HTTPException, Payload, Resp, Route, Text, status
-from lihil.auth.oauth import OAuth2PasswordPlugin
+from lihil.plugins.auth.oauth import OAuth2PasswordPlugin
 from lihil.config import OASConfig
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.oas.doc_ui import get_problem_ui_html

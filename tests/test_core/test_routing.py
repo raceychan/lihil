@@ -3,10 +3,10 @@ from typing import Annotated, Literal
 import pytest
 
 from lihil import Text, status
-from lihil.auth.oauth import OAuth2PasswordPlugin
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend, Resp
+from lihil.plugins.auth.oauth import OAuth2PasswordPlugin
 
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.plugins.bus import Event
@@ -202,7 +202,7 @@ async def test_route_middleware():
             # Modify response
             original_send = send
 
-            async def custom_send(message):
+            async def custom_send(message: dict[str, str]):
                 if message["type"] == "http.response.body":
                     # Modify the response body
                     body = message.get("body", b"")

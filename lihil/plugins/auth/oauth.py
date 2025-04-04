@@ -3,23 +3,11 @@ from typing import ClassVar
 from ididi import Resolver
 from msgspec import field
 
-from lihil.auth.base import AuthProvider
-from lihil.interface import Payload
+from lihil.interface import UNSET, Form, Payload, Unset
 from lihil.oas.model import OAuth2, OAuthFlowPassword, OAuthFlows
+from lihil.plugins.auth import AuthPlugin
 from lihil.problems import HTTPException
 from lihil.vendor_types import Request
-
-# type LoginForm = Form[]
-# https://datatracker.ietf.org/doc/html/rfc6749
-
-
-"""
-TODO:
-since password grant is already deprecated,
-we should first make an ordinary login form here
-"""
-
-# class UserCredential
 
 
 class OAuthLogin(Payload):
@@ -29,34 +17,28 @@ class OAuthLogin(Payload):
     login_form: Form[OAuthLoginForm]
     """
 
-    grant_type: str | None
     username: str
     password: str
-    scope: str
+    grant_type: str | None
     client_id: str | None
     client_secret: str | None
+    scope: str = ""
     scopes: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         self.scopes.extend(self.scope.split())
 
 
-# class AccessControl(Base):
-#     # security requirement
-#     security_scheme: AuthPlugin[Any]
-#     scopes: Sequence[str] | None = None
+# refference: https://datatracker.ietf.org/doc/html/rfc6749
+type OAuthLoginForm = Form[OAuthLogin]
 
 
-# OAuth2Provider
-# Plugin[OAuth2PasswordPlugin, OAuth2PasswordPlugin]
-
-
-class OAuth2Provider(AuthProvider):
+class OAuth2Plugin(AuthPlugin):
     scheme_name: ClassVar[str]
 
     def __init__(
         self,
-        description: str | None = None,
+        description: Unset[str] = UNSET,
         auto_error: bool = True,
         flows: OAuthFlows | None = None,
         scheme_name: str | None = None,
@@ -81,13 +63,13 @@ class OAuth2Provider(AuthProvider):
         return authorization
 
 
-class OAuth2PasswordPlugin(OAuth2Provider):
+class OAuth2PasswordPlugin(OAuth2Plugin):
     scheme_name = "OAuth2PasswordBearer"
 
     def __init__(
         self,
         *,
-        description: str | None = None,
+        description: Unset[str] = UNSET,
         auto_error: bool = True,
         flows: OAuthFlows | None = None,
         scheme_name: str | None = None,

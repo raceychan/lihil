@@ -4,10 +4,10 @@ from typing import Any, Callable, Literal
 from typing import Protocol as Protocol
 from typing import TypeGuard, Union, get_args
 
-from msgspec import UNSET, Meta
+from msgspec import UNSET
+from msgspec import Meta as Meta
 from msgspec import Struct as Struct
 from msgspec import UnsetType
-from msgspec import field
 from msgspec import field as field
 
 from lihil.interface.asgi import HTTP_METHODS as HTTP_METHODS
