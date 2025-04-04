@@ -1,5 +1,5 @@
 from inspect import Parameter, signature
-from typing import Annotated, Union
+from typing import Annotated, Any, Union
 
 import pytest
 
@@ -22,12 +22,13 @@ from lihil.endpoint.params import (
     CustomDecoder,
     EndpointParams,
     ParamParser,
+    PluginMixin,
     PluginParam,
     RequestBodyParam,
     RequestParam,
     to_bytes,
 )
-from lihil.errors import NotSupportedError, InvalidMarkTypeError
+from lihil.errors import InvalidMarkTypeError, NotSupportedError
 from lihil.interface.marks import param_mark
 from lihil.plugins.provider import register_plugin_provider, remove_plugin_provider
 
@@ -91,10 +92,10 @@ def test_request_param():
 
 # Test PluginParam
 def test_singleton_param():
-    param = PluginParam(type_=Request, name="request")
+    param = PluginParam(type_=Request, annotation=Request, name="request")
     assert param.required is True
 
-    param = PluginParam(type_=EventBus, name="bus", default=None)
+    param = PluginParam(type_=EventBus, annotation=EventBus, name="bus", default=None)
     assert param.required is False
 
 
@@ -400,12 +401,18 @@ def test_body_param_repr(param_parser: ParamParser):
 type Cached[T] = Annotated[T, param_mark("cached")]
 
 
-class CachedProvider:
-    def load(self, request: Request, resolver: Resolver) -> str:
+class CachedProvider(PluginMixin[str]):
+    async def load(self, request: Request, resolver: Resolver) -> str:
         return "cached"
 
-    def parse(self, name: str, type_: type, default, annotation, metas):
-        return PluginParam(type_=type_, name=name, loader=self.load)
+    def parse(self, name: str, type_: type, default, annotation):
+        return PluginParam[Any](
+            type_=type_,
+            name=name,
+            annotation=annotation,
+            default=default,
+            loader=self.load,
+        )
 
 
 def test_param_provider(param_parser: ParamParser):
@@ -416,12 +423,15 @@ def test_param_provider(param_parser: ParamParser):
     assert isinstance(param, PluginParam)
     assert param.type_ == str
 
+    with pytest.raises(Exception) as exc:
+        register_plugin_provider("cached", provider)
+
     remove_plugin_provider(Cached[str])
 
 
 def test_param_provider_with_invalid_mark(param_parser):
     with pytest.raises(InvalidMarkTypeError):
-        register_plugin_provider("adsf", None)
+        register_plugin_provider(5, None)
 
     with pytest.raises(InvalidMarkTypeError):
         register_plugin_provider(Annotated[str, "asdf"], None)

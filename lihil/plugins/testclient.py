@@ -330,47 +330,6 @@ class LocalClient:
             body=body,
         )
 
-    async def __call__(
-        self,
-        app: ASGIApp,
-        method: HTTP_METHODS | None,
-        path: str | None,
-        path_params: dict[str, Any] | None = None,
-        query_params: dict[str, Any] | None = None,
-        body: Any = None,
-        headers: dict[str, str] | None = None,
-    ):
-        if isinstance(app, Endpoint):
-            await self.call_endpoint(
-                app,
-                path_params=path_params,
-                query_params=query_params,
-                body=body,
-                headers=headers,
-            )
-        elif isinstance(app, Route):
-            assert method, "method is required"
-            await self.call_route(
-                app,
-                method=method,
-                path_params=path_params,
-                query_params=query_params,
-                body=body,
-                headers=headers,
-            )
-        else:
-            assert method, "method is required"
-            assert path, "path is required"
-            await self.call_app(
-                app,
-                method=method,
-                path=path,
-                path_params=path_params,
-                query_params=query_params,
-                body=body,
-                headers=headers,
-            )
-
     async def send_app_lifespan(self, app: ASGIApp) -> None:
         """
         Helper function to initialize a Lihil app by sending lifespan events.
@@ -394,3 +353,44 @@ class LocalClient:
             sent_messages.append(message)
 
         await app(scope, receive, send)
+
+    async def __call__(
+        self,
+        app: ASGIApp,
+        method: HTTP_METHODS | None = None,
+        path: str | None = None,
+        path_params: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | None = None,
+        body: Any = None,
+        headers: dict[str, str] | None = None,
+    ) -> RequestResult:
+        if isinstance(app, Endpoint):
+            return await self.call_endpoint(
+                app,
+                path_params=path_params,
+                query_params=query_params,
+                body=body,
+                headers=headers,
+            )
+        elif isinstance(app, Route):
+            assert method, "method is required to call route"
+            return await self.call_route(
+                app,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                body=body,
+                headers=headers,
+            )
+        else:
+            assert method, "method is required to call app"
+            assert path, "path is required to call app"
+            return await self.call_app(
+                app,
+                method=method,
+                path=path,
+                path_params=path_params,
+                query_params=query_params,
+                body=body,
+                headers=headers,
+            )

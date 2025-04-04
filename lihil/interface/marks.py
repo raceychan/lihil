@@ -35,11 +35,15 @@ def lhl_get_origin(annt: Any) -> Any:
     return ty_get_origin(annt)
 
 
-def resp_mark(name: str):
+def resp_mark(name: str) -> str:
+    if name.startswith(LIHIL_RESPONSE_MARK):
+        return name
     return f"{LIHIL_RESPONSE_MARK}_{name.upper()}__"
 
 
-def param_mark(name: str):
+def param_mark(name: str) -> str:
+    if name.startswith(LIHIL_PARAM_MARK):
+        return name
     return f"{LIHIL_PARAM_MARK}_{name.upper()}__"
 
 

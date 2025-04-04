@@ -113,6 +113,8 @@ class Endpoint[R]:
     ):
         for name, p in self._plugin_items:
             ptype = p.type_
+            assert isinstance(ptype, type)
+
             if issubclass(ptype, Request):
                 params[name] = request
             elif issubclass(ptype, EventBus):

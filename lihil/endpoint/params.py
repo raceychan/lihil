@@ -29,19 +29,18 @@ from lihil.interface import (
     CustomDecoder,
     Maybe,
     ParamLocation,
+    RequestParamBase,
 )
 from lihil.interface.marks import ParamMarkType, Struct, extract_mark_type
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
-from lihil.plugins.provider import PLUGIN_REGISTRY, PluginParam
+from lihil.plugins.provider import PLUGIN_REGISTRY, PluginMixin, PluginParam
 from lihil.utils.parse import parse_header_key
 from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, to_str
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
 
-type ParsedParam[T] = RequestParam[T] | RequestBodyParam[T] | PluginParam[
-    T
-] | DependentNode
+type ParsedParam[T] = RequestParamBase[T] | DependentNode
 
 
 LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver)
@@ -139,31 +138,16 @@ def formdecoder_factory[T](ptype: type[T] | UnionType):
     return form_decoder
 
 
-class RequestParamBase[T](Base):
-    name: str
-    alias: str
-    type_: type[T] | UnionType | GenericAlias
-    annotation: Any
-    location: ParamLocation
-    default: Maybe[Any] = MISSING
-    required: bool = False
-
-    @property
-    def type_repr(self) -> str:
-        ty_origin = getattr(self.type_, "__origin__", None)
-        if ty_origin is Union:
-            type_repr = repr(self.type_).lstrip("typing.")
-        else:
-            type_repr = getattr(self.type_, "__name__", repr(self.type_))
-        return type_repr
-
-    def __post_init__(self):
-        self.required = self.default is MISSING
-
-
-
 class RequestParam[T](RequestParamBase[T], kw_only=True):
+    location: ParamLocation
     decoder: ITextDecoder[T]
+
+    # QUESTION: can path param have default value? /users/ vs /users/a-user-id
+    # this mainly based on whether/how we do regex on path param
+
+    # def __post_init__(self):
+    #     if self.location == "path" and self.required is False:
+    #         raise ValueError("default value does not work with path param")
 
     def __repr__(self) -> str:
         return f"RequestParam<{self.location}>({self.name}: {self.type_repr})"
@@ -214,7 +198,6 @@ class ParamMetas(Base):
                 current_mark_type = mark_type
             elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
                 factory, config = metas[idx + 1], metas[idx + 2]
-
         return ParamMetas(
             custom_decoder=decoder,
             mark_type=current_mark_type,
@@ -302,7 +285,11 @@ class ParamParser:
                 default=default,
             )
         elif self.is_plugin_type(param_type):
-            return [PluginParam(type_=param_type, name=name, default=default)]
+            return [
+                PluginParam(
+                    type_=param_type, annotation=annotation, name=name, default=default
+                )
+            ]
         elif is_body_param(param_type):
             if is_file_body(param_type):
                 req_param = file_body_param(
@@ -338,7 +325,6 @@ class ParamParser:
             node = self.graph.analyze(param_meta.factory, config=param_meta.config)
             return self._parse_node(node)
         else:  # default case, treat as query
-
             decoder = custom_decoder or txtdecoder_factory(param_type)
             req_param = RequestParam(
                 name=name,
@@ -369,7 +355,6 @@ class ParamParser:
         param_meta: ParamMetas,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
         custom_decoder = param_meta.custom_decoder
-
         mark_type = param_meta.mark_type
 
         if mark_type == "use":
@@ -425,6 +410,30 @@ class ParamParser:
             )
             return req_param
 
+    def _parse_plugin_from_meta(
+        self,
+        name: str,
+        type_: type | UnionType,
+        annotation: type[Any] | UnionType | GenericAlias | TypeAliasType,
+        default: Maybe[Any],
+        metas: list[Any] | None,
+    ) -> list[ParsedParam[Any]] | None:
+        if not metas:
+            return None
+
+        plugins: list[ParsedParam[Any]] = []
+
+        for meta in metas:
+            if isinstance(meta, PluginMixin):
+                plugin = meta.parse(name, type_, annotation, default)
+                plugins.append(plugin)
+            else:
+                mark_type = extract_mark_type(meta)
+                if mark_type and (provider := PLUGIN_REGISTRY.get(mark_type)):
+                    plugin = provider.parse(name, type_, annotation, default)
+                    plugins.append(plugin)
+        return plugins if plugins else None
+
     def parse_param[T](
         self,
         name: str,
@@ -432,30 +441,29 @@ class ParamParser:
         default: Maybe[T] = MISSING,
     ) -> list[ParsedParam[T]]:
         parsed_type, pmetas = get_origin_pro(annotation)
-        param_meta = ParamMetas.from_metas(pmetas) if pmetas else None
-        if param_meta is None or not param_meta.mark_type:  # non generic version
+
+        if plugins := self._parse_plugin_from_meta(
+            name, parsed_type, annotation, default, pmetas
+        ):
+            return plugins
+
+        param_metas = ParamMetas.from_metas(pmetas) if pmetas else None
+        if param_metas is None or not param_metas.mark_type:
             res = self._parse_rule_based(
                 name=name,
                 param_type=parsed_type,
                 annotation=annotation,
                 default=default,
-                param_meta=param_meta,
+                param_meta=param_metas,
             )
-        elif provider := PLUGIN_REGISTRY.get(param_meta.mark_type):
-            res = provider.parse(
-                name=name,
-                type_=parsed_type,
-                annotation=annotation,
-                default=default,
-                metas=pmetas,
-            )
+
         else:
             res = self._parse_marked(
                 name=name,
                 type_=parsed_type,
                 annotation=annotation,
                 default=default,
-                param_meta=param_meta,
+                param_meta=param_metas,
             )
         return res if isinstance(res, list) else [res]
 

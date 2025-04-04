@@ -1,6 +1,8 @@
-from typing import Callable, Literal
+# from types import GenericAlias, UnionType
+from types import UnionType
+from typing import Any, Callable, Literal
 from typing import Protocol as Protocol
-from typing import TypeGuard, get_args
+from typing import TypeGuard, Union, get_args
 
 from msgspec import Struct as Struct
 from msgspec import field as field
@@ -64,3 +66,26 @@ class _Missed:
 
 
 MISSING = _Missed()
+
+
+class RequestParamBase[T](Base):
+    name: str
+    type_: type[T] | UnionType
+    annotation: Any
+    alias: Maybe[str] = MISSING
+    default: Maybe[Any] = MISSING
+    required: bool = False
+
+    @property
+    def type_repr(self) -> str:
+        ty_origin = getattr(self.type_, "__origin__", None)
+        if ty_origin is Union:
+            type_repr = repr(self.type_).lstrip("typing.")
+        else:
+            type_repr = getattr(self.type_, "__name__", repr(self.type_))
+        return type_repr
+
+    def __post_init__(self):
+        if self.alias is MISSING:
+            self.alias = self.name
+        self.required = self.default is MISSING

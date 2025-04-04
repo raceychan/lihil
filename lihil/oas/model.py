@@ -30,7 +30,7 @@ type SecuritySchemes = Literal["apiKey", "http", "oauth2", "openIdConnect"]
 
 class AuthBase(BaseStruct, kw_only=True):
     type_: SecuritySchemes = field(name="type")
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class APIKeyIn(Enum):

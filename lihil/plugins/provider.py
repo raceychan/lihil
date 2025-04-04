@@ -1,31 +1,27 @@
 from types import GenericAlias, MappingProxyType, UnionType
-from typing import Any, Protocol, TypeAliasType, cast
+from typing import Any, ClassVar, Protocol, TypeAliasType, cast
 
 from ididi import Resolver
 
 from lihil.errors import InvalidMarkTypeError
-from lihil.interface import MISSING, Base, Maybe
-from lihil.interface.marks import LIHIL_PARAM_MARK, extract_mark_type
+from lihil.interface import Maybe, RequestParamBase
+from lihil.interface.marks import extract_mark_type
 from lihil.utils.typing import get_origin_pro
 from lihil.vendor_types import Request
 
 
-class PluginParam[T](Base):
-    type_: type[T]
-    name: str
-    default: Maybe[Any] = MISSING
-    required: bool = False
+class PluginParam[T](RequestParamBase[T]):
     loader: "PluginLoader[T] | None" = None
-
-    def __post_init__(self):
-        self.required = self.default is MISSING
 
 
 class PluginLoader[T](Protocol):
     async def __call__(self, request: Request, resolver: Resolver) -> T: ...
 
 
-class ProviderMixin[T]:
+# Perhaps it is eaasier to just check for subclass of this
+class PluginMixin[T]:
+    __mark_type__: ClassVar[str]
+
     async def load(self, request: Request, resolver: Resolver) -> T: ...
 
     def parse(
@@ -34,25 +30,26 @@ class ProviderMixin[T]:
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        metas: list[Any] | None,
     ) -> PluginParam[T]:
         return PluginParam(
-            type_=cast(type[T], type_), name=name, default=default, loader=self.load
+            type_=cast(type[T], type_),
+            annotation=annotation,
+            name=name,
+            default=default,
+            loader=self.load,
         )
 
 
 def __plugin_registry():
-    plugin_providers: dict[str, ProviderMixin[Any]] = {}
+    plugin_providers: dict[str, PluginMixin[Any]] = {}
 
     # TODO:
     def register_plugin_provider(
-        mark: TypeAliasType | GenericAlias | str, provider: ProviderMixin[Any]
-    ) -> ProviderMixin[Any]:
+        mark: TypeAliasType | GenericAlias | str, provider: PluginMixin[Any]
+    ) -> PluginMixin[Any]:
         nonlocal plugin_providers
 
         if isinstance(mark, str):
-            if not mark.startswith(LIHIL_PARAM_MARK):
-                raise InvalidMarkTypeError(mark)
             mark_type = mark
         else:
             _, metas = get_origin_pro(mark)

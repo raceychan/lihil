@@ -5,7 +5,7 @@ from lihil.auth.base import AuthProvider
 from lihil.interface import Payload
 from lihil.interface.marks import param_mark
 from lihil.oas.model import OAuth2, OAuthFlowPassword, OAuthFlows
-from lihil.plugins.provider import ProviderMixin, register_plugin_provider
+from lihil.plugins.provider import register_plugin_provider
 from lihil.problems import HTTPException
 from lihil.vendor_types import Request
 
@@ -48,12 +48,12 @@ class OAuthLogin(Payload):
 
 
 # OAuth2Provider
+# Plugin[OAuth2PasswordPlugin, OAuth2PasswordPlugin]
 class OAuth2Provider(AuthProvider[OAuth2]):
-
     def __init__(
         self,
-        description: str,
-        auto_error: bool,
+        description: str | None = None,
+        auto_error: bool = True,
         flows: OAuthFlows | None = None,
         scheme_name: str | None = None,
     ):
@@ -76,12 +76,24 @@ class OAuth2Provider(AuthProvider[OAuth2]):
 
 
 class OAuth2PasswordPlugin(OAuth2Provider):
-    tokenUrl: str
-    scopes: dict[str, str] = field(default_factory=dict)
-
-    def __post_init__(self):
-        self.flows = OAuthFlows(
-            password=OAuthFlowPassword(tokenUrl=self.tokenUrl, scopes=self.scopes)
+    def __init__(
+        self,
+        *,
+        description: str | None = None,
+        auto_error: bool = True,
+        flows: OAuthFlows | None = None,
+        scheme_name: str | None = None,
+        token_url: str,
+        scopes: dict[str, str] | None = None,
+    ):
+        flows = OAuthFlows(
+            password=OAuthFlowPassword(tokenUrl=token_url, scopes=scopes or {})
+        )
+        super().__init__(
+            flows=flows,
+            description=description,
+            auto_error=auto_error,
+            scheme_name=scheme_name,
         )
 
     async def load(self, request: Request, resolver: Resolver) -> str | None:
