@@ -19,8 +19,9 @@ from lihil import (
     field,
     status,
 )
+from lihil.config import AppConfig, SecurityConfig
 from lihil.errors import NotSupportedError, StatusConflictError
-from lihil.plugins.auth.jwt import JWToken, JWTPayload
+from lihil.plugins.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
 from lihil.plugins.auth.oauth import OAuthLoginForm
 from lihil.plugins.testclient import LocalClient
 from lihil.utils.threading import async_wrapper
@@ -525,6 +526,7 @@ class UserProfile(JWTPayload):
 from jwt import decode
 
 
+@pytest.mark.debug
 async def test_endpoint_returns_jwt(testroute: Route, lc: LocalClient):
 
     async def get_token(form: OAuthLoginForm) -> JWToken[UserProfile]:
@@ -533,10 +535,19 @@ async def test_endpoint_returns_jwt(testroute: Route, lc: LocalClient):
     testroute.post(get_token)
 
     ep = testroute.get_endpoint(get_token)
-    ep.setup()
+
+    app_config = AppConfig(security=SecurityConfig(jwt_secret="mysecret"))
+    ep.setup(app_config=app_config)
 
     res = await lc.submit_form(
         ep, form_data={"username": "user", "password": "pasword"}
     )
 
     token = await res.body()
+
+    decoder = jwt_decoder_factory(
+        secret="mysecret", algo="HS256", payload_type=UserProfile
+    )
+
+    payload = decoder(token)
+    assert isinstance(payload, UserProfile)

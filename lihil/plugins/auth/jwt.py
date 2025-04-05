@@ -4,21 +4,12 @@ from uuid import uuid4
 
 from jwt import PyJWT
 from jwt.api_jws import PyJWS
-from msgspec.json import encode
+from msgspec import convert
 
+from lihil.errors import NotSupportedError
 from lihil.interface import UNSET, Base, CustomEncoder, Payload, Unset, field
 from lihil.interface.marks import JW_TOKEN_RETURN_MARK, resp_mark
-
-# class JWTOptions(TypedDict):
-#     verify_signature: bool
-#     verify_exp: bool
-#     verify_nbf: bool
-#     verify_iat: bool
-#     verify_aud: bool
-#     verify_iss: bool
-#     verify_sub: bool
-#     verify_jti: bool
-#     require: list[Any]
+from lihil.utils.json import decoder_factory, encode_json
 
 
 def jwt_timeclaim():
@@ -38,6 +29,18 @@ class JWTClaim(TypedDict, total=False):
     exp_in: Required[int]
     iss: str
     aud: str
+
+
+class JWTOptions(TypedDict):
+    verify_signature: bool
+    verify_exp: bool
+    verify_nbf: bool
+    verify_iat: bool
+    verify_aud: bool
+    verify_iss: bool
+    verify_sub: bool
+    verify_jti: bool
+    require: list[Any]
 
 
 @dataclass_transform(kw_only_default=True)
@@ -85,6 +88,52 @@ async def get_user(
 """
 
 
+def jwt_encoder_factory[T](
+    *,
+    secret: str,
+    algo: str,
+    options: JWTOptions | None = None,
+    payload_type: type[T],
+):
+
+    if not isinstance(payload_type, type) or not issubclass(
+        payload_type, (JWTPayload, str)
+    ):
+        raise TypeError("Must be str or subclass of JWTPayload")
+
+    if issubclass(payload_type, JWTPayload):
+        try:
+            encode_fields = getattr(payload_type, "__struct_encode_fields__")
+            assert "sub" in encode_fields or "sub" in payload_type.__struct_fields__
+        except (AttributeError, AssertionError):
+            raise NotSupportedError(
+                "JWTPayload class must have a field with name `sub` or field(name=`sub`)"
+            )
+
+    jws_encode = PyJWS(algorithms=[algo], options=options).encode
+
+    def encoder(content: T) -> bytes:
+        payload_bytes = encode_json(content)
+        return jws_encode(payload_bytes, key=secret).encode()
+
+    return encoder
 
 
-type JWToken[T] = Annotated[T, JW_TOKEN_RETURN_MARK, "text/plain"]
+def jwt_decoder_factory[T](
+    *, secret: str, algo: str, options: JWTOptions | None = None, payload_type: type[T]
+):
+
+    jwt = PyJWT()
+
+    def decoder(content: bytes) -> T:
+        decoded: dict[str, Any] = jwt.decode(
+            content, key=secret, algorithms=[algo], options=options
+        )
+        return convert(decoded, payload_type)
+
+    return decoder
+
+
+type JWToken[T: JWTPayload | str | bytes] = Annotated[
+    T, JW_TOKEN_RETURN_MARK, "text/plain"
+]

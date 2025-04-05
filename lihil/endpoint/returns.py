@@ -16,6 +16,7 @@ from lihil.constant.status import code as get_status_code
 from lihil.errors import InvalidStatusError, NotSupportedError, StatusConflictError
 from lihil.interface import MISSING, CustomEncoder, IEncoder, Maybe, Record, is_provided
 from lihil.interface.marks import RESP_RETURN_MARK, ResponseMark, extract_resp_type
+from lihil.plugins.auth.jwt import jwt_encoder_factory
 from lihil.utils.json import encode_json, encode_text
 from lihil.utils.typing import get_origin_pro, is_union_type
 
@@ -110,9 +111,15 @@ def parse_return_pro(
             elif resp_type == "empty":
                 content_type = None
             elif resp_type == "jw_token":
-                if app_config is None:
-                    pass
-                    # raise Exception("app config is required")
+                if app_config is None or app_config.security is None:
+                    raise NotSupportedError(
+                        "Security config is required to use JWToken"
+                    )
+                encoder = jwt_encoder_factory(
+                    secret=app_config.security.jwt_secret,
+                    algo=app_config.security.jwt_algo,
+                    payload_type=ret_type,
+                )
             else:
                 if resp_type == "stream":
                     ret_type = get_args(annotation)[0]

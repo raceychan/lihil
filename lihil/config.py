@@ -21,7 +21,6 @@ from msgspec.structs import FieldInfo, fields
 from lihil.errors import AppConfiguringError
 from lihil.interface import (
     MISSING,
-    UNSET,
     Maybe,
     Record,
     Unset,
@@ -175,8 +174,9 @@ class ServerConfig(ConfigBase):
     root_path: str | None = None
 
 
-class Security(ConfigBase):
-    jwt_secret: str | None = None
+class SecurityConfig(ConfigBase):
+    jwt_secret: str
+    jwt_algo: str = "HS256"
 
 
 class AppConfig(ConfigBase):
@@ -185,7 +185,7 @@ class AppConfig(ConfigBase):
     max_thread_workers: int = field(default_factory=get_thread_cnt)
     oas: OASConfig = field(default_factory=OASConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
-    security: Unset[Security] = UNSET
+    security: SecurityConfig | None = None
 
     @classmethod
     def from_toml(cls, file_path: Path) -> StrDict:

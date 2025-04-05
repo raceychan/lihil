@@ -78,10 +78,10 @@ class Endpoint[R]:
         return self._unwrapped_func
 
     def setup(self, **deps: Unpack[SyncDeps]) -> None:
-        if deps:
-            self._app_config = deps["app_config"]
-            self._graph = deps["graph"]
-            self._busterm = deps["busterm"]
+        self._app_config = deps.get("app_config") or self._app_config
+        self._graph = deps.get("graph") or self._graph
+        self._busterm = deps.get("busterm") or self._busterm
+
 
         self._sig = EndpointSignature.from_function(
             graph=self._graph,
