@@ -143,7 +143,7 @@ class LocalClient:
         self,
         app: ASGIApp,
         form_data: dict[str, Any],
-        method: str | None = None,
+        method: HTTP_METHODS | None = None,
         path: str | None = None,
         path_params: dict[str, Any] | None = None,
         query_params: dict[str, Any] | None = None,

@@ -2,23 +2,43 @@ import argparse
 import tomllib
 from pathlib import Path
 from types import UnionType
-from typing import Any, Literal, Sequence, TypedDict, Union, Unpack, cast, get_args
+from typing import (
+    Any,
+    Literal,
+    Sequence,
+    TypedDict,
+    Union,
+    Unpack,
+    cast,
+    get_args,
+    get_origin,
+)
 
+from ididi import Graph
 from msgspec import convert, field
 from msgspec.structs import FieldInfo, fields
 
 from lihil.errors import AppConfiguringError
 from lihil.interface import (
     MISSING,
+    UNSET,
     Maybe,
     Record,
+    Unset,
     get_maybe_vars,
     is_provided,
     lhl_get_origin,
 )
 from lihil.interface.problem import DetailBase
+from lihil.plugins.bus import BusTerminal
 
 StrDict = dict[str, Any]
+
+
+class SyncDeps(TypedDict):
+    app_config: "AppConfig"
+    graph: Graph
+    busterm: BusTerminal
 
 
 class IEndPointConfig(TypedDict, total=False):
@@ -97,6 +117,25 @@ def deep_update(original: StrDict, update_data: StrDict) -> StrDict:
     return original
 
 
+def parse_field_type(field: FieldInfo) -> type:
+    "Todo: parse Maybe[int] = MISSING"
+
+    ftype = field.type
+    origin = lhl_get_origin(ftype)
+
+    if origin is UnionType or origin is Union:
+        unions = get_args(ftype)
+        assert unions
+        for targ in unions:
+            return targ
+    elif origin is Maybe:
+        maybe_var = get_maybe_vars(ftype)
+        assert maybe_var
+        return maybe_var
+
+    return ftype
+
+
 class StoreTrueIfProvided(argparse.Action):
     def __call__(
         self,
@@ -136,31 +175,17 @@ class ServerConfig(ConfigBase):
     root_path: str | None = None
 
 
-def parse_field_type(field: FieldInfo) -> type:
-    "Todo: parse Maybe[int] = MISSING"
-
-    ftype = field.type
-    origin = lhl_get_origin(ftype)
-
-    if origin is UnionType or origin is Union:
-        unions = get_args(ftype)
-        assert unions
-        for targ in unions:
-            return targ
-    elif origin is Maybe:
-        maybe_var = get_maybe_vars(ftype)
-        assert maybe_var
-        return maybe_var
-
-    return ftype
+class Security(ConfigBase):
+    jwt_secret: str | None = None
 
 
 class AppConfig(ConfigBase):
     is_prod: bool = False
     version: str = "0.1.0"
     max_thread_workers: int = field(default_factory=get_thread_cnt)
-    oas: OASConfig = OASConfig()
-    server: ServerConfig = ServerConfig()
+    oas: OASConfig = field(default_factory=OASConfig)
+    server: ServerConfig = field(default_factory=ServerConfig)
+    security: Unset[Security] = UNSET
 
     @classmethod
     def from_toml(cls, file_path: Path) -> StrDict:
@@ -190,6 +215,9 @@ def generate_parser_actions(
 
         full_field_name = f"{prefix}.{field_name}" if prefix else field_name
         arg_name = f"--{full_field_name}"
+
+        if get_origin(field_type) is Unset:
+            field_type = field_type.__args__[0]
 
         if isinstance(field_type, type) and issubclass(field_type, ConfigBase):
             nested_actions = generate_parser_actions(field_type, full_field_name)

@@ -3,6 +3,7 @@ from typing import Annotated
 
 import pytest
 
+from lihil import Payload
 from lihil.constant.status import OK
 from lihil.endpoint.returns import (
     DEFAULT_RETURN,
@@ -16,6 +17,7 @@ from lihil.endpoint.returns import (
 )
 from lihil.errors import InvalidStatusError, StatusConflictError
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text
+# from lihil.plugins.auth.jwt import JWToken, jwt_encoder
 from lihil.utils.typing import is_py_singleton
 
 
@@ -178,3 +180,14 @@ def test_parse_returns():
     rets = parse_returns(Resp[str, 200] | Resp[int, 201])
     assert rets[200].type_ == str
     assert rets[201].type_ == int
+
+
+class PublicUser(Payload):
+    user_id: str
+    user_email: str
+
+
+# def test_parse_jwt_return():
+#     rets = parse_returns(Resp[JWToken[Payload], 201])
+#     ret = rets[201]
+#     assert ret.encoder is jwt_encoder

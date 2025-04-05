@@ -1,12 +1,12 @@
 from inspect import isasyncgen, isgenerator
-from typing import Any, Callable
+from typing import Any, Callable, Unpack
 
 from ididi import Graph
 from ididi.graph import Resolver
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
-from lihil.config import EndPointConfig
+from lihil.config import AppConfig, EndPointConfig, SyncDeps
 from lihil.endpoint import EndpointSignature, ParseResult
 from lihil.endpoint.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.errors import InvalidParamTypeError
@@ -36,6 +36,7 @@ class Endpoint[R]:
         self._busterm = busterm
         self._config = config
         self._name = func.__name__
+        self._app_config: AppConfig | None = None
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._method}: {self._path!r} {self._func})"
@@ -76,11 +77,17 @@ class Endpoint[R]:
     def unwrapped_func(self) -> Callable[..., R]:
         return self._unwrapped_func
 
-    def setup(self) -> None:
+    def setup(self, **deps: Unpack[SyncDeps]) -> None:
+        if deps:
+            self._app_config = deps["app_config"]
+            self._graph = deps["graph"]
+            self._busterm = deps["busterm"]
+
         self._sig = EndpointSignature.from_function(
             graph=self._graph,
             route_path=self._path,
             f=self._unwrapped_func,
+            app_config=self._app_config,
         )
 
         self._dep_items = self._sig.dependencies.items()
@@ -103,10 +110,6 @@ class Endpoint[R]:
         self._status_code = self._sig.default_status
         self._scoped: bool = self._sig.scoped or scoped_by_config
         self._encoder = self._sig.return_encoder
-
-    def sync_deps(self, graph: Graph, busterm: BusTerminal):
-        self._graph = graph
-        self._busterm = busterm
 
     async def inject_plugins(
         self, params: dict[str, Any], request: Request, resolver: Resolver

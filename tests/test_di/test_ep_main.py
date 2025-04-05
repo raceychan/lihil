@@ -1,9 +1,9 @@
-import pytest
+# import pytest
 from starlette.requests import Request
 
 from lihil import Payload, Route, Text
 from lihil.plugins.testclient import LocalClient
-from lihil.utils.phasing import encode_text
+from lihil.utils.json import encode_text
 
 route = Route("/{p}")
 
@@ -167,6 +167,7 @@ async def test_received_empty_body():
     error = result["detail"][0]
     assert "MissingRequestParam" in error["type"]
     assert error["location"] == "body"
+
 
 async def test_parse_command():
     "a request that has body is treated as `command`"

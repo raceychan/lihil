@@ -3,17 +3,16 @@ from typing import Annotated
 import pytest
 
 from lihil import Lihil, Route, Text
-from lihil.plugins.auth import OAuth2PasswordPlugin, OAuthLoginForm
+from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.plugins.testclient import LocalClient
 
 
-@pytest.mark.debug
 async def test_login():
     users = Route("users")
     token = Route("token")
 
     async def get_user(
-        name: str, token: Annotated[str, OAuth2PasswordPlugin(token_url="token")]
+        name: str, token: Annotated[str, OAuth2PasswordFlow(token_url="token")]
     ):
         return token
 
@@ -35,3 +34,6 @@ async def test_login():
     assert await res.text() == "ok"
 
     # lhl = Lihil(routes=[users, token])
+
+
+def test_random_obj_to_jwt(): ...

@@ -35,8 +35,8 @@ from lihil.interface.marks import ParamMarkType, Struct, extract_mark_type
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
-from lihil.utils.parse import parse_header_key
-from lihil.utils.phasing import build_union_decoder, decoder_factory, to_bytes, to_str
+from lihil.utils.json import build_union_decoder, decoder_factory, to_bytes, to_str
+from lihil.utils.string import parse_header_key
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
 
@@ -178,7 +178,7 @@ class ParamMetas(Base):
     mark_type: ParamMarkType | None
     metas: tuple[Any, ...]
     factory: INode[..., Any] | None = None
-    config: NodeConfig | None = None
+    node_config: NodeConfig | None = None
 
     @classmethod
     def from_metas(cls, metas: list[Any]) -> "ParamMetas":
@@ -205,7 +205,7 @@ class ParamMetas(Base):
             mark_type=current_mark_type,
             metas=tuple(metas),
             factory=factory,
-            config=config,
+            node_config=config,
         )
 
 
@@ -323,8 +323,8 @@ class ParamParser:
             return params
 
         elif param_meta and param_meta.factory:  # Annotated[Dep, use(dep_factory)]
-            assert param_meta.config
-            node = self.graph.analyze(param_meta.factory, config=param_meta.config)
+            assert param_meta.node_config
+            node = self.graph.analyze(param_meta.factory, config=param_meta.node_config)
             return self._parse_node(node)
         else:  # default case, treat as query
             decoder = custom_decoder or txtdecoder_factory(param_type)
@@ -395,6 +395,7 @@ class ParamParser:
                     content_type=content_type,
                 )
                 return body_param
+
             elif mark_type == "path":
                 location = "path"
             else:

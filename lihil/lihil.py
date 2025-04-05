@@ -10,7 +10,7 @@ from typing import Any, AsyncContextManager, Callable, Unpack, overload
 from ididi import Graph
 from uvicorn import run as uvi_run
 
-from lihil.config import AppConfig, config_from_file
+from lihil.config import AppConfig, SyncDeps, config_from_file
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import (
     AppConfiguringError,
@@ -23,8 +23,8 @@ from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
 from lihil.routing import ASGIBase, Func, IEndPointConfig, Route, RouteConfig
-from lihil.utils.parse import is_plain_path
-from lihil.utils.phasing import encode_json
+from lihil.utils.json import encode_json
+from lihil.utils.string import is_plain_path
 
 type LifeSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 
@@ -77,7 +77,7 @@ class StaticRoute:
     def add_cache(self, path: str, content: tuple[dict[str, bytes], dict[str, bytes]]):
         self.static_cache[sys.intern(path)] = content
 
-    def setup(self):
+    def setup(self, **deps: Any):
         pass
 
 
@@ -132,11 +132,11 @@ class Lihil[T](ASGIBase):
     def app_state(self) -> T | None:
         return self._app_state
 
-    async def on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
+    async def _on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         await receive()
 
         if self._userls is None:
-            self.setup()
+            self._setup()
             return
 
         user_ls = self._userls(self)
@@ -147,7 +147,7 @@ class Lihil[T](ASGIBase):
             exc_text = traceback.format_exc()
             await send({"type": "lifespan.startup.failed", "message": exc_text})
         finally:
-            self.setup()
+            self._setup()
 
         await receive()
 
@@ -160,10 +160,13 @@ class Lihil[T](ASGIBase):
         else:
             await send({"type": "lifespan.shutdown.complete"})
 
-    def setup(self) -> None:
+    def _setup(self) -> None:
         self.call_stack = self.chainup_middlewares(self.call_route)
+        sync_deps = SyncDeps(
+            app_config=self.app_config, graph=self.graph, busterm=self.busterm
+        )
         for route in self.routes:
-            route.setup()
+            route.setup(**sync_deps)
 
     def _generate_doc_route(self):
         oas_config = self.app_config.oas
@@ -175,10 +178,9 @@ class Lihil[T](ASGIBase):
         problem_route = get_problem_route(oas_config, problems)
         self.include_routes(openapi_route, doc_route, problem_route)
 
-    def sync_deps(self, route: Route):
+    def _merge_deps(self, route: Route):
         self.graph.merge(route.graph)
         self.busterm.include(route.registry)
-        route.sync_deps(self.graph, self.busterm)
 
     def include_routes(self, *routes: Route, __seen__: set[str] | None = None):
         seen = __seen__ or set()
@@ -186,8 +188,7 @@ class Lihil[T](ASGIBase):
             if route.path in seen:
                 raise DuplicatedRouteError(route, route)
 
-            self.sync_deps(route)
-
+            self._merge_deps(route)
             if route.path == "/":
                 if self.routes and self.root.endpoints:
                     raise DuplicatedRouteError(route, self.root)
@@ -245,7 +246,7 @@ class Lihil[T](ASGIBase):
             await channel.receive
         """
         if scope["type"] == "lifespan":
-            await self.on_lifespan(scope, receive, send)
+            await self._on_lifespan(scope, receive, send)
             return
 
         response_started = False

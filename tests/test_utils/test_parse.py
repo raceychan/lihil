@@ -1,6 +1,6 @@
 import pytest
 
-from lihil.utils.parse import parse_header_key, to_kebab_case, trim_path
+from lihil.utils.string import parse_header_key, to_kebab_case, trim_path
 from lihil.errors import NotSupportedError
 
 

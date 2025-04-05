@@ -66,3 +66,6 @@ def encode_text(content: bytes | str) -> bytes:
     if isinstance(content, str):
         return content.encode()
     return content
+
+
+# def encode_jwt(contetn: )

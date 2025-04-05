@@ -4,7 +4,7 @@ from msgspec import Meta
 
 from lihil.constant import status as http_status
 from lihil.interface.struct import Record
-from lihil.utils.parse import to_kebab_case, trimdoc
+from lihil.utils.string import to_kebab_case, trimdoc
 
 
 # =========

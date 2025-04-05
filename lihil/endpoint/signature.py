@@ -5,6 +5,7 @@ from ididi import DependentNode, Graph
 from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
+from lihil.config import AppConfig
 from lihil.endpoint.params import (
     ParamParser,
     PluginParam,
@@ -19,7 +20,7 @@ from lihil.problems import (
     MissingRequestParam,
     ValidationProblem,
 )
-from lihil.utils.parse import find_path_keys
+from lihil.utils.string import find_path_keys
 from lihil.vendor_types import FormData
 
 type ParamMap[T] = dict[str, T]
@@ -161,6 +162,7 @@ class EndpointSignature[R](Base):
         graph: Graph,
         route_path: str,
         f: Callable[..., FR | Awaitable[FR]],
+        app_config: AppConfig | None = None,
     ) -> "EndpointSignature[FR]":
         path_keys = find_path_keys(route_path)
         func_sig = signature(f)
@@ -168,7 +170,7 @@ class EndpointSignature[R](Base):
 
         parser = ParamParser(graph, path_keys)
         params = parser.parse(func_params, path_keys)
-        return_params = parse_returns(func_sig.return_annotation)
+        return_params = parse_returns(func_sig.return_annotation, app_config=app_config)
 
         default_status = next(iter(return_params))
         default_encoder = return_params[default_status].encoder

@@ -19,10 +19,9 @@ from starlette.responses import Response
 from lihil.constant import status as http_status
 from lihil.interface import ParamLocation, Record, lhl_get_origin
 from lihil.interface.problem import DetailBase, ProblemDetail
-from lihil.utils.parse import to_kebab_case, trimdoc
-from lihil.utils.phasing import encode_json
-from lihil.utils.typing import is_union_type
-from lihil.utils.visitor import all_subclasses
+from lihil.utils.json import encode_json
+from lihil.utils.string import to_kebab_case, trimdoc
+from lihil.utils.typing import all_subclasses, is_union_type
 
 """
 Unlike starlette, only sync error handler is allowed

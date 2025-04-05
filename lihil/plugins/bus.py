@@ -13,7 +13,7 @@ from ididi.interfaces import GraphIgnore
 
 from lihil.ds.event import Envelope, Event
 from lihil.interface import MISSING, Record, lhl_get_origin
-from lihil.utils.visitor import all_subclasses
+from lihil.utils.typing import all_subclasses
 
 UNION_META = (UnionType, Union)
 CTX_MARKER = "__anywise_context__"

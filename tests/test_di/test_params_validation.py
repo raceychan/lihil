@@ -5,7 +5,7 @@ from ididi import Graph
 
 from lihil.endpoint import EndpointSignature
 from lihil.interface import Header, Payload
-from lihil.utils.phasing import encode_json
+from lihil.utils.json import encode_json
 
 
 async def get_order(

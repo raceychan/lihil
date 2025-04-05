@@ -11,11 +11,12 @@ from typing import (
     get_args,
 )
 
+from lihil.config import AppConfig
 from lihil.constant.status import code as get_status_code
 from lihil.errors import InvalidStatusError, NotSupportedError, StatusConflictError
 from lihil.interface import MISSING, CustomEncoder, IEncoder, Maybe, Record, is_provided
 from lihil.interface.marks import RESP_RETURN_MARK, ResponseMark, extract_resp_type
-from lihil.utils.phasing import encode_json, encode_text
+from lihil.utils.json import encode_json, encode_text
 from lihil.utils.typing import get_origin_pro, is_union_type
 
 
@@ -80,7 +81,11 @@ DEFAULT_RETURN = EndpointReturn(
 
 
 def parse_return_pro(
-    ret_type: Any, annotation: Any, metas: list[Any] | None
+    ret_type: Any,
+    annotation: Any,
+    metas: list[Any] | None,
+    *,
+    app_config: AppConfig | None = None,
 ) -> EndpointReturn[Any]:
     if metas is None:
         return EndpointReturn(
@@ -104,6 +109,10 @@ def parse_return_pro(
                     status = parse_status(metas[idx - 1])
             elif resp_type == "empty":
                 content_type = None
+            elif resp_type == "jw_token":
+                if app_config is None:
+                    pass
+                    # raise Exception("app config is required")
             else:
                 if resp_type == "stream":
                     ret_type = get_args(annotation)[0]
@@ -144,13 +153,15 @@ def parse_single_return[R](
 
 def parse_returns(
     annt: Maybe[type[Any] | UnionType | TypeAliasType | GenericAlias],
+    *,
+    app_config: AppConfig | None = None,
 ) -> dict[int, EndpointReturn[Any]]:
     if not is_annotated(annt):
         return {DEFAULT_RETURN.status: DEFAULT_RETURN}
 
     if not is_union_type(annt):
         rt_type, metas = get_origin_pro(annt)
-        res = parse_return_pro(rt_type, annt, metas)
+        res = parse_return_pro(rt_type, annt, metas, app_config=app_config)
         return {res.status: res}
     else:
         unions = get_args(annt)
@@ -168,11 +179,14 @@ def parse_returns(
 
         if resp_cnt == 0:  # Union[int, str]
             union_origin, union_meta = get_origin_pro(annt)
-            resp = parse_return_pro(union_origin, annt, union_meta)
+            resp = parse_return_pro(
+                union_origin, annt, union_meta, app_config=app_config
+            )
             return {resp.status: resp}
         else:
             resps = [
-                parse_return_pro(uorigin, uorigin, umeta) for uorigin, umeta in temp_union
+                parse_return_pro(uorigin, uorigin, umeta, app_config=app_config)
+                for uorigin, umeta in temp_union
             ]
             # idea: number of unique status code should match with number of resp marks
             return {resp.status: resp for resp in resps}

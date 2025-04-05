@@ -19,8 +19,8 @@ from lihil.constant.status import Status
 
 LIHIL_RESPONSE_MARK = "__LIHIL_RESPONSE_MARK"
 LIHIL_PARAM_MARK = "__LIHIL_PARAM_MARK"
-LIHIL_PARAM_PATTERN = re.compile(r"__LIHIL_PARAM_MARK_([^_]*)__")
-LIHIL_RETURN_PATTERN = re.compile(r"__LIHIL_RESPONSE_MARK_([^_]*)__")
+LIHIL_PARAM_PATTERN = re.compile(r"__LIHIL_PARAM_MARK_(.*?)__")
+LIHIL_RETURN_PATTERN = re.compile(r"__LIHIL_RESPONSE_MARK_(.*?)__")
 
 
 # TODO: prefer get_origin_pro over this
@@ -129,6 +129,8 @@ STREAM_RETURN_MARK = resp_mark("stream")
 JSON_RETURN_MARK = resp_mark("json")
 RESP_RETURN_MARK = resp_mark("resp")
 EMPTY_RETURN_MARK = resp_mark("empty")
+JW_TOKEN_RETURN_MARK = resp_mark("jw_token")
+
 
 type Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
 type HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
@@ -140,4 +142,4 @@ type Stream[T] = Annotated[
 type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
 type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
 
-type ResponseMark = Literal["text", "html", "stream", "json", "resp", "empty"]
+type ResponseMark = Literal["text", "html", "stream", "json", "resp", "empty", "jw_token"]

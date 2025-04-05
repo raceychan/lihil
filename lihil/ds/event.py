@@ -5,7 +5,7 @@ from uuid import uuid4
 from msgspec.json import Decoder
 
 from lihil.interface import Record, field
-from lihil.utils.visitor import all_subclasses, union_types
+from lihil.utils.typing import all_subclasses, union_types
 
 
 def uuid4_str() -> str:

@@ -556,10 +556,22 @@ async def get_user():
 ```python
 @lhl.get("/me")
 async def read_users_me(
-    token: Annotated[str, OAuth2PasswordPlugin(token_url="token")],
+    token: Annotated[str, OAuth2PasswordFlow(token_url="token")],
 ):
     return token
 ```
 
 
-where `OAuth2PasswordPlugin` is a subclass of `PluginBase`
+where `OAuth2PasswordFlow` is a subclass of `PluginBase`
+
+
+- `LocalClient.submit_form` for testing endpoint with form data.
+
+```python
+lc = LocalClient()
+res = await lc.submit_form(
+    form_ep, form_data={"username": "user", "password": "pass"}
+)
+```
+
+### Improvements

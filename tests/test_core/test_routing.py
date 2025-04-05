@@ -6,7 +6,7 @@ from lihil import Text, status
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend, Resp
-from lihil.plugins.auth.oauth import OAuth2PasswordPlugin
+from lihil.plugins.auth.oauth import OAuth2PasswordFlow
 
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.plugins.bus import Event
@@ -717,7 +717,7 @@ async def test_route_with_nested_empty_response():
 async def test_auth_route():
 
     async def get_user(
-        token: Annotated[str, OAuth2PasswordPlugin(token_url="token")],
+        token: Annotated[str, OAuth2PasswordFlow(token_url="token")],
     ): ...
 
     route = Route("me")

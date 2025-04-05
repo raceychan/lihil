@@ -1,13 +1,21 @@
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from ididi import Resolver
 from msgspec import field
 
 from lihil.interface import UNSET, Form, Payload, Unset
-from lihil.oas.model import OAuth2, OAuthFlowPassword, OAuthFlows
-from lihil.plugins.auth import AuthPlugin
+from lihil.oas.model import AuthBase, OAuth2, OAuthFlowPassword, OAuthFlows
+from lihil.plugins.registry import PluginBase
 from lihil.problems import HTTPException
 from lihil.vendor_types import Request
+
+
+class AuthPlugin(PluginBase[Any]):
+    # security base
+
+    def __init__(self, model: AuthBase, scheme_name: str):
+        self.model = model  # security base model
+        self.scheme_name = scheme_name
 
 
 class OAuthLogin(Payload):
@@ -63,7 +71,7 @@ class OAuth2Plugin(AuthPlugin):
         return authorization
 
 
-class OAuth2PasswordPlugin(OAuth2Plugin):
+class OAuth2PasswordFlow(OAuth2Plugin):
     scheme_name = "OAuth2PasswordBearer"
 
     def __init__(

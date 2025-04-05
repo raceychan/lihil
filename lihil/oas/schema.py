@@ -10,12 +10,12 @@ from lihil.constant.status import phrase
 from lihil.endpoint import EndpointSignature, RequestParam
 from lihil.interface import is_provided, is_set
 from lihil.oas import model as oasmodel
-from lihil.plugins.auth import AuthPlugin
+from lihil.plugins.auth.oauth import AuthPlugin
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
 from lihil.routing import Endpoint, Route
-from lihil.utils.parse import to_kebab_case, trimdoc
+from lihil.utils.string import to_kebab_case, trimdoc
 
-# from lihil.utils.phasing import encode_json
+# from lihil.utils.json import encode_json
 
 type SchemasDict = dict[str, oasmodel.LenientSchema]
 type SecurityDict = dict[str, oasmodel.SecurityScheme | oasmodel.Reference]

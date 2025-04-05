@@ -6,9 +6,9 @@ import pytest
 
 from lihil.interface import MISSING, Base, Maybe, get_maybe_vars
 from lihil.lihil import ThreadPoolExecutor
-from lihil.utils.phasing import build_union_decoder, to_bytes, to_str, encode_text
+from lihil.utils.json import build_union_decoder, encode_text, to_bytes, to_str
 from lihil.utils.threading import sync_ctx_to_thread
-from lihil.utils.visitor import union_types
+from lihil.utils.typing import union_types
 
 
 @pytest.fixture(scope="session")
@@ -130,8 +130,6 @@ def test_build_union_decoder_priority():
     invalid_json = '{"key": value}'  # missing quotes around value
     assert union_decoder(invalid_json) == invalid_json
     assert isinstance(union_decoder(invalid_json), str)
-
-
 
 
 def test_encode_test():

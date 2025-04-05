@@ -3,7 +3,7 @@ from typing import Any
 from starlette.responses import HTMLResponse
 
 from lihil.interface.problem import DetailBase
-from lihil.utils.phasing import encode_json
+from lihil.utils.json import encode_json
 
 problem_ui_default_parameters: dict[str, Any] = {
     "dom_id": "#problem-ui",

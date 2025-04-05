@@ -6,7 +6,7 @@ from ididi import Graph, INodeConfig
 from ididi.interfaces import IDependent
 
 from lihil.asgi import ASGIBase
-from lihil.config import EndPointConfig, IEndPointConfig
+from lihil.config import EndPointConfig, IEndPointConfig, SyncDeps
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.endpoint import Endpoint
 from lihil.interface import (
@@ -21,7 +21,7 @@ from lihil.interface import (
 )
 from lihil.oas.model import RouteConfig
 from lihil.plugins.bus import BusTerminal, Event, MessageRegistry
-from lihil.utils.parse import (
+from lihil.utils.string import (
     build_path_regex,
     generate_route_tag,
     merge_path,
@@ -134,17 +134,15 @@ class Route(ASGIBase):
         rest = self.path.removeprefix(other_path)
         return rest.count("/") < 2
 
-    def setup(self):
+    def setup(self, **deps: Unpack[SyncDeps]):
+        if deps:
+            self.app_config = deps["app_config"]
+            self.graph = deps["graph"]
+            self.busterm = deps["busterm"]
+
         for method, ep in self.endpoints.items():
-            ep.setup()
+            ep.setup(**deps)
             self.call_stacks[method] = self.chainup_middlewares(ep)
-
-    def sync_deps(self, graph: Graph, busterm: BusTerminal):
-        self.graph = graph
-        self.busterm = busterm
-
-        for ep in self.endpoints.values():
-            ep.sync_deps(graph, busterm)
 
     def get_endpoint(
         self, method_func: HTTP_METHODS | Callable[..., Any]

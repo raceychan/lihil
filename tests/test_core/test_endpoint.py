@@ -16,9 +16,12 @@ from lihil import (
     Text,
     UploadFile,
     Use,
+    field,
     status,
 )
 from lihil.errors import NotSupportedError, StatusConflictError
+from lihil.plugins.auth.jwt import JWToken, JWTPayload
+from lihil.plugins.auth.oauth import OAuthLoginForm
 from lihil.plugins.testclient import LocalClient
 from lihil.utils.threading import async_wrapper
 
@@ -33,12 +36,17 @@ class User(Payload, kw_only=True):
 
 
 @pytest.fixture
-async def rusers() -> Route:
+def rusers() -> Route:
     return Route("users/{user_id}")
 
 
 @pytest.fixture
-async def lc() -> LocalClient:
+def testroute() -> Route:
+    return Route("test")
+
+
+@pytest.fixture
+def lc() -> LocalClient:
     return LocalClient()
 
 
@@ -505,3 +513,30 @@ async def test_endpoint_with_resp_alias(rusers: Route, lc: LocalClient):
 
     text = await res.text()
     assert text == "ok"
+
+
+class UserProfile(JWTPayload):
+    __jwt_claims__ = {"exp_in": 3600}
+
+    user_id: str = field(name="sub")
+    user_name: str
+
+
+from jwt import decode
+
+
+async def test_endpoint_returns_jwt(testroute: Route, lc: LocalClient):
+
+    async def get_token(form: OAuthLoginForm) -> JWToken[UserProfile]:
+        return UserProfile(user_id="1", user_name=form.username)
+
+    testroute.post(get_token)
+
+    ep = testroute.get_endpoint(get_token)
+    ep.setup()
+
+    res = await lc.submit_form(
+        ep, form_data={"username": "user", "password": "pasword"}
+    )
+
+    token = await res.body()

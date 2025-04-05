@@ -9,7 +9,7 @@ from typing import Any
 from lihil.config import OASConfig
 from lihil.interface.problem import DetailBase
 from lihil.routing import Route, RouteConfig
-from lihil.utils.phasing import encode_json
+from lihil.utils.json import encode_json
 from lihil.vendor_types import Response
 
 from .doc_ui import get_problem_ui_html, get_swagger_ui_html
