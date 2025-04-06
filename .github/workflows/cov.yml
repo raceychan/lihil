@@ -21,7 +21,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install package dependencies
-        run: pip install ididi==1.5.2 msgspec>=0.19.0 starlette>=0.45.3 uvicorn>=0.34.0 python-multipart>=0.0.20
+        run: pip install ididi==1.5.2 msgspec>=0.19.0 starlette>=0.45.3 uvicorn>=0.34.0 python-multipart>=0.0.20 pyjwt==2.10.1
 
       - name: Install test dependencies
         run: pip install pytest pytest-cov pytest-asyncio typing_extensions

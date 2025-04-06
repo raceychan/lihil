@@ -724,6 +724,7 @@ async def test_parse_header_with_key():
     assert param.alias == "Authorization"
 
 
+@pytest.mark.debug
 async def test_oauth2_not_plugin():
 
     async def get_user(

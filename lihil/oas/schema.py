@@ -10,7 +10,6 @@ from lihil.constant.status import phrase
 from lihil.endpoint import EndpointSignature, RequestParam
 from lihil.interface import is_provided, is_set
 from lihil.oas import model as oasmodel
-from lihil.plugins.auth.oauth import AuthPlugin
 from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
 from lihil.routing import Endpoint, Route
 from lihil.utils.string import to_kebab_case, trimdoc
@@ -341,13 +340,13 @@ def generate_unique_id(ep: Endpoint[Any]) -> str:
 
 def get_ep_security(ep: Endpoint[Any], security_schemas: SecurityDict):
     security_scopes: list[dict[str, list[str] | None]] = []
-    for name, param in ep.sig.plugins.items():
-        plugin = param.plugin
-        if isinstance(plugin, AuthPlugin):
-            security_scheme = oasmodel.SecurityScheme
-            security_schemas[plugin.scheme_name] = cast(security_scheme, plugin.model)
-            security_scopes.append({plugin.scheme_name: None})
+    auth_scheme = ep.config.auth_scheme
+    if auth_scheme:
+        security_schemas[auth_scheme.scheme_name] = cast(
+            oasmodel.SecurityScheme, auth_scheme.model
+        )
 
+        security_scopes.append({auth_scheme.scheme_name: None})
     return security_scopes
 
 

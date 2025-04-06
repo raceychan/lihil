@@ -41,7 +41,7 @@ from lihil.utils.string import parse_header_key
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
 
-type ParsedParam[T] = RequestParam[T] | PluginParam[T] | RequestBodyParam[
+type ParsedParam[T] = RequestParam[T] | PluginParam | RequestBodyParam[
     T
 ] | DependentNode
 
@@ -195,6 +195,8 @@ class ParamMetas(Base):
                 if current_mark_type and mark_type is not current_mark_type:
                     raise NotSupportedError("can't use more than one param mark")
                 # elif mark_type == "header":
+                # Authorization
+                #     breakpoint()
                 #     try:
                 #         header_key = metas[idx - 1]
                 #     except IndexError:

@@ -1,19 +1,54 @@
 from inspect import isasyncgen, isgenerator
-from typing import Any, Callable, Unpack
+from typing import Any, Callable, Literal, Sequence, TypedDict, Unpack
 
 from ididi import Graph
 from ididi.graph import Resolver
+from msgspec import field
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
-from lihil.config import AppConfig, EndPointConfig, SyncDeps
+from lihil.config import AppConfig, SyncDeps
 from lihil.endpoint import EndpointSignature, ParseResult
 from lihil.endpoint.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.errors import InvalidParamTypeError
-from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend
+from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend, Record
+from lihil.plugins.auth.oauth import AuthBase
 from lihil.plugins.bus import BusTerminal, EventBus
-from lihil.problems import InvalidRequestErrors, get_solver
+from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
 from lihil.utils.threading import async_wrapper
+
+
+class IEndPointConfig(TypedDict, total=False):
+    errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
+    "Errors that might be raised from the current `endpoint`. These will be treated as responses and displayed in OpenAPI documentation."
+    in_schema: bool
+    "Whether to include this endpoint inside openapi docs"
+    to_thread: bool
+    "Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
+    scoped: Literal[True] | None
+    "Whether current endpoint should be scoped"
+
+    auth_scheme: AuthBase | None
+
+
+class EndPointConfig(Record, kw_only=True):
+    errors: tuple[type[DetailBase[Any]], ...] = field(default_factory=tuple)
+    to_thread: bool = True
+    in_schema: bool = True
+    scoped: Literal[True] | None = None
+    auth_scheme: AuthBase | None = None
+
+    @classmethod
+    def from_unpack(cls, **iconfig: Unpack[IEndPointConfig]):
+        if raw_errors := iconfig.get("errors"):
+            if not isinstance(raw_errors, Sequence):
+                errors = (raw_errors,)
+            else:
+                errors = tuple(raw_errors)
+
+            iconfig["errors"] = errors
+
+        return cls(**iconfig)  # type: ignore
 
 
 class Endpoint[R]:

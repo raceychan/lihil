@@ -6,9 +6,9 @@ from ididi import Graph, INodeConfig
 from ididi.interfaces import IDependent
 
 from lihil.asgi import ASGIBase
-from lihil.config import EndPointConfig, IEndPointConfig, SyncDeps
+from lihil.config import SyncDeps
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
-from lihil.endpoint import Endpoint
+from lihil.endpoint.endpoint import Endpoint, EndPointConfig, IEndPointConfig
 from lihil.interface import (
     HTTP_METHODS,
     ASGIApp,

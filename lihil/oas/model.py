@@ -6,13 +6,10 @@ from msgspec import Meta, field
 from lihil.interface import UNSET, Base, Unset
 from lihil.problems import DetailBase
 
-# from msgspec.structs import replace as struct_replace
-
-
 GEZero = Annotated[int, Meta(ge=0)]
 
 
-type SecuritySchemes = Literal["apiKey", "http", "oauth2", "openIdConnect"]
+type SecuritySchemeTypes = Literal["apiKey", "http", "oauth2", "openIdConnect"]
 
 
 class OASB(Base):
@@ -34,8 +31,8 @@ class OASB(Base):
                 setattr(self, field, UNSET)
 
 
-class AuthScheme(OASB, kw_only=True):
-    type_: SecuritySchemes = field(name="type")
+class AuthModel(OASB, kw_only=True):
+    type_: SecuritySchemeTypes = field(name="type")
     description: Unset[str] = UNSET
 
 
@@ -45,20 +42,23 @@ class APIKeyIn(Enum):
     cookie = "cookie"
 
 
-class APIKey(AuthScheme, kw_only=True):
-    type_: SecuritySchemes = field(default="apiKey", name="type")
+class APIKey(AuthModel, kw_only=True):
+    type_: SecuritySchemeTypes = field(default="apiKey", name="type")
     in_: APIKeyIn = field(name="in")
     name: str
 
 
-class HTTPBase(AuthScheme, kw_only=True):
-    type_: SecuritySchemes = field(default="http", name="type")
+class HTTPBase(AuthModel, kw_only=True):
+    type_: SecuritySchemeTypes = field(default="http", name="type")
     scheme: str
 
 
 class HTTPBearer(HTTPBase):
     scheme: Literal["bearer"] = "bearer"
     bearerFormat: Unset[str] = UNSET
+
+
+# ======================== OAuth ========================
 
 
 class OAuthFlow(OASB, kw_only=True):
@@ -90,13 +90,16 @@ class OAuthFlows(OASB, kw_only=True):
     authorizationCode: Unset[OAuthFlowAuthorizationCode] = UNSET
 
 
-class OAuth2(AuthScheme, kw_only=True):
-    type_: SecuritySchemes = field(default="oauth2", name="type")
+class OAuth2(AuthModel, kw_only=True):
+    type_: SecuritySchemeTypes = field(default="oauth2", name="type")
     flows: OAuthFlows
 
 
-class OpenIdConnect(AuthScheme, kw_only=True):
-    type_: SecuritySchemes = field(default="openIdConnect", name="type")
+# ======================== OAuth ========================
+
+
+class OpenIdConnect(AuthModel, kw_only=True):
+    type_: SecuritySchemeTypes = field(default="openIdConnect", name="type")
     openIdConnectUrl: str
 
 

@@ -47,6 +47,8 @@ type Func[**P, R] = Callable[P, R]
 
 type Maybe[T] = T | "_Missed"
 
+type StrDict = dict[str, Any]
+
 
 def get_maybe_vars[T](m: Maybe[T]) -> T | None:
     return get_args(m)[0]
