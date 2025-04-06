@@ -59,12 +59,6 @@ def parse_exception(
             res.append(sub_r)
         return res
     else:
-        if not isinstance(exc_origin, type):
-            if lhl_get_origin(exc_origin):
-                return parse_exception(exc_origin)
-            else:
-                raise TypeError(f"Invalid exception type {exc}")
-
         if not isinstance(exc, type):
             exc_local = exc_origin
         else:

@@ -660,6 +660,8 @@ async def test_include_middleware_fail():
     with pytest.raises(MiddlewareBuildError):
         await initialize_app_lifespan(app)
 
+    print(app)
+
 
 async def test_a_fail_middleware():
     """a middleware that would raise exception when called"""

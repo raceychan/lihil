@@ -1,15 +1,14 @@
 from lihil import Lihil, Payload, Route, field
-from lihil.plugins.auth.jwt import JWToken, JWTPayload
-
-# from lihil.plugins.auth import OAuth2PasswordPlugin, OAuthLoginForm
 from lihil.config import AppConfig, SecurityConfig
+from lihil.plugins.auth.jwt import JWToken, JWTPayload
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 
-users = Route("users")
+me = Route("me")
+token = Route("token")
 
 
 class UserPayload(JWTPayload):
-    __jwt_claims__ = {"exp_in": 300}
+    __jwt_claims__ = {"expires_in": 300}
 
     user_id: str = field(name="sub")
 
@@ -19,13 +18,10 @@ class User(Payload):
     email: str
 
 
-@users.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))
+@me.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))
 async def get_user(token: JWToken[UserPayload]) -> User:
     assert token.user_id == "user123"
     return User(name="user", email="user@email.com")
-
-
-token = Route("token")
 
 
 @token.post
@@ -34,9 +30,12 @@ async def create_token(credentials: OAuthLoginForm) -> JWToken[UserPayload]:
     return UserPayload(user_id="user123")
 
 
-lhl = Lihil[None](routes=[users, token], app_config=AppConfig(
-    security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-))
+lhl = Lihil[None](
+    routes=[me, token],
+    app_config=AppConfig(
+        security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
+    ),
+)
 
 # =============================
 
@@ -48,8 +47,8 @@ lhl = Lihil[None](routes=[users, token], app_config=AppConfig(
 # lhl = FastAPI()
 
 
-# # @lhl.post("/token")
-# # async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]): ...
+# @lhl.post("/token")
+# async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]): ...
 
 
 # @lhl.get("/me")

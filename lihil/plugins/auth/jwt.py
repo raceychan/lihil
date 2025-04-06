@@ -28,13 +28,13 @@ def uuid_factory() -> str:
     return str(uuid4())
 
 
-class JWTClaim(TypedDict, total=False):
+class JWTClaims(TypedDict, total=False):
     """
     exp_in: expire in x seconds
 
     """
 
-    exp_in: Required[int]
+    expires_in: Required[int]
     iss: str
     aud: str
 
@@ -67,7 +67,7 @@ class JWTPayload(Base, kw_only=True):
     """
     # sub: str
 
-    __jwt_claims__: ClassVar[JWTClaim] = {"exp_in": -1}
+    __jwt_claims__: ClassVar[JWTClaims] = {"expires_in": -1}
 
     jti: str = field(default_factory=uuid_factory)
 
@@ -78,7 +78,7 @@ class JWTPayload(Base, kw_only=True):
     aud: Unset[str] = UNSET
 
     def __post_init__(self):
-        exp_in = self.__jwt_claims__["exp_in"]
+        exp_in = self.__jwt_claims__["expires_in"]
 
         if is_provided(aud := self.__jwt_claims__.get("aud", MISSING)):
             self.aud = aud
@@ -96,6 +96,20 @@ class JWTPayload(Base, kw_only=True):
 
 class JWTDecodingError(CustomValidationError[str]):
     detail: str
+
+
+# from starlette.responses import Response
+
+
+# class OAuth2Token(Base):
+#     access_token: str
+#     expires_in: int
+#     refresh_token: Unset[str] = UNSET
+#     scope: Unset[str] = UNSET
+#     token_type: Literal["Bearer"] = "Bearer"
+
+
+# class TokenResponse(Response): ...
 
 
 try:
@@ -130,10 +144,15 @@ else:
                     "JWTPayload class must have a field with name `sub` or field(name=`sub`)"
                 )
 
-        def encoder(content: T) -> bytes:
+        def encoder(content: JWTPayload) -> bytes:
             payload_bytes = encode_json(content)
             jwt = jws_encode(payload_bytes, key=secret)
-            token_resp = {"access_token": jwt, "token_type": "Bearer"}
+            expires = content.__jwt_claims__["expires_in"]
+            token_resp = {
+                "access_token": jwt,
+                "token_type": "Bearer",
+                "expires_in": expires,
+            }
             resp = encode_json(token_resp)
             return resp
 
@@ -154,7 +173,7 @@ else:
             try:
                 scheme, _, token = content.partition(" ")
                 if scheme != "Bearer":
-                    raise CustomValidationError("Token-type must be bearer")
+                    raise CustomValidationError("Token-type must be Bearer")
 
                 decoded: dict[str, Any] = jwt.decode(
                     token, key=secret, algorithms=algorithms, options=options

@@ -228,9 +228,6 @@ class Endpoint[R]:
                 media_type=self._media_type,
                 status_code=self._status_code,
             )
-        # TODO: no longer do this by default, since we have `Empty`
-        if (status := resp.status_code) < 200 or status in (204, 205, 304):
-            resp.body = b""
         return resp
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:

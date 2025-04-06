@@ -6,6 +6,7 @@ from ididi import AsyncScope, Graph, Ignore, use
 from starlette.requests import Request
 
 from lihil import (
+    Empty,
     Form,
     Header,
     Json,
@@ -22,8 +23,10 @@ from lihil import (
 )
 from lihil.config import AppConfig, SecurityConfig
 from lihil.errors import NotSupportedError, StatusConflictError
+from lihil.plugins.registry import PluginBase
 from lihil.plugins.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
+
 from lihil.plugins.testclient import LocalClient
 from lihil.utils.json import JsonDecoder
 from lihil.utils.threading import async_wrapper
@@ -196,7 +199,7 @@ async def test_scoped_endpoint(rusers: Route, lc: LocalClient):
 
 async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
-    async def get() -> Resp[None, 204]:
+    async def get() -> Resp[Empty, 204]:
         return "asdf"
 
     rusers.get(get)
@@ -519,13 +522,10 @@ async def test_endpoint_with_resp_alias(rusers: Route, lc: LocalClient):
 
 
 class UserProfile(JWTPayload):
-    __jwt_claims__ = {"exp_in": 3600}
+    __jwt_claims__ = {"expires_in": 3600}
 
     user_id: str = field(name="sub")
     user_name: str
-
-
-from jwt import decode
 
 
 async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
@@ -605,7 +605,6 @@ async def test_endpoint_with_jwt_fail_without_security_config(
         ep.setup()
 
 
-@pytest.mark.debug
 async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
     async def get_me(token: JWToken[UserProfile]) -> Resp[Text, status.OK]:
         assert token.user_id == "1" and token.user_name == "2"
@@ -628,7 +627,6 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
     res = await lc.submit_form(
         login_ep, form_data={"username": "user", "password": "test"}
     )
-
 
     token_data = await res.json()
 
@@ -684,3 +682,21 @@ async def test_endpoint_login_and_validate_with_str_resp(
 
     assert res.status_code == 200
     assert await res.text() == "ok"
+
+
+
+async def test_ep_with_plugin_type(testroute: Route, lc: LocalClient):
+
+    class MyPlugin(PluginBase):
+        ...
+
+
+    async def myep(param: Annotated[str, MyPlugin]):
+        ...
+
+
+
+    testroute.get(myep)
+
+    with pytest.raises(NotSupportedError):
+        testroute.setup()
