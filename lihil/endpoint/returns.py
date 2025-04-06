@@ -117,7 +117,7 @@ def parse_return_pro(
                     )
                 encoder = jwt_encoder_factory(
                     secret=app_config.security.jwt_secret,
-                    algo=app_config.security.jwt_algo,
+                    algorithms=app_config.security.jwt_algorithms,
                     payload_type=ret_type,
                 )
             else:

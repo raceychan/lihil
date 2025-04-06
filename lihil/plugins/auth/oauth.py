@@ -5,12 +5,12 @@ from msgspec import field
 
 from lihil.interface import UNSET, Form, Payload, Unset
 from lihil.oas.model import AuthBase, OAuth2, OAuthFlowPassword, OAuthFlows
-from lihil.plugins.registry import PluginBase
+from lihil.plugins.registry import PluginBase  # , PluginParam
 from lihil.problems import HTTPException
 from lihil.vendor_types import Request
 
 
-class AuthPlugin(PluginBase[Any]):
+class AuthPlugin(PluginBase):
     # security base
 
     def __init__(self, model: AuthBase, scheme_name: str):
@@ -61,18 +61,25 @@ class OAuth2Plugin(AuthPlugin):
             scheme_name=scheme_name or self.scheme_name,
         )
 
-    async def load(self, request: Request, resolver: Resolver) -> str | None:
+        self._param_name = ""
+
+    async def process(
+        self, params: dict[str, Any], request: Request, resolver: Resolver
+    ) -> None:
         authorization = request.headers.get("Authorization")
         if not authorization:
             if self.auto_error:
                 raise HTTPException(problem_status=401, detail="Not authenticated")
             else:
                 return None
-        return authorization
+
+        params[self._param_name] = authorization
 
 
 class OAuth2PasswordFlow(OAuth2Plugin):
     scheme_name = "OAuth2PasswordBearer"
+
+    # app_config: AppConfig
 
     def __init__(
         self,
@@ -94,7 +101,16 @@ class OAuth2PasswordFlow(OAuth2Plugin):
             scheme_name=scheme_name,
         )
 
-    async def load(self, request: Request, resolver: Resolver) -> str | None:
+        self._param_name: str = ""
+
+    # TODO: let loader receive params: dict[str, Any]
+    async def process(
+        self, params: dict[str, Any], request: Request, resolver: Resolver
+    ) -> None:
+        """
+        # TODO: get app_config from request.app.app_config
+        # override parse, parse payload type from type
+        """
         authorization = request.headers.get("Authorization")
 
         if not authorization:
@@ -111,4 +127,6 @@ class OAuth2PasswordFlow(OAuth2Plugin):
                 )
             else:
                 return None
-        return param
+
+        assert self._param_name
+        params[self._param_name] = param

@@ -82,7 +82,6 @@ class Endpoint[R]:
         self._graph = deps.get("graph") or self._graph
         self._busterm = deps.get("busterm") or self._busterm
 
-
         self._sig = EndpointSignature.from_function(
             graph=self._graph,
             route_path=self._path,
@@ -125,8 +124,8 @@ class Endpoint[R]:
                 params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-            elif p.loader:  # TODO? read form here
-                params[name] = await p.loader(request, resolver)
+            elif p.processor:
+                await p.processor(params, request, resolver)
             else:
                 raise InvalidParamTypeError(ptype)
         return params
@@ -145,7 +144,6 @@ class Endpoint[R]:
     ) -> R | ParseResult | Response:
         request = Request(scope, receive, send)
         callbacks = None
-
         try:
             if self._require_body:
                 parsed_result = await self._sig.parse_command(request)
@@ -202,9 +200,7 @@ class Endpoint[R]:
         if self._static:  # when there is no params at all
             raw_return = await self.make_static_call(scope, receive, send)
             await self.return_to_response(raw_return)(scope, receive, send)
-            return
-
-        if self._scoped:
+        elif self._scoped:
             async with self._graph.ascope() as resolver:
                 raw_return = await self.make_call(scope, receive, send, resolver)
                 await self.return_to_response(raw_return)(scope, receive, send)

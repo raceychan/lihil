@@ -176,7 +176,7 @@ class ServerConfig(ConfigBase):
 
 class SecurityConfig(ConfigBase):
     jwt_secret: str
-    jwt_algo: str = "HS256"
+    jwt_algorithms: Sequence[str]
 
 
 class AppConfig(ConfigBase):

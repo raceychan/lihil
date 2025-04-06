@@ -111,6 +111,7 @@ BODY_REQUEST_MARK = param_mark("body")
 FORM_REQUEST_MARK = param_mark("form")
 PATH_REQUEST_MARK = param_mark("path")
 USE_DEPENDENCY_MARK = param_mark("use")
+JW_TOKEN_PARAM_MARK = param_mark("jw_token")
 
 type Query[T] = Annotated[T, QUERY_REQUEST_MARK]
 type Header[T, K: LiteralString] = Annotated[T, K, HEADER_REQUEST_MARK]
@@ -120,7 +121,9 @@ type Path[T] = Annotated[T, PATH_REQUEST_MARK]
 type Use[T] = Annotated[T, USE_DEPENDENCY_MARK]
 
 
-type ParamMarkType = Literal["query", "header", "body", "form", "path", "use"]
+type ParamMarkType = Literal[
+    "query", "header", "body", "form", "path", "use", "jw_token"
+]
 # ================ Response ================
 
 TEXT_RETURN_MARK = resp_mark("text")
@@ -142,4 +145,6 @@ type Stream[T] = Annotated[
 type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
 type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
 
-type ResponseMark = Literal["text", "html", "stream", "json", "resp", "empty", "jw_token"]
+type ResponseMark = Literal[
+    "text", "html", "stream", "json", "resp", "empty", "jw_token"
+]

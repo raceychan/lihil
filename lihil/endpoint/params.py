@@ -22,6 +22,7 @@ from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
 # from lihil.auth.oauth import AuthPlugin
+from lihil.config import AppConfig
 from lihil.errors import NotSupportedError
 from lihil.interface import (
     MISSING,
@@ -213,7 +214,7 @@ class EndpointParams(Base, kw_only=True):
     params: dict[str, RequestParam[Any]] = field(default_factory=dict)
     bodies: dict[str, RequestBodyParam[Any]] = field(default_factory=dict)
     nodes: dict[str, DependentNode] = field(default_factory=dict)
-    plugins: dict[str, PluginParam[Any]] = field(default_factory=dict)
+    plugins: dict[str, PluginParam] = field(default_factory=dict)
     # access_controls: list[AccessControl]  # = field(default_factory=list)
 
     def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
@@ -236,7 +237,12 @@ class ParamParser:
     path_keys: tuple[str, ...]
     seen: set[str]
 
-    def __init__(self, graph: Graph, path_keys: tuple[str, ...] | None = None):
+    def __init__(
+        self,
+        graph: Graph,
+        path_keys: tuple[str, ...] | None = None,
+        app_config: AppConfig | None = None,
+    ):
         self.graph = graph
 
         if path_keys:
@@ -248,6 +254,7 @@ class ParamParser:
 
         # mark_type or param_type, dict[str | type, PluginProvider]
         self.plugin_types = LIHIL_DEPENDENCIES
+        self.app_config = app_config
 
     def is_plugin_type(self, param_type: Any) -> TypeGuard[type]:
         "Dependencies that should be injected and managed by lihil"
@@ -426,6 +433,27 @@ class ParamParser:
 
         plugins: list[ParsedParam[Any]] = []
 
+        """
+        TODO:
+        if multiple plugins for same param
+        we should execute them one by one
+
+        if it is a marked param + plugin param
+        we let plugin param run first ?
+
+        we might combine the plugin loader
+
+        chaining up their loaders, then do marked param decoder
+
+        or we just let loader receives (params)
+        and rename load to process
+
+
+        for name, plug in self._plugin_items():
+            await plugin.process(params, request, resolver)
+
+        """
+
         for meta in metas:
             if isinstance(meta, PluginBase):
                 plugin = meta.parse(name, type_, annotation, default)
@@ -434,9 +462,17 @@ class ParamParser:
                 raise NotSupportedError(f"Plugin {meta} is not Initialized")
             else:
                 mark_type = extract_mark_type(meta)
-                if mark_type and (provider := PLUGIN_REGISTRY.get(mark_type)):
-                    plugin = provider.parse(name, type_, annotation, default)
-                    plugins.append(plugin)
+                if mark_type:
+                    if provider := PLUGIN_REGISTRY.get(mark_type):
+                        plugin = provider.parse(name, type_, annotation, default)
+                        plugins.append(plugin)
+                    else:
+                        param_meta = ParamMetas.from_metas(metas)
+                        marked_param = self._parse_marked(
+                            name, type_, annotation, default, param_meta
+                        )
+                        # breakpoint()
+                        pass  # TODO: should we raise Error herer?
         return plugins if plugins else None
 
     def parse_param[T](
@@ -483,7 +519,7 @@ class ParamParser:
         params = dict[str, RequestParam[Any]]()
         bodies = dict[str, RequestBodyParam[Any]]()
         nodes = dict[str, DependentNode]()
-        plugins = dict[str, PluginParam[Any]]()
+        plugins = dict[str, PluginParam]()
 
         for name, param in func_params:
             annotation, default = param.annotation, param.default

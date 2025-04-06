@@ -1,5 +1,5 @@
 from types import GenericAlias, MappingProxyType, UnionType
-from typing import Any, Protocol, TypeAliasType, cast
+from typing import Any, Protocol, TypeAliasType
 
 from ididi import Resolver
 
@@ -10,20 +10,23 @@ from lihil.utils.typing import get_origin_pro
 from lihil.vendor_types import Request
 
 
-class PluginParam[T](RequestParamBase[T], kw_only=True):
-    loader: Maybe["PluginLoader[T]"] = MISSING
-    plugin: Maybe["type[PluginBase[T]]"] = MISSING
+class PluginParam(RequestParamBase[Any], kw_only=True):
+    processor: Maybe["ParamProcessor"] = MISSING
+    plugin: Maybe["type[PluginBase]"] = MISSING
 
 
-class PluginLoader[T](Protocol):
-    async def __call__(self, request: Request, resolver: Resolver) -> T: ...
+class ParamProcessor(Protocol):
+    async def __call__(
+        self, params: dict[str, Any], request: Request, resolver: Resolver
+    ) -> None: ...
 
 
 # Perhaps it is eaasier to just check for subclass of this
-class PluginBase[T]:
-    # __mark_type__: ClassVar
+class PluginBase:
 
-    async def load(self, request: Request, resolver: Resolver) -> T:
+    async def process(
+        self, params: dict[str, Any], request: Request, resolver: Resolver
+    ) -> None:
         raise NotImplementedError(
             f"Plugin {self.__class__} did not implement `load` method"
         )
@@ -31,27 +34,27 @@ class PluginBase[T]:
     def parse(
         self,
         name: str,
-        type_: type[T] | UnionType,
+        type_: type | UnionType,
         annotation: Any,
-        default: Maybe[T],
-    ) -> PluginParam[T]:
+        default: Any,
+    ) -> PluginParam:
         return PluginParam(
-            type_=cast(type[T], type_),
+            type_=type_,
             annotation=annotation,
             plugin=self,
             name=name,
             default=default,
-            loader=self.load,
+            processor=self.process,
         )
 
 
 def __plugin_registry():
-    plugin_providers: dict[str, PluginBase[Any]] = {}
+    plugin_providers: dict[str, PluginBase] = {}
 
     # TODO:
     def register_plugin_provider(
-        mark: TypeAliasType | GenericAlias | str, provider: PluginBase[Any]
-    ) -> PluginBase[Any]:
+        mark: TypeAliasType | GenericAlias | str, provider: PluginBase
+    ) -> PluginBase:
         nonlocal plugin_providers
 
         if isinstance(mark, str):

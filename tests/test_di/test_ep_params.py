@@ -401,17 +401,19 @@ def test_body_param_repr(param_parser: ParamParser):
 type Cached[T] = Annotated[T, param_mark("cached")]
 
 
-class CachedProvider(PluginBase[str]):
-    async def load(self, request: Request, resolver: Resolver) -> str:
-        return "cached"
+class CachedProvider(PluginBase):
+    async def process(
+        self, params: dict[str, Any], request: Request, resolver: Resolver
+    ) -> None:
+        params["param"] = "cached"
 
     def parse(self, name: str, type_: type, default, annotation):
-        return PluginParam[Any](
+        return PluginParam(
             type_=type_,
             name=name,
             annotation=annotation,
             default=default,
-            loader=self.load,
+            processor=self.process,
         )
 
 

@@ -56,7 +56,7 @@ class EndpointSignature[R](Base):
     header_params: RequestParamMap
     body_param: tuple[str, RequestBodyParam[Struct]] | None
     dependencies: ParamMap[DependentNode]
-    plugins: ParamMap[PluginParam[Any]]
+    plugins: ParamMap[PluginParam]
 
     # access_controls: list[AccessControl]
 
@@ -168,7 +168,7 @@ class EndpointSignature[R](Base):
         func_sig = signature(f)
         func_params = tuple(func_sig.parameters.items())
 
-        parser = ParamParser(graph, path_keys)
+        parser = ParamParser(graph, path_keys, app_config=app_config)
         params = parser.parse(func_params, path_keys)
         return_params = parse_returns(func_sig.return_annotation, app_config=app_config)
 

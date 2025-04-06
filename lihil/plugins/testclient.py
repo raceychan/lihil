@@ -139,6 +139,9 @@ class LocalClient:
         if headers:
             self.base_headers.update(headers)
 
+    def update_headers(self, headers: dict[str, str]):
+        self.base_headers.update(headers)
+
     async def submit_form(
         self,
         app: ASGIApp,
