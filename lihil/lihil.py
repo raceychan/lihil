@@ -117,7 +117,7 @@ class Lihil[T](ASGIBase):
         self._app_state: T | None = None
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
-        self._generate_doc_route()
+        self._generate_builtin_routes()
 
     def __repr__(self) -> str:
         conn_info = ""
@@ -136,18 +136,25 @@ class Lihil[T](ASGIBase):
         await receive()
 
         if self._userls is None:
-            self._setup()
-            return
+            try:
+                self._setup()
+            except BaseException:
+                exc_text = traceback.format_exc()
+                await send({"type": "lifespan.startup.failed", "message": exc_text})
+                raise
+            else:
+                await send({"type": "lifespan.startup.complete"})
+                return
 
         user_ls = self._userls(self)
         try:
             self._app_state = await user_ls.__aenter__()
-            await send({"type": "lifespan.startup.complete"})
+            self._setup()
         except BaseException:
             exc_text = traceback.format_exc()
             await send({"type": "lifespan.startup.failed", "message": exc_text})
-        finally:
-            self._setup()
+        else:
+            await send({"type": "lifespan.startup.complete"})
 
         await receive()
 
@@ -165,10 +172,11 @@ class Lihil[T](ASGIBase):
         sync_deps = SyncDeps(
             app_config=self.app_config, graph=self.graph, busterm=self.busterm
         )
+
         for route in self.routes:
             route.setup(**sync_deps)
 
-    def _generate_doc_route(self):
+    def _generate_builtin_routes(self):
         oas_config = self.app_config.oas
         openapi_route = get_openapi_route(
             oas_config, self.routes, self.app_config.version
@@ -257,7 +265,6 @@ class Lihil[T](ASGIBase):
                 response_started = True
             await send(message)
 
-        # TODO: solve this with lhl_server, no extra _send needed.
         try:
             await self.call_stack(scope, receive, _send)  # type: ignore
         except Exception:

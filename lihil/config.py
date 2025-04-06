@@ -22,7 +22,7 @@ from lihil.interface import (
 from lihil.plugins.bus import BusTerminal
 
 
-class SyncDeps(TypedDict):
+class SyncDeps(TypedDict, total=False):
     app_config: "AppConfig"
     graph: Graph
     busterm: BusTerminal

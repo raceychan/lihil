@@ -552,7 +552,6 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
         secret="mysecret", algorithms=["HS256"], payload_type=UserProfile
     )
 
-
     content = f"{token["token_type"].capitalize()} {token["token"]}"
 
     payload = decoder(content)
@@ -573,7 +572,7 @@ async def test_oauth2_not_plugin():
     assert not pg
 
 
-async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
+async def test_endpoint_with_jwt_decode_fail(testroute: Route, lc: LocalClient):
     async def get_me(token: JWToken[UserProfile]):
         assert isinstance(token, UserProfile)
 
@@ -592,7 +591,20 @@ async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
     assert res.status_code == 422
 
 
-@pytest.mark.debug
+async def test_endpoint_with_jwt_fail_without_security_config(
+    testroute: Route, lc: LocalClient
+):
+    async def get_me(token: JWToken[UserProfile]):
+        assert isinstance(token, UserProfile)
+
+    testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
+
+    ep = testroute.get_endpoint(get_me)
+
+    with pytest.raises(NotSupportedError):
+        ep.setup()
+
+
 async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
     async def get_me(token: JWToken[UserProfile]) -> Resp[Text, status.OK]:
         assert token.user_id == "1" and token.user_name == "2"
@@ -600,6 +612,47 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
 
     async def login_get_token(login_form: OAuthLoginForm) -> JWToken[UserProfile]:
         return UserProfile(user_id="1", user_name="2")
+
+    testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
+    testroute.post(login_get_token)
+
+    testroute.setup(
+        app_config=AppConfig(
+            security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
+        )
+    )
+
+    login_ep = testroute.get_endpoint(login_get_token)
+
+    res = await lc.submit_form(
+        login_ep, form_data={"username": "user", "password": "test"}
+    )
+
+    token_data = await res.json()
+
+    token_type, token = token_data["token_type"], token_data["token"]
+    token_type: str
+
+    lc.update_headers({"Authorization": f"{token_type.capitalize()} {token}"})
+
+    meep = testroute.get_endpoint(get_me)
+
+    res = await lc(meep)
+
+    assert res.status_code == 200
+    assert await res.text() == "ok"
+
+
+@pytest.mark.skip("not implemented")
+async def test_endpoint_login_and_validate_with_str_resp(
+    testroute: Route, lc: LocalClient
+):
+    async def get_me(token: JWToken[str]) -> Resp[Text, status.OK]:
+        assert token == "user_id"
+        return "ok"
+
+    async def login_get_token(login_form: OAuthLoginForm) -> JWToken[str]:
+        return "user_id"
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
     testroute.post(login_get_token)

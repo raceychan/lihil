@@ -120,10 +120,11 @@ class Route(ASGIBase):
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         http_method = scope["method"]
-        try:
-            await self.call_stacks[http_method](scope, receive, send)
-        except KeyError:
+
+        if (endpoint := self.call_stacks.get(http_method)) is None:
             return await METHOD_NOT_ALLOWED_RESP(scope, receive, send)
+
+        await endpoint(scope, receive, send)
 
     def is_direct_child_of(self, other_path: "Route | str") -> bool:
         if isinstance(other_path, Route):
