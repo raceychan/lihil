@@ -3,6 +3,7 @@ from typing import (
     Annotated,
     Any,
     ClassVar,
+    Literal,
     Required,
     Sequence,
     TypedDict,
@@ -147,5 +148,5 @@ def jwt_decoder_factory[T](
 
 
 type JWToken[T: JWTPayload | str | bytes] = Annotated[
-    T, HEADER_REQUEST_MARK, "Authroization", JW_TOKEN_RETURN_MARK, "text/plain"
+    T, Literal["Authorization"], HEADER_REQUEST_MARK, JW_TOKEN_RETURN_MARK, "text/plain"
 ]

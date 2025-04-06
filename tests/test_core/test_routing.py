@@ -722,30 +722,3 @@ async def test_parse_header_with_key():
     param = res[0]
 
     assert param.alias == "Authorization"
-
-
-@pytest.mark.debug
-async def test_oauth2_not_plugin():
-
-    async def get_user(
-        token: Annotated[
-            Header[str, Literal["Authorization"]], OAuth2PasswordFlow(token_url="token")
-        ],
-    ): ...
-
-    route = Route("me")
-    route.get(get_user)
-
-    ep = route.get_endpoint("GET")
-    ep.setup()
-
-    pg = ep.sig.plugins
-    assert not pg
-
-    lc = LocalClient()
-
-    res = await lc(ep)
-
-    # assert res.status_code == 401
-    # body = await res.json()
-    # assert body["detail"] == "Not authenticated"

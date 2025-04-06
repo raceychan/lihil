@@ -1,4 +1,5 @@
 from lihil import Annotated, Lihil, Route
+from lihil.plugins.auth.jwt import JWToken
 
 # from lihil.plugins.auth import OAuth2PasswordPlugin, OAuthLoginForm
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
@@ -7,14 +8,14 @@ users = Route("users")
 
 
 @users.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))
-async def get_user(name: str, token: Annotated[str, "jw_token"]): ...
+async def get_user(name: str, token: JWToken[str]): ...
 
 
 token = Route("token")
 
 
 @token.post
-async def create_token(credentials: OAuthLoginForm): ...
+async def create_token(credentials: OAuthLoginForm) -> JWToken[str]: ...
 
 
 lhl = Lihil[None](routes=[users, token])

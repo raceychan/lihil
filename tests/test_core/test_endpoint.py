@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 import pytest
 from ididi import AsyncScope, Graph, Ignore, use
@@ -7,6 +7,7 @@ from starlette.requests import Request
 
 from lihil import (
     Form,
+    Header,
     Json,
     Payload,
     Query,
@@ -554,21 +555,42 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
     assert isinstance(payload, UserProfile)
 
 
-# async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
-#     async def get_me(
-#         token: Annotated[JWToken[UserProfile], OAuth2PasswordFlow(token_url="token")],
-#     ):
-#         assert isinstance(token, UserProfile)
+async def test_oauth2_not_plugin():
 
-#     testroute.get(get_me)
+    async def get_user(token: Header[str, Literal["Authorization"]]): ...
 
-#     ep = testroute.get_endpoint(get_me)
-#     ep.setup(
-#         graph=None,
-#         busterm=None,
-#         app_config=AppConfig(
-#             security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-#         ),
-#     )
+    route = Route("me")
+    route.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_user)
 
-#     await lc(ep)
+    ep = route.get_endpoint("GET")
+    ep.setup()
+
+    pg = ep.sig.plugins
+    assert not pg
+
+    lc = LocalClient()
+
+    res = await lc(ep)
+
+    # assert res.status_code == 401
+    # body = await res.json()
+    # assert body["detail"] == "Not authenticated"
+
+
+@pytest.mark.debug
+async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
+    async def get_me(token: JWToken[UserProfile]):
+        assert isinstance(token, UserProfile)
+
+    testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
+
+    ep = testroute.get_endpoint(get_me)
+    ep.setup(
+        graph=None,
+        busterm=None,
+        app_config=AppConfig(
+            security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
+        ),
+    )
+
+    await lc(ep)

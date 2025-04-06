@@ -27,7 +27,6 @@ class IEndPointConfig(TypedDict, total=False):
     "Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
     scoped: Literal[True] | None
     "Whether current endpoint should be scoped"
-
     auth_scheme: AuthBase | None
 
 

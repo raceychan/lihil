@@ -34,6 +34,7 @@ from lihil.interface import (
 )
 from lihil.interface.marks import ParamMarkType, Struct, extract_mark_type
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
+from lihil.plugins.auth.jwt import JW_TOKEN_RETURN_MARK, jwt_decoder_factory
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
 from lihil.utils.json import build_union_decoder, decoder_factory, to_bytes, to_str
@@ -194,14 +195,6 @@ class ParamMetas(Base):
             elif mark_type := extract_mark_type(meta):
                 if current_mark_type and mark_type is not current_mark_type:
                     raise NotSupportedError("can't use more than one param mark")
-                # elif mark_type == "header":
-                # Authorization
-                #     breakpoint()
-                #     try:
-                #         header_key = metas[idx - 1]
-                #     except IndexError:
-                #         header_key = None
-
                 current_mark_type = mark_type
             elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
                 factory, config = metas[idx + 1], metas[idx + 2]
@@ -219,7 +212,6 @@ class EndpointParams(Base, kw_only=True):
     bodies: dict[str, RequestBodyParam[Any]] = field(default_factory=dict)
     nodes: dict[str, DependentNode] = field(default_factory=dict)
     plugins: dict[str, PluginParam] = field(default_factory=dict)
-    # access_controls: list[AccessControl]  # = field(default_factory=list)
 
     def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.location == location}
@@ -359,6 +351,47 @@ class ParamParser:
             params.extend(sub_params)
         return params
 
+    def _parse_auth_header[T](
+        self,
+        name: str,
+        type_: type[T] | UnionType,
+        annotation: Any,
+        default: Maybe[T],
+        param_meta: ParamMetas,
+    ) -> ParsedParam[T]:
+        if JW_TOKEN_RETURN_MARK in param_meta.metas:
+            if self.app_config is None or self.app_config.security is None:
+                raise NotSupportedError("Must provide security config to use jwt")
+
+            sec_config = self.app_config.security
+            secret = sec_config.jwt_secret
+            algos = sec_config.jwt_algorithms
+
+            jwt_decoder = jwt_decoder_factory(
+                secret=secret, algorithms=algos, payload_type=type_
+            )
+
+            req_param = RequestParam(
+                name=name,
+                alias="Authorization",
+                type_=type_,
+                annotation=annotation,
+                decoder=jwt_decoder,
+                location="header",
+                default=default,
+            )
+        else:
+            req_param = RequestParam(
+                name=name,
+                alias="Authorization",
+                type_=type_,
+                annotation=annotation,
+                decoder=txtdecoder_factory(type_),
+                location="header",
+                default=default,
+            )
+        return req_param
+
     def _parse_marked[T](
         self,
         name: str,
@@ -376,16 +409,26 @@ class ParamParser:
         else:
             # Easy case, Pure non-deps request params with param marks.
             location: ParamLocation
-            alias = name
+            param_alias = name
             content_type: BodyContentType = "application/json"
 
             if mark_type == "header":
                 location = "header"
-                alias = parse_header_key(name, param_meta.metas)
+                header_key = parse_header_key(name, param_meta.metas)
+                if header_key == "Authorization":
+                    return self._parse_auth_header(
+                        name=name,
+                        type_=type_,
+                        annotation=annotation,
+                        default=default,
+                        param_meta=param_meta,
+                    )
+                else:
+                    param_alias = header_key
             elif mark_type == "body":
                 body_param = RequestBodyParam(
                     name=name,
-                    alias=alias,
+                    alias=param_alias,
                     type_=type_,
                     annotation=annotation,
                     default=default,
@@ -398,7 +441,7 @@ class ParamParser:
                 decoder = custom_decoder or formdecoder_factory(type_)
                 body_param = RequestBodyParam(
                     name=name,
-                    alias=alias,
+                    alias=param_alias,
                     type_=type_,
                     annotation=annotation,
                     default=default,
@@ -415,7 +458,7 @@ class ParamParser:
             txtdecoder = custom_decoder or txtdecoder_factory(type_)
             req_param = RequestParam(
                 name=name,
-                alias=alias,
+                alias=param_alias,
                 type_=type_,
                 annotation=annotation,
                 decoder=cast(ITextDecoder[Any], txtdecoder),
@@ -470,13 +513,11 @@ class ParamParser:
                     if provider := PLUGIN_REGISTRY.get(mark_type):
                         plugin = provider.parse(name, type_, annotation, default)
                         plugins.append(plugin)
-                    else:
-                        param_meta = ParamMetas.from_metas(metas)
-                        marked_param = self._parse_marked(
-                            name, type_, annotation, default, param_meta
-                        )
-                        # breakpoint()
-                        pass  # TODO: should we raise Error herer?
+                    # else:
+                    #     param_meta = ParamMetas.from_metas(metas)
+                    #     marked_param = self._parse_marked(
+                    #         name, type_, annotation, default, param_meta
+                    #     )
         return plugins if plugins else None
 
     def parse_param[T](
