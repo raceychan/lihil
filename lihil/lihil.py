@@ -81,6 +81,27 @@ class StaticRoute:
         pass
 
 
+# class LSContext:
+#     def __init__(self, send: ISend, event: str):
+#         self.send = send
+#         self.event = event
+#         self.propagate_exceptions = True
+
+#     async def __aenter__(self):
+#         return self
+
+#     async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
+#         if exc_val is not None:
+#             exc_text = traceback.format_exc()
+#             await self.send(
+#                 {"type": f"lifespan.{self.event}.failed", "message": exc_text}
+#             )
+#         else:
+#             await self.send({"type": f"lifespan.{self.event}.complete"})
+
+#         return True
+
+
 class Lihil[T](ASGIBase):
     _userls: LifeSpan[T] | None
 

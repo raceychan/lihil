@@ -143,6 +143,7 @@ class Endpoint[R]:
         self._status_code = self._sig.default_status
         self._scoped: bool = self._sig.scoped or scoped_by_config
         self._encoder = self._sig.return_encoder
+        self._media_type = next(iter(self._sig.return_params.values())).content_type
 
     async def inject_plugins(
         self, params: dict[str, Any], request: Request, resolver: Resolver
@@ -223,7 +224,9 @@ class Endpoint[R]:
             )
         else:
             resp = Response(
-                content=self._encoder(raw_return), status_code=self._status_code
+                content=self._encoder(raw_return),
+                media_type=self._media_type,
+                status_code=self._status_code,
             )
         # TODO: no longer do this by default, since we have `Empty`
         if (status := resp.status_code) < 200 or status in (204, 205, 304):

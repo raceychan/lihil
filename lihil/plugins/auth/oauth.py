@@ -65,8 +65,6 @@ class OAuth2Base(AuthBase):
 class OAuth2PasswordFlow(OAuth2Base):
     scheme_name = "OAuth2PasswordBearer"
 
-    # app_config: AppConfig
-
     def __init__(
         self,
         *,

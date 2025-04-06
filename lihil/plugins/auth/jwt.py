@@ -133,7 +133,7 @@ else:
         def encoder(content: T) -> bytes:
             payload_bytes = encode_json(content)
             jwt = jws_encode(payload_bytes, key=secret)
-            token_resp = {"token": jwt, "token_type": "bearer"}
+            token_resp = {"access_token": jwt, "token_type": "Bearer"}
             resp = encode_json(token_resp)
             return resp
 
@@ -173,5 +173,5 @@ type JWToken[T: JWTPayload | str | bytes] = Annotated[
     Literal["Authorization"],
     HEADER_REQUEST_MARK,
     JW_TOKEN_RETURN_MARK,
-    "text/plain",
+    "application/json",
 ]

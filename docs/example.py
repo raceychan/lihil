@@ -2,6 +2,7 @@ from lihil import Lihil, Payload, Route, field
 from lihil.plugins.auth.jwt import JWToken, JWTPayload
 
 # from lihil.plugins.auth import OAuth2PasswordPlugin, OAuthLoginForm
+from lihil.config import AppConfig, SecurityConfig
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 
 users = Route("users")
@@ -33,7 +34,9 @@ async def create_token(credentials: OAuthLoginForm) -> JWToken[UserPayload]:
     return UserPayload(user_id="user123")
 
 
-lhl = Lihil[None](routes=[users, token])
+lhl = Lihil[None](routes=[users, token], app_config=AppConfig(
+    security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
+))
 
 # =============================
 
@@ -54,3 +57,7 @@ lhl = Lihil[None](routes=[users, token])
 #     token: Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl="token"))],
 # ):
 #     return token
+
+
+if __name__ == "__main__":
+    lhl.run(__file__)

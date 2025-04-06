@@ -552,7 +552,7 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
         secret="mysecret", algorithms=["HS256"], payload_type=UserProfile
     )
 
-    content = f"{token["token_type"].capitalize()} {token["token"]}"
+    content = f"{token["token_type"].capitalize()} {token["access_token"]}"
 
     payload = decoder(content)
     assert isinstance(payload, UserProfile)
@@ -605,6 +605,7 @@ async def test_endpoint_with_jwt_fail_without_security_config(
         ep.setup()
 
 
+@pytest.mark.debug
 async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
     async def get_me(token: JWToken[UserProfile]) -> Resp[Text, status.OK]:
         assert token.user_id == "1" and token.user_name == "2"
@@ -628,9 +629,10 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
         login_ep, form_data={"username": "user", "password": "test"}
     )
 
+
     token_data = await res.json()
 
-    token_type, token = token_data["token_type"], token_data["token"]
+    token_type, token = token_data["token_type"], token_data["access_token"]
     token_type: str
 
     lc.update_headers({"Authorization": f"{token_type.capitalize()} {token}"})
