@@ -1,11 +1,11 @@
 import re
 from re import Pattern
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Sequence, TypeVar, get_args, get_origin
 
 from starlette.routing import compile_path
 
 from lihil.errors import NotSupportedError
-from lihil.interface import lhl_get_origin
+from lihil.interface.marks import HEADER_REQUEST_MARK
 
 RE_PATH_KEYS = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 "Must be a valid python variable name?"
@@ -124,21 +124,22 @@ def parse_header_key(name: str, metas: Sequence[Any] | None = None) -> str:
     if metas is None:
         return to_kebab_case(name)
 
-    try:
-        header_key = metas[0]
-    except IndexError:
-        return to_kebab_case(name)
+    mark_idx = metas.index(HEADER_REQUEST_MARK)
+    key_meta = metas[mark_idx - 1]
 
-    if header_key is None:
-        return to_kebab_case(name)
+    if isinstance(key_meta, str):
+        return key_meta
+    elif isinstance(key_meta, TypeVar):
+        key = to_kebab_case(name)
+    elif get_origin(key_meta) is Literal:
+        key = get_args(key_meta)[0]
+    else:
+        raise NotSupportedError(f"Invalid header key {key_meta}")
 
-    if isinstance(header_key, str):
-        return header_key
+    if not isinstance(key, str):
+        raise NotSupportedError(f"Invalid header key {key_meta}")
 
-    if lhl_get_origin(header_key) is Literal:
-        return header_key.__args__[0]
-
-    raise NotSupportedError("Invalid header key")
+    return key
 
 
 def trimdoc(doc: str | None):

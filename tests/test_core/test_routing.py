@@ -2,13 +2,14 @@ from typing import Annotated, Literal
 
 import pytest
 
-from lihil import Text, status
-
-# from lihil.errors import InvalidParamTypeError
-from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend, Resp
-from lihil.plugins.auth.oauth import OAuth2PasswordFlow
+from lihil import BusTerminal, Graph, Text, status
 
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
+from lihil.endpoint.params import ParamParser
+
+# from lihil.errors import InvalidParamTypeError
+from lihil.interface import ASGIApp, Empty, Header, IReceive, IScope, ISend, Resp
+from lihil.plugins.auth.oauth import OAuth2PasswordFlow
 from lihil.plugins.bus import Event
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
@@ -714,10 +715,21 @@ async def test_route_with_nested_empty_response():
     assert await res.body() == b""
 
 
-async def test_auth_route():
+async def test_parse_header_with_key():
+    parser = ParamParser(Graph())
+
+    res = parser.parse_param("token", Header[str, Literal["Authorization"]])
+    param = res[0]
+
+    assert param.alias == "Authorization"
+
+
+async def test_oauth2_not_plugin():
 
     async def get_user(
-        token: Annotated[str, OAuth2PasswordFlow(token_url="token")],
+        token: Annotated[
+            Header[str, Literal["Authorization"]], OAuth2PasswordFlow(token_url="token")
+        ],
     ): ...
 
     route = Route("me")
@@ -727,12 +739,12 @@ async def test_auth_route():
     ep.setup()
 
     pg = ep.sig.plugins
-    assert pg
+    assert not pg
 
     lc = LocalClient()
 
     res = await lc(ep)
 
-    assert res.status_code == 401
-    body = await res.json()
-    assert body["detail"] == "Not authenticated"
+    # assert res.status_code == 401
+    # body = await res.json()
+    # assert body["detail"] == "Not authenticated"

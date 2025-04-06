@@ -34,9 +34,9 @@ class OASB(Base):
                 setattr(self, field, UNSET)
 
 
-class AuthBase(OASB, kw_only=True):
+class AuthScheme(OASB, kw_only=True):
     type_: SecuritySchemes = field(name="type")
-    description: Unset[str]= UNSET
+    description: Unset[str] = UNSET
 
 
 class APIKeyIn(Enum):
@@ -45,13 +45,13 @@ class APIKeyIn(Enum):
     cookie = "cookie"
 
 
-class APIKey(AuthBase, kw_only=True):
+class APIKey(AuthScheme, kw_only=True):
     type_: SecuritySchemes = field(default="apiKey", name="type")
     in_: APIKeyIn = field(name="in")
     name: str
 
 
-class HTTPBase(AuthBase, kw_only=True):
+class HTTPBase(AuthScheme, kw_only=True):
     type_: SecuritySchemes = field(default="http", name="type")
     scheme: str
 
@@ -90,12 +90,12 @@ class OAuthFlows(OASB, kw_only=True):
     authorizationCode: Unset[OAuthFlowAuthorizationCode] = UNSET
 
 
-class OAuth2(AuthBase, kw_only=True):
+class OAuth2(AuthScheme, kw_only=True):
     type_: SecuritySchemes = field(default="oauth2", name="type")
     flows: OAuthFlows
 
 
-class OpenIdConnect(AuthBase, kw_only=True):
+class OpenIdConnect(AuthScheme, kw_only=True):
     type_: SecuritySchemes = field(default="openIdConnect", name="type")
     openIdConnectUrl: str
 

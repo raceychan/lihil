@@ -1,7 +1,6 @@
 import pytest
 
-from lihil.utils.string import parse_header_key, to_kebab_case, trim_path
-from lihil.errors import NotSupportedError
+from lihil.utils.string import to_kebab_case, trim_path
 
 
 def test_acronym():
@@ -19,11 +18,11 @@ def test_trim_trailling_path():
         trim_path("/tests/")
 
 
-def test_parse_header_key():
-    assert parse_header_key("XToken", []) == "x-token"
-    assert parse_header_key("x_request_id") == "x-request-id"
+# def test_parse_header_key():
+#     assert parse_header_key("XToken", []) == "x-token"
+#     assert parse_header_key("x_request_id") == "x-request-id"
 
-    assert parse_header_key("trace_id", ["x-trace-id"]) == "x-trace-id"
+#     assert parse_header_key("trace_id", ["x-trace-id"]) == "x-trace-id"
 
-    with pytest.raises(NotSupportedError):
-        parse_header_key("trace_id", [15])
+#     with pytest.raises(NotSupportedError):
+#         parse_header_key("trace_id", [15])

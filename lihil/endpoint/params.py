@@ -194,10 +194,12 @@ class ParamMetas(Base):
             elif mark_type := extract_mark_type(meta):
                 if current_mark_type and mark_type is not current_mark_type:
                     raise NotSupportedError("can't use more than one param mark")
-                elif mark_type == "header":
-                    header_key = metas[idx - 1]
-                    if not isinstance(header_key, str):
-                        metas[idx - 1] = None
+                # elif mark_type == "header":
+                #     try:
+                #         header_key = metas[idx - 1]
+                #     except IndexError:
+                #         header_key = None
+
                 current_mark_type = mark_type
             elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
                 factory, config = metas[idx + 1], metas[idx + 2]

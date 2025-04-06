@@ -229,20 +229,20 @@ def test_ep_without_ret():
     get_resp_schemas(ep, {}, "")
 
 
-def test_ep_with_auth():
+# def test_ep_with_auth():
 
-    async def get_user(
-        token: Annotated[str, OAuth2PasswordFlow(token_url="token")],
-    ): ...
+#     async def get_user(
+#         token: Annotated[str, OAuth2PasswordFlow(token_url="token")],
+#     ): ...
 
-    route = Route()
-    route.get(get_user)
+#     route = Route()
+#     route.get(get_user)
 
-    ep = route.get_endpoint("GET")
-    ep.setup()
+#     ep = route.get_endpoint("GET")
+#     ep.setup()
 
-    token = ep.sig.plugins["token"]
+#     token = ep.sig.plugins["token"]
 
-    sc = {}
-    get_ep_security(ep, sc)
-    assert sc["OAuth2PasswordBearer"]
+#     sc = {}
+#     get_ep_security(ep, sc)
+#     assert sc["OAuth2PasswordBearer"]

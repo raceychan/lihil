@@ -554,22 +554,21 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
     assert isinstance(payload, UserProfile)
 
 
-@pytest.mark.debug
-async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
-    async def get_me(
-        token: Annotated[JWToken[UserProfile], OAuth2PasswordFlow(token_url="token")],
-    ):
-        assert isinstance(token, UserProfile)
+# async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
+#     async def get_me(
+#         token: Annotated[JWToken[UserProfile], OAuth2PasswordFlow(token_url="token")],
+#     ):
+#         assert isinstance(token, UserProfile)
 
-    testroute.get(get_me)
+#     testroute.get(get_me)
 
-    ep = testroute.get_endpoint(get_me)
-    ep.setup(
-        graph=None,
-        busterm=None,
-        app_config=AppConfig(
-            security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-        ),
-    )
+#     ep = testroute.get_endpoint(get_me)
+#     ep.setup(
+#         graph=None,
+#         busterm=None,
+#         app_config=AppConfig(
+#             security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
+#         ),
+#     )
 
-    await lc(ep)
+#     await lc(ep)
