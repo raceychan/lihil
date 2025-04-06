@@ -15,6 +15,8 @@ from lihil.endpoint.params import (
 from lihil.endpoint.returns import EndpointReturn, parse_returns
 from lihil.interface import MISSING, Base, IEncoder, Record, is_provided
 from lihil.problems import (
+    CustomDecodeErrorMessage,
+    CustomValidationError,
     InvalidDataType,
     InvalidJsonReceived,
     MissingRequestParam,
@@ -91,6 +93,7 @@ class EndpointSignature[R](Base):
 
             for name, param in required.items():
                 alias = param.alias if param.alias else param.name
+
                 if (val := received.get(alias, MISSING)) is not MISSING:
                     val = received[alias]
 
@@ -102,6 +105,12 @@ class EndpointSignature[R](Base):
                     except DecodeError:
                         error = InvalidJsonReceived(param.location, name)
                         verrors.append(error)
+                    except CustomValidationError as cve:
+                        error = CustomDecodeErrorMessage(
+                            param.location, name, cve.detail
+                        )
+                        verrors.append(error)
+
                 elif not param.required:
                     params[name] = param.default
                 else:
@@ -130,6 +139,9 @@ class EndpointSignature[R](Base):
                     verrors.append(error)
                 except DecodeError:
                     error = InvalidJsonReceived("body", name)
+                    verrors.append(error)
+                except CustomValidationError as cve:
+                    error = CustomDecodeErrorMessage(param.location, name, cve.message)
                     verrors.append(error)
 
         parsed_result = ParseResult(params, verrors)

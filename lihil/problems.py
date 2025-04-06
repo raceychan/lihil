@@ -159,7 +159,7 @@ def __erresp_factory_registry():
 
 class HTTPException[T](Exception, DetailBase[T]):
     """
-    The base HTTP Exception class
+    Something Wrong with the client client.
     """
 
     __status__: ClassVar[http_status.Status] = http_status.code(
@@ -226,6 +226,11 @@ LIHIL_ERRESP_REGISTRY, problem_solver, get_solver = __erresp_factory_registry()
 del __erresp_factory_registry
 
 
+class CustomValidationError[T](HTTPException[T]):
+    detail: str = "custom decoding errro"
+
+
+# ================== Data Validtion ================
 class ValidationProblem(Record):
     location: ParamLocation | Literal["body"]
     param: str
@@ -244,11 +249,17 @@ class InvalidDataType(ValidationProblem, tag=True):
     message: str = "Param is not of right type"
 
 
+class CustomDecodeErrorMessage(ValidationProblem, tag=True):
+    message: str
+
+
 class InvalidRequestErrors(HTTPException[list[ValidationProblem]]):
     title: str = "Check Your Params"
     instance: str = "URI of the entity"
-
     detail: list[ValidationProblem]
+
+
+# ================== Data Validtion ================
 
 
 def collect_problems() -> list[type]:

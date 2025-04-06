@@ -721,4 +721,4 @@ async def test_parse_header_with_key():
     res = parser.parse_param("token", Header[str, Literal["Authorization"]])
     param = res[0]
 
-    assert param.alias == "Authorization"
+    assert param.alias == "authorization"

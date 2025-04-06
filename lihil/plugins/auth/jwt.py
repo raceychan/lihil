@@ -13,11 +13,13 @@ from uuid import uuid4
 
 from jwt import PyJWT
 from jwt.api_jws import PyJWS
+from jwt.exceptions import DecodeError
 from msgspec import convert
 
 from lihil.errors import NotSupportedError
 from lihil.interface import UNSET, Base, Unset, field
 from lihil.interface.marks import HEADER_REQUEST_MARK, JW_TOKEN_RETURN_MARK
+from lihil.problems import CustomValidationError
 from lihil.utils.json import encode_json
 
 
@@ -97,6 +99,10 @@ async def get_user(
 """
 
 
+class JWTDecodingError(CustomValidationError[str]):
+    detail: str
+
+
 def jwt_encoder_factory[T](
     *,
     secret: str,
@@ -139,10 +145,15 @@ def jwt_decoder_factory[T](
     jwt = PyJWT()
 
     def decoder(content: bytes) -> T:
-        decoded: dict[str, Any] = jwt.decode(
-            content, key=secret, algorithms=algorithms, options=options
-        )
-        return convert(decoded, payload_type)
+        try:
+            decoded: dict[str, Any] = jwt.decode(
+                content, key=secret, algorithms=algorithms, options=options
+            )
+            return convert(decoded, payload_type)
+        except DecodeError as de:
+            raise JWTDecodingError(str(de))
+        except Exception as exc:
+            raise CustomValidationError(str(exc))
 
     return decoder
 

@@ -154,7 +154,10 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
     #         raise ValueError("default value does not work with path param")
 
     def __repr__(self) -> str:
-        return f"RequestParam<{self.location}>({self.name}: {self.type_repr})"
+        name_repr = (
+            self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
+        )
+        return f"RequestParam<{self.location}> ({name_repr}: {self.type_repr})"
 
     def decode(self, content: str) -> T:
         return self.decoder(content)
@@ -354,6 +357,7 @@ class ParamParser:
     def _parse_auth_header[T](
         self,
         name: str,
+        header_key: str,
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
@@ -361,11 +365,13 @@ class ParamParser:
         custom_decoder: ITextDecoder[Any] | None,
     ) -> ParsedParam[T]:
 
+        # TODO: auth_header_decoder
+
         if JW_TOKEN_RETURN_MARK not in param_meta.metas:
             decoder = custom_decoder or txtdecoder_factory(type_)
             return RequestParam(
                 name=name,
-                alias="Authorization",
+                alias=header_key,
                 type_=type_,
                 annotation=annotation,
                 decoder=decoder,
@@ -373,7 +379,7 @@ class ParamParser:
                 default=default,
             )
         else:
-            if custom_decoder:
+            if custom_decoder is None:
                 if self.app_config is None or self.app_config.security is None:
                     raise NotSupportedError("Must provide security config to use jwt")
                 sec_config = self.app_config.security
@@ -388,7 +394,7 @@ class ParamParser:
 
             req_param = RequestParam(
                 name=name,
-                alias="Authorization",
+                alias=header_key,
                 type_=type_,
                 annotation=annotation,
                 decoder=decoder,
@@ -422,15 +428,16 @@ class ParamParser:
 
             if mark_type == "header":
                 location = "header"
-                header_key = parse_header_key(name, param_meta.metas)
-                if header_key == "Authorization":
+                header_key = parse_header_key(name, param_meta.metas).lower()
+                if header_key == "authorization":
                     return self._parse_auth_header(
                         name=name,
+                        header_key=header_key,
                         type_=type_,
                         annotation=annotation,
                         default=default,
                         param_meta=param_meta,
-                        custom_decoder=custom_decoder,
+                        custom_decoder=cast(IDecoder[Any], custom_decoder),
                     )
                 else:
                     param_alias = header_key

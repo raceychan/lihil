@@ -577,7 +577,6 @@ async def test_oauth2_not_plugin():
     # assert body["detail"] == "Not authenticated"
 
 
-@pytest.mark.debug
 async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
     async def get_me(token: JWToken[UserProfile]):
         assert isinstance(token, UserProfile)
@@ -593,4 +592,5 @@ async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
         ),
     )
 
-    await lc(ep)
+    res = await lc(ep, headers={"Authorization": "adsfjaklsdjfklajsdfkjaklsdfj"})
+    assert res.status_code == 422

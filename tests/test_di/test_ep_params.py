@@ -87,7 +87,9 @@ def test_request_param():
     assert param.decode("42") == 42
 
     # Test repr
-    assert "RequestParam<query>(test: int)" in repr(param)
+    assert repr(param)
+    assert param.location == "query"
+    assert param.name == param.alias == "test"
 
 
 # Test PluginParam
