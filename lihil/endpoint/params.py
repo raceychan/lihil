@@ -358,38 +358,44 @@ class ParamParser:
         annotation: Any,
         default: Maybe[T],
         param_meta: ParamMetas,
+        custom_decoder: ITextDecoder[Any] | None,
     ) -> ParsedParam[T]:
-        if JW_TOKEN_RETURN_MARK in param_meta.metas:
-            if self.app_config is None or self.app_config.security is None:
-                raise NotSupportedError("Must provide security config to use jwt")
 
-            sec_config = self.app_config.security
-            secret = sec_config.jwt_secret
-            algos = sec_config.jwt_algorithms
-
-            jwt_decoder = jwt_decoder_factory(
-                secret=secret, algorithms=algos, payload_type=type_
-            )
-
-            req_param = RequestParam(
+        if JW_TOKEN_RETURN_MARK not in param_meta.metas:
+            decoder = custom_decoder or txtdecoder_factory(type_)
+            return RequestParam(
                 name=name,
                 alias="Authorization",
                 type_=type_,
                 annotation=annotation,
-                decoder=jwt_decoder,
+                decoder=decoder,
                 location="header",
                 default=default,
             )
         else:
+            if custom_decoder:
+                if self.app_config is None or self.app_config.security is None:
+                    raise NotSupportedError("Must provide security config to use jwt")
+                sec_config = self.app_config.security
+                secret = sec_config.jwt_secret
+                algos = sec_config.jwt_algorithms
+
+                decoder = jwt_decoder_factory(
+                    secret=secret, algorithms=algos, payload_type=type_
+                )
+            else:
+                decoder = custom_decoder
+
             req_param = RequestParam(
                 name=name,
                 alias="Authorization",
                 type_=type_,
                 annotation=annotation,
-                decoder=txtdecoder_factory(type_),
+                decoder=decoder,
                 location="header",
                 default=default,
             )
+
         return req_param
 
     def _parse_marked[T](
@@ -400,7 +406,9 @@ class ParamParser:
         default: Maybe[T],
         param_meta: ParamMetas,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
-        custom_decoder = param_meta.custom_decoder
+        custom_decoder = (
+            param_meta.custom_decoder.decode if param_meta.custom_decoder else None
+        )
         mark_type = param_meta.mark_type
 
         if mark_type == "use":
@@ -422,17 +430,19 @@ class ParamParser:
                         annotation=annotation,
                         default=default,
                         param_meta=param_meta,
+                        custom_decoder=custom_decoder,
                     )
                 else:
                     param_alias = header_key
             elif mark_type == "body":
+                decoder = custom_decoder or decoder_factory(type_)
                 body_param = RequestBodyParam(
                     name=name,
                     alias=param_alias,
                     type_=type_,
                     annotation=annotation,
                     default=default,
-                    decoder=decoder_factory(type_),
+                    decoder=decoder,
                     content_type=content_type,
                 )
                 return body_param
@@ -455,13 +465,13 @@ class ParamParser:
             else:
                 location = "query"
 
-            txtdecoder = custom_decoder or txtdecoder_factory(type_)
+            decoder = custom_decoder or txtdecoder_factory(type_)
             req_param = RequestParam(
                 name=name,
                 alias=param_alias,
                 type_=type_,
                 annotation=annotation,
-                decoder=cast(ITextDecoder[Any], txtdecoder),
+                decoder=cast(ITextDecoder[Any], decoder),
                 location=location,
                 default=default,
             )
