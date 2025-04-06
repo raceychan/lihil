@@ -46,10 +46,7 @@ class ParseResult(Record):
         return self.params[key]
 
 
-# TODO: separate param parsing and dependency injection
 # TODO: we should rewrite this in cython, along with the request object
-
-
 class EndpointSignature[R](Base):
     route_path: str
 
@@ -59,8 +56,6 @@ class EndpointSignature[R](Base):
     body_param: tuple[str, RequestBodyParam[Struct]] | None
     dependencies: ParamMap[DependentNode]
     plugins: ParamMap[PluginParam]
-
-    # access_controls: list[AccessControl]
 
     default_status: int
     scoped: bool
@@ -114,7 +109,7 @@ class EndpointSignature[R](Base):
                 elif not param.required:
                     params[name] = param.default
                 else:
-                    err = MissingRequestParam(param.location, name)
+                    err = MissingRequestParam(param.location, alias)
                     verrors.append(err)
 
         if self.body_param and body is not None:
@@ -141,7 +136,7 @@ class EndpointSignature[R](Base):
                     error = InvalidJsonReceived("body", name)
                     verrors.append(error)
                 except CustomValidationError as cve:
-                    error = CustomDecodeErrorMessage(param.location, name, cve.message)
+                    error = CustomDecodeErrorMessage(param.location, name, cve.detail)
                     verrors.append(error)
 
         parsed_result = ParseResult(params, verrors)

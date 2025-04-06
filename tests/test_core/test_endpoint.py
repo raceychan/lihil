@@ -25,6 +25,7 @@ from lihil.errors import NotSupportedError, StatusConflictError
 from lihil.plugins.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.plugins.testclient import LocalClient
+from lihil.utils.json import JsonDecoder
 from lihil.utils.threading import async_wrapper
 
 
@@ -545,13 +546,16 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
         ep, form_data={"username": "user", "password": "pasword"}
     )
 
-    token = await res.body()
+    token = await res.json()
 
     decoder = jwt_decoder_factory(
         secret="mysecret", algorithms=["HS256"], payload_type=UserProfile
     )
 
-    payload = decoder(token)
+
+    content = f"{token["token_type"].capitalize()} {token["token"]}"
+
+    payload = decoder(content)
     assert isinstance(payload, UserProfile)
 
 
@@ -567,14 +571,6 @@ async def test_oauth2_not_plugin():
 
     pg = ep.sig.plugins
     assert not pg
-
-    lc = LocalClient()
-
-    res = await lc(ep)
-
-    # assert res.status_code == 401
-    # body = await res.json()
-    # assert body["detail"] == "Not authenticated"
 
 
 async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
@@ -594,3 +590,42 @@ async def test_endpoint_expects_jwt(testroute: Route, lc: LocalClient):
 
     res = await lc(ep, headers={"Authorization": "adsfjaklsdjfklajsdfkjaklsdfj"})
     assert res.status_code == 422
+
+
+@pytest.mark.debug
+async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
+    async def get_me(token: JWToken[UserProfile]) -> Resp[Text, status.OK]:
+        assert token.user_id == "1" and token.user_name == "2"
+        return "ok"
+
+    async def login_get_token(login_form: OAuthLoginForm) -> JWToken[UserProfile]:
+        return UserProfile(user_id="1", user_name="2")
+
+    testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
+    testroute.post(login_get_token)
+
+    testroute.setup(
+        app_config=AppConfig(
+            security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
+        )
+    )
+
+    login_ep = testroute.get_endpoint(login_get_token)
+
+    res = await lc.submit_form(
+        login_ep, form_data={"username": "user", "password": "test"}
+    )
+
+    token_data = await res.json()
+
+    token_type, token = token_data["token_type"], token_data["token"]
+    token_type: str
+
+    lc.update_headers({"Authorization": f"{token_type.capitalize()} {token}"})
+
+    meep = testroute.get_endpoint(get_me)
+
+    res = await lc(meep)
+
+    assert res.status_code == 200
+    assert await res.text() == "ok"

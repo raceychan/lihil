@@ -129,7 +129,10 @@ def jwt_encoder_factory[T](
 
     def encoder(content: T) -> bytes:
         payload_bytes = encode_json(content)
-        return jws_encode(payload_bytes, key=secret).encode()
+        jwt = jws_encode(payload_bytes, key=secret)
+        token_resp = {"token": jwt, "token_type": "bearer"}
+        resp = encode_json(token_resp)
+        return resp
 
     return encoder
 
@@ -144,10 +147,15 @@ def jwt_decoder_factory[T](
 
     jwt = PyJWT()
 
-    def decoder(content: bytes) -> T:
+    def decoder(content: str) -> T:
+
         try:
+            scheme, _, token = content.partition(" ")
+            if scheme != "Bearer":
+                raise CustomValidationError("Token-type must be bearer")
+
             decoded: dict[str, Any] = jwt.decode(
-                content, key=secret, algorithms=algorithms, options=options
+                token, key=secret, algorithms=algorithms, options=options
             )
             return convert(decoded, payload_type)
         except DecodeError as de:

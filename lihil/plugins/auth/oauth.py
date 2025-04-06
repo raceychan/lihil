@@ -61,18 +61,6 @@ class OAuth2Base(AuthBase):
             scheme_name=scheme_name or self.scheme_name,
         )
 
-    # async def process(
-    #     self, params: dict[str, Any], request: Request, resolver: Resolver
-    # ) -> None:
-    #     authorization = request.headers.get("Authorization")
-    #     if not authorization:
-    #         if self.auto_error:
-    #             raise HTTPException(problem_status=401, detail="Not authenticated")
-    #         else:
-    #             return None
-
-    #     params[self._param_name] = authorization
-
 
 class OAuth2PasswordFlow(OAuth2Base):
     scheme_name = "OAuth2PasswordBearer"
@@ -98,31 +86,3 @@ class OAuth2PasswordFlow(OAuth2Base):
             auto_error=auto_error,
             scheme_name=scheme_name,
         )
-
-    # # TODO: let loader receive params: dict[str, Any]
-    # async def process(
-    #     self, params: dict[str, Any], request: Request, resolver: Resolver
-    # ) -> None:
-    #     """
-    #     # TODO: get app_config from request.app.app_config
-    #     # override parse, parse payload type from type
-    #     """
-    #     authorization = request.headers.get("Authorization")
-
-    #     if not authorization:
-    #         scheme, param = "", ""
-    #     else:
-    #         scheme, _, param = authorization.partition(" ")
-
-    #     if not authorization or scheme.lower() != "bearer":
-    #         if self.auto_error:
-    #             raise HTTPException(
-    #                 problem_status=401,
-    #                 detail="Not authenticated",
-    #                 headers={"WWW-Authenticate": "Bearer"},
-    #             )
-    #         else:
-    #             return None
-
-    #     assert self._param_name
-    #     params[self._param_name] = param

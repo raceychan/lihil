@@ -136,9 +136,9 @@ class Route(ASGIBase):
 
     def setup(self, **deps: Unpack[SyncDeps]):
         if deps:
-            self.app_config = deps["app_config"]
-            self.graph = deps["graph"]
-            self.busterm = deps["busterm"]
+            self.app_config = deps.get("app_config") or self.app_config
+            self.graph = deps.get("graph") or self.graph
+            self.busterm = deps.get("busterm") or self.busterm
 
         for method, ep in self.endpoints.items():
             ep.setup(**deps)
