@@ -436,9 +436,6 @@ def generate_oas(
             problem_path=oas_config.problem_path,
         )
 
-    # {'securitySchemes': {'OAuth2PasswordBearer': {'type': 'oauth2', 'flows': {'password': {'scopes': {}, 'tokenUrl': 'token'}}}}}
-    b'{"OAuth2PasswordBearer":{"flows":{"password":{"tokenUrl":"token"}}}}'
-
     comp = oasmodel.Components(**components)
     info = oasmodel.Info(title=oas_config.title, version=app_version)
 
