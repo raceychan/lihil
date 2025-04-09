@@ -34,7 +34,6 @@ from lihil.interface import (
 )
 from lihil.interface.marks import ParamMarkType, Struct, extract_mark_type
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
-from lihil.plugins.auth.jwt import JW_TOKEN_RETURN_MARK, jwt_decoder_factory
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
 from lihil.utils.json import build_union_decoder, decoder_factory, to_bytes, to_str
@@ -142,6 +141,7 @@ def formdecoder_factory[T](ptype: type[T] | UnionType):
     return form_decoder
 
 
+# TODO: we might support multiple decoders/encoders
 class RequestParam[T](RequestParamBase[T], kw_only=True):
     location: ParamLocation
     decoder: ITextDecoder[T]
@@ -160,6 +160,10 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         return f"RequestParam<{self.location}> ({name_repr}: {self.type_repr})"
 
     def decode(self, content: str) -> T:
+        """
+        for decoder in self.decoders:
+            contennt = decoder(content)
+        """
         return self.decoder(content)
 
 
@@ -366,6 +370,10 @@ class ParamParser:
     ) -> ParsedParam[T]:
 
         # TODO: auth_header_decoder
+        try:
+            from lihil.plugins.auth.jwt import JW_TOKEN_RETURN_MARK, jwt_decoder_factory
+        except ImportError:
+            raise NotSupportedError("pyjwt must be installed to use JWToken")
 
         if JW_TOKEN_RETURN_MARK not in param_meta.metas:
             decoder = custom_decoder or txtdecoder_factory(type_)
@@ -431,6 +439,7 @@ class ParamParser:
                 location = "header"
                 header_key = parse_header_key(name, param_meta.metas).lower()
                 if header_key == "authorization":
+
                     return self._parse_auth_header(
                         name=name,
                         header_key=header_key,
@@ -558,7 +567,6 @@ class ParamParser:
                 default=default,
                 param_meta=param_metas,
             )
-
         else:
             res = self._parse_marked(
                 name=name,

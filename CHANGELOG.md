@@ -645,7 +645,7 @@ lhl = Lihil[None](
 ### improvements:
 
 
-- now meta data of annotated type would be resolved in order they appear(used to be reversed orderl).
+- now meta data of annotated type would be resolved in the order they appear(used to be reversed orderl).
 
 ```python
 type MARK_ONE = Annotated[str, "ONE"]
@@ -662,3 +662,6 @@ def test_get_origin_pro_unpack_textalias_in_order():
     res = get_origin_pro(MARK_THREE)
     assert res == (str, ["ONE", "TWO", "THREE"])
 ```
+
+
+- now if `JWToken` fail to validate, raise `InvalidTokenError` with order status 401. This error would be displayed in swagger ui for endpoints that requires `auth_scheme`.

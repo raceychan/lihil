@@ -94,19 +94,23 @@ class JWTPayload(Base, kw_only=True):
         self.exp = now_ + exp_in
         self.nbf = self.iat = now_
 
+    def validate_claims(self) -> None: ...
+
+
+# TODO: validate_claim
 
 # from starlette.responses import Response
-
-
-# class OAuth2Token(Base):
-#     access_token: str
-#     expires_in: int
-#     refresh_token: Unset[str] = UNSET
-#     scope: Unset[str] = UNSET
-#     token_type: Literal["Bearer"] = "Bearer"
-
-
 # class TokenResponse(Response): ...
+
+
+class OAuth2Token(Base):
+    "https://www.oauth.com/oauth2-servers/access-tokens/access-token-response/"
+
+    access_token: str
+    expires_in: int
+    token_type: Literal["Bearer"] = "Bearer"
+    refresh_token: Unset[str] = UNSET
+    scope: Unset[str] = UNSET
 
 
 try:
@@ -145,11 +149,7 @@ else:
             payload_bytes = encode_json(content)
             jwt = jws_encode(payload_bytes, key=secret)
             expires = content.__jwt_claims__["expires_in"]
-            token_resp = {
-                "access_token": jwt,
-                "token_type": "Bearer",
-                "expires_in": expires,
-            }
+            token_resp = OAuth2Token(access_token=jwt, expires_in=expires)
             resp = encode_json(token_resp)
             return resp
 
@@ -163,13 +163,18 @@ else:
         payload_type: type[T] | UnionType,
     ):
 
-        jwt = PyJWT(options)
+        jwt = PyJWT(options)  # type: ignore
 
         def decoder(content: str) -> T:
             try:
                 scheme, _, token = content.partition(" ")
                 if scheme != "Bearer":
                     raise InvalidAuthError(f"Invalid authorization scheme {scheme}")
+                # TODO: rewrite jwt.decode_complete
+                # payload = decode(deocded)
+                # payload.validate_claims()
+                # return payload
+
                 decoded: dict[str, Any] = jwt.decode(
                     token, key=secret, algorithms=algorithms
                 )
