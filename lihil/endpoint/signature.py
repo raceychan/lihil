@@ -77,9 +77,9 @@ class EndpointSignature[R](Base):
         params: dict[str, Any] = {}
 
         zipped = (
+            (self.header_params, req_header),
             (self.path_params, req_path),
             (self.query_params, req_query),
-            (self.header_params, req_header),
         )
 
         for required, received in zipped:

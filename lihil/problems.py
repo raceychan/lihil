@@ -165,7 +165,7 @@ class HTTPException[T](Exception, DetailBase[T]):
         detail: T = "MISSING",
         *,
         headers: dict[str, str] | None = None,
-        problem_status: http_status.Status | None = None,
+        problem_status: TypeAliasType | http_status.Status | None = None,
         problem_detail_type: str | None = None,
         problem_detail_title: str | None = None,
     ):
@@ -173,7 +173,10 @@ class HTTPException[T](Exception, DetailBase[T]):
         self.headers = headers
         self._problem_type = problem_detail_type
         self._problem_title = problem_detail_title
-        self._problem_status: http_status.Status = problem_status or self.__status__
+        if problem_status and isinstance(problem_status, int):
+            self._problem_status: http_status.Status = problem_status
+        else:
+            self._problem_status = self.__status__
         super().__init__(detail)
 
     def __problem_detail__(self, instance: str) -> ProblemDetail[T]:

@@ -13,10 +13,11 @@ from uuid import uuid4
 
 from msgspec import convert
 
+from lihil import status
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, UNSET, Base, Unset, field, is_provided
 from lihil.interface.marks import HEADER_REQUEST_MARK, JW_TOKEN_RETURN_MARK
-from lihil.problems import CustomValidationError
+from lihil.problems import HTTPException
 from lihil.utils.json import encode_json
 
 
@@ -94,10 +95,6 @@ class JWTPayload(Base, kw_only=True):
         self.nbf = self.iat = now_
 
 
-class JWTDecodingError(CustomValidationError[str]):
-    detail: str
-
-
 # from starlette.responses import Response
 
 
@@ -112,10 +109,20 @@ class JWTDecodingError(CustomValidationError[str]):
 # class TokenResponse(Response): ...
 
 
+class InvalidAuthError(HTTPException[str]):
+
+    def __ini__(self, detail: str = "Invalid Authorization-header"):
+        super().__init__(
+            detail=detail,
+            problem_status=status.UNAUTHORIZED,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 try:
     from jwt import PyJWT
     from jwt.api_jws import PyJWS
-    from jwt.exceptions import DecodeError
+    from jwt.exceptions import InvalidTokenError
 except ImportError:
     pass
 else:
@@ -169,20 +176,18 @@ else:
         jwt = PyJWT()
 
         def decoder(content: str) -> T:
+            # TODO: raise HTTPException directly
 
             try:
                 scheme, _, token = content.partition(" ")
                 if scheme != "Bearer":
-                    raise CustomValidationError("Token-type must be Bearer")
-
+                    raise InvalidAuthError(f"Invalid authorization scheme {scheme}")
                 decoded: dict[str, Any] = jwt.decode(
                     token, key=secret, algorithms=algorithms, options=options
                 )
                 return convert(decoded, payload_type)
-            except DecodeError as de:
-                raise JWTDecodingError(str(de))
-            except Exception as exc:
-                raise CustomValidationError(str(exc))
+            except InvalidTokenError as de:
+                raise InvalidAuthError()
 
         return decoder
 

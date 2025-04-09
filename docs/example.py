@@ -24,6 +24,12 @@ async def get_user(token: JWToken[UserPayload]) -> User:
     return User(name="user", email="user@email.com")
 
 
+@me.sub("test").get(auth_scheme=OAuth2PasswordFlow(token_url="token"))
+async def get_another_user(token: JWToken[UserPayload]) -> User:
+    assert token.user_id == "user123"
+    return User(name="user", email="user@email.com")
+
+
 @token.post
 async def create_token(credentials: OAuthLoginForm) -> JWToken[UserPayload]:
     assert credentials.username == "admin" and credentials.password == "admin"

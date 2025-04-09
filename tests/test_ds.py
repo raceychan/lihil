@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from typing import Annotated
 from msgspec.json import encode
 
 from lihil.ds.event import Envelope, Event, utc_now, uuid4_str
@@ -33,3 +34,40 @@ def test_evenlop_build_encoder():
     res = decoder.decode(bytes_enve)
     assert isinstance(res, Envelope)
     assert res.data == event
+
+
+import pytest
+from ididi import Graph, Ignore, use
+from msgspec import Struct
+
+
+class User(Struct):
+    name: str
+    age: int
+
+
+side_effect: list[int] = []
+async def get_user() -> Ignore[User]:
+    global side_effect
+    side_effect.append(1)
+    return User("test", 1)
+
+
+
+class EP:
+    def __init__(self, user: Annotated[User, use(get_user, reuse=False)]):
+        ...
+
+
+# @pytest.mark.debug
+# async def test_resolve_func():
+#     dg = Graph()
+
+#     res = []
+
+
+#     # dg.analyze(get_user, config=NodeConfig(reuse=False))
+
+#     dg.analyze(EP)
+
+#     breakpoint()
