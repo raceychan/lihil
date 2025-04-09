@@ -1,21 +1,9 @@
 from typing import ClassVar
 
-# from ididi import Resolver
 from msgspec import field
 
 from lihil.interface import UNSET, Form, Payload, Unset
 from lihil.oas.model import AuthModel, OAuth2, OAuthFlowPassword, OAuthFlows
-
-# from lihil.problems import HTTPException
-# from lihil.vendor_types import Request
-
-
-class AuthBase:
-    "A base class for all auth schemes"
-
-    def __init__(self, model: AuthModel, scheme_name: str):
-        self.model = model  # security base model
-        self.scheme_name = scheme_name
 
 
 class OAuthLogin(Payload):
@@ -39,6 +27,14 @@ class OAuthLogin(Payload):
 
 # refference: https://datatracker.ietf.org/doc/html/rfc6749
 type OAuthLoginForm = Form[OAuthLogin]
+
+
+class AuthBase:
+    "A base class for all auth schemes"
+
+    def __init__(self, model: AuthModel, scheme_name: str):
+        self.model = model
+        self.scheme_name = scheme_name
 
 
 class OAuth2Base(AuthBase):
@@ -68,16 +64,16 @@ class OAuth2PasswordFlow(OAuth2Base):
     def __init__(
         self,
         *,
+        token_url: str,
         description: Unset[str] = UNSET,
         auto_error: bool = True,
         flows: OAuthFlows | None = None,
         scheme_name: str | None = None,
-        token_url: str,
         scopes: dict[str, str] | None = None,
     ):
-        flows = OAuthFlows(
-            password=OAuthFlowPassword(tokenUrl=token_url, scopes=scopes or {})
-        )
+
+        password_flow = OAuthFlowPassword(tokenUrl=token_url, scopes=scopes or {})
+        flows = OAuthFlows(password=password_flow)
         super().__init__(
             flows=flows,
             description=description,

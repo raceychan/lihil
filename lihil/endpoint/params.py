@@ -386,6 +386,7 @@ class ParamParser:
                 secret = sec_config.jwt_secret
                 algos = sec_config.jwt_algorithms
 
+                # TODO: replace jwt_decoder with plain auth_decoder
                 decoder = jwt_decoder_factory(
                     secret=secret, algorithms=algos, payload_type=type_
                 )
@@ -515,7 +516,6 @@ class ParamParser:
 
         for name, plug in self._plugin_items():
             await plugin.process(params, request, resolver)
-
         """
 
         for meta in metas:
@@ -530,11 +530,10 @@ class ParamParser:
                     if provider := PLUGIN_REGISTRY.get(mark_type):
                         plugin = provider.parse(name, type_, annotation, default)
                         plugins.append(plugin)
-                    # else:
-                    #     param_meta = ParamMetas.from_metas(metas)
-                    #     marked_param = self._parse_marked(
-                    #         name, type_, annotation, default, param_meta
-                    #     )
+                    else:
+                        NotSupportedError(
+                            "Mixed param mark and plugins is not supported"
+                        )
         return plugins if plugins else None
 
     def parse_param[T](

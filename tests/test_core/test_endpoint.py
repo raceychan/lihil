@@ -588,7 +588,7 @@ async def test_endpoint_with_jwt_decode_fail(testroute: Route, lc: LocalClient):
     )
 
     res = await lc(ep, headers={"Authorization": "adsfjaklsdjfklajsdfkjaklsdfj"})
-    assert res.status_code == 422
+    assert res.status_code == 401
 
 
 async def test_endpoint_with_jwt_fail_without_security_config(

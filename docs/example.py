@@ -18,13 +18,16 @@ class User(Payload):
     email: str
 
 
-@me.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))
+token_based = OAuth2PasswordFlow(token_url="token")
+
+
+@me.get(auth_scheme=token_based)
 async def get_user(token: JWToken[UserPayload]) -> User:
     assert token.user_id == "user123"
     return User(name="user", email="user@email.com")
 
 
-@me.sub("test").get(auth_scheme=OAuth2PasswordFlow(token_url="token"))
+@me.sub("test").get(auth_scheme=token_based)
 async def get_another_user(token: JWToken[UserPayload]) -> User:
     assert token.user_id == "user123"
     return User(name="user", email="user@email.com")

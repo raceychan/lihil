@@ -96,22 +96,22 @@ def get_origin_pro[T](
     get_param_origin(NewAnnotated) -> (int, [QUERY_REQUEST_MARK, CustomEncoder])
     """
 
+    #    if metas is None:
+    #        metas = []
+
     if isinstance(type_, TypeAliasType):
         return get_origin_pro(type_.__value__, metas)
     elif current_origin := ty_get_origin(type_):
         if current_origin is Annotated:
             annt_type, local_metas = deannotate(type_)
-
             if local_metas and metas:
-                metas.extend(local_metas)
-            elif local_metas:
-                metas = local_metas
-            return get_origin_pro(annt_type, metas)
+                local_metas += metas
+            return get_origin_pro(annt_type, local_metas)
         elif isinstance(current_origin, TypeAliasType):
             dealiased = cast(TypeAliasType, type_).__value__
             dtype, demetas = get_origin_pro(dealiased, metas)
 
-            if demetas and isinstance(dtype, TypeVar):
+            if demetas and isinstance(dtype, TypeVar):  # type: ignore
                 nontyvar = [
                     arg for arg in get_args(type_) if not isinstance(arg, TypeVar)
                 ]
@@ -134,13 +134,13 @@ def get_origin_pro[T](
                 if umeta:
                     new_metas.extend(umeta)
             if not new_metas:
-                return get_origin_pro(Union[*utypes], metas)
+                return get_origin_pro(Union[*utypes], metas)  # type: ignore
 
             if metas is None:
                 metas = new_metas
             else:
                 metas.extend(new_metas)
-            return get_origin_pro(Union[*utypes], metas)
+            return get_origin_pro(Union[*utypes], metas)  # type: ignore
         # elif ty_args := get_args(type_):
         #     breakpoint()
         else:
@@ -150,7 +150,7 @@ def get_origin_pro[T](
 
 
 def all_subclasses[T](
-    cls: type[T], __seen__: set[type[Any]] | None = None
+    cls: type[T], ignore: set[type[Any]] | None = None
 ) -> set[type[T]]:
     """
     Get all subclasses of a class recursively, avoiding repetition.
@@ -162,13 +162,13 @@ def all_subclasses[T](
     Returns:
         A set of all subclasses
     """
-    if __seen__ is None:
-        __seen__ = set()
+    if ignore is None:
+        ignore = set()
 
     result: set[type[T]] = set()
     for subclass in cls.__subclasses__():
-        if subclass not in __seen__:
-            __seen__.add(subclass)
+        if subclass not in ignore:
+            ignore.add(subclass)
             result.add(subclass)
-            result.update(all_subclasses(subclass, __seen__))
+            result.update(all_subclasses(subclass, ignore))
     return result

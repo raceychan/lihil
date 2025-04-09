@@ -159,6 +159,7 @@ class HTTPException[T](Exception, DetailBase[T]):
     __status__: ClassVar[http_status.Status] = http_status.code(
         http_status.UNPROCESSABLE_ENTITY
     )
+    # TODO: let user provide example in classvar and display it in oas schema
 
     def __init__(
         self,
@@ -257,6 +258,21 @@ class InvalidRequestErrors(HTTPException[list[ValidationProblem]]):
 
 
 # ================== Data Validtion ================
+
+
+# ================== Auth Validtion ================
+
+
+class InvalidAuthError(HTTPException[str]):
+    "We received your credential but could not validate it"
+
+    __status__ = 401
+
+    def __ini__(self, detail: str = "Invalid Credentials"):
+        super().__init__(detail=detail, headers={"WWW-Authenticate": "Bearer"})
+
+
+# ================== Auth Validtion ================
 
 
 def collect_problems() -> list[type]:

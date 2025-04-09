@@ -636,3 +636,29 @@ lhl = Lihil[None](
 ### Improvements
 
 - No longer automatically drops resonse body when status code < 200 or in (204, 205, 304), instead, user should declare its return with `lihil.Empty`
+
+
+
+## version 0.2.0
+
+
+### improvements:
+
+
+- now meta data of annotated type would be resolved in order they appear(used to be reversed orderl).
+
+```python
+type MARK_ONE = Annotated[str, "ONE"]
+type MARK_TWO = Annotated[MARK_ONE, "TWO"]
+type MARK_THREE = Annotated[MARK_TWO, "THREE"]
+
+
+def test_get_origin_pro_unpack_annotated_in_order():
+    res = get_origin_pro(Annotated[str, 1, Annotated[str, 2, Annotated[str, 3]]])
+    assert res == (str, [1, 2, 3])
+
+
+def test_get_origin_pro_unpack_textalias_in_order():
+    res = get_origin_pro(MARK_THREE)
+    assert res == (str, ["ONE", "TWO", "THREE"])
+```

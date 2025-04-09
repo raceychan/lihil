@@ -10,7 +10,12 @@ from lihil.constant.status import phrase
 from lihil.endpoint import EndpointSignature, RequestParam
 from lihil.interface import is_provided, is_set
 from lihil.oas import model as oasmodel
-from lihil.problems import DetailBase, InvalidRequestErrors, ProblemDetail
+from lihil.problems import (
+    DetailBase,
+    InvalidAuthError,
+    InvalidRequestErrors,
+    ProblemDetail,
+)
 from lihil.routing import Endpoint, Route
 from lihil.utils.string import to_kebab_case, trimdoc
 
@@ -213,6 +218,9 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
         errors = user_provid_errors + (InvalidRequestErrors,)
     else:
         errors = (InvalidRequestErrors,)
+
+    if ep.config.auth_scheme:
+        errors += (InvalidAuthError,)
 
     errors_by_status: dict[int, list[type[DetailBase[Any]]]] = {}
 

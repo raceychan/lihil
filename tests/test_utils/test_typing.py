@@ -86,10 +86,10 @@ def test_get_origin_pro_type_alias():
     assert get_origin_pro(MyType[str]) == (str, ["mymark"])
     assert get_origin_pro(MyType[str | int]) == (Union[str | int], ["mymark"])
     assert get_origin_pro(Body[str | None]) == (Union[str, None], [BODY_REQUEST_MARK])
-    assert get_origin_pro(MyTypeAlias) == (int, [CustomEncoder, QUERY_REQUEST_MARK])
+    assert get_origin_pro(MyTypeAlias) == (int, [QUERY_REQUEST_MARK, CustomEncoder])
     assert get_origin_pro(NewAnnotated) == (
         int,
-        ["aloha", CustomEncoder, QUERY_REQUEST_MARK],
+        [QUERY_REQUEST_MARK, CustomEncoder, "aloha"],
     )
     assert get_origin_pro(Resp[str, 200] | Resp[int, 201]) == (
         Union[str, int],
@@ -107,13 +107,28 @@ def test_get_origin_nested():
     assert base[0] == str and base[1] == [1]
 
     nbase = get_origin_pro(NewBase[str])
-    assert nbase[0] == str and nbase[1] == [2, 1]
+    assert nbase[0] == str and nbase[1] == [1, 2]
 
     res = get_origin_pro(AnotherBase[bytes | float, str] | list[int])
     assert res[0] == Union[bytes, float, list[int]]
-    assert res[1] == [str, 3, 2, 1]
+    assert res[1] == [1, 2, str, 3]
 
 
 # def test_get_origin_pro_type_alias_generic():
 #     # ============= TypeAlias + TypeVar + Genric ============
 #     assert get_origin_pro(StrDict[int]) == (dict[str, int], None)
+
+
+type MARK_ONE = Annotated[str, "ONE"]
+type MARK_TWO = Annotated[MARK_ONE, "TWO"]
+type MARK_THREE = Annotated[MARK_TWO, "THREE"]
+
+
+def test_get_origin_pro_unpack_annotated_in_order():
+    res = get_origin_pro(Annotated[str, 1, Annotated[str, 2, Annotated[str, 3]]])
+    assert res == (str, [1, 2, 3])
+
+
+def test_get_origin_pro_unpack_textalias_in_order():
+    res = get_origin_pro(MARK_THREE)
+    assert res == (str, ["ONE", "TWO", "THREE"])

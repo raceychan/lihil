@@ -1,4 +1,5 @@
 from time import time
+from types import UnionType
 from typing import (
     Annotated,
     Any,
@@ -13,11 +14,10 @@ from uuid import uuid4
 
 from msgspec import convert
 
-from lihil import status
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, UNSET, Base, Unset, field, is_provided
 from lihil.interface.marks import HEADER_REQUEST_MARK, JW_TOKEN_RETURN_MARK
-from lihil.problems import HTTPException
+from lihil.problems import InvalidAuthError
 from lihil.utils.json import encode_json
 
 
@@ -40,7 +40,7 @@ class JWTClaims(TypedDict, total=False):
     aud: str
 
 
-class JWTOptions(TypedDict):
+class JWTOptions(TypedDict, total=False):
     verify_signature: bool
     verify_exp: bool
     verify_nbf: bool
@@ -109,16 +109,6 @@ class JWTPayload(Base, kw_only=True):
 # class TokenResponse(Response): ...
 
 
-class InvalidAuthError(HTTPException[str]):
-
-    def __ini__(self, detail: str = "Invalid Authorization-header"):
-        super().__init__(
-            detail=detail,
-            problem_status=status.UNAUTHORIZED,
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-
 try:
     from jwt import PyJWT
     from jwt.api_jws import PyJWS
@@ -132,7 +122,7 @@ else:
         secret: str,
         algorithms: Sequence[str],
         options: JWTOptions | None = None,
-        payload_type: type[T],
+        payload_type: type[T] | UnionType,
     ):
 
         if not isinstance(payload_type, type) or not issubclass(
@@ -170,32 +160,30 @@ else:
         secret: str,
         algorithms: Sequence[str],
         options: JWTOptions | None = None,
-        payload_type: type[T],
+        payload_type: type[T] | UnionType,
     ):
 
-        jwt = PyJWT()
+        jwt = PyJWT(options)
 
         def decoder(content: str) -> T:
-            # TODO: raise HTTPException directly
-
             try:
                 scheme, _, token = content.partition(" ")
                 if scheme != "Bearer":
                     raise InvalidAuthError(f"Invalid authorization scheme {scheme}")
                 decoded: dict[str, Any] = jwt.decode(
-                    token, key=secret, algorithms=algorithms, options=options
+                    token, key=secret, algorithms=algorithms
                 )
                 return convert(decoded, payload_type)
-            except InvalidTokenError as de:
+            except InvalidTokenError:
                 raise InvalidAuthError()
 
         return decoder
 
 
+# TODO: auth decoder, check for scheme, _, credential
+type AuthHeader[T] = Annotated[T, Literal["Authorization"], HEADER_REQUEST_MARK]
 type JWToken[T: JWTPayload | str | bytes] = Annotated[
-    T,
-    Literal["Authorization"],
-    HEADER_REQUEST_MARK,
+    AuthHeader[T],
     JW_TOKEN_RETURN_MARK,
     "application/json",
 ]

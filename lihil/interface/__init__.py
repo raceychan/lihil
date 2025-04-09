@@ -1,4 +1,5 @@
 # from types import GenericAlias, UnionType
+from dataclasses import dataclass
 from types import UnionType
 from typing import Any, Callable, Literal
 from typing import Protocol as Protocol
@@ -58,13 +59,15 @@ def is_provided[T](t: Maybe[T]) -> TypeGuard[T]:
     return t is not MISSING
 
 
+@dataclass(frozen=True, repr=False)
 class _Missed:
+
     __slots__ = ()
 
     __name__ = "MISSING"
 
     def __repr__(self):
-        return "MISSING"
+        return "<lihil.MISSING>"
 
     def __bool__(self) -> Literal[False]:
         return False
