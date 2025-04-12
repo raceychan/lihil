@@ -16,7 +16,7 @@ from lihil.oas.schema import (
     get_path_item_from_route,
     get_resp_schemas,
 )
-from lihil.plugins.auth.oauth import OAuth2PasswordFlow
+from lihil.auth.oauth import OAuth2PasswordFlow
 from lihil.plugins.testclient import LocalClient
 from lihil.problems import collect_problems
 from lihil.routing import RouteConfig

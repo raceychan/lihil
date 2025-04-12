@@ -9,7 +9,6 @@ from lihil.endpoint.params import ParamParser
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, Header, IReceive, IScope, ISend, Resp
-from lihil.plugins.auth.oauth import OAuth2PasswordFlow
 from lihil.plugins.bus import Event
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route

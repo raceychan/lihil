@@ -371,7 +371,7 @@ class ParamParser:
 
         # TODO: auth_header_decoder
         try:
-            from lihil.plugins.auth.jwt import JW_TOKEN_RETURN_MARK, jwt_decoder_factory
+            from lihil.auth.jwt import JW_TOKEN_RETURN_MARK, jwt_decoder_factory
         except ImportError:
             raise NotSupportedError("pyjwt must be installed to use JWToken")
 

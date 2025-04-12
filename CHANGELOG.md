@@ -594,8 +594,8 @@ res = await lc.submit_form(
 ```python
 from lihil import Lihil, Payload, Route, field
 from lihil.config import AppConfig, SecurityConfig
-from lihil.plugins.auth.jwt import JWToken, JWTPayload
-from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
+from lihil.auth.jwt import JWToken, JWTPayload
+from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 
 me = Route("me")
 token = Route("token")
@@ -644,6 +644,7 @@ lhl = Lihil[None](
 
 ### improvements:
 
+- upgrade ididi to 1.6.0
 
 - now meta data of annotated type would be resolved in the order they appear(used to be reversed orderl).
 
@@ -665,3 +666,6 @@ def test_get_origin_pro_unpack_textalias_in_order():
 
 
 - now if `JWToken` fail to validate, raise `InvalidTokenError` with order status 401. This error would be displayed in swagger ui for endpoints that requires `auth_scheme`.
+
+
+- making `lihil.auth` a top level package

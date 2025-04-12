@@ -21,14 +21,14 @@ from lihil import (
     field,
     status,
 )
+from lihil.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
+from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.config import AppConfig, SecurityConfig
 from lihil.errors import NotSupportedError, StatusConflictError
 from lihil.plugins.registry import PluginBase
-from lihil.plugins.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
-from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
-
 from lihil.plugins.testclient import LocalClient
-from lihil.utils.json import JsonDecoder
+
+# from lihil.utils.json import JsonDecoder
 from lihil.utils.threading import async_wrapper
 
 
@@ -129,7 +129,7 @@ async def test_ep_raise_httpexc():
     rusers = Route("users/{user_id}")
     rusers.put(update_user)
 
-    ep = rusers.get_endpoint(update_user)
+    rusers.get_endpoint(update_user)
     with pytest.raises(UserNotFound):
         await client.call_route(rusers, method="PUT", path_params=dict(user_id="5"))
 
@@ -684,19 +684,17 @@ async def test_endpoint_login_and_validate_with_str_resp(
     assert await res.text() == "ok"
 
 
-
 async def test_ep_with_plugin_type(testroute: Route, lc: LocalClient):
 
-    class MyPlugin(PluginBase):
-        ...
+    class MyPlugin(PluginBase): ...
 
-
-    async def myep(param: Annotated[str, MyPlugin]):
-        ...
-
-
+    async def myep(param: Annotated[str, MyPlugin]): ...
 
     testroute.get(myep)
 
     with pytest.raises(NotSupportedError):
         testroute.setup()
+
+
+async def test_ep_is_scoped(testroute: Route):
+    ...

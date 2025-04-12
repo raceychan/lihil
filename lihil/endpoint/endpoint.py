@@ -12,7 +12,7 @@ from lihil.endpoint import EndpointSignature, ParseResult
 from lihil.endpoint.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.errors import InvalidParamTypeError
 from lihil.interface import HTTP_METHODS, IReceive, IScope, ISend, Record
-from lihil.plugins.auth.oauth import AuthBase
+from lihil.auth.oauth import AuthBase
 from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
 from lihil.utils.threading import async_wrapper

@@ -23,7 +23,6 @@ class ParamProcessor(Protocol):
 
 # Perhaps it is eaasier to just check for subclass of this
 class PluginBase:
-
     async def process(
         self, params: dict[str, Any], request: Request, resolver: Resolver
     ) -> None:

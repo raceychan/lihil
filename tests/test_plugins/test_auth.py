@@ -3,7 +3,7 @@ from typing import Annotated
 import pytest
 
 from lihil import Lihil, Route, Text
-from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
+from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.plugins.testclient import LocalClient
 
 

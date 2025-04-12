@@ -13,7 +13,7 @@ from lihil.endpoint.params import (
     RequestParam,
 )
 from lihil.endpoint.returns import EndpointReturn, parse_returns
-from lihil.interface import MISSING, Base, IEncoder, Record, is_provided
+from lihil.interface import Base, IEncoder, Record, is_provided
 from lihil.problems import (
     CustomDecodeErrorMessage,
     CustomValidationError,
@@ -87,11 +87,9 @@ class EndpointSignature[R](Base):
                 continue
 
             for name, param in required.items():
-                alias = param.alias if param.alias else param.name
+                alias = param.alias
 
-                if (val := received.get(alias, MISSING)) is not MISSING:
-                    val = received[alias]
-
+                if (val := received.get(alias)) is not None:
                     try:
                         params[name] = param.decode(val)
                     except ValidationError as mve:
@@ -100,12 +98,11 @@ class EndpointSignature[R](Base):
                     except DecodeError:
                         error = InvalidJsonReceived(param.location, name)
                         verrors.append(error)
-                    except CustomValidationError as cve:
+                    except CustomValidationError as cve:  # type: ignore
                         error = CustomDecodeErrorMessage(
                             param.location, name, cve.detail
                         )
                         verrors.append(error)
-
                 elif not param.required:
                     params[name] = param.default
                 else:
@@ -114,13 +111,8 @@ class EndpointSignature[R](Base):
 
         if self.body_param and body is not None:
             name, param = self.body_param
-            if body == b"":  # empty bytes body
-                if is_provided(param.default):
-                    body = param.default  # TODO: is_provided
-                else:
-                    err = MissingRequestParam("body", name)
-                    verrors.append(err)
-            elif isinstance(body, FormData) and len(body) == 0:  # empty form body
+            # empty bytes body or empty form body
+            if body == b"" or (isinstance(body, FormData) and len(body) == 0):
                 if is_provided(param.default):
                     body = param.default
                 else:
@@ -135,7 +127,7 @@ class EndpointSignature[R](Base):
                 except DecodeError:
                     error = InvalidJsonReceived("body", name)
                     verrors.append(error)
-                except CustomValidationError as cve:
+                except CustomValidationError as cve:  # type: ignore
                     error = CustomDecodeErrorMessage(param.location, name, cve.detail)
                     verrors.append(error)
 

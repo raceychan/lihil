@@ -17,7 +17,6 @@ from lihil.endpoint.returns import (
 )
 from lihil.errors import InvalidStatusError, StatusConflictError
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text
-# from lihil.plugins.auth.jwt import JWToken, jwt_encoder
 from lihil.utils.typing import is_py_singleton
 
 

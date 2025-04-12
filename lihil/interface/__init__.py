@@ -87,20 +87,21 @@ class RequestParamBase[T](Base):
     name: str
     type_: type[T] | UnionType
     annotation: Any
-    alias: Maybe[str] = MISSING
+    alias: str = ""
     default: Maybe[Any] = MISSING
     required: bool = False
 
     @property
     def type_repr(self) -> str:
         ty_origin = getattr(self.type_, "__origin__", None)
+        raw_type_rerpr = repr(self.type_)
         if ty_origin is Union:
-            type_repr = repr(self.type_).lstrip("typing.")
+            type_repr = raw_type_rerpr.lstrip("typing.")
         else:
-            type_repr = getattr(self.type_, "__name__", repr(self.type_))
+            type_repr = getattr(self.type_, "__name__", raw_type_rerpr)
         return type_repr
 
     def __post_init__(self):
-        if self.alias is MISSING:
+        if not self.alias:
             self.alias = self.name
         self.required = self.default is MISSING

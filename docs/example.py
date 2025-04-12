@@ -1,7 +1,7 @@
 from lihil import Lihil, Payload, Route, field
 from lihil.config import AppConfig, SecurityConfig
-from lihil.plugins.auth.jwt import JWToken, JWTPayload
-from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
+from lihil.auth.jwt import JWToken, JWTPayload
+from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 
 me = Route("me")
 token = Route("token")
