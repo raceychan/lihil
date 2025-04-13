@@ -214,12 +214,12 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
 
     resps: dict[str, oasmodel.Response] = {}
 
-    if user_provid_errors := ep.config.errors:
+    if user_provid_errors := ep.props.errors:
         errors = user_provid_errors + (InvalidRequestErrors,)
     else:
         errors = (InvalidRequestErrors,)
 
-    if ep.config.auth_scheme:
+    if ep.props.auth_scheme:
         errors += (InvalidAuthError,)
 
     errors_by_status: dict[int, list[type[DetailBase[Any]]]] = {}
@@ -348,7 +348,7 @@ def generate_unique_id(ep: Endpoint[Any]) -> str:
 
 def get_ep_security(ep: Endpoint[Any], security_schemas: SecurityDict):
     security_scopes: list[dict[str, list[str] | None]] = []
-    auth_scheme = ep.config.auth_scheme
+    auth_scheme = ep.props.auth_scheme
     if auth_scheme:
         security_schemas[auth_scheme.scheme_name] = cast(
             oasmodel.SecurityScheme, auth_scheme.model
@@ -364,7 +364,7 @@ def generate_op_from_ep(
     security_schemas: SecurityDict,
     problem_path: str,
 ) -> oasmodel.Operation:
-    tags = [ep.tag] if ep.tag else ["root"]
+    tags = ep.props.tags
     summary = ep.name.replace("_", " ").title()
     description = trimdoc(ep.unwrapped_func.__doc__) or "Missing Description"
     operationId = generate_unique_id(ep)
@@ -402,7 +402,7 @@ def get_path_item_from_route(
 
     epoint_ops: dict[str, Any] = {}
     for endpoint in route.endpoints.values():
-        if not endpoint.config.in_schema:
+        if not endpoint.props.in_schema:
             continue
         operation = generate_op_from_ep(
             ep=endpoint,
@@ -435,7 +435,7 @@ def generate_oas(
     schemas: dict[str, Any]
 
     for route in routes:
-        if not route.config.in_schema:
+        if not route.props.in_schema:
             continue
         paths[route.path] = get_path_item_from_route(
             route=route,

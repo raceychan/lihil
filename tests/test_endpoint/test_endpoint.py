@@ -537,10 +537,10 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
 
     ep = testroute.get_endpoint(get_token)
 
-    app_config = AppConfig(
+    testroute.app_config = AppConfig(
         security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
     )
-    ep.setup(app_config=app_config)
+    ep.setup()
 
     res = await lc.submit_form(
         ep, form_data={"username": "user", "password": "pasword"}
@@ -578,14 +578,12 @@ async def test_endpoint_with_jwt_decode_fail(testroute: Route, lc: LocalClient):
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
 
-    ep = testroute.get_endpoint(get_me)
-    ep.setup(
-        graph=None,
-        busterm=None,
-        app_config=AppConfig(
-            security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-        ),
+    testroute.app_config = AppConfig(
+        security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
     )
+
+    ep = testroute.get_endpoint(get_me)
+    ep.setup()
 
     res = await lc(ep, headers={"Authorization": "adsfjaklsdjfklajsdfkjaklsdfj"})
     assert res.status_code == 401
@@ -696,5 +694,7 @@ async def test_ep_with_plugin_type(testroute: Route, lc: LocalClient):
         testroute.setup()
 
 
-async def test_ep_is_scoped(testroute: Route):
-    ...
+async def test_ep_is_scoped(testroute: Route): ...
+
+
+async def test_ep_with_plugin(testroute: Route): ...

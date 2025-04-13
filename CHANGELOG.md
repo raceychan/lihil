@@ -669,3 +669,10 @@ def test_get_origin_pro_unpack_textalias_in_order():
 
 
 - making `lihil.auth` a top level package
+
+- separate `Configuration` and `Properties`, rename `RouteConfig` to `RouteProps`, `EndpointConfig` to `EndpointProps`
+
+
+idea:
+1. we might make AppConfig a global singleton
+2. since we do param parsing, it might be justified to make endpoint part of route,

@@ -89,7 +89,6 @@ def parse_field_type(field: FieldInfo) -> type:
         maybe_var = get_maybe_vars(ftype)
         assert maybe_var
         return maybe_var
-
     return ftype
 
 

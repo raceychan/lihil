@@ -6,9 +6,8 @@ from uuid import uuid4
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
 
-from lihil.endpoint import Endpoint
 from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload
-from lihil.routing import Route
+from lihil.routing import Route, Endpoint
 
 
 class Timer:

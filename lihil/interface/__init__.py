@@ -82,7 +82,6 @@ type Unset[T] = UnsetType | T
 def is_set[T](val: Unset[T]) -> TypeGuard[T]:
     return val is not UNSET
 
-
 class RequestParamBase[T](Base):
     name: str
     type_: type[T] | UnionType

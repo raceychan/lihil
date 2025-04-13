@@ -4,6 +4,7 @@ import pytest
 from msgspec import Struct
 
 from lihil import Empty, HTTPException, Payload, Resp, Route, Text, status
+from lihil.auth.oauth import OAuth2PasswordFlow
 from lihil.config import OASConfig
 from lihil.interface import is_set
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
@@ -16,10 +17,9 @@ from lihil.oas.schema import (
     get_path_item_from_route,
     get_resp_schemas,
 )
-from lihil.auth.oauth import OAuth2PasswordFlow
 from lihil.plugins.testclient import LocalClient
 from lihil.problems import collect_problems
-from lihil.routing import RouteConfig
+from lihil.routing import EndpointProps
 
 
 class User(Payload, tag=True):
@@ -190,9 +190,7 @@ async def test_ep_not_include_schema():
 
 
 async def test_route_not_include_schema():
-
-    route = Route(route_config=RouteConfig(in_schema=False))
-
+    route = Route(props=EndpointProps(in_schema=False))
     res = generate_oas([route], oas_config, "")
     assert not res.paths
 
@@ -238,7 +236,6 @@ def test_ep_with_auth():
 
     ep = route.get_endpoint("GET")
     ep.setup()
-
 
     sc = {}
     get_ep_security(ep, sc)

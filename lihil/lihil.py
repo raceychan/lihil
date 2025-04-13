@@ -22,7 +22,8 @@ from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
-from lihil.routing import ASGIBase, Func, IEndPointConfig, Route, RouteConfig
+from lihil.routing import ASGIBase,  Func, Route
+from lihil.props import EndpointProps, IEndpointProps
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 
@@ -64,7 +65,8 @@ class StaticRoute:
         # as route gets more complicated this is hard to maintain.
         self.static_cache: StaticCache = {}
         self.path = "_static_route_"
-        self.config = RouteConfig(in_schema=False)
+        self.config = EndpointProps(in_schema=False)
+
 
     def match(self, scope: IScope):
         return scope["path"] in self.static_cache
@@ -312,117 +314,117 @@ class Lihil[T](ASGIBase):
 
     @overload
     def get[**P, R](
-        self, **epconfig: Unpack[IEndPointConfig]
+        self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
     def get[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
 
     def get[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
         return self.root.get(func, **epconfig)
 
     @overload
     def put[**P, R](
-        self, **epconfig: Unpack[IEndPointConfig]
+        self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
     def put[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
 
     def put[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return self.root.put(func, **epconfig)
 
     @overload
     def post[**P, R](
-        self, **epconfig: Unpack[IEndPointConfig]
+        self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
     def post[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
 
     def post[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return self.root.post(func, **epconfig)
 
     @overload
     def delete[**P, R](
-        self, **epconfig: Unpack[IEndPointConfig]
+        self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
     def delete[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
 
     def delete[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return self.root.delete(func, **epconfig)
 
     @overload
     def patch[**P, R](
-        self, **epconfig: Unpack[IEndPointConfig]
+        self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
     def patch[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
 
     def patch[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return self.root.patch(func, **epconfig)
 
     @overload
     def head[**P, R](
-        self, **epconfig: Unpack[IEndPointConfig]
+        self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
     def head[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
 
     def head[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return self.root.head(func, **epconfig)
 
     @overload
     def options[**P, R](
-        self, **epconfig: Unpack[IEndPointConfig]
+        self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
     def options[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
 
     def options[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return self.root.options(func, **epconfig)
 
     @overload
     def trace[**P, R](
-        self, **epconfig: Unpack[IEndPointConfig]
+        self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
     def trace[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
 
     def trace[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return self.root.trace(func, **epconfig)
 
     @overload
     def connect[**P, R](
-        self, **epconfig: Unpack[IEndPointConfig]
+        self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
     def connect[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
 
     def connect[**P, R](
-        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndPointConfig]
+        self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return self.root.connect(func, **epconfig)

@@ -1,10 +1,9 @@
 from enum import Enum
-from typing import Annotated, Any, Literal, Sequence, TypedDict, Union
+from typing import Annotated, Any, Literal, TypedDict, Union
 
 from msgspec import Meta, field
 
 from lihil.interface import UNSET, Base, Unset
-from lihil.problems import DetailBase
 
 GEZero = Annotated[int, Meta(ge=0)]
 
@@ -366,14 +365,3 @@ class OpenAPI(OASB, kw_only=True):
     tags: Unset[list[Tag]] = UNSET
     externalDocs: Unset[ExternalDocumentation] = UNSET
     # responses: dict[str, Response]
-
-
-class RouteConfig(Base):
-    tag: str = ""
-    in_schema: bool = True
-    errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]] = field(
-        default_factory=tuple
-    )
-
-    # ep_config: EndpointConfig | None = UNSET
-    # if provided, apply to all endpoint
