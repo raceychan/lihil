@@ -1,20 +1,30 @@
 from functools import partial
 from inspect import isasyncgen, isgenerator
 from types import MethodType
-from typing import Any, Callable, Pattern, Union, Unpack, cast, overload
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Pattern,
+    Sequence,
+    TypedDict,
+    Union,
+    Unpack,
+    cast,
+    overload,
+)
 
 from ididi import Graph, INodeConfig
 from ididi.graph import Resolver
 from ididi.interfaces import IDependent
+from msgspec import field
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
 from lihil.asgi import ASGIBase
+from lihil.auth.oauth import AuthBase
 from lihil.config import AppConfig, SyncDeps
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
-from lihil.endpoint import EndpointSignature, ParseResult
-from lihil.endpoint.endpoint import EndpointProps, IEndpointProps
-from lihil.endpoint.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.errors import InvalidParamTypeError
 from lihil.interface import (
     HTTP_METHODS,
@@ -24,11 +34,12 @@ from lihil.interface import (
     IScope,
     ISend,
     MiddlewareFactory,
+    Record,
 )
 from lihil.plugins.bus import BusTerminal, Event, EventBus, MessageRegistry
-from lihil.problems import InvalidRequestErrors, get_solver
-from lihil.props import EndpointProps
-from lihil.props import IEndpointProps as IEndpointProps
+from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
+from lihil.signature import EndpointSignature, ParseResult
+from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.utils.string import (
     build_path_regex,
     generate_route_tag,
@@ -36,6 +47,41 @@ from lihil.utils.string import (
     trim_path,
 )
 from lihil.utils.threading import async_wrapper
+
+
+class IEndpointProps(TypedDict, total=False):
+    errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
+    "Errors that might be raised from the current `endpoint`. These will be treated as responses and displayed in OpenAPI documentation."
+    in_schema: bool
+    "Whether to include this endpoint inside openapi docs"
+    to_thread: bool
+    "Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
+    scoped: Literal[True] | None
+    "Whether current endpoint should be scoped"
+    auth_scheme: AuthBase | None
+    "Auth Scheme for access control"
+    tags: Sequence[str]
+    "OAS tag, endpoint with same tag will be grouped together"
+
+
+class EndpointProps(Record, kw_only=True):
+    errors: tuple[type[DetailBase[Any]], ...] = field(default_factory=tuple)
+    to_thread: bool = True
+    in_schema: bool = True
+    scoped: Literal[True] | None = None
+    auth_scheme: AuthBase | None = None
+    tags: Sequence[str] | None = None
+
+    @classmethod
+    def from_unpack(cls, **iconfig: Unpack[IEndpointProps]):
+        if raw_errors := iconfig.get("errors"):
+            if not isinstance(raw_errors, Sequence):
+                errors = (raw_errors,)
+            else:
+                errors = tuple(raw_errors)
+
+            iconfig["errors"] = errors
+        return cls(**iconfig)  # type: ignore
 
 
 class Endpoint[R]:
@@ -99,7 +145,10 @@ class Endpoint[R]:
         )
 
         self._dep_items = self._sig.dependencies.items()
-        self._plugin_items = self._sig.plugins.items()
+        if self._sig.plugins:
+            self._plugin_items = self._sig.plugins.items()
+        else:
+            self._plugin_items = ()
 
         self._static = not any(
             (
@@ -212,12 +261,10 @@ class Endpoint[R]:
                 raw_return = await self.make_call(scope, receive, send, resolver)
                 response = self.return_to_response(raw_return)
             return await response(scope, receive, send)
-
         if self._static:  # when there is no params at all
             raw_return = await self.make_static_call(scope, receive, send)
         else:
             raw_return = await self.make_call(scope, receive, send, self._graph)
-
         response = self.return_to_response(raw_return)
         await response(scope, receive, send)
 
@@ -248,7 +295,6 @@ class Route(ASGIBase):
         registry: MessageRegistry | None = None,
         listeners: list[Callable[..., Any]] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
-        # endpoint_factory: EndpointFactory[Any] = endpoint_factory,
         props: EndpointProps | None = None,
     ):
         super().__init__(middlewares)
@@ -264,8 +310,7 @@ class Route(ASGIBase):
         self.subroutes: list[Route] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
         self.props = props or EndpointProps()
-        self.app_config = None
-        # self.endpoint_factory = endpoint_factory
+        self.app_config: AppConfig | None = None
 
         if self.props.tags:
             self.tags = self.props.tags

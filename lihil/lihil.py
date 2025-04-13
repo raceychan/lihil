@@ -22,8 +22,7 @@ from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
-from lihil.routing import ASGIBase,  Func, Route
-from lihil.props import EndpointProps, IEndpointProps
+from lihil.routing import ASGIBase, EndpointProps, Func, IEndpointProps, Route
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 
@@ -66,7 +65,6 @@ class StaticRoute:
         self.static_cache: StaticCache = {}
         self.path = "_static_route_"
         self.config = EndpointProps(in_schema=False)
-
 
     def match(self, scope: IScope):
         return scope["path"] in self.static_cache

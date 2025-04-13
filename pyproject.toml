@@ -64,7 +64,7 @@ addopts = "--strict-markers --capture=no"
 asyncio_mode = "auto"
 filterwarnings = [
   "ignore::DeprecationWarning",
-  "ignore::UserWarning:lihil.endpoint.params",
+  "ignore::UserWarning:lihil.signature.params",
 ]
 markers = [
   "integration_test: marks tests as slow integration tests (deselect with '-m \"not integration_test\"')",

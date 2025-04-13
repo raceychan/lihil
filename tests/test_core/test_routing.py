@@ -5,7 +5,7 @@ import pytest
 from lihil import BusTerminal, Graph, Text, status
 
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
-from lihil.endpoint.params import ParamParser
+from lihil.signature.params import ParamParser
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, Header, IReceive, IScope, ISend, Resp

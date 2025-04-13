@@ -5,7 +5,7 @@ import pytest
 
 from lihil import Payload
 from lihil.constant.status import OK
-from lihil.endpoint.returns import (
+from lihil.signature.returns import (
     DEFAULT_RETURN,
     CustomEncoder,
     EndpointReturn,

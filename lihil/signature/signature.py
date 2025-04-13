@@ -6,13 +6,6 @@ from msgspec import DecodeError, Struct, ValidationError, field
 from starlette.requests import Request
 
 from lihil.config import AppConfig
-from lihil.endpoint.params import (
-    ParamParser,
-    PluginParam,
-    RequestBodyParam,
-    RequestParam,
-)
-from lihil.endpoint.returns import EndpointReturn, parse_returns
 from lihil.interface import Base, IEncoder, Record, is_provided
 from lihil.problems import (
     CustomDecodeErrorMessage,
@@ -24,6 +17,9 @@ from lihil.problems import (
 )
 from lihil.utils.string import find_path_keys
 from lihil.vendor_types import FormData
+
+from .params import ParamParser, PluginParam, RequestBodyParam, RequestParam
+from .returns import EndpointReturn, parse_returns
 
 type ParamMap[T] = dict[str, T]
 type RequestParamMap = dict[str, RequestParam[Any]]
@@ -154,6 +150,8 @@ class EndpointSignature[R](Base):
             body = await req.body()
             params = self.prepare_params(req_path, req_query, req_header, body)
         return params
+
+
 
     @classmethod
     def from_function[FR](

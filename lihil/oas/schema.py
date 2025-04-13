@@ -7,7 +7,6 @@ from msgspec.json import schema_components
 
 from lihil.config import OASConfig
 from lihil.constant.status import phrase
-from lihil.endpoint import EndpointSignature, RequestParam
 from lihil.interface import is_provided, is_set
 from lihil.oas import model as oasmodel
 from lihil.problems import (
@@ -17,6 +16,7 @@ from lihil.problems import (
     ProblemDetail,
 )
 from lihil.routing import Endpoint, Route
+from lihil.signature import EndpointSignature, RequestParam
 from lihil.utils.string import to_kebab_case, trimdoc
 
 # from lihil.utils.json import encode_json
