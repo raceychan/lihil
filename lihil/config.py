@@ -145,7 +145,8 @@ class AppConfig(ConfigBase):
     security: SecurityConfig | None = None
 
     @classmethod
-    def from_toml(cls, file_path: Path) -> StrDict:
+    def _from_toml(cls, file_path: Path) -> StrDict:
+
         with open(file_path, "rb") as fp:
             toml = tomllib.load(fp)
 
@@ -157,6 +158,16 @@ class AppConfig(ConfigBase):
             except KeyError:
                 raise AppConfiguringError(f"can't find table lihil from {file_path}")
         return lihil_config
+
+    @classmethod
+    def from_file(cls, file_path: Path) -> StrDict:
+        if not file_path.exists():
+            raise AppConfiguringError(f"path {file_path} not exist")
+
+        file_ext = file_path.suffix[1:]
+        if file_ext != "toml":
+            raise AppConfiguringError(f"Not supported file type {file_ext}")
+        return cls._from_toml(file_path)
 
 
 def generate_parser_actions(
@@ -240,27 +251,12 @@ def config_from_file(
     config_file: Path | str | None, *, config_type: type[AppConfig] = AppConfig
 ) -> AppConfig:
     if config_file is not None:
-        if isinstance(config_file, str):
-            file_path = Path(config_file)
-        else:
-            file_path = config_file
-
-        if not file_path.exists():
-            raise AppConfiguringError(f"path {file_path} not exist")
-
-        file_ext = file_path.suffix[1:]
-
-        if file_ext == "toml":
-            config_dict = config_type.from_toml(file_path)
-        else:
-            raise AppConfiguringError(f"Not supported file type {file_ext}")
+        file_path = Path(config_file) if isinstance(config_file, str) else config_file
+        config_dict = config_type.from_file(file_path)
     else:
         config_dict = config_type().asdict()  # everything default
-
     cli_config = config_from_cli(config_type)
-
     if cli_config:
         deep_update(config_dict, cli_config)
-
     config = convert(config_dict, config_type)
     return config
