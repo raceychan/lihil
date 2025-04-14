@@ -2,6 +2,7 @@ from typing import (
     Annotated,
     Any,
     Callable,
+    ClassVar,
     Literal,
     Protocol,
     Self,
@@ -37,14 +38,23 @@ class IEncoder[T](Protocol):
 class Base(Struct):
     "Base Model for all internal struct, with Mapping interface implemented"
 
+    __struct_defaults__: ClassVar[tuple[str]]
+
     def keys(self) -> tuple[str, ...]:
         return self.__struct_fields__
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
 
-    def asdict(self):
-        return struct_asdict(self)
+    def asdict(self, skip_defaults: bool = False) -> dict[str, Any]:
+        if not skip_defaults:
+            return struct_asdict(self)
+
+        vals: dict[str, Any] = {}
+        for f, dft in zip(self.__struct_fields__, self.__struct_defaults__):
+            if (val := getattr(self, f)) != dft:
+                vals[f] = val
+        return vals
 
     def replace(self, /, **changes: Any) -> Self:
         return struct_replace(self, **changes)

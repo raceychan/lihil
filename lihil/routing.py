@@ -60,8 +60,8 @@ class IEndpointProps(TypedDict, total=False):
     "Whether current endpoint should be scoped"
     auth_scheme: AuthBase | None
     "Auth Scheme for access control"
-    tags: Sequence[str]
-    "OAS tag, endpoint with same tag will be grouped together"
+    tags: Sequence[str] | None
+    "OAS tag, endpoints with the same tag will be grouped together"
 
 
 class EndpointProps(Record, kw_only=True):
@@ -82,6 +82,12 @@ class EndpointProps(Record, kw_only=True):
 
             iconfig["errors"] = errors
         return cls(**iconfig)  # type: ignore
+
+    def merge(self, other: "EndpointProps") -> "EndpointProps":
+        "merge other props with current props, return a new props without modiying current props"
+        vals = other.asdict(skip_defaults=True)
+        merged = self.asdict() | vals
+        return EndpointProps(**merged)
 
 
 class Endpoint[R]:
@@ -298,7 +304,6 @@ class Route(ASGIBase):
         props: EndpointProps | None = None,
     ):
         super().__init__(middlewares)
-
         self.path = trim_path(path)
         self.path_regex: Pattern[str] | None = None
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
@@ -309,14 +314,8 @@ class Route(ASGIBase):
         self.busterm = BusTerminal(self.registry, graph=graph)
         self.subroutes: list[Route] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
-        self.props = props or EndpointProps()
         self.app_config: AppConfig | None = None
-
-        if self.props.tags:
-            self.tags = self.props.tags
-        else:
-            aggregate_tag = generate_route_tag(self.path)
-            self.tags = [aggregate_tag]
+        self.props = props or EndpointProps(tags=[generate_route_tag(self.path)])
 
     def __repr__(self):
         endpoints_repr = "".join(
@@ -391,14 +390,15 @@ class Route(ASGIBase):
         self,
         *methods: HTTP_METHODS,
         func: Func[P, R],
-        **iconfig: Unpack[IEndpointProps],
+        **endpoint_props: Unpack[IEndpointProps],
     ) -> Func[P, R]:
-        if not iconfig.get("tags"):
-            iconfig["tags"] = self.tags
-        props = EndpointProps.from_unpack(**iconfig)
-        # TODO: merge props
 
-        # TODO: use a end point factory that user can override
+        if endpoint_props:
+            new_props = EndpointProps.from_unpack(**endpoint_props)
+            props = self.props.merge(new_props)
+        else:
+            props = self.props
+
         for method in methods:
             endpoint = Endpoint(
                 self,
@@ -407,9 +407,8 @@ class Route(ASGIBase):
                 props=props,
             )
             self.endpoints[method] = endpoint
-            if self.path_regex is not None:
-                return func
-            self.path_regex = build_path_regex(self.path)
+            if self.path_regex is None:
+                self.path_regex = build_path_regex(self.path)
         return func
 
     def factory[R](self, node: Callable[..., R], **node_config: Unpack[INodeConfig]):

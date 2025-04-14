@@ -675,4 +675,3 @@ def test_get_origin_pro_unpack_textalias_in_order():
 
 idea:
 1. we might make AppConfig a global singleton
-2. since we do param parsing, it might be justified to make endpoint part of route,

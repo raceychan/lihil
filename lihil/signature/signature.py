@@ -151,8 +151,6 @@ class EndpointSignature[R](Base):
             params = self.prepare_params(req_path, req_query, req_header, body)
         return params
 
-
-
     @classmethod
     def from_function[FR](
         cls,
