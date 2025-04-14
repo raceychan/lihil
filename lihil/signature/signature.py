@@ -160,12 +160,12 @@ class EndpointSignature[R](Base):
         app_config: AppConfig | None = None,
     ) -> "EndpointSignature[FR]":
         path_keys = find_path_keys(route_path)
-        func_sig = signature(f)
-        func_params = tuple(func_sig.parameters.items())
 
         parser = ParamParser(graph, path_keys, app_config=app_config)
-        params = parser.parse(func_params, path_keys)
-        return_params = parse_returns(func_sig.return_annotation, app_config=app_config)
+        params = parser.parse(f, path_keys)
+        return_params = parse_returns(
+            signature(f).return_annotation, app_config=app_config
+        )
 
         default_status = next(iter(return_params))
         default_encoder = return_params[default_status].encoder

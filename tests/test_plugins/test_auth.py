@@ -1,10 +1,16 @@
+import sys
 from typing import Annotated
+from unittest import mock
 
 import pytest
+from msgspec import field
 
-from lihil import Lihil, Route, Text
+from lihil import Route, Text
+from lihil.auth.jwt import JWTPayload
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
+from lihil.errors import NotSupportedError
 from lihil.plugins.testclient import LocalClient
+from lihil.problems import InvalidAuthError
 
 
 async def test_login():
@@ -37,3 +43,58 @@ async def test_login():
 
 
 def test_random_obj_to_jwt(): ...
+
+
+def test_payload_with_aud_and_iss():
+    class UserProfile(JWTPayload):
+        __jwt_claims__ = {"aud": "client", "iss": "test", "expires_in": 5}
+
+    profile = UserProfile()
+    assert profile.exp
+
+
+def test_payload_without_exp():
+    class UserProfile(JWTPayload):
+        __jwt_claims__ = {"aud": "client", "iss": "test"}
+
+    with pytest.raises(NotSupportedError):
+        UserProfile()
+
+
+def test_jwt_missing():
+    with mock.patch.dict("sys.modules", {"jwt": None}):
+        if "lihil.auth.jwt" in sys.modules:
+            del sys.modules["lihil.auth.jwt"]
+
+        with pytest.raises(ImportError):
+            from lihil.auth.jwt import jwt_decoder_factory
+
+
+def test_invalid_payload_type():
+    from lihil.auth.jwt import jwt_encoder_factory
+
+    with pytest.raises(NotSupportedError):
+        jwt_encoder_factory(
+            secret="secret", algorithms=["HS256"], payload_type=list[int]
+        )
+
+    with pytest.raises(NotSupportedError):
+        jwt_encoder_factory(
+            secret="secret", algorithms=["HS256"], payload_type=JWTPayload
+        )
+
+
+def test_decode_jwtoken_fail():
+    from lihil.auth.jwt import jwt_decoder_factory
+
+    class UserProfile(JWTPayload):
+        __jwt_claims__ = {"aud": "client", "iss": "test", "expires_in": 5}
+
+        user_id: str = field(name="sub")
+
+    decoder = jwt_decoder_factory(
+        secret="secret", algorithms=["HS256"], payload_type=UserProfile
+    )
+
+    with pytest.raises(InvalidAuthError):
+        decoder("Bearer")

@@ -1,16 +1,7 @@
 from copy import deepcopy
-from inspect import Parameter
+from inspect import Parameter, signature
 from types import GenericAlias, UnionType
-from typing import (
-    Any,
-    Sequence,
-    TypeAliasType,
-    TypeGuard,
-    Union,
-    cast,
-    get_args,
-    get_origin,
-)
+from typing import Any, TypeAliasType, TypeGuard, Union, cast, get_args, get_origin
 from warnings import warn
 
 from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
@@ -21,7 +12,6 @@ from msgspec import convert, field
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
-# from lihil.auth.oauth import AuthPlugin
 from lihil.config import AppConfig
 from lihil.errors import MissingDependencyError, NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
@@ -153,9 +143,9 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
 
     def __post_init__(self):
         super().__post_init__()
-        if self.location == "path" and self.required is False:
+        if self.location == "path" and not self.required:
             raise NotSupportedError(
-                f"Default value does not work with path param {self}"
+                f"Path param {self} with default value is not supported"
             )
 
     def __repr__(self) -> str:
@@ -237,7 +227,7 @@ class EndpointParams(Base, kw_only=True):
         else:
             # "use defstruct to dynamically define a type"
             raise NotSupportedError(
-                "Endpoint with multiple body params is not yet supported"
+                "Endpoint with multiple body params is not supported"
             )
         return body_param
 
@@ -396,10 +386,7 @@ class ParamParser:
                 sec_config = self.app_config.security
                 secret = sec_config.jwt_secret
                 algos = sec_config.jwt_algorithms
-                try:
-                    from lihil.auth.jwt import jwt_decoder_factory
-                except ImportError:
-                    raise MissingDependencyError("Pyjwt")
+                from lihil.auth.jwt import jwt_decoder_factory
 
                 # TODO: replace jwt_decoder with plain auth_decoder
                 decoder = jwt_decoder_factory(
@@ -565,9 +552,10 @@ class ParamParser:
 
     def parse(
         self,
-        func_params: Sequence[tuple[str, Parameter]],
+        f: ...,
         path_keys: tuple[str, ...] | None = None,
     ) -> "EndpointParams":
+        func_params = tuple(signature(f).parameters.items())
         if path_keys:
             self.path_keys += path_keys
 

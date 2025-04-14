@@ -93,8 +93,6 @@ class Endpoint[R]:
         props: EndpointProps,
     ):
         self._route = route
-        self._graph = route.graph
-        self._busterm = route.busterm
         self._method: HTTP_METHODS = method
         self._unwrapped_func = func
         self._func = async_wrapper(func, threaded=props.to_thread)
@@ -137,6 +135,9 @@ class Endpoint[R]:
         return self._unwrapped_func
 
     def setup(self) -> None:
+        self._graph = self._route.graph
+        self._busterm = self._route.busterm
+
         self._sig = EndpointSignature.from_function(
             graph=self._route.graph,
             route_path=self._route.path,

@@ -14,6 +14,7 @@ from lihil import (
     Text,
     status,
 )
+
 # from lihil.auth.oauth import OAuth2PasswordPlugin, OAuthLoginForm
 
 
@@ -130,7 +131,7 @@ lhl = Lihil(
     lifespan=lifespan,
     config_file="pyproject.toml",
 )
-lhl.static("/ping", "pong")  # BUG: static route will make /users post disappear
+lhl.static("/ping", "pong")
 
 # if __name__ == "__main__":
 #     lhl.run(__file__)

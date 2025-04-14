@@ -66,7 +66,7 @@ class StaticRoute:
         self.path = "_static_route_"
         self.config = EndpointProps(in_schema=False)
 
-    def match(self, scope: IScope):
+    def match(self, scope: IScope) -> bool:
         return scope["path"] in self.static_cache
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
@@ -214,7 +214,7 @@ class Lihil[T](ASGIBase):
     def static(
         self,
         path: str,
-        static_content: Any,
+        static_content: str | bytes | Callable[..., str | bytes | dict[str, Any]],
         content_type: str = "text/plain",
         charset: str = "utf-8",
     ) -> None:
@@ -235,7 +235,7 @@ class Lihil[T](ASGIBase):
             else:
                 encoded = encode_json(static_content)
 
-        content_resp = uvicorn_static_resp(encoded, content_type, charset)
+        content_resp = uvicorn_static_resp(encoded, 200, content_type, charset)
         if self.static_route is None:
             self.static_route = StaticRoute()
             self.routes.insert(1, self.static_route)

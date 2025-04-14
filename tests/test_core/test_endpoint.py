@@ -24,7 +24,7 @@ from lihil import (
 from lihil.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.config import AppConfig, SecurityConfig
-from lihil.errors import NotSupportedError, StatusConflictError, MissingDependencyError
+from lihil.errors import MissingDependencyError, NotSupportedError, StatusConflictError
 from lihil.plugins.registry import PluginBase
 from lihil.plugins.testclient import LocalClient
 

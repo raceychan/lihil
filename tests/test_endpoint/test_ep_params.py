@@ -1,5 +1,6 @@
-from inspect import Parameter, signature
+import sys
 from typing import Annotated, Any, Union
+from unittest import mock
 
 import pytest
 
@@ -18,6 +19,10 @@ from lihil import (
     Resolver,
     Use,
 )
+from lihil.config import AppConfig, SecurityConfig
+from lihil.errors import InvalidMarkTypeError, NotSupportedError
+from lihil.interface.marks import param_mark
+from lihil.plugins.registry import register_plugin_provider, remove_plugin_provider
 from lihil.signature.params import (
     CustomDecoder,
     EndpointParams,
@@ -28,9 +33,6 @@ from lihil.signature.params import (
     RequestParam,
     to_bytes,
 )
-from lihil.errors import InvalidMarkTypeError, NotSupportedError
-from lihil.interface.marks import param_mark
-from lihil.plugins.registry import register_plugin_provider, remove_plugin_provider
 
 
 # Helper classes for testing
@@ -122,9 +124,7 @@ def test_parsed_params(param_parser: ParamParser):
         service: DependentService,
     ): ...
 
-    func_params = tuple(signature(endpoint).parameters.items())
-
-    res = param_parser.parse(func_params)
+    res = param_parser.parse(endpoint)
 
     q = res.params["q"]
     data = res.bodies["data"]
@@ -303,13 +303,9 @@ def test_analyze_nodeparams(param_parser: ParamParser):
 def test_analyze_endpoint_params(param_parser: ParamParser):
     param_parser.path_keys = ("id",)
 
-    # Create function parameters
-    param1 = Parameter("id", Parameter.POSITIONAL_OR_KEYWORD, annotation=int)
-    param2 = Parameter("q", Parameter.POSITIONAL_OR_KEYWORD, annotation=str, default="")
+    def func(id: int, q: str = ""): ...
 
-    func_params = [("id", param1), ("q", param2)]
-
-    result = param_parser.parse(func_params)
+    result = param_parser.parse(func)
 
     assert isinstance(result, EndpointParams)
     assert len(result.params) == 2  # Both id and q should be in params
@@ -443,3 +439,35 @@ def test_param_provider_with_invalid_mark(param_parser):
 
 def test_param_provider_with_invalid_plugin(param_parser: ParamParser):
     assert not param_parser.is_plugin_type(5)
+
+
+def test_path_param_with_default_fail(param_parser: ParamParser):
+    with pytest.raises(NotSupportedError):
+        param_parser.parse_param(name="user_id", annotation=Path[str], default="user")
+
+
+def test_multiple_body_is_not_suuported(param_parser: ParamParser):
+
+    def invalid_ep(user_data: Body[str], order_data: Body[str]): ...
+
+    res = param_parser.parse(invalid_ep)
+
+    with pytest.raises(NotSupportedError):
+        res.get_body()
+
+
+def test_parse_jwtoken_without_pyjwt_installed(param_parser: ParamParser):
+    with mock.patch.dict("sys.modules", {"jwt": None}):
+        if "lihil.auth.jwt" in sys.modules:
+            del sys.modules["lihil.auth.jwt"]
+        del sys.modules["lihil.signature.params"]
+
+    from lihil.auth.jwt import JWToken
+
+    def ep_expects_jwt(user_id: JWToken[str]): ...
+
+    param_parser.app_config = AppConfig(
+        security=SecurityConfig(jwt_secret="test", jwt_algorithms=["HS256"])
+    )
+
+    param_parser.parse(ep_expects_jwt)

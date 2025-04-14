@@ -79,7 +79,11 @@ class JWTPayload(Base, kw_only=True):
     aud: Unset[str] = UNSET
 
     def __post_init__(self):
-        exp_in = self.__jwt_claims__["expires_in"]
+        exp_in = self.__jwt_claims__.get("expires_in")
+        if not exp_in or exp_in <= 0:
+            raise NotSupportedError(
+                f"Invalid value for `expires_in`, expects a positive int, received: {exp_in}"
+            )
 
         if is_provided(aud := self.__jwt_claims__.get("aud", MISSING)):
             self.aud = aud
@@ -87,17 +91,12 @@ class JWTPayload(Base, kw_only=True):
         if is_provided(iss := self.__jwt_claims__.get("iss", MISSING)):
             self.iss = iss
 
-        if exp_in <= 0:
-            raise NotSupportedError("Invalid exp in")
-
         now_ = jwt_timeclaim()
         self.exp = now_ + exp_in
         self.nbf = self.iat = now_
 
     def validate_claims(self) -> None: ...
 
-
-# TODO: validate_claim
 
 # from starlette.responses import Response
 # class TokenResponse(Response): ...
@@ -132,7 +131,9 @@ else:
         if not isinstance(payload_type, type) or not issubclass(
             payload_type, (JWTPayload, str)
         ):
-            raise TypeError("Must be str or subclass of JWTPayload")
+            raise NotSupportedError(
+                "payload type must be str or subclass of JWTPayload"
+            )
 
         jws_encode = PyJWS(algorithms=algorithms, options=options).encode
 
@@ -168,7 +169,7 @@ else:
         def decoder(content: str) -> T:
             try:
                 scheme, _, token = content.partition(" ")
-                if scheme != "Bearer":
+                if scheme.lower() != "bearer":
                     raise InvalidAuthError(f"Invalid authorization scheme {scheme}")
                 # TODO: rewrite jwt.decode_complete
                 # payload = decode(deocded)
@@ -180,12 +181,11 @@ else:
                 )
                 return convert(decoded, payload_type)
             except InvalidTokenError:
-                raise InvalidAuthError()
+                raise InvalidAuthError("Not able to validate your credential")
 
         return decoder
 
 
-# TODO: auth decoder, check for scheme, _, credential
 type AuthHeader[T] = Annotated[T, Literal["Authorization"], HEADER_REQUEST_MARK]
 type JWToken[T: JWTPayload | str | bytes] = Annotated[
     AuthHeader[T],

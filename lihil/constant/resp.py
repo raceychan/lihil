@@ -53,7 +53,9 @@ async def ServiceUnavailableResp(send: ISend) -> None:
     await send(SERVICE_UNAVAILABLE_BODY)
 
 
-def lhlserver_static_resp(content: bytes, content_type: str="text/plain", charset: str="utf-8") -> bytes:
+def lhlserver_static_resp(
+    content: bytes, content_type: str = "text/plain", charset: str = "utf-8"
+) -> bytes:
     """
     a static route that requires our own server to run
     """
@@ -71,7 +73,7 @@ def lhlserver_static_resp(content: bytes, content_type: str="text/plain", charse
 
 
 def uvicorn_static_resp(
-    content: bytes, content_type: str, charset: str
+    content: bytes, status: int, content_type: str, charset: str
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     "a static route that works with uvicorn"
 
@@ -81,6 +83,6 @@ def uvicorn_static_resp(
         (b"content-length", content_length.encode("latin-1")),
         (b"content-type", content_type.encode("latin-1")),
     ]
-    start_msg = {"type": "http.response.start", "status": 200, "headers": headers}
+    start_msg = {"type": "http.response.start", "status": status, "headers": headers}
     body_msg = {"type": "http.response.body", "body": content}
     return start_msg, body_msg
