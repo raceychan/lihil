@@ -24,7 +24,7 @@ from lihil import (
 from lihil.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.config import AppConfig, SecurityConfig
-from lihil.errors import NotSupportedError, StatusConflictError
+from lihil.errors import NotSupportedError, StatusConflictError, MissingDependencyError
 from lihil.plugins.registry import PluginBase
 from lihil.plugins.testclient import LocalClient
 
@@ -599,7 +599,7 @@ async def test_endpoint_with_jwt_fail_without_security_config(
 
     ep = testroute.get_endpoint(get_me)
 
-    with pytest.raises(NotSupportedError):
+    with pytest.raises(MissingDependencyError):
         ep.setup()
 
 

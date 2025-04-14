@@ -23,16 +23,21 @@ from starlette.datastructures import FormData
 
 # from lihil.auth.oauth import AuthPlugin
 from lihil.config import AppConfig
-from lihil.errors import NotSupportedError
+from lihil.errors import MissingDependencyError, NotSupportedError
+from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import (
-    MISSING,
     BodyContentType,
     CustomDecoder,
     Maybe,
     ParamLocation,
     RequestParamBase,
 )
-from lihil.interface.marks import ParamMarkType, Struct, extract_mark_type
+from lihil.interface.marks import (
+    JW_TOKEN_RETURN_MARK,
+    ParamMarkType,
+    Struct,
+    extract_mark_type,
+)
 from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
@@ -116,7 +121,7 @@ def formdecoder_factory[T](ptype: type[T] | UnionType):
             return to_bytes
 
         raise NotSupportedError(
-            f"currently only bytes or subclass of Struct is supported for `Form`, received {ptype}"
+            f"Currently only bytes or subclass of Struct is supported for `Form`, received {ptype}"
         )
 
     form_fields = get_fields(ptype)
@@ -146,12 +151,12 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
     location: ParamLocation
     decoder: ITextDecoder[T]
 
-    # QUESTION: can path param have default value? /users/ vs /users/a-user-id
-    # this mainly based on whether/how we do regex on path param
-
-    # def __post_init__(self):
-    #     if self.location == "path" and self.required is False:
-    #         raise ValueError("default value does not work with path param")
+    def __post_init__(self):
+        super().__post_init__()
+        if self.location == "path" and self.required is False:
+            raise NotSupportedError(
+                f"Default value does not work with path param {self}"
+            )
 
     def __repr__(self) -> str:
         name_repr = (
@@ -173,6 +178,7 @@ class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
     content_type: BodyContentType = "application/json"
 
     def __post_init__(self):
+        super().__post_init__()
         assert self.location == "body"
 
     def __repr__(self) -> str:
@@ -323,7 +329,7 @@ class ParamParser:
             for dep_name, dep in node.dependencies.items():
                 ptype, dep_dfault = dep.param_type, dep.default_
                 if dep_dfault is IDIDI_MISSING:
-                    default = MISSING
+                    default = LIHIL_MISSING
                 if ptype in self.graph.nodes:
                     # only add top level dependency, leave subs to ididi
                     continue
@@ -353,6 +359,8 @@ class ParamParser:
         params: list[Any | DependentNode] = [node]
         for dep_name, dep in node.dependencies.items():
             ptype, default = dep.param_type, dep.default_
+            if default is IDIDI_MISSING:
+                default = LIHIL_MISSING
             ptype = cast(type, ptype)
             sub_params = self.parse_param(dep_name, ptype, default)
             params.extend(sub_params)
@@ -370,11 +378,6 @@ class ParamParser:
     ) -> ParsedParam[T]:
 
         # TODO: auth_header_decoder
-        try:
-            from lihil.auth.jwt import JW_TOKEN_RETURN_MARK, jwt_decoder_factory
-        except ImportError:
-            raise NotSupportedError("pyjwt must be installed to use JWToken")
-
         if JW_TOKEN_RETURN_MARK not in param_meta.metas:
             decoder = custom_decoder or txtdecoder_factory(type_)
             return RequestParam(
@@ -389,10 +392,14 @@ class ParamParser:
         else:
             if custom_decoder is None:
                 if self.app_config is None or self.app_config.security is None:
-                    raise NotSupportedError("Must provide security config to use jwt")
+                    raise MissingDependencyError("security config")
                 sec_config = self.app_config.security
                 secret = sec_config.jwt_secret
                 algos = sec_config.jwt_algorithms
+                try:
+                    from lihil.auth.jwt import jwt_decoder_factory
+                except ImportError:
+                    raise MissingDependencyError("Pyjwt")
 
                 # TODO: replace jwt_decoder with plain auth_decoder
                 decoder = jwt_decoder_factory(
@@ -447,7 +454,7 @@ class ParamParser:
                         annotation=annotation,
                         default=default,
                         param_meta=param_meta,
-                        custom_decoder=cast(IDecoder[Any], custom_decoder),
+                        custom_decoder=custom_decoder,
                     )
                 else:
                     param_alias = header_key
@@ -506,27 +513,6 @@ class ParamParser:
             return None
 
         plugins: list[ParsedParam[Any]] = []
-
-        """
-        TODO:
-        if multiple plugins for same param
-        we should execute them one by one
-
-        if it is a marked param + plugin param
-        we let plugin param run first ?
-
-        we might combine the plugin loader
-
-        chaining up their loaders, then do marked param decoder
-
-        or we just let loader receives (params)
-        and rename load to process
-
-
-        for name, plug in self._plugin_items():
-            await plugin.process(params, request, resolver)
-        """
-
         for meta in metas:
             if isinstance(meta, PluginBase):
                 plugin = meta.parse(name, type_, annotation, default)
@@ -549,7 +535,7 @@ class ParamParser:
         self,
         name: str,
         annotation: type[T] | UnionType | GenericAlias | TypeAliasType,
-        default: Maybe[T] = MISSING,
+        default: Maybe[T] = LIHIL_MISSING,
     ) -> list[ParsedParam[T]]:
         parsed_type, pmetas = get_origin_pro(annotation)
 
@@ -592,7 +578,9 @@ class ParamParser:
 
         for name, param in func_params:
             annotation, default = param.annotation, param.default
-            default = MISSING if param.default is Parameter.empty else param.default
+            default = (
+                LIHIL_MISSING if param.default is Parameter.empty else param.default
+            )
             parsed_params = self.parse_param(name, annotation, default)
 
             for req_param in parsed_params:

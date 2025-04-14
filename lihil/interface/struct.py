@@ -59,9 +59,11 @@ class Base(Struct):
     def replace(self, /, **changes: Any) -> Self:
         return struct_replace(self, **changes)
 
-
-# @dataclass_transform(kw_only_default=True)
-# class KWBase(Base, kw_only=True): ...
+    def merge(self, other: Self) -> Self:
+        "merge other props with current props, return a new props without modiying current props"
+        vals = other.asdict(skip_defaults=True)
+        merged = self.asdict() | vals
+        return self.__class__(**merged)
 
 
 class ParamBase[T](Base):

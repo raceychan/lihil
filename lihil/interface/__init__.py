@@ -64,7 +64,7 @@ class _Missed:
 
     __slots__ = ()
 
-    __name__ = "MISSING"
+    __name__ = "liihl.MISSING"
 
     def __repr__(self):
         return "<lihil.MISSING>"
@@ -81,6 +81,10 @@ type Unset[T] = UnsetType | T
 
 def is_set[T](val: Unset[T]) -> TypeGuard[T]:
     return val is not UNSET
+
+
+from ididi.utils.param_utils import MISSING as IDIDI_MISSING
+
 
 class RequestParamBase[T](Base):
     name: str

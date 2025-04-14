@@ -45,6 +45,8 @@ class InvalidParamTypeError(LihilError):
 
 
 class NotSupportedError(LihilError):
+    "A generic error for behaviors we currently do not support"
+
     def __init__(self, msg: str):
         super().__init__(msg)
 
@@ -52,3 +54,8 @@ class NotSupportedError(LihilError):
 class InvalidMarkTypeError(LihilError):
     def __init__(self, mark_type: Any):
         super().__init__(f"Invalid mark type {mark_type}")
+
+
+class MissingDependencyError(LihilError):
+    def __init__(self, dep_name: str) -> None:
+        super().__init__(f"{dep_name} is required but not provided")

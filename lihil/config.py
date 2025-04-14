@@ -111,7 +111,7 @@ class StoreTrueIfProvided(argparse.Action):
         super().__init__(*args, **kwargs)  # type: ignore
 
 
-class ConfigBase(Record, forbid_unknown_fields=True): ...
+class ConfigBase(Record, forbid_unknown_fields=True, frozen=True): ...
 
 
 class OASConfig(ConfigBase):
@@ -239,25 +239,26 @@ def config_from_cli(config_type: type[AppConfig]) -> StrDict | None:
 def config_from_file(
     config_file: Path | str | None, *, config_type: type[AppConfig] = AppConfig
 ) -> AppConfig:
-    if config_file is None:
-        return config_type()  # everything default
+    if config_file is not None:
+        if isinstance(config_file, str):
+            file_path = Path(config_file)
+        else:
+            file_path = config_file
 
-    if isinstance(config_file, str):
-        file_path = Path(config_file)
+        if not file_path.exists():
+            raise AppConfiguringError(f"path {file_path} not exist")
+
+        file_ext = file_path.suffix[1:]
+
+        if file_ext == "toml":
+            config_dict = config_type.from_toml(file_path)
+        else:
+            raise AppConfiguringError(f"Not supported file type {file_ext}")
     else:
-        file_path = config_file
-
-    if not file_path.exists():
-        raise AppConfiguringError(f"path {file_path} not exist")
-
-    file_ext = file_path.suffix[1:]
-
-    if file_ext == "toml":
-        config_dict = config_type.from_toml(file_path)
-    else:
-        raise AppConfiguringError(f"Not supported file type {file_ext}")
+        config_dict = config_type().asdict()  # everything default
 
     cli_config = config_from_cli(config_type)
+
     if cli_config:
         deep_update(config_dict, cli_config)
 

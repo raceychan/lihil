@@ -667,11 +667,11 @@ def test_get_origin_pro_unpack_textalias_in_order():
 
 - now if `JWToken` fail to validate, raise `InvalidTokenError` with order status 401. This error would be displayed in swagger ui for endpoints that requires `auth_scheme`.
 
-
 - making `lihil.auth` a top level package
 
 - separate `Configuration` and `Properties`, rename `RouteConfig` to `RouteProps`, `EndpointConfig` to `EndpointProps`
 
 
-idea:
-1. we might make AppConfig a global singleton
+### Fixes
+
+- fix a bug where if config_file is None, config through cli arguments won't be read.

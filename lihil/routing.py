@@ -83,12 +83,6 @@ class EndpointProps(Record, kw_only=True):
             iconfig["errors"] = errors
         return cls(**iconfig)  # type: ignore
 
-    def merge(self, other: "EndpointProps") -> "EndpointProps":
-        "merge other props with current props, return a new props without modiying current props"
-        vals = other.asdict(skip_defaults=True)
-        merged = self.asdict() | vals
-        return EndpointProps(**merged)
-
 
 class Endpoint[R]:
     def __init__(
