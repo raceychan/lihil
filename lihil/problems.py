@@ -174,11 +174,18 @@ class HTTPException[T](Exception, DetailBase[T]):
         self.headers = headers
         self._problem_type = problem_detail_type
         self._problem_title = problem_detail_title
-        if problem_status and isinstance(problem_status, int):
-            self._problem_status: http_status.Status = problem_status
+        if problem_status:
+            if isinstance(problem_status, int):
+                self._problem_status: http_status.Status = problem_status
+            else:
+                self._problem_status = http_status.code(problem_status)
         else:
             self._problem_status = self.__status__
         super().__init__(detail)
+
+    @property
+    def status(self) -> int:
+        return self._problem_status
 
     def __problem_detail__(self, instance: str) -> ProblemDetail[T]:
         """

@@ -240,3 +240,8 @@ def test_ep_with_auth():
     sc = {}
     get_ep_security(ep, sc)
     assert sc["OAuth2PasswordBearer"]
+
+
+
+def test_param_with_payload():
+    ...

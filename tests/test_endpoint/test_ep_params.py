@@ -492,3 +492,26 @@ def test_custom_plugin(param_parser: ParamParser):
     def ep_expects_jwt(user_id: Annotated[str, MyPlugin()]): ...
 
     param_parser.parse(ep_expects_jwt)
+
+
+def decoder1(c: str) -> str: ...
+def decoder2(c: str) -> str: ...
+
+
+type ParamP1 = Annotated[Query[str], CustomDecoder(decoder1)]
+type ParamP2 = Annotated[ParamP1, CustomDecoder(decoder2)]
+
+
+def test_param_decoder_override(param_parser: ParamParser):
+    r1 = param_parser.parse_param("test", ParamP1)[0]
+    assert r1.decoder is decoder1
+
+    r2 = param_parser.parse_param("test", ParamP2)[0]
+    assert r2.decoder is decoder2
+
+
+def test_http_excp_with_typealis():
+    from lihil import HTTPException, status
+
+    err = HTTPException(problem_status=status.NOT_FOUND)
+    assert err.status == 404

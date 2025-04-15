@@ -12,7 +12,7 @@ from lihil.vendor_types import Request
 
 class PluginParam(RequestParamBase[Any], kw_only=True):
     processor: Maybe["ParamProcessor"] = MISSING
-    plugin: Maybe["type[PluginBase]"] = MISSING
+    plugin: Maybe["PluginBase"] = MISSING
 
 
 class ParamProcessor(Protocol):

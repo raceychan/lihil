@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import pytest
 from ididi import AsyncScope, Graph, Ignore, use
@@ -12,6 +12,8 @@ from lihil import (
     Json,
     Payload,
     Query,
+    Request,
+    Resolver,
     Resp,
     Route,
     Stream,
@@ -695,7 +697,47 @@ async def test_ep_with_plugin_type(testroute: Route, lc: LocalClient):
 
 
 async def test_ep_is_scoped(testroute: Route):
-    def ep():...
+    class Engine: ...
+
+    def engine_factory() -> Engine:
+        yield Engine()
+
+    def func(engine: Annotated[Engine, use(engine_factory)]): ...
+
+    testroute.get(func)
+
+    ep = testroute.get_endpoint(func)
+
+    ep.setup()
+
+    assert ep.scoped
 
 
-async def test_ep_with_plugin(testroute: Route): ...
+async def test_ep_with_plugin(testroute: Route):
+    class MyParamProcessor(PluginBase):
+        def __init__(self, name: str):
+            self.name = name
+
+        async def process(
+            self, params: dict[str, Any], request: Request, resolver: Resolver
+        ) -> None:
+            params[self.name] = "processed"
+
+
+    called: bool = False
+    def func(p: Annotated[str, MyParamProcessor("p")]):
+        nonlocal called
+        called = True
+        assert p == "processed"
+
+
+
+    testroute.get(func)
+
+    ep = testroute.get_endpoint(func)
+    ep.setup()
+
+    assert ep.sig.plugins
+
+    await LocalClient()(ep)
+    assert called

@@ -346,15 +346,17 @@ def generate_unique_id(ep: Endpoint[Any]) -> str:
     return operation_id
 
 
-def get_ep_security(ep: Endpoint[Any], security_schemas: SecurityDict):
-    security_scopes: list[dict[str, list[str] | None]] = []
+def get_ep_security(
+    ep: Endpoint[Any], security_schemas: SecurityDict
+) -> list[dict[str, list[str]]]:
+    security_scopes: list[dict[str, list[str]]] = []
     auth_scheme = ep.props.auth_scheme
     if auth_scheme:
         security_schemas[auth_scheme.scheme_name] = cast(
             oasmodel.SecurityScheme, auth_scheme.model
         )
 
-        security_scopes.append({auth_scheme.scheme_name: None})
+        security_scopes.append({auth_scheme.scheme_name: []})
     return security_scopes
 
 
@@ -364,7 +366,7 @@ def generate_op_from_ep(
     security_schemas: SecurityDict,
     problem_path: str,
 ) -> oasmodel.Operation:
-    tags = ep.props.tags
+    tags = list(ep.props.tags or ())
     summary = ep.name.replace("_", " ").title()
     description = trimdoc(ep.unwrapped_func.__doc__) or "Missing Description"
     operationId = generate_unique_id(ep)
@@ -383,7 +385,7 @@ def generate_op_from_ep(
         operationId=operationId,
         parameters=params,
         security=security,
-        requestBody=body,
+        requestBody=body or oasmodel.UNSET,
     )
     for status, resp in resps.items():
         op.responses[status] = resp

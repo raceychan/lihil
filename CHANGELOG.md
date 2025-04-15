@@ -664,6 +664,24 @@ def test_get_origin_pro_unpack_textalias_in_order():
     assert res == (str, ["ONE", "TWO", "THREE"])
 ```
 
+This means that user now might override decoder by Annotated original param type with new custom decoder
+
+```python
+def decoder1(c: str) -> str: ...
+def decoder2(c: str) -> str: ...
+
+
+type ParamP1 = Annotated[Query[str], CustomDecoder(decoder1)]
+type ParamP2 = Annotated[ParamP1, CustomDecoder(decoder2)]
+
+
+def test_param_decoder_override(param_parser: ParamParser):
+    r1 = param_parser.parse_param("test", ParamP1)[0]
+    assert r1.decoder is decoder1
+
+    r2 = param_parser.parse_param("test", ParamP2)[0]
+    assert r2.decoder is decoder2
+```
 
 - now if `JWToken` fail to validate, raise `InvalidTokenError` with order status 401. This error would be displayed in swagger ui for endpoints that requires `auth_scheme`.
 
@@ -671,6 +689,18 @@ def test_get_origin_pro_unpack_textalias_in_order():
 
 - separate `Configuration` and `Properties`, rename `RouteConfig` to `RouteProps`, `EndpointConfig` to `EndpointProps`
 
+- support `lihil.status` for `HTTPException` without `lihil.status.code`
+
+```python
+from lihil import HTTPException, status
+
+## before
+err = HTTPException(problem_status=status.code(status.NOT_FOUND))
+
+## after
+err = HTTPException(problem_status=status.NOT_FOUND)
+assert err.status == 404
+```
 
 ### Fixes
 
