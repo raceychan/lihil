@@ -89,7 +89,7 @@ async def test_validtion_error():
     result = await resp.json()
 
     error = result["detail"][0]
-    assert "InvalidJsonReceived" == error["type"]
+    assert "InvalidDataType" == error["type"]
     assert "query" == error["location"]
     assert "q" == error["param"]
 

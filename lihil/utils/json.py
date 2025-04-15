@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Any, Callable, Union
 
-from msgspec import DecodeError
+from msgspec import DecodeError, Meta
 from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import Encoder as JsonEncoder
 
@@ -63,6 +63,7 @@ encode_json = JsonEncoder().encode
 
 
 def encode_text(content: bytes | str) -> bytes:
+    # TODO: use msgspec.convert, which works with meta
     if isinstance(content, str):
         return content.encode()
     return content

@@ -714,3 +714,11 @@ ep = lc.make_endpoint(f)
 ### Fixes
 
 - fix a bug where if config_file is None, config through cli arguments won't be read.
+
+
+
+## version 0.2.1
+
+- rename `JWToken` to `JWTAuth`, we might have `BasicAuth`, `DigestAuth` later
+
+- refactor decoder for textual params, including header, query, path, etc.

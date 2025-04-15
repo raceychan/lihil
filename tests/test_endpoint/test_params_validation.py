@@ -44,7 +44,7 @@ def test_prepare_params(get_order_dep: EndpointSignature[Any]):
     token = "token"
 
     req_path = dict(user_id=user_id, order_id=order_id)
-    req_query = dict(limit=b"5")
+    req_query = dict(limit="5")
     req_header = {"x-token": token}
 
     parsed = get_order_dep.prepare_params(

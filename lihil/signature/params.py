@@ -61,6 +61,7 @@ def is_body_param(annt: Any) -> bool:
         return issubclass(annt, Struct) or is_file_body(annt)
 
 
+# TODO: we should use msgspec.convert instead of this, so that we can use msgspec.Meta
 def txtdecoder_factory(
     t: type | UnionType | GenericAlias,
 ) -> IDecoder[Any]:
@@ -73,11 +74,10 @@ def txtdecoder_factory(
         else:
             return decoder_factory(t)
 
-    if t is str:
-        return to_str
-    elif t is bytes:
-        return to_bytes
-    return decoder_factory(t)
+    def convert_text(content: str):
+        return convert(content, t, strict=False)
+
+    return convert_text
 
 
 def filedeocder_factory(filename: str):
