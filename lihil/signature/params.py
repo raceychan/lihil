@@ -1,7 +1,16 @@
 from copy import deepcopy
 from inspect import Parameter, signature
 from types import GenericAlias, UnionType
-from typing import Any, TypeAliasType, TypeGuard, Union, cast, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    TypeAliasType,
+    TypeGuard,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 from warnings import warn
 
 from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
@@ -19,6 +28,7 @@ from lihil.interface import (
     BodyContentType,
     CustomDecoder,
     Maybe,
+    ParamConstraint,
     ParamLocation,
     RequestParamBase,
 )
@@ -28,10 +38,10 @@ from lihil.interface.marks import (
     Struct,
     extract_mark_type,
 )
-from lihil.interface.struct import Base, IDecoder, IFormDecoder, ITextDecoder
+from lihil.interface.struct import Base, IDecoder, IFormDecoder
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
-from lihil.utils.json import build_union_decoder, decoder_factory, to_bytes, to_str
+from lihil.utils.json import build_union_decoder, decoder_factory
 from lihil.utils.string import parse_header_key
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
 from lihil.vendor_types import FormData, Request, UploadFile
@@ -69,23 +79,27 @@ def is_body_param(annt: Any) -> bool:
 # ididi.utils.typing is_builtin_primitive
 
 
-def txtdecoder_factory(
-    t: type | UnionType | GenericAlias,
-) -> ITextDecoder[Any]:
-    if is_union_type(t):
-        union_args = get_args(t)
+def textdecoder_factory(
+    param_type: type | UnionType | GenericAlias,
+) -> IDecoder[str, Any]:
+    if is_union_type(param_type):
+        union_args = get_args(param_type)
         if str in union_args:
             return build_union_decoder(union_args, str)
         if bytes in union_args:
             return build_union_decoder(union_args, bytes)
         else:
-            return decoder_factory(t)
+            return decoder_factory(param_type)
 
-    def convert_text(content: str):
-        return convert(content, t, strict=False)
+    def str_decoder(content: str):
+        return convert(content, param_type)
 
-    # if is builtin types, return convert text
-    return convert_text if not issubclass(t, Struct) else decoder_factory(t)
+    if param_type is str:
+        return str_decoder
+
+    elif param_type is bytes:
+        return lambda x: x.encode()
+    return decoder_factory(param_type)
 
 
 def filedeocder_factory(filename: str):
@@ -113,10 +127,12 @@ def file_body_param(
     return req_param
 
 
-def formdecoder_factory[T](ptype: type[T] | UnionType) -> IFormDecoder[T]:
+def formdecoder_factory[T](
+    ptype: type[T] | UnionType,
+) -> IFormDecoder[T] | IDecoder[bytes, T]:
     if not isinstance(ptype, type) or not issubclass(ptype, Struct):
         if ptype is bytes:
-            return to_bytes
+            return lambda x: x
 
         raise NotSupportedError(
             f"Currently only bytes or subclass of Struct is supported for `Form`, received {ptype}"
@@ -147,7 +163,7 @@ def formdecoder_factory[T](ptype: type[T] | UnionType) -> IFormDecoder[T]:
 # TODO: we might support multiple decoders/encoders
 class RequestParam[T](RequestParamBase[T], kw_only=True):
     location: ParamLocation
-    decoder: ITextDecoder[T] = None  # type: ignore
+    decoder: IDecoder[str, T] = None  # type: ignore
 
     def __post_init__(self):
         super().__post_init__()
@@ -156,8 +172,8 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
                 f"Path param {self} with default value is not supported"
             )
 
-        if self.decoder is None:
-            self.decoder = txtdecoder_factory(self.type_)
+        if cast(Any, self.decoder) is None:
+            self.decoder = textdecoder_factory(self.type_)
 
     def __repr__(self) -> str:
         name_repr = (
@@ -170,6 +186,8 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         for decoder in self.decoders:
             contennt = decoder(content)
         """
+        if self.constraint:
+            self.decoder(Annotated[self.type_, self.constraint])
         return self.decoder(content)
 
 
@@ -190,9 +208,10 @@ class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
 
 
 class ParamMetas(Base):
+    metas: tuple[Any, ...]
+
     custom_decoder: CustomDecoder | None
     mark_type: ParamMarkType | None
-    metas: tuple[Any, ...]
     factory: INode[..., Any] | None = None
     node_config: NodeConfig | None = None
 
@@ -212,10 +231,13 @@ class ParamMetas(Base):
                 current_mark_type = mark_type
             elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
                 factory, config = metas[idx + 1], metas[idx + 2]
+            else:
+                continue
+
         return ParamMetas(
+            metas=tuple(metas),
             custom_decoder=decoder,
             mark_type=current_mark_type,
-            metas=tuple(metas),
             factory=factory,
             node_config=config,
         )
@@ -324,7 +346,7 @@ class ParamParser:
                     decoder=decoder,
                 )
         elif param_type in self.graph.nodes:
-            node = self.graph.analyze(cast(type, param_type))
+            node = self.graph.analyze(param_type)
             params: list[ParsedParam[Any]] = [node]
             for dep_name, dep in node.dependencies.items():
                 ptype, dep_dfault = dep.param_type, dep.default_
@@ -373,7 +395,7 @@ class ParamParser:
         annotation: Any,
         default: Maybe[T],
         param_meta: ParamMetas,
-        custom_decoder: ITextDecoder[Any] | None,
+        custom_decoder: IDecoder[str, Any] | None,
     ) -> ParsedParam[T]:
 
         # TODO: auth_header_decoder
@@ -441,7 +463,6 @@ class ParamParser:
                 location = "header"
                 header_key = parse_header_key(name, param_meta.metas).lower()
                 if header_key == "authorization":
-
                     return self._parse_auth_header(
                         name=name,
                         header_key=header_key,
@@ -484,13 +505,13 @@ class ParamParser:
             else:
                 location = "query"
 
-            decoder = custom_decoder or txtdecoder_factory(type_)
+            decoder = custom_decoder or textdecoder_factory(type_)
             req_param = RequestParam(
                 name=name,
                 alias=param_alias,
                 type_=type_,
                 annotation=annotation,
-                decoder=cast(ITextDecoder[Any], decoder),
+                decoder=decoder,
                 location=location,
                 default=default,
             )

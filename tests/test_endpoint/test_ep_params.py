@@ -2,6 +2,7 @@ import sys
 from typing import Annotated, Any, Union
 from unittest import mock
 
+import msgspec
 import pytest
 
 from lihil import (
@@ -514,3 +515,24 @@ def test_http_excp_with_typealis():
 
     err = HTTPException(problem_status=status.NOT_FOUND)
     assert err.status == 404
+
+
+def test_param_with_meta(param_parser: ParamParser):
+    PositiveInt = Annotated[int, msgspec.Meta(gt=0)]
+    res = param_parser.parse_param("nums", list[PositiveInt])[0]
+    assert res.decode("[1,2,3]") == [1, 2, 3]
+
+    with pytest.raises(msgspec.ValidationError):
+        res.decode("[1,2,3,-4]")
+
+
+
+@pytest.mark.skip("Not implemented")
+def test_param_with_annot_meta(param_parser: ParamParser):
+    UnixName = Annotated[
+        str, msgspec.Meta(min_length=1, max_length=32, pattern="^[a-z_][a-z0-9_-]*$")
+    ]
+
+    res = param_parser.parse_param("name", UnixName)[0]
+    with pytest.raises(msgspec.ValidationError):
+        res.decode("5")

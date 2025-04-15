@@ -82,7 +82,7 @@ async def test_validtion_error():
 
     # test invalid json
     resp = await client.call_endpoint(
-        ep=ep, path_params=dict(p="hello"), query_params=dict(q="s")
+        ep=ep, path_params=dict(p="hello"), query_params=dict(q='"s"')
     )
 
     assert resp.status_code == 422

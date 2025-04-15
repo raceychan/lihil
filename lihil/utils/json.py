@@ -1,12 +1,12 @@
 from functools import lru_cache
 from typing import Any, Callable, Union
 
-from msgspec import DecodeError, Meta
+from msgspec import DecodeError
 from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import Encoder as JsonEncoder
 
 # from lihil.errors import NotSupportedError
-from lihil.interface import IDecoder, IEncoder, ITextDecoder
+from lihil.interface import IDecoder, IEncoder
 
 # from msgspec.json import encode as json_encode
 
@@ -25,7 +25,7 @@ def to_bytes(content: str | bytes) -> bytes:
 
 def build_union_decoder(
     types: tuple[type], target_type: type[str | bytes]
-) -> ITextDecoder[Any]:
+) -> IDecoder[str | bytes, Any]:
     rest = tuple(t for t in types if t not in (bytes, str))
 
     if not rest:
@@ -39,7 +39,7 @@ def build_union_decoder(
 
     raw_decoder = to_str if target_type is str else to_bytes
 
-    def decode_reunion(content: bytes):
+    def decode_reunion(content: bytes) -> IDecoder[str | bytes, Any]:
         try:
             res = rest_decoder(content)
         except DecodeError:
@@ -50,7 +50,7 @@ def build_union_decoder(
 
 
 @lru_cache(256)
-def decoder_factory[T](t: type[T], strict: bool = True) -> IDecoder[Any, T]:
+def decoder_factory[T](t: type[T], strict: bool = True) -> IDecoder[str | bytes, T]:
     return JsonDecoder(t, strict=strict).decode
 
 

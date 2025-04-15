@@ -6,7 +6,7 @@ from typing import Protocol as Protocol
 from typing import TypeGuard, Union, get_args
 
 from msgspec import UNSET
-from msgspec import Meta as Meta
+from msgspec import Meta as ParamConstraint
 from msgspec import Struct as Struct
 from msgspec import UnsetType
 from msgspec import field as field
@@ -33,10 +33,10 @@ from lihil.interface.struct import Base as Base
 from lihil.interface.struct import CustomDecoder as CustomDecoder
 from lihil.interface.struct import CustomEncoder as CustomEncoder
 from lihil.interface.struct import Empty as Empty
+from lihil.interface.struct import IBodyDecoder as IBodyDecoder
 from lihil.interface.struct import IDecoder as IDecoder
 from lihil.interface.struct import IEncoder as IEncoder
 from lihil.interface.struct import ITextDecoder as ITextDecoder
-# from lihil.interface.struct import ParamBase as ParamBase
 from lihil.interface.struct import Payload as Payload
 from lihil.interface.struct import Record as Record
 
@@ -90,6 +90,7 @@ class RequestParamBase[T](Base):
     alias: str = ""
     default: Maybe[Any] = MISSING
     required: bool = False
+    constraint: ParamConstraint | None = None
 
     @property
     def type_repr(self) -> str:

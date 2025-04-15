@@ -25,6 +25,9 @@ class IFormDecoder[T](Protocol):
     def __call__(self, content: FormData, /) -> T: ...
 
 
+class IBodyDecoder[T](IDecoder[bytes, T]): ...
+
+
 class ITextDecoder[T](IDecoder[str, T]):
     "for non-body params"
 
