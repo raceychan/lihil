@@ -702,6 +702,17 @@ err = HTTPException(problem_status=status.NOT_FOUND)
 assert err.status == 404
 ```
 
+
+-  `lihil.plugin.testclient.LocalClient` now has a new helper functions
+`make_endpoint` that receives a function and returns a endpoint.
+
+```python
+async def f() -> Resp[str, status.OK] | Resp[int | list[int], status.CREATED]: ...
+lc = LocalClient()
+ep = lc.make_endpoint(f)
+```
+
+
 ### Fixes
 
 - fix a bug where if config_file is None, config through cli arguments won't be read.

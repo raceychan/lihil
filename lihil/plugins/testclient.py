@@ -1,5 +1,15 @@
+from inspect import iscoroutinefunction, isfunction
 from time import perf_counter
-from typing import Any, AsyncIterator, Literal, MutableMapping, Optional, Union
+from typing import (
+    Any,
+    AsyncIterator,
+    Callable,
+    Literal,
+    MutableMapping,
+    Optional,
+    Union,
+    Unpack,
+)
 from urllib.parse import urlencode
 from uuid import uuid4
 
@@ -7,7 +17,7 @@ from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
 
 from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload
-from lihil.routing import Route, Endpoint
+from lihil.routing import Endpoint, IEndpointProps, Route
 
 
 class Timer:
@@ -438,7 +448,7 @@ class LocalClient:
 
     async def __call__(
         self,
-        app: ASGIApp,
+        app: ASGIApp | Callable[..., None],
         method: HTTP_METHODS | None = None,
         path: str | None = None,
         path_params: dict[str, Any] | None = None,
@@ -464,7 +474,8 @@ class LocalClient:
                 body=body,
                 headers=headers,
             )
-        else:
+
+        elif callable(app) and iscoroutinefunction(app.__call__):
             assert method, "method is required to call app"
             assert path, "path is required to call app"
             return await self.call_app(
@@ -476,3 +487,19 @@ class LocalClient:
                 body=body,
                 headers=headers,
             )
+        else:
+            raise TypeError(f"Not supported type {app}")
+
+    def make_endpoint[R](
+        self,
+        f: Callable[..., R],
+        method: HTTP_METHODS = "GET",
+        path: str = "",
+        **props: Unpack[IEndpointProps],
+    ) -> Endpoint[R]:
+        route = Route(path)
+
+        route.add_endpoint(method, func=f, **props)
+        ep = route.get_endpoint(method)
+        ep.setup()
+        return ep

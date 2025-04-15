@@ -27,11 +27,14 @@ from lihil import (
 from lihil.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.config import AppConfig, SecurityConfig
-from lihil.errors import MissingDependencyError, NotSupportedError, StatusConflictError
+from lihil.errors import (
+    InvalidParamTypeError,
+    MissingDependencyError,
+    NotSupportedError,
+    StatusConflictError,
+)
 from lihil.plugins.registry import PluginBase, PluginParam
 from lihil.plugins.testclient import LocalClient
-from lihil.errors import InvalidParamTypeError
-
 from lihil.utils.threading import async_wrapper
 
 
@@ -706,9 +709,7 @@ async def test_ep_is_scoped(testroute: Route):
     def func(engine: Annotated[Engine, use(engine_factory)]): ...
 
     testroute.get(func)
-
     ep = testroute.get_endpoint(func)
-
     ep.setup()
 
     assert ep.scoped
@@ -758,9 +759,6 @@ async def test_plugin_without_processor(testroute: Route):
 
     async def f(p: Annotated[str, MyPlugin()]): ...
 
-    testroute.get(f)
-    ep = testroute.get_endpoint(f)
-    ep.setup()
-
+    lc = LocalClient()
     with pytest.raises(InvalidParamTypeError):
-        await LocalClient()(ep)
+        await lc(lc.make_endpoint(f))

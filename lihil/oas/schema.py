@@ -1,6 +1,6 @@
 import re
 from types import UnionType
-from typing import Any, Sequence, cast, get_args
+from typing import Any, Sequence, Union, cast, get_args, get_origin
 
 from msgspec import Struct
 from msgspec.json import schema_components
@@ -322,10 +322,6 @@ def get_resp_schemas(
         else:
             if ep_return.mark_type == "empty":
                 resps[status] = oasmodel.Response(description="No Content")
-            elif isinstance(return_type, UnionType):
-                content = type_to_content(return_type, schemas, content_type)
-                resp = oasmodel.Response(description=description, content=content)
-                resps[status] = resp
             else:
                 content = type_to_content(return_type, schemas, content_type)
                 resp = oasmodel.Response(description=description, content=content)

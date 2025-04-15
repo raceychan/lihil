@@ -242,6 +242,20 @@ def test_ep_with_auth():
     assert sc["OAuth2PasswordBearer"]
 
 
+def test_ep_with_mutliple_ret():
+    async def f() -> Resp[str, status.OK] | Resp[int | list[int], status.CREATED]: ...
 
-def test_param_with_payload():
-    ...
+    lc = LocalClient()
+
+    ep = lc.make_endpoint(f)
+
+    get_resp_schemas(ep, {}, "")
+
+
+def test_ep_with_auth_scheme():
+    async def f() -> Resp[str, status.OK] | Resp[int | list[int], status.CREATED]: ...
+
+    lc = LocalClient()
+
+    ep = lc.make_endpoint(f)
+    get_resp_schemas(ep, {}, "")
