@@ -1,12 +1,16 @@
 from asyncio import get_running_loop
 from contextlib import contextmanager
-from typing import Union
+from typing import Literal, Union
 
 import pytest
 
+from lihil import Graph, Header
+from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, Base, Maybe, get_maybe_vars
 from lihil.lihil import ThreadPoolExecutor
+from lihil.signature.params import ParamParser
 from lihil.utils.json import build_union_decoder, encode_text, to_bytes, to_str
+from lihil.utils.string import parse_header_key
 from lihil.utils.threading import sync_ctx_to_thread
 from lihil.utils.typing import union_types
 
@@ -135,3 +139,15 @@ def test_build_union_decoder_priority():
 def test_encode_test():
     assert encode_text(b"123") == b"123"
     assert encode_text("123") == b"123"
+
+
+def test_parse_header_key():
+    assert parse_header_key("AuthToken") == "auth-token"
+
+    parser = ParamParser(graph=Graph())
+
+    with pytest.raises(NotSupportedError):
+        parser.parse_param("test", Header[str, 5])
+
+    with pytest.raises(NotSupportedError):
+        parser.parse_param("test", Header[str, Literal[5]])

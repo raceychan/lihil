@@ -42,9 +42,8 @@ def parse_exception(
     exc_origin = lhl_get_origin(exc)
 
     if exc_origin is None:
-        if isinstance(exc, TypeAliasType):
-            return http_status.code(exc)
-        if issubclass(exc, HTTPException):
+
+        if isinstance(exc, type) and issubclass(exc, HTTPException):
             return exc
         raise TypeError(f"Invalid exception type {exc}")
     elif exc_origin is Literal:
@@ -275,8 +274,9 @@ class InvalidAuthError(HTTPException[str]):
 
     __status__ = 401
 
-    def __ini__(self, detail: str = "Invalid Credentials"):
-        super().__init__(detail=detail, headers={"WWW-Authenticate": "Bearer"})
+    def __init__(self, detail: str = "Invalid Credentials", scheme: str = "Bearer"):
+        super().__init__(detail=detail, headers={"WWW-Authenticate": scheme})
+        assert self.headers is not None
 
 
 # ================== Auth Validtion ================
