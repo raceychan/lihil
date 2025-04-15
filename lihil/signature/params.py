@@ -66,6 +66,8 @@ def is_body_param(annt: Any) -> bool:
 # other wise, it should be hanlded by msgspec.convert
 # for example, convert("3.14", Annotated[float, Meta(lt=1)], strict=False)
 # we receive: ValidationError: Expected `float` < 1.0
+# ididi.utils.typing is_builtin_primitive
+
 
 def txtdecoder_factory(
     t: type | UnionType | GenericAlias,
@@ -173,7 +175,7 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
 
 class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
     location: ParamLocation = "body"
-    decoder: IDecoder[T] | IFormDecoder[T]
+    decoder: IDecoder[bytes, T] | IFormDecoder[T]
     content_type: BodyContentType = "application/json"
 
     def __post_init__(self):
@@ -319,7 +321,7 @@ class ParamParser:
                     annotation=annotation,
                     type_=param_type,
                     default=default,
-                    decoder=cast(IDecoder[T], decoder),
+                    decoder=decoder,
                 )
         elif param_type in self.graph.nodes:
             node = self.graph.analyze(cast(type, param_type))

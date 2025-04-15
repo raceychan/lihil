@@ -36,7 +36,7 @@ from lihil.interface.struct import Empty as Empty
 from lihil.interface.struct import IDecoder as IDecoder
 from lihil.interface.struct import IEncoder as IEncoder
 from lihil.interface.struct import ITextDecoder as ITextDecoder
-from lihil.interface.struct import ParamBase as ParamBase
+# from lihil.interface.struct import ParamBase as ParamBase
 from lihil.interface.struct import Payload as Payload
 from lihil.interface.struct import Record as Record
 

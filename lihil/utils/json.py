@@ -50,7 +50,7 @@ def build_union_decoder(
 
 
 @lru_cache(256)
-def decoder_factory[T](t: type[T], strict: bool = True) -> IDecoder[T]:
+def decoder_factory[T](t: type[T], strict: bool = True) -> IDecoder[Any, T]:
     return JsonDecoder(t, strict=strict).decode
 
 

@@ -17,18 +17,16 @@ from lihil.interface.marks import EMPTY_RETURN_MARK
 from lihil.vendor_types import FormData
 
 
-class IDecoder[T](Protocol):
-    def __call__(self, content: bytes, /) -> T: ...
+class IDecoder[I: str | bytes, T](Protocol):
+    def __call__(self, content: I, /) -> T: ...
 
 
 class IFormDecoder[T](Protocol):
     def __call__(self, content: FormData, /) -> T: ...
 
 
-class ITextDecoder[T](Protocol):
+class ITextDecoder[T](IDecoder[str, T]):
     "for non-body params"
-
-    def __call__(self, content: str, /) -> T: ...
 
 
 class IEncoder[T](Protocol):
@@ -66,9 +64,9 @@ class Base(Struct):
         return self.__class__(**merged)
 
 
-class ParamBase[T](Base):
-    type_: type
-    decoder: IDecoder[T]
+# class ParamBase[T](Base):
+#     type_: type
+#     decoder: IDecoder[T]
 
 
 @dataclass_transform(frozen_default=True)
@@ -96,7 +94,7 @@ class CustomDecoder(Base):
     async def create_user(i: Annotated[IType, CustomDecoder(decode_itype)])
     """
 
-    decode: ITextDecoder[Any] | IDecoder[Any] | IFormDecoder[Any]
+    decode: ITextDecoder[Any] | IDecoder[Any, Any] | IFormDecoder[Any]
 
 
 def empty_encoder(param: Any) -> bytes:
