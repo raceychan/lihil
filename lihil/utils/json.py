@@ -6,7 +6,7 @@ from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import Encoder as JsonEncoder
 
 # from lihil.errors import NotSupportedError
-from lihil.interface import IDecoder, IEncoder
+from lihil.interface import IDecoder, IEncoder, ITextDecoder
 
 # from msgspec.json import encode as json_encode
 
@@ -25,7 +25,7 @@ def to_bytes(content: str | bytes) -> bytes:
 
 def build_union_decoder(
     types: tuple[type], target_type: type[str | bytes]
-) -> IDecoder[Any]:
+) -> ITextDecoder[Any]:
     rest = tuple(t for t in types if t not in (bytes, str))
 
     if not rest:

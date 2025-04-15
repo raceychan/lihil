@@ -61,10 +61,15 @@ def is_body_param(annt: Any) -> bool:
         return issubclass(annt, Struct) or is_file_body(annt)
 
 
-# TODO: we should use msgspec.convert instead of this, so that we can use msgspec.Meta
+# TODO: we should differentiate structual data and non-structual data
+# if it is structual data, it should be json-encoded string, so we use decoder to handle it
+# other wise, it should be hanlded by msgspec.convert
+# for example, convert("3.14", Annotated[float, Meta(lt=1)], strict=False)
+# we receive: ValidationError: Expected `float` < 1.0
+
 def txtdecoder_factory(
     t: type | UnionType | GenericAlias,
-) -> IDecoder[Any]:
+) -> ITextDecoder[Any]:
     if is_union_type(t):
         union_args = get_args(t)
         if str in union_args:
@@ -77,7 +82,8 @@ def txtdecoder_factory(
     def convert_text(content: str):
         return convert(content, t, strict=False)
 
-    return convert_text
+    # if is builtin types, return convert text
+    return convert_text if not issubclass(t, Struct) else decoder_factory(t)
 
 
 def filedeocder_factory(filename: str):
@@ -105,7 +111,7 @@ def file_body_param(
     return req_param
 
 
-def formdecoder_factory[T](ptype: type[T] | UnionType):
+def formdecoder_factory[T](ptype: type[T] | UnionType) -> IFormDecoder[T]:
     if not isinstance(ptype, type) or not issubclass(ptype, Struct):
         if ptype is bytes:
             return to_bytes
@@ -139,7 +145,7 @@ def formdecoder_factory[T](ptype: type[T] | UnionType):
 # TODO: we might support multiple decoders/encoders
 class RequestParam[T](RequestParamBase[T], kw_only=True):
     location: ParamLocation
-    decoder: ITextDecoder[T]
+    decoder: ITextDecoder[T] = None  # type: ignore
 
     def __post_init__(self):
         super().__post_init__()
@@ -147,6 +153,9 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
             raise NotSupportedError(
                 f"Path param {self} with default value is not supported"
             )
+
+        if self.decoder is None:
+            self.decoder = txtdecoder_factory(self.type_)
 
     def __repr__(self) -> str:
         name_repr = (
@@ -282,13 +291,12 @@ class ParamParser:
 
         if name in self.path_keys:  # simplest case
             self.seen.discard(name)
-            decoder = custom_decoder or txtdecoder_factory(param_type)
             req_param = RequestParam(
                 name=name,
                 alias=name,
                 type_=param_type,
                 annotation=annotation,
-                decoder=cast(ITextDecoder[T], decoder),
+                decoder=custom_decoder,
                 location="path",
                 default=default,
             )
@@ -333,13 +341,12 @@ class ParamParser:
             node = self.graph.analyze(param_meta.factory, config=param_meta.node_config)
             return self._parse_node(node)
         else:  # default case, treat as query
-            decoder = custom_decoder or txtdecoder_factory(param_type)
             req_param = RequestParam(
                 name=name,
                 alias=name,
                 type_=param_type,
                 annotation=annotation,
-                decoder=cast(ITextDecoder[Any], decoder),
+                decoder=custom_decoder,
                 location="query",
                 default=default,
             )
@@ -369,13 +376,12 @@ class ParamParser:
 
         # TODO: auth_header_decoder
         if JW_TOKEN_RETURN_MARK not in param_meta.metas:
-            decoder = custom_decoder or txtdecoder_factory(type_)
             return RequestParam(
                 name=name,
                 alias=header_key,
                 type_=type_,
                 annotation=annotation,
-                decoder=decoder,
+                decoder=custom_decoder,
                 location="header",
                 default=default,
             )

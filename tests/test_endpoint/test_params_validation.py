@@ -3,8 +3,8 @@ from typing import Any, Literal
 import pytest
 from ididi import Graph
 
-from lihil.signature import EndpointSignature
 from lihil.interface import Header, Payload
+from lihil.signature import EndpointSignature
 from lihil.utils.json import encode_json
 
 
