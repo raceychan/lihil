@@ -471,3 +471,24 @@ def test_parse_jwtoken_without_pyjwt_installed(param_parser: ParamParser):
     )
 
     param_parser.parse(ep_expects_jwt)
+
+
+def test_jwtoken_with_custom_decoder(param_parser: ParamParser):
+    from lihil.auth.jwt import JWToken
+    from lihil.interface import CustomDecoder
+
+    def ep_expects_jwt(
+        user_id: Annotated[JWToken[str], CustomDecoder(lambda c: c)],
+    ): ...
+
+    param_parser.parse(ep_expects_jwt)
+
+
+def test_custom_plugin(param_parser: ParamParser):
+    from lihil.plugins.registry import PluginBase
+
+    class MyPlugin(PluginBase): ...
+
+    def ep_expects_jwt(user_id: Annotated[str, MyPlugin()]): ...
+
+    param_parser.parse(ep_expects_jwt)

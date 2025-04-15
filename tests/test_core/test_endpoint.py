@@ -694,7 +694,8 @@ async def test_ep_with_plugin_type(testroute: Route, lc: LocalClient):
         testroute.setup()
 
 
-async def test_ep_is_scoped(testroute: Route): ...
+async def test_ep_is_scoped(testroute: Route):
+    def ep():...
 
 
 async def test_ep_with_plugin(testroute: Route): ...

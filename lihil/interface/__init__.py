@@ -83,9 +83,6 @@ def is_set[T](val: Unset[T]) -> TypeGuard[T]:
     return val is not UNSET
 
 
-from ididi.utils.param_utils import MISSING as IDIDI_MISSING
-
-
 class RequestParamBase[T](Base):
     name: str
     type_: type[T] | UnionType

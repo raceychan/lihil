@@ -1,8 +1,13 @@
 # import pytest
+from typing import Annotated
+
 from starlette.requests import Request
 
-from lihil import Payload, Route, Text
+from lihil import Body, Graph, Payload, Route, Text
+from lihil.interface import CustomDecoder
 from lihil.plugins.testclient import LocalClient
+from lihil.problems import CustomValidationError
+from lihil.signature.signature import EndpointSignature
 from lihil.utils.json import encode_text
 
 route = Route("/{p}")
@@ -209,3 +214,17 @@ async def test_path_keys_not_consumed():
     assert resp.status_code == 200
     result = await resp.body()
     assert result == b"user: user123"
+
+
+def test_prepare_params_with_custom_validation_error():
+
+    def decoder_with_error(content):
+        raise CustomValidationError("aloha")
+
+    async def func(
+        user_id: Annotated[str, CustomDecoder(decoder_with_error)],
+        user_data: Annotated[Body[str], CustomDecoder(decoder_with_error)],
+    ): ...
+
+    sig = EndpointSignature.from_function(graph=Graph(), route_path="/route", f=func)
+    sig.prepare_params(req_query={"user_id": "adsf"}, body=b"asdf")
