@@ -187,7 +187,9 @@ class Endpoint[R]:
             elif p.processor:
                 await p.processor(params, request, resolver)
             else:
-                raise InvalidParamTypeError(ptype)
+                raise InvalidParamTypeError(
+                    f"Plugin {p.plugin} has no processor defined"
+                )
         return params
 
     async def make_static_call(self, scope: IScope, receive: IReceive, send: ISend):

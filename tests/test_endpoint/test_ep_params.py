@@ -1,8 +1,10 @@
 import sys
+from types import UnionType
 from typing import Annotated, Any, Union
 from unittest import mock
 
 import pytest
+from lihil.plugins.testclient import LocalClient
 
 from lihil import (
     MISSING,

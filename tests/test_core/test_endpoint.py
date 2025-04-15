@@ -1,4 +1,5 @@
 import uuid
+from types import UnionType
 from typing import Annotated, Any, Literal
 
 import pytest
@@ -27,10 +28,10 @@ from lihil.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.config import AppConfig, SecurityConfig
 from lihil.errors import MissingDependencyError, NotSupportedError, StatusConflictError
-from lihil.plugins.registry import PluginBase
+from lihil.plugins.registry import PluginBase, PluginParam
 from lihil.plugins.testclient import LocalClient
+from lihil.errors import InvalidParamTypeError
 
-# from lihil.utils.json import JsonDecoder
 from lihil.utils.threading import async_wrapper
 
 
@@ -723,14 +724,12 @@ async def test_ep_with_plugin(testroute: Route):
         ) -> None:
             params[self.name] = "processed"
 
-
     called: bool = False
+
     def func(p: Annotated[str, MyParamProcessor("p")]):
         nonlocal called
         called = True
         assert p == "processed"
-
-
 
     testroute.get(func)
 
@@ -741,3 +740,27 @@ async def test_ep_with_plugin(testroute: Route):
 
     await LocalClient()(ep)
     assert called
+
+
+async def test_plugin_without_processor(testroute: Route):
+
+    class MyPlugin(PluginBase):
+        def parse(
+            self, name: str, type_: type | UnionType, annotation: Any, default: Any
+        ) -> PluginParam:
+            return PluginParam(
+                type_=type_,
+                annotation=annotation,
+                name=name,
+                default=default,
+                plugin=self,
+            )
+
+    async def f(p: Annotated[str, MyPlugin()]): ...
+
+    testroute.get(f)
+    ep = testroute.get_endpoint(f)
+    ep.setup()
+
+    with pytest.raises(InvalidParamTypeError):
+        await LocalClient()(ep)
