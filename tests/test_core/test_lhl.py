@@ -951,7 +951,6 @@ async def test_init_lihil_with_middlewares():
     assert se == [1, 2]
 
 
-
 async def test_lhl_http_methods():
     lhl = Lihil()
 
@@ -966,7 +965,25 @@ async def test_lhl_add_sub_route_before_route():
 
     sub_route = parent_route / "sub"
 
-
-    lhl= Lihil()
+    lhl = Lihil()
 
     lhl.include_routes(sub_route, parent_route)
+
+
+async def test_lhl_rerpr():
+    config = AppConfig(server=ServerConfig(host="127.0.0.1", port=8000))
+    lhl = Lihil(app_config=config)
+    lhl_repr = repr(lhl)
+    assert lhl_repr
+
+
+async def test_lhl_add_seen_subroute():
+    parent_route = Route()
+
+    sub_route = parent_route / "sub"
+    ssub = parent_route / "second"
+
+
+    lhl = Lihil()
+
+    lhl.include_routes(parent_route, sub_route, __seen__={"/second"})

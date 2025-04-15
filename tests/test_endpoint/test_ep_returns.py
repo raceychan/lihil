@@ -15,7 +15,7 @@ from lihil.signature.returns import (
     parse_status,
     syncgen_encode_wrapper,
 )
-from lihil.errors import InvalidStatusError, StatusConflictError
+from lihil.errors import InvalidStatusError, StatusConflictError, NotSupportedError
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text
 from lihil.utils.typing import is_py_singleton
 
@@ -186,7 +186,8 @@ class PublicUser(Payload):
     user_email: str
 
 
-# def test_parse_jwt_return():
-#     rets = parse_returns(Resp[JWToken[Payload], 201])
-#     ret = rets[201]
-#     assert ret.encoder is jwt_encoder
+def test_parse_jwt_return():
+    from lihil.auth.jwt import JWToken
+
+    with pytest.raises(NotSupportedError):
+        rets = parse_returns(Resp[JWToken[Payload], 201])
