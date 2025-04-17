@@ -43,6 +43,33 @@ class ParseResult(Record):
 
 
 # TODO: we should rewrite this in cython, along with the request object
+
+
+def validate_param[T](
+    name: str,
+    alias: str,
+    raw_val: str | None,
+    param: RequestParam[T],
+) -> tuple[T, None] | tuple[None, ValidationProblem]:
+
+    if raw_val is None:
+        if is_provided(param.default):
+            return param.default, None
+        else:
+            return (None, MissingRequestParam(param.location, alias))
+    else:
+        try:
+            value = param.decode(raw_val)
+            return value, None
+        except ValidationError as mve:
+            error = InvalidDataType(param.location, name, str(mve))
+        except DecodeError:
+            error = InvalidJsonReceived(param.location, name)
+        except CustomValidationError as cve:  # type: ignore
+            error = CustomDecodeErrorMessage(param.location, name, cve.detail)
+        return None, error
+
+
 class EndpointSignature[R](Base):
     route_path: str
 
@@ -72,6 +99,7 @@ class EndpointSignature[R](Base):
         verrors: list[Any] = []
         params: dict[str, Any] = {}
 
+        # TODO: getlist for query
         zipped = (
             (self.header_params, req_header),
             (self.path_params, req_path),
@@ -84,51 +112,27 @@ class EndpointSignature[R](Base):
 
             for name, param in required.items():
                 alias = param.alias
-
-                # TODO: getlist for query
-                if (val := received.get(alias)) is None:
-                    if not param.required:
-                        params[name] = param.default
-                    else:
-                        err = MissingRequestParam(param.location, alias)
-                        verrors.append(err)
+                raw = received.get(alias)
+                val, error = validate_param(name, alias, raw, param)
+                if val:
+                    params[name] = val
                 else:
-                    try:
-                        params[name] = param.decode(val)
-                    except ValidationError as mve:
-                        error = InvalidDataType(param.location, name, str(mve))
-                        verrors.append(error)
-                    except DecodeError:
-                        error = InvalidJsonReceived(param.location, name)
-                        verrors.append(error)
-                    except CustomValidationError as cve:  # type: ignore
-                        error = CustomDecodeErrorMessage(
-                            param.location, name, cve.detail
-                        )
-                        verrors.append(error)
+                    verrors.append(error)
 
             # (self.query_params, req_query),
         if self.body_param and body is not None:
             name, param = self.body_param
             # empty bytes body or empty form body
             if body == b"" or (isinstance(body, FormData) and len(body) == 0):
-                if is_provided(param.default):
-                    body = param.default
-                else:
-                    err = MissingRequestParam("body", name)
-                    verrors.append(err)
+                raw = None
             else:
-                try:
-                    params[name] = param.decode(body)
-                except ValidationError as mve:
-                    error = InvalidDataType("body", name, str(mve))
-                    verrors.append(error)
-                except DecodeError:
-                    error = InvalidJsonReceived("body", name)
-                    verrors.append(error)
-                except CustomValidationError as cve:  # type: ignore
-                    error = CustomDecodeErrorMessage(param.location, name, cve.detail)
-                    verrors.append(error)
+                raw = body
+
+            val, error = validate_param(name, name, raw, param)
+            if val:
+                params[name] = val
+            else:
+                verrors.append(error)
 
         parsed_result = ParseResult(params, verrors)
         return parsed_result

@@ -88,7 +88,7 @@ class RequestParamBase[T](Base):
     type_: type[T] | UnionType
     annotation: Any
     alias: str = ""
-    default: Maybe[Any] = MISSING
+    default: Maybe[T] = MISSING
     required: bool = False
 
     @property
