@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
@@ -35,9 +34,13 @@ async def get_engine() -> Engine:
     return Engine()
 
 
+
 @rprofile.post("/profile/{pid}")
 async def profile(
-    pid: str, q: int, user: User, engine: Annotated[Engine, Depends(get_engine)]
+    pid: str,
+    q: int,
+    user: User,
+    engine: Annotated[Engine, Depends(get_engine)],
 ) -> User | Order:
 
     return User(id=user.id, name=user.name, email=user.email)

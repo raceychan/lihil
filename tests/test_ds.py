@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
-
 from typing import Annotated
+
 from msgspec.json import encode
 
 from lihil.ds.event import Envelope, Event, utc_now, uuid4_str
@@ -47,16 +47,16 @@ class User(Struct):
 
 
 side_effect: list[int] = []
+
+
 async def get_user() -> Ignore[User]:
     global side_effect
     side_effect.append(1)
     return User("test", 1)
 
 
-
 class EP:
-    def __init__(self, user: Annotated[User, use(get_user, reuse=False)]):
-        ...
+    def __init__(self, user: Annotated[User, use(get_user, reuse=False)]): ...
 
 
 # @pytest.mark.debug
@@ -71,3 +71,13 @@ class EP:
 #     dg.analyze(EP)
 
 #     breakpoint()
+
+
+from starlette.datastructures import QueryParams
+
+
+def test_query_param():
+    from msgspec import convert
+
+    qs = QueryParams("q=1&q=2")
+    assert convert(qs.getlist("q"), list[int], strict=False) == [1, 2]

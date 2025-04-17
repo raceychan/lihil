@@ -85,7 +85,14 @@ class EndpointSignature[R](Base):
             for name, param in required.items():
                 alias = param.alias
 
-                if (val := received.get(alias)) is not None:
+                # TODO: getlist for query
+                if (val := received.get(alias)) is None:
+                    if not param.required:
+                        params[name] = param.default
+                    else:
+                        err = MissingRequestParam(param.location, alias)
+                        verrors.append(err)
+                else:
                     try:
                         params[name] = param.decode(val)
                     except ValidationError as mve:
@@ -99,12 +106,8 @@ class EndpointSignature[R](Base):
                             param.location, name, cve.detail
                         )
                         verrors.append(error)
-                elif not param.required:
-                    params[name] = param.default
-                else:
-                    err = MissingRequestParam(param.location, alias)
-                    verrors.append(err)
 
+            # (self.query_params, req_query),
         if self.body_param and body is not None:
             name, param = self.body_param
             # empty bytes body or empty form body
@@ -163,7 +166,9 @@ class EndpointSignature[R](Base):
 
         parser = ParamParser(graph, path_keys, app_config=app_config)
         params = parser.parse(f, path_keys)
-        return_params = parse_returns(signature(f).return_annotation, app_config=app_config)
+        return_params = parse_returns(
+            signature(f).return_annotation, app_config=app_config
+        )
 
         default_status = next(iter(return_params))
         default_encoder = return_params[default_status].encoder

@@ -317,22 +317,15 @@ def test_analyze_endpoint_params(param_parser: ParamParser):
 
 
 def test_param_parser_parse_unions(param_parser: ParamParser):
-    res = param_parser.parse_param("test", dict[str, int] | list[int])
-
-    param = res[0]
-    assert param.location == "query"
-    assert param.type_ == Union[dict[str, int], list[int]]
-
-    res = param.decode('{"test": 2}')
-    assert isinstance(res, dict)
-
+    with pytest.raises(NotSupportedError):
+        param_parser.parse_param("test", dict[str, int] | list[int])
 
 def test_param_parser_parse_bytes_union(param_parser: ParamParser):
-    res = param_parser.parse_param("test", list[int] | bytes)
+    res = param_parser.parse_param("test", bytes)
 
     param = res[0]
     assert param.location == "query"
-    assert param.type_ == Union[list[int], bytes]
+    assert param.type_ ==  bytes
 
     res = param.decode('{"test": 2}')
     assert isinstance(res, bytes)
@@ -456,15 +449,15 @@ def test_multiple_body_is_not_suuported(param_parser: ParamParser):
         res.get_body()
 
 
-def test_parse_jwtoken_without_pyjwt_installed(param_parser: ParamParser):
+def test_parse_JWTAuth_without_pyjwt_installed(param_parser: ParamParser):
     with mock.patch.dict("sys.modules", {"jwt": None}):
         if "lihil.auth.jwt" in sys.modules:
             del sys.modules["lihil.auth.jwt"]
         del sys.modules["lihil.signature.params"]
 
-    from lihil.auth.jwt import JWToken
+    from lihil.auth.jwt import JWTAuth
 
-    def ep_expects_jwt(user_id: JWToken[str]): ...
+    def ep_expects_jwt(user_id: JWTAuth[str]): ...
 
     param_parser.app_config = AppConfig(
         security=SecurityConfig(jwt_secret="test", jwt_algorithms=["HS256"])
@@ -473,12 +466,12 @@ def test_parse_jwtoken_without_pyjwt_installed(param_parser: ParamParser):
     param_parser.parse(ep_expects_jwt)
 
 
-def test_jwtoken_with_custom_decoder(param_parser: ParamParser):
-    from lihil.auth.jwt import JWToken
+def test_JWTAuth_with_custom_decoder(param_parser: ParamParser):
+    from lihil.auth.jwt import JWTAuth
     from lihil.interface import CustomDecoder
 
     def ep_expects_jwt(
-        user_id: Annotated[JWToken[str], CustomDecoder(lambda c: c)],
+        user_id: Annotated[JWTAuth[str], CustomDecoder(lambda c: c)],
     ): ...
 
     param_parser.parse(ep_expects_jwt)
@@ -520,11 +513,10 @@ def test_http_excp_with_typealis():
 def test_param_with_meta(param_parser: ParamParser):
     PositiveInt = Annotated[int, msgspec.Meta(gt=0)]
     res = param_parser.parse_param("nums", list[PositiveInt])[0]
-    assert res.decode("[1,2,3]") == [1, 2, 3]
+    assert res.decode(["1","2","3"]) == [1, 2, 3]
 
     with pytest.raises(msgspec.ValidationError):
         res.decode("[1,2,3,-4]")
-
 
 
 @pytest.mark.skip("Not implemented")

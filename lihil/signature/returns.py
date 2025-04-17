@@ -112,7 +112,7 @@ def parse_return_pro(
             elif resp_type == "jw_token":
                 if app_config is None or app_config.security is None:
                     raise NotSupportedError(
-                        "Security config is required to use JWToken"
+                        "Security config is required to use JWTAuth"
                     )
 
                 from lihil.auth.jwt import jwt_encoder_factory

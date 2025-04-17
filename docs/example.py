@@ -1,6 +1,6 @@
 from lihil import Lihil, Payload, Route, field
 from lihil.config import AppConfig, SecurityConfig
-from lihil.auth.jwt import JWToken, JWTPayload
+from lihil.auth.jwt import JWTAuth, JWTPayload
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 
 me = Route("me")
@@ -22,19 +22,19 @@ token_based = OAuth2PasswordFlow(token_url="token")
 
 
 @me.get(auth_scheme=token_based)
-async def get_user(token: JWToken[UserPayload]) -> User:
+async def get_user(token: JWTAuth[UserPayload]) -> User:
     assert token.user_id == "user123"
     return User(name="user", email="user@email.com")
 
 
 @me.sub("test").get(auth_scheme=token_based)
-async def get_another_user(token: JWToken[UserPayload]) -> User:
+async def get_another_user(token: JWTAuth[UserPayload]) -> User:
     assert token.user_id == "user123"
     return User(name="user", email="user@email.com")
 
 
 @token.post
-async def create_token(credentials: OAuthLoginForm) -> JWToken[UserPayload]:
+async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserPayload]:
     assert credentials.username == "admin" and credentials.password == "admin"
     return UserPayload(user_id="user123")
 

@@ -187,7 +187,7 @@ class PublicUser(Payload):
 
 
 def test_parse_jwt_return():
-    from lihil.auth.jwt import JWToken
+    from lihil.auth.jwt import JWTAuth
 
     with pytest.raises(NotSupportedError):
-        rets = parse_returns(Resp[JWToken[Payload], 201])
+        rets = parse_returns(Resp[JWTAuth[Payload], 201])

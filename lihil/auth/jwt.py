@@ -187,7 +187,7 @@ else:
 
 
 type AuthHeader[T] = Annotated[T, Literal["Authorization"], HEADER_REQUEST_MARK]
-type JWToken[T: JWTPayload | str | bytes] = Annotated[
+type JWTAuth[T: JWTPayload | str | bytes] = Annotated[
     AuthHeader[T],
     JW_TOKEN_RETURN_MARK,
     "application/json",

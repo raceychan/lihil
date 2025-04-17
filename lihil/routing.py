@@ -43,6 +43,7 @@ from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.utils.string import (
     build_path_regex,
     generate_route_tag,
+    get_parent_path,
     merge_path,
     trim_path,
 )
@@ -276,18 +277,13 @@ class Route(ASGIBase):
     _flyweights: dict[str, "Route"] = {}
 
     def __new__(cls, path: str = "", **_):
-        """
-        TODO?: we need something more sophisticated
-
-        Route("/users/{user_id}/orders/{order_id}")
-        we should check if `Route(/users/{user_id}/orders)` is in _flyweight,
-        if parent exists, make new route a sub route of it.
-        if not, pass
-        """
         p = trim_path(path)
         if p_route := cls._flyweights.get(p):
             return p_route
+
         cls._flyweights[p] = route = super().__new__(cls)
+        if parent := cls._flyweights.get(get_parent_path(p)):
+            parent.subroutes.append(route)
         return route
 
     def __init__(  # type: ignore

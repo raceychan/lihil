@@ -90,7 +90,6 @@ class RequestParamBase[T](Base):
     alias: str = ""
     default: Maybe[Any] = MISSING
     required: bool = False
-    constraint: ParamConstraint | None = None
 
     @property
     def type_repr(self) -> str:

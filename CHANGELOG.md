@@ -594,7 +594,7 @@ res = await lc.submit_form(
 ```python
 from lihil import Lihil, Payload, Route, field
 from lihil.config import AppConfig, SecurityConfig
-from lihil.auth.jwt import JWToken, JWTPayload
+from lihil.auth.jwt import JWTAuth, JWTPayload
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 
 me = Route("me")
@@ -613,13 +613,13 @@ class User(Payload):
 
 
 @me.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))
-async def get_user(token: JWToken[UserPayload]) -> User:
+async def get_user(token: JWTAuth[UserPayload]) -> User:
     assert token.user_id == "user123"
     return User(name="user", email="user@email.com")
 
 
 @token.post
-async def create_token(credentials: OAuthLoginForm) -> JWToken[UserPayload]:
+async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserPayload]:
     assert credentials.username == "admin" and credentials.password == "admin"
     return UserPayload(user_id="user123")
 
@@ -683,7 +683,7 @@ def test_param_decoder_override(param_parser: ParamParser):
     assert r2.decoder is decoder2
 ```
 
-- now if `JWToken` fail to validate, raise `InvalidTokenError` with order status 401. This error would be displayed in swagger ui for endpoints that requires `auth_scheme`.
+- now if `JWTAuth` fail to validate, raise `InvalidTokenError` with order status 401. This error would be displayed in swagger ui for endpoints that requires `auth_scheme`.
 
 - making `lihil.auth` a top level package
 
@@ -719,6 +719,10 @@ ep = lc.make_endpoint(f)
 
 ## version 0.2.1
 
-- rename `JWToken` to `JWTAuth`, we might have `BasicAuth`, `DigestAuth` later
+- rename `JWTAuth` to `JWTAuth`, we might have `BasicAuth`, `DigestAuth` later
 
 - refactor decoder for textual params, including header, query, path, etc.
+use msgspec.convert instead of msgspec.json.decode
+
+- support multi values query
+- support param constraints

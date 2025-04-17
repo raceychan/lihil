@@ -24,7 +24,7 @@ from lihil import (
     field,
     status,
 )
-from lihil.auth.jwt import JWToken, JWTPayload, jwt_decoder_factory
+from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.config import AppConfig, SecurityConfig
 from lihil.errors import (
@@ -536,7 +536,7 @@ class UserProfile(JWTPayload):
 
 async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
 
-    async def get_token(form: OAuthLoginForm) -> JWToken[UserProfile]:
+    async def get_token(form: OAuthLoginForm) -> JWTAuth[UserProfile]:
         return UserProfile(user_id="1", user_name=form.username)
 
     testroute.post(get_token)
@@ -579,7 +579,7 @@ async def test_oauth2_not_plugin():
 
 
 async def test_endpoint_with_jwt_decode_fail(testroute: Route, lc: LocalClient):
-    async def get_me(token: JWToken[UserProfile]):
+    async def get_me(token: JWTAuth[UserProfile]):
         assert isinstance(token, UserProfile)
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
@@ -598,7 +598,7 @@ async def test_endpoint_with_jwt_decode_fail(testroute: Route, lc: LocalClient):
 async def test_endpoint_with_jwt_fail_without_security_config(
     testroute: Route, lc: LocalClient
 ):
-    async def get_me(token: JWToken[UserProfile]):
+    async def get_me(token: JWTAuth[UserProfile]):
         assert isinstance(token, UserProfile)
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
@@ -610,11 +610,11 @@ async def test_endpoint_with_jwt_fail_without_security_config(
 
 
 async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
-    async def get_me(token: JWToken[UserProfile]) -> Resp[Text, status.OK]:
+    async def get_me(token: JWTAuth[UserProfile]) -> Resp[Text, status.OK]:
         assert token.user_id == "1" and token.user_name == "2"
         return "ok"
 
-    async def login_get_token(login_form: OAuthLoginForm) -> JWToken[UserProfile]:
+    async def login_get_token(login_form: OAuthLoginForm) -> JWTAuth[UserProfile]:
         return UserProfile(user_id="1", user_name="2")
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
@@ -651,11 +651,11 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
 async def test_endpoint_login_and_validate_with_str_resp(
     testroute: Route, lc: LocalClient
 ):
-    async def get_me(token: JWToken[str]) -> Resp[Text, status.OK]:
+    async def get_me(token: JWTAuth[str]) -> Resp[Text, status.OK]:
         assert token == "user_id"
         return "ok"
 
-    async def login_get_token(login_form: OAuthLoginForm) -> JWToken[str]:
+    async def login_get_token(login_form: OAuthLoginForm) -> JWTAuth[str]:
         return "user_id"
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)

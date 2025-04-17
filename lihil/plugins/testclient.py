@@ -1,4 +1,4 @@
-from inspect import iscoroutinefunction, isfunction
+from inspect import iscoroutinefunction
 from time import perf_counter
 from typing import (
     Any,
@@ -236,15 +236,17 @@ class LocalClient:
         method: str,
         path: str,
         path_params: dict[str, Any] | None = None,
+        query_string: bytes | None = None,
         query_params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         body: Union[bytes, str, dict[str, Any], Payload] | None = None,
         stream: bool = False,
     ) -> RequestResult:
         # Prepare query string
-        query_string = b""
+        query_string = query_string if query_string is not None else b""
+
         if query_params:
-            query_string = urlencode(query_params).encode("utf-8")
+            query_string = query_string + urlencode(query_params).encode("utf-8")
 
         # Prepare headers
         request_headers = self.base_headers.copy()

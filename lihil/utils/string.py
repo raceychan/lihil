@@ -71,6 +71,17 @@ def trim_path(path: str) -> str:
     return path
 
 
+def get_parent_path(path: str) -> str:
+    # Remove trailing slash if present
+    if path.endswith("/"):
+        return path[:-1]
+
+    # Find the last slash and return everything before it
+    last_slash_index = path.rindex("/")
+    parent = path[:last_slash_index]
+    return parent
+
+
 def merge_path(parent_path: str, sub_path: str) -> str:
     """
     parent_path = "/users"

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from types import GenericAlias, UnionType
 from typing import (
     Annotated,
@@ -78,6 +79,24 @@ def is_text_type(t: type | UnionType) -> bool:
         return any(u in (str, bytes) for u in union_args)
 
     return t in (str, bytes)
+
+
+"""
+TODO:
+we need to separate current RequestParam,
+we might need a dedicate class for query param
+1. there is getlist for query param
+2. query param can be a sequence of object, whereas path, header, cookie can only be kv pair.
+"""
+
+
+def is_mapping_type(qtype: type | UnionType) -> bool:
+    if is_union_type(qtype):
+        q_union_args = get_args(qtype)
+        return any(is_mapping_type(q) for q in q_union_args)
+
+    qorigin = ty_get_origin(qtype) or qtype
+    return qorigin is dict or isinstance(qorigin, type) and issubclass(qorigin, Mapping)
 
 
 # TODO: carry type_args, StriDict[int] -> tyargs = ()

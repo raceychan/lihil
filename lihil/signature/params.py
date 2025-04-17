@@ -1,16 +1,7 @@
 from copy import deepcopy
 from inspect import Parameter, signature
 from types import GenericAlias, UnionType
-from typing import (
-    Annotated,
-    Any,
-    TypeAliasType,
-    TypeGuard,
-    Union,
-    cast,
-    get_args,
-    get_origin,
-)
+from typing import Any, TypeAliasType, TypeGuard, Union, cast, get_args, get_origin
 from warnings import warn
 
 from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
@@ -28,7 +19,6 @@ from lihil.interface import (
     BodyContentType,
     CustomDecoder,
     Maybe,
-    ParamConstraint,
     ParamLocation,
     RequestParamBase,
 )
@@ -41,9 +31,14 @@ from lihil.interface.marks import (
 from lihil.interface.struct import Base, IDecoder, IFormDecoder
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
-from lihil.utils.json import build_union_decoder, decoder_factory
+from lihil.utils.json import decoder_factory
 from lihil.utils.string import parse_header_key
-from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
+from lihil.utils.typing import (
+    get_origin_pro,
+    is_mapping_type,
+    is_nontextual_sequence,
+    is_union_type,
+)
 from lihil.vendor_types import FormData, Request, UploadFile
 
 type ParsedParam[T] = RequestParam[T] | PluginParam | RequestBodyParam[
@@ -71,35 +66,27 @@ def is_body_param(annt: Any) -> bool:
         return issubclass(annt, Struct) or is_file_body(annt)
 
 
-# TODO: we should differentiate structual data and non-structual data
-# if it is structual data, it should be json-encoded string, so we use decoder to handle it
-# other wise, it should be hanlded by msgspec.convert
-# for example, convert("3.14", Annotated[float, Meta(lt=1)], strict=False)
-# we receive: ValidationError: Expected `float` < 1.0
-# ididi.utils.typing is_builtin_primitive
-
-
-def textdecoder_factory(
-    param_type: type | UnionType | GenericAlias,
-) -> IDecoder[str, Any]:
+def textdecoder_factory[T](
+    param_type: type[T] | UnionType | GenericAlias,
+) -> IDecoder[str, T]:
     if is_union_type(param_type):
         union_args = get_args(param_type)
-        if str in union_args:
-            return build_union_decoder(union_args, str)
         if bytes in union_args:
-            return build_union_decoder(union_args, bytes)
-        else:
-            return decoder_factory(param_type)
+            raise NotSupportedError(
+                "Union of bytes and other types is not supported, as it is always valid to decode the object as bytes"
+            )
+    else:
+        if param_type is bytes:
 
-    def str_decoder(content: str):
-        return convert(content, param_type)
+            def str_to_bytes(content: str) -> bytes:
+                return content.encode("utf-8")
 
-    if param_type is str:
-        return str_decoder
+            return cast(IDecoder[str, T], str_to_bytes)  # here T is bytes
 
-    elif param_type is bytes:
-        return lambda x: x.encode()
-    return decoder_factory(param_type)
+    def converter(content: str) -> T:
+        return convert(content, param_type, strict=False)
+
+    return converter
 
 
 def filedeocder_factory(filename: str):
@@ -129,10 +116,14 @@ def file_body_param(
 
 def formdecoder_factory[T](
     ptype: type[T] | UnionType,
-) -> IFormDecoder[T] | IDecoder[bytes, T]:
+) -> IFormDecoder[T] | IDecoder[bytes, T] | IDecoder[bytes, bytes]:
+
+    def dummy_decoder(content: bytes) -> bytes:
+        return content
+
     if not isinstance(ptype, type) or not issubclass(ptype, Struct):
         if ptype is bytes:
-            return lambda x: x
+            return dummy_decoder
 
         raise NotSupportedError(
             f"Currently only bytes or subclass of Struct is supported for `Form`, received {ptype}"
@@ -161,6 +152,8 @@ def formdecoder_factory[T](
 
 
 # TODO: we might support multiple decoders/encoders
+
+
 class RequestParam[T](RequestParamBase[T], kw_only=True):
     location: ParamLocation
     decoder: IDecoder[str, T] = None  # type: ignore
@@ -170,6 +163,10 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         if self.location == "path" and not self.required:
             raise NotSupportedError(
                 f"Path param {self} with default value is not supported"
+            )
+        if self.location == "query" and is_mapping_type(self.type_):
+            raise NotSupportedError(
+                f"query param should not be declared as mapping, or a union that contains mapping, received: {self.type_}"
             )
 
         if cast(Any, self.decoder) is None:
@@ -186,8 +183,6 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         for decoder in self.decoders:
             contennt = decoder(content)
         """
-        if self.constraint:
-            self.decoder(Annotated[self.type_, self.constraint])
         return self.decoder(content)
 
 
@@ -210,7 +205,7 @@ class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
 class ParamMetas(Base):
     metas: tuple[Any, ...]
 
-    custom_decoder: CustomDecoder | None
+    custom_decoder: IDecoder[Any, Any] | None
     mark_type: ParamMarkType | None
     factory: INode[..., Any] | None = None
     node_config: NodeConfig | None = None
@@ -218,13 +213,13 @@ class ParamMetas(Base):
     @classmethod
     def from_metas(cls, metas: list[Any]) -> "ParamMetas":
         current_mark_type = None
-        decoder = None
+        custom_decoder = None
         factory = None
         config = None
 
         for idx, meta in enumerate(metas):
             if isinstance(meta, CustomDecoder):
-                decoder = meta
+                custom_decoder = meta
             elif mark_type := extract_mark_type(meta):
                 if current_mark_type and mark_type is not current_mark_type:
                     raise NotSupportedError("can't use more than one param mark")
@@ -236,7 +231,7 @@ class ParamMetas(Base):
 
         return ParamMetas(
             metas=tuple(metas),
-            custom_decoder=decoder,
+            custom_decoder=custom_decoder.decode if custom_decoder else None,
             mark_type=current_mark_type,
             factory=factory,
             node_config=config,
@@ -301,28 +296,54 @@ class ParamParser:
         else:
             return issubclass(param_type, self.plugin_types)
 
+    def _build_reqparam[T](
+        self,
+        name: str,
+        alias: str,
+        param_type: type[T] | UnionType,
+        annotation: Any,
+        default: Maybe[T],
+        param_metas: ParamMetas | None = None,
+        location: ParamLocation = "query",
+    ) -> RequestParam[T]:
+        if param_metas and param_metas.custom_decoder:
+            decoder = param_metas.custom_decoder
+        else:
+            decoder = textdecoder_factory(param_type)
+
+        req_param = RequestParam(
+            name=name,
+            alias=alias,
+            type_=param_type,
+            annotation=annotation,
+            decoder=decoder,
+            location=location,
+            default=default,
+        )
+        return req_param
+
     def _parse_rule_based[T](
         self,
         name: str,
         param_type: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_meta: ParamMetas | None = None,
+        param_metas: ParamMetas | None = None,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
         custom_decoder = None
-        if param_meta and param_meta.custom_decoder:
-            custom_decoder = param_meta.custom_decoder.decode
+        if param_metas and param_metas.custom_decoder:
+            custom_decoder = param_metas.custom_decoder
 
         if name in self.path_keys:  # simplest case
             self.seen.discard(name)
-            req_param = RequestParam(
+            req_param = self._build_reqparam(
                 name=name,
                 alias=name,
-                type_=param_type,
+                param_type=param_type,
                 annotation=annotation,
-                decoder=custom_decoder,
-                location="path",
                 default=default,
+                param_metas=param_metas,
+                location="path",
             )
         elif self.is_plugin_type(param_type):
             return [
@@ -359,18 +380,19 @@ class ParamParser:
                 sub_params = self.parse_param(dep_name, ptype, default)
                 params.extend(sub_params)
             return params
-
-        elif param_meta and param_meta.factory:  # Annotated[Dep, use(dep_factory)]
-            assert param_meta.node_config
-            node = self.graph.analyze(param_meta.factory, config=param_meta.node_config)
+        elif param_metas and param_metas.factory:  # Annotated[Dep, use(dep_factory)]
+            assert param_metas.node_config
+            node = self.graph.analyze(
+                param_metas.factory, config=param_metas.node_config
+            )
             return self._parse_node(node)
         else:  # default case, treat as query
-            req_param = RequestParam(
+            req_param = self._build_reqparam(
                 name=name,
                 alias=name,
-                type_=param_type,
+                param_type=param_type,
                 annotation=annotation,
-                decoder=custom_decoder,
+                param_metas=param_metas,
                 location="query",
                 default=default,
             )
@@ -394,22 +416,21 @@ class ParamParser:
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_meta: ParamMetas,
-        custom_decoder: IDecoder[str, Any] | None,
+        param_metas: ParamMetas,
     ) -> ParsedParam[T]:
-
         # TODO: auth_header_decoder
-        if JW_TOKEN_RETURN_MARK not in param_meta.metas:
-            return RequestParam(
+        if JW_TOKEN_RETURN_MARK not in param_metas.metas:
+            return self._build_reqparam(
                 name=name,
                 alias=header_key,
-                type_=type_,
+                param_type=type_,
                 annotation=annotation,
-                decoder=custom_decoder,
+                param_metas=param_metas,
                 location="header",
                 default=default,
             )
         else:
+            custom_decoder = param_metas.custom_decoder
             if custom_decoder is None:
                 if self.app_config is None or self.app_config.security is None:
                     raise MissingDependencyError("security config")
@@ -418,7 +439,6 @@ class ParamParser:
                 algos = sec_config.jwt_algorithms
                 from lihil.auth.jwt import jwt_decoder_factory
 
-                # TODO: replace jwt_decoder with plain auth_decoder
                 decoder = jwt_decoder_factory(
                     secret=secret, algorithms=algos, payload_type=type_
                 )
@@ -434,7 +454,6 @@ class ParamParser:
                 location="header",
                 default=default,
             )
-
         return req_param
 
     def _parse_marked[T](
@@ -443,12 +462,12 @@ class ParamParser:
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_meta: ParamMetas,
+        param_metas: ParamMetas,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
         custom_decoder = (
-            param_meta.custom_decoder.decode if param_meta.custom_decoder else None
+            param_metas.custom_decoder if param_metas.custom_decoder else None
         )
-        mark_type = param_meta.mark_type
+        mark_type = param_metas.mark_type
 
         if mark_type == "use":
             node = self.graph.analyze(type_)
@@ -461,7 +480,7 @@ class ParamParser:
 
             if mark_type == "header":
                 location = "header"
-                header_key = parse_header_key(name, param_meta.metas).lower()
+                header_key = parse_header_key(name, param_metas.metas).lower()
                 if header_key == "authorization":
                     return self._parse_auth_header(
                         name=name,
@@ -469,8 +488,7 @@ class ParamParser:
                         type_=type_,
                         annotation=annotation,
                         default=default,
-                        param_meta=param_meta,
-                        custom_decoder=custom_decoder,
+                        param_metas=param_metas,
                     )
                 else:
                     param_alias = header_key
@@ -505,15 +523,14 @@ class ParamParser:
             else:
                 location = "query"
 
-            decoder = custom_decoder or textdecoder_factory(type_)
-            req_param = RequestParam(
+            req_param = self._build_reqparam(
                 name=name,
                 alias=param_alias,
-                type_=type_,
+                param_type=type_,
                 annotation=annotation,
-                decoder=decoder,
                 location=location,
                 default=default,
+                param_metas=param_metas,
             )
             return req_param
 
@@ -567,7 +584,7 @@ class ParamParser:
                 param_type=parsed_type,
                 annotation=annotation,
                 default=default,
-                param_meta=param_metas,
+                param_metas=param_metas,
             )
         else:
             res = self._parse_marked(
@@ -575,7 +592,7 @@ class ParamParser:
                 type_=parsed_type,
                 annotation=annotation,
                 default=default,
-                param_meta=param_metas,
+                param_metas=param_metas,
             )
         return res if isinstance(res, list) else [res]
 
