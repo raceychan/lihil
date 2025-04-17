@@ -140,7 +140,7 @@ def formdecoder_factory[T](
                 val = form_data.get(ffield.encode_name)
 
             if val is None:
-                if ffield.required:  # has not diffult
+                if ffield.required:  # has not default
                     continue  # let msgspec `convert` raise error
                 val = deepcopy(ffield.default)
 
@@ -160,6 +160,7 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
 
     def __post_init__(self):
         super().__post_init__()
+
         if self.location == "path" and not self.required:
             raise NotSupportedError(
                 f"Path param {self} with default value is not supported"
@@ -306,7 +307,7 @@ class ParamParser:
         param_metas: ParamMetas | None = None,
         location: ParamLocation = "query",
     ) -> RequestParam[T]:
-        if param_metas and param_metas.custom_decoder:
+        if param_metas:
             decoder = param_metas.custom_decoder
         else:
             decoder = textdecoder_factory(param_type)
@@ -386,7 +387,7 @@ class ParamParser:
                 param_metas.factory, config=param_metas.node_config
             )
             return self._parse_node(node)
-        else:  # default case, treat as query
+        else:  # default case
             req_param = self._build_reqparam(
                 name=name,
                 alias=name,

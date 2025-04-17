@@ -16,7 +16,8 @@ from lihil.problems import (
     ValidationProblem,
 )
 from lihil.utils.string import find_path_keys
-from lihil.vendor_types import FormData
+from lihil.utils.typing import is_nontextual_sequence
+from lihil.vendor_types import FormData, QueryParams
 
 from .params import ParamParser, PluginParam, RequestBodyParam, RequestParam
 from .returns import EndpointReturn, parse_returns
@@ -42,16 +43,12 @@ class ParseResult(Record):
         return self.params[key]
 
 
-# TODO: we should rewrite this in cython, along with the request object
-
-
 def validate_param[T](
     name: str,
     alias: str,
     raw_val: str | None,
     param: RequestParam[T],
 ) -> tuple[T, None] | tuple[None, ValidationProblem]:
-
     if raw_val is None:
         if is_provided(param.default):
             return param.default, None
@@ -68,6 +65,21 @@ def validate_param[T](
         except CustomValidationError as cve:  # type: ignore
             error = CustomDecodeErrorMessage(param.location, name, cve.detail)
         return None, error
+
+
+def validate_body[T](
+    name: str, raw_val: bytes | FormData, param: RequestBodyParam[T]
+) -> tuple[T, None] | tuple[None, ValidationProblem]:
+    try:
+        value = param.decode(raw_val)
+        return value, None
+    except ValidationError as mve:
+        error = InvalidDataType(param.location, name, str(mve))
+    except DecodeError:
+        error = InvalidJsonReceived(param.location, name)
+    except CustomValidationError as cve:  # type: ignore
+        error = CustomDecodeErrorMessage(param.location, name, cve.detail)
+    return None, error
 
 
 class EndpointSignature[R](Base):
@@ -92,7 +104,7 @@ class EndpointSignature[R](Base):
     def prepare_params(
         self,
         req_path: Mapping[str, Any] | None = None,
-        req_query: Mapping[str, Any] | None = None,
+        req_query: QueryParams[str, Any] | None = None,
         req_header: Mapping[str, Any] | None = None,
         body: bytes | FormData | None = None,
     ) -> ParseResult:
@@ -103,7 +115,6 @@ class EndpointSignature[R](Base):
         zipped = (
             (self.header_params, req_header),
             (self.path_params, req_path),
-            (self.query_params, req_query),
         )
 
         for required, received in zipped:
@@ -119,16 +130,32 @@ class EndpointSignature[R](Base):
                 else:
                     verrors.append(error)
 
-            # (self.query_params, req_query),
+        if req_query:
+            for name, param in self.query_params.items():
+                alias = param.alias
+
+                if is_nontextual_sequence(param.type_):
+                    raw = req_query.getlist(alias)
+                else:
+                    raw = req_query.get(alias)
+
+                val, error = validate_param(name, alias, raw, param)
+                if val:
+                    params[name] = val
+                else:
+                    verrors.append(error)
+
         if self.body_param and body is not None:
             name, param = self.body_param
-            # empty bytes body or empty form body
-            if body == b"" or (isinstance(body, FormData) and len(body) == 0):
-                raw = None
-            else:
-                raw = body
 
-            val, error = validate_param(name, name, raw, param)
+            if body == b"" or (isinstance(body, FormData) and len(body) == 0):
+                if is_provided(param.default):
+                    val, error = param.default, None
+                else:
+                    val, error = (None, MissingRequestParam(param.location, name))
+            else:
+                val, error = validate_body(name, body, param)
+
             if val:
                 params[name] = val
             else:

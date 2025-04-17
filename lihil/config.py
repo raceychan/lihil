@@ -62,15 +62,19 @@ def deep_update(original: StrDict, update_data: StrDict) -> StrDict:
     """
     Recursively update a nested dictionary without overwriting entire nested structures.
     """
+
+    def both_instance(a: Any, b: Any, t: type) -> bool:
+        return isinstance(a, t) and isinstance(b, t)
+
     for key, value in update_data.items():
-        if (
-            key in original
-            and isinstance(original[key], dict)
-            and isinstance(value, dict)
-        ):
-            deep_update(original[key], cast(Any, value))
-        else:
+        if key not in original:
             original[key] = value
+        else:
+            ori_val = original[key]
+            if both_instance(ori_val, value, dict):
+                deep_update(cast(StrDict, ori_val), cast(StrDict, value))
+            else:
+                original[key] = value
     return original
 
 

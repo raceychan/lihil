@@ -762,3 +762,23 @@ async def test_plugin_without_processor(testroute: Route):
     lc = LocalClient()
     with pytest.raises(InvalidParamTypeError):
         await lc(lc.make_endpoint(f))
+
+
+async def test_endpoint_with_repeat_query():
+    called = False
+
+    async def get_cart(names: list[int]) -> Empty:
+        nonlocal called
+        assert all(isinstance(n, int) for n in names)
+        called = True
+
+    lc = LocalClient()
+    res = await lc.request(
+        lc.make_endpoint(get_cart),
+        method="GET",
+        path="/",
+        query_string="names=5&names=6",
+    )
+
+    res = await res.text()
+    assert called
