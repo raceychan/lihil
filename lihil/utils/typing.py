@@ -58,7 +58,7 @@ def is_union_type(
     return ty_get_origin(t) in (Union, UnionType)
 
 
-def is_nontextual_sequence(type_: Any):
+def is_nontextual_sequence(type_: Any, strict: bool = False):
     while isinstance(type_, TypeAliasType):
         type_ = type_.__value__
 
@@ -70,7 +70,13 @@ def is_nontextual_sequence(type_: Any):
     if type_origin in (str, bytes):
         return False
 
-    return issubclass(type_origin, Sequence)
+    if issubclass(type_origin, Sequence):
+        return True
+
+    return not strict and (type_origin) in (set, frozenset)
+
+
+
 
 
 def is_text_type(t: type | UnionType) -> bool:
@@ -79,15 +85,6 @@ def is_text_type(t: type | UnionType) -> bool:
         return any(u in (str, bytes) for u in union_args)
 
     return t in (str, bytes)
-
-
-"""
-TODO:
-we need to separate current RequestParam,
-we might need a dedicate class for query param
-1. there is getlist for query param
-2. query param can be a sequence of object, whereas path, header, cookie can only be kv pair.
-"""
 
 
 def is_mapping_type(qtype: type | UnionType) -> bool:

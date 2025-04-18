@@ -68,7 +68,7 @@ def is_body_param(annt: Any) -> bool:
 
 def textdecoder_factory[T](
     param_type: type[T] | UnionType | GenericAlias,
-) -> IDecoder[str, T]:
+) -> IDecoder[str | list[str], T]:
     if is_union_type(param_type):
         union_args = get_args(param_type)
         if bytes in union_args:
@@ -77,13 +77,11 @@ def textdecoder_factory[T](
             )
     else:
         if param_type is bytes:
-
             def str_to_bytes(content: str) -> bytes:
                 return content.encode("utf-8")
+            return cast(IDecoder[str | list[str], T], str_to_bytes)  # here T is bytes
 
-            return cast(IDecoder[str, T], str_to_bytes)  # here T is bytes
-
-    def converter(content: str) -> T:
+    def converter(content: str | list[str]) -> T:
         return convert(content, param_type, strict=False)
 
     return converter
@@ -156,7 +154,7 @@ def formdecoder_factory[T](
 
 class RequestParam[T](RequestParamBase[T], kw_only=True):
     location: ParamLocation
-    decoder: IDecoder[str, T] = None  # type: ignore
+    decoder: IDecoder[str | list[str], T] = None  # type: ignore
 
     def __post_init__(self):
         super().__post_init__()
@@ -179,7 +177,7 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         )
         return f"RequestParam<{self.location}> ({name_repr}: {self.type_repr})"
 
-    def decode(self, content: str) -> T:
+    def decode(self, content: str | list[str]) -> T:
         """
         for decoder in self.decoders:
             contennt = decoder(content)

@@ -36,6 +36,7 @@ from lihil.errors import (
 from lihil.plugins.registry import PluginBase, PluginParam
 from lihil.plugins.testclient import LocalClient
 from lihil.utils.threading import async_wrapper
+from lihil.utils.typing import is_nontextual_sequence
 
 
 class User(Payload, kw_only=True):
@@ -764,7 +765,7 @@ async def test_plugin_without_processor(testroute: Route):
         await lc(lc.make_endpoint(f))
 
 
-async def test_endpoint_with_repeat_query():
+async def test_endpoint_with_list_query():
     called = False
 
     async def get_cart(names: list[int]) -> Empty:
@@ -782,3 +783,29 @@ async def test_endpoint_with_repeat_query():
 
     res = await res.text()
     assert called
+
+
+async def test_endpoint_with_tuple_query():
+    called = False
+
+    async def get_cart(names: tuple[int, ...]) -> Empty:
+        nonlocal called
+        assert isinstance(names, tuple)
+        assert all(isinstance(n, int) for n in names)
+        called = True
+
+    lc = LocalClient()
+    res = await lc.request(
+        lc.make_endpoint(get_cart),
+        method="GET",
+        path="/",
+        query_string=b"names=5&names=6",
+    )
+
+    res = await res.text()
+    assert called
+
+
+def test_set_1d_iterable():
+    for t in (set, frozenset, tuple, list):
+        assert is_nontextual_sequence(t)

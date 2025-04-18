@@ -1,6 +1,7 @@
 # import pytest
 from typing import Annotated
 
+from starlette.datastructures import QueryParams
 from starlette.requests import Request
 
 from lihil import Body, Graph, Payload, Route, Text
@@ -218,7 +219,7 @@ async def test_path_keys_not_consumed():
 
 def test_prepare_params_with_custom_validation_error():
 
-    def decoder_with_error(content):
+    def decoder_with_error(content: str):
         raise CustomValidationError("aloha")
 
     async def func(
@@ -227,4 +228,4 @@ def test_prepare_params_with_custom_validation_error():
     ): ...
 
     sig = EndpointSignature.from_function(graph=Graph(), route_path="/route", f=func)
-    sig.prepare_params(req_query={"user_id": "adsf"}, body=b"asdf")
+    sig.prepare_params(req_query=QueryParams({"user_id": "adsf"}), body=b"asdf")

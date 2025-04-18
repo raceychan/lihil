@@ -46,7 +46,7 @@ class ParseResult(Record):
 def validate_param[T](
     name: str,
     alias: str,
-    raw_val: str | None,
+    raw_val: str | list[str] | None,
     param: RequestParam[T],
 ) -> tuple[T, None] | tuple[None, ValidationProblem]:
     if raw_val is None:
@@ -133,8 +133,9 @@ class EndpointSignature[R](Base):
         if req_query:
             for name, param in self.query_params.items():
                 alias = param.alias
+                ptype = param.type_
 
-                if is_nontextual_sequence(param.type_):
+                if is_nontextual_sequence(ptype):
                     raw = req_query.getlist(alias)
                 else:
                     raw = req_query.get(alias)
