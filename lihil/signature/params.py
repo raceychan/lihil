@@ -50,7 +50,7 @@ from lihil.utils.typing import (
 )
 from lihil.vendor_types import FormData, Request, UploadFile
 
-type ParsedParam[T] = PathParam[T] | PluginParam | BodyParam[T] | DependentNode
+type ParsedParam[T] = RequestParam[T] | BodyParam[T] | DependentNode | PluginParam
 
 
 LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver)
@@ -173,7 +173,7 @@ class PathParam[T](RequestParamBase[T], kw_only=True):
     def __post_init__(self):
         super().__post_init__()
 
-        if self.location == "path" and not self.required:
+        if not self.required:
             raise NotSupportedError(
                 f"Path param {self} with default value is not supported"
             )
@@ -214,7 +214,7 @@ class QueryParam[T](RequestParamBase[T]):
         name_repr = (
             self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
         )
-        return f"PathParam<{self.location}> ({name_repr}: {self.type_repr})"
+        return f"QueryParam<{self.location}> ({name_repr}: {self.type_repr})"
 
     def decode(self, content: str | list[str]) -> T:
         """
@@ -281,12 +281,12 @@ class ParamMetas(Base):
 
 
 class EndpointParams(Base, kw_only=True):
-    params: dict[str, PathParam[Any]] = field(default_factory=dict)
+    params: dict[str, RequestParam[Any]] = field(default_factory=dict)
     bodies: dict[str, BodyParam[Any]] = field(default_factory=dict)
     nodes: dict[str, DependentNode] = field(default_factory=dict)
     plugins: dict[str, PluginParam] = field(default_factory=dict)
 
-    def get_location(self, location: ParamLocation) -> dict[str, PathParam[Any]]:
+    def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.location == location}
 
     def get_body(self) -> tuple[str, BodyParam[Any]] | None:
@@ -669,7 +669,7 @@ class ParamParser:
         if path_keys:
             self.path_keys += path_keys
 
-        params = dict[str, PathParam[Any]]()
+        params = dict[str, RequestParam[Any]]()
         bodies = dict[str, BodyParam[Any]]()
         nodes = dict[str, DependentNode]()
         plugins = dict[str, PluginParam]()

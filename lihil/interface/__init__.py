@@ -1,7 +1,7 @@
 # from types import GenericAlias, UnionType
 from dataclasses import dataclass
 from types import UnionType
-from typing import Any, Callable, Literal
+from typing import Any, Callable, ClassVar, Literal
 from typing import Protocol as Protocol
 from typing import TypeGuard, Union, get_args
 
@@ -86,6 +86,7 @@ def is_set[T](val: Unset[T]) -> TypeGuard[T]:
 class RequestParamBase[T](Base):
     name: str
     type_: type[T] | UnionType
+    location: ClassVar[ParamLocation]
     annotation: Any
     alias: str = ""
     default: Maybe[T] = MISSING
@@ -105,3 +106,9 @@ class RequestParamBase[T](Base):
         if not self.alias:
             self.alias = self.name
         self.required = self.default is MISSING
+
+    def __repr__(self) -> str:
+        name_repr = (
+            self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
+        )
+        return f"{self.__class__.__name__}<{self.location}> ({name_repr}: {self.type_repr})"

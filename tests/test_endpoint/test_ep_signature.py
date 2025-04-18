@@ -229,3 +229,13 @@ def test_prepare_params_with_custom_validation_error():
 
     sig = EndpointSignature.from_function(graph=Graph(), route_path="/route", f=func)
     sig.prepare_params(req_query=QueryParams({"user_id": "adsf"}), body=b"asdf")
+
+
+async def test_query_with_default():
+    async def func(name: tuple[str, ...] = ("aloha",)):
+        assert name == ("aloha",)
+
+    lc = LocalClient()
+
+    resp = await lc.call_endpoint(lc.make_endpoint(func))
+    res = await resp.body()
