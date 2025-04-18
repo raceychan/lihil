@@ -1,7 +1,16 @@
 from copy import deepcopy
 from inspect import Parameter, signature
 from types import GenericAlias, UnionType
-from typing import Any, TypeAliasType, TypeGuard, Union, cast, get_args, get_origin
+from typing import (
+    Any,
+    ClassVar,
+    TypeAliasType,
+    TypeGuard,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 from warnings import warn
 
 from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
@@ -41,9 +50,7 @@ from lihil.utils.typing import (
 )
 from lihil.vendor_types import FormData, Request, UploadFile
 
-type ParsedParam[T] = RequestParam[T] | PluginParam | RequestBodyParam[
-    T
-] | DependentNode
+type ParsedParam[T] = PathParam[T] | PluginParam | BodyParam[T] | DependentNode
 
 
 LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver)
@@ -99,10 +106,10 @@ def filedeocder_factory(filename: str):
 
 def file_body_param(
     name: str, type_: type[UploadFile], annotation: Any, default: Any
-) -> "RequestBodyParam[Any]":
+) -> "BodyParam[Any]":
     decoder = filedeocder_factory(name)
     content_type = "multipart/form-data"
-    req_param = RequestBodyParam(
+    req_param = BodyParam(
         name=name,
         alias=name,
         type_=type_,
@@ -154,8 +161,13 @@ def formdecoder_factory[T](
 # TODO: we might support multiple decoders/encoders
 
 
-class RequestParam[T](RequestParamBase[T], kw_only=True):
-    location: ParamLocation
+# TODO: separate path param and (query, header param)
+
+type RequestParam[T] = PathParam[T] | QueryParam[T]
+
+
+class PathParam[T](RequestParamBase[T], kw_only=True):
+    location: ClassVar[ParamLocation] = "path"
     decoder: IDecoder[str | list[str], T] = None  # type: ignore
 
     def __post_init__(self):
@@ -165,7 +177,32 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
             raise NotSupportedError(
                 f"Path param {self} with default value is not supported"
             )
-        if self.location == "query" and is_mapping_type(self.type_):
+
+        if cast(Any, self.decoder) is None:
+            self.decoder = textdecoder_factory(self.type_)
+
+    def __repr__(self) -> str:
+        name_repr = (
+            self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
+        )
+        return f"PathParam<{self.location}> ({name_repr}: {self.type_repr})"
+
+    def decode(self, content: str | list[str]) -> T:
+        """
+        for decoder in self.decoders:
+            contennt = decoder(content)
+        """
+        return self.decoder(content)
+
+
+class QueryParam[T](RequestParamBase[T]):
+    location: ClassVar[ParamLocation] = "query"
+    decoder: IDecoder[str | list[str], T] = None  # type: ignore
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        if is_mapping_type(self.type_):
             raise NotSupportedError(
                 f"query param should not be declared as mapping type, or a union that contains mapping type, received: {self.type_}"
             )
@@ -177,7 +214,7 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         name_repr = (
             self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
         )
-        return f"RequestParam<{self.location}> ({name_repr}: {self.type_repr})"
+        return f"PathParam<{self.location}> ({name_repr}: {self.type_repr})"
 
     def decode(self, content: str | list[str]) -> T:
         """
@@ -187,8 +224,12 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
         return self.decoder(content)
 
 
-class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
-    location: ParamLocation = "body"
+class HeaderParam[T](QueryParam[T]):
+    location: ClassVar[ParamLocation] = "header"
+
+
+class BodyParam[T](RequestParamBase[T], kw_only=True):
+    location: ClassVar[ParamLocation] = "body"
     decoder: IDecoder[bytes, T] | IFormDecoder[T]
     content_type: BodyContentType = "application/json"
 
@@ -197,7 +238,7 @@ class RequestBodyParam[T](RequestParamBase[T], kw_only=True):
         assert self.location == "body"
 
     def __repr__(self) -> str:
-        return f"RequestBodyParam<{self.content_type}>({self.name}: {self.type_repr})"
+        return f"BodyParam<{self.content_type}>({self.name}: {self.type_repr})"
 
     def decode(self, content: bytes | FormData) -> T:
         return self.decoder(content)  # type: ignore
@@ -240,15 +281,15 @@ class ParamMetas(Base):
 
 
 class EndpointParams(Base, kw_only=True):
-    params: dict[str, RequestParam[Any]] = field(default_factory=dict)
-    bodies: dict[str, RequestBodyParam[Any]] = field(default_factory=dict)
+    params: dict[str, PathParam[Any]] = field(default_factory=dict)
+    bodies: dict[str, BodyParam[Any]] = field(default_factory=dict)
     nodes: dict[str, DependentNode] = field(default_factory=dict)
     plugins: dict[str, PluginParam] = field(default_factory=dict)
 
-    def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
+    def get_location(self, location: ParamLocation) -> dict[str, PathParam[Any]]:
         return {n: p for n, p in self.params.items() if p.location == location}
 
-    def get_body(self) -> tuple[str, RequestBodyParam[Any]] | None:
+    def get_body(self) -> tuple[str, BodyParam[Any]] | None:
         if not self.bodies:
             body_param = None
         elif len(self.bodies) == 1:
@@ -261,29 +302,50 @@ class EndpointParams(Base, kw_only=True):
         return body_param
 
 
-def reqparam_factory[T](
+def req_param_factory[T](
     name: str,
     alias: str,
     param_type: type[T] | UnionType,
     annotation: Any,
     default: Maybe[T],
+    decoder: IDecoder[str | list[str], T] | None = None,
     param_metas: ParamMetas | None = None,
     location: ParamLocation = "query",
 ) -> RequestParam[T]:
     if param_metas and param_metas.custom_decoder:
         decoder = param_metas.custom_decoder
     else:
-        decoder = textdecoder_factory(param_type)
+        decoder = decoder or textdecoder_factory(param_type)
 
-    req_param = RequestParam(
-        name=name,
-        alias=alias,
-        type_=param_type,
-        annotation=annotation,
-        decoder=decoder,
-        location=location,
-        default=default,
-    )
+    if location == "path":
+        req_param = PathParam(
+            name=name,
+            alias=alias,
+            type_=param_type,
+            annotation=annotation,
+            decoder=decoder,
+            default=default,
+        )
+    elif location == "header":
+        return HeaderParam(
+            name=name,
+            alias=alias,
+            type_=param_type,
+            annotation=annotation,
+            decoder=decoder,
+            default=default,
+        )
+    else:
+        # elif location == "query":
+        req_param = QueryParam(
+            name=name,
+            alias=alias,
+            type_=param_type,
+            annotation=annotation,
+            decoder=decoder,
+            default=default,
+        )
+
     return req_param
 
 
@@ -337,7 +399,7 @@ class ParamParser:
 
         if name in self.path_keys:  # simplest case
             self.seen.discard(name)
-            req_param = reqparam_factory(
+            req_param = req_param_factory(
                 name=name,
                 alias=name,
                 param_type=param_type,
@@ -359,7 +421,7 @@ class ParamParser:
                 )
             else:
                 decoder = custom_decoder or decoder_factory(param_type)
-                req_param = RequestBodyParam(
+                req_param = BodyParam(
                     name=name,
                     alias=name,
                     annotation=annotation,
@@ -388,7 +450,7 @@ class ParamParser:
             )
             return self._parse_node(node)
         else:  # default case
-            req_param = reqparam_factory(
+            req_param = req_param_factory(
                 name=name,
                 alias=name,
                 param_type=param_type,
@@ -421,7 +483,7 @@ class ParamParser:
     ) -> ParsedParam[T]:
         # TODO: auth_header_decoder
         if JW_TOKEN_RETURN_MARK not in param_metas.metas:
-            return reqparam_factory(
+            return req_param_factory(
                 name=name,
                 alias=header_key,
                 param_type=type_,
@@ -446,15 +508,16 @@ class ParamParser:
             else:
                 decoder = custom_decoder
 
-            req_param = RequestParam(
+            req_param = req_param_factory(
                 name=name,
                 alias=header_key,
-                type_=type_,
+                param_type=type_,
                 annotation=annotation,
                 decoder=decoder,
                 location="header",
                 default=default,
             )
+
         return req_param
 
     def _parse_marked[T](
@@ -495,7 +558,7 @@ class ParamParser:
                     param_alias = header_key
             elif mark_type == "body":
                 decoder = custom_decoder or decoder_factory(type_)
-                body_param = RequestBodyParam(
+                body_param = BodyParam(
                     name=name,
                     alias=param_alias,
                     type_=type_,
@@ -508,7 +571,7 @@ class ParamParser:
             elif mark_type == "form":
                 content_type = "multipart/form-data"
                 decoder = custom_decoder or formdecoder_factory(type_)
-                body_param = RequestBodyParam(
+                body_param = BodyParam(
                     name=name,
                     alias=param_alias,
                     type_=type_,
@@ -524,7 +587,7 @@ class ParamParser:
             else:
                 location = "query"
 
-            req_param = reqparam_factory(
+            req_param = req_param_factory(
                 name=name,
                 alias=param_alias,
                 param_type=type_,
@@ -606,8 +669,8 @@ class ParamParser:
         if path_keys:
             self.path_keys += path_keys
 
-        params = dict[str, RequestParam[Any]]()
-        bodies = dict[str, RequestBodyParam[Any]]()
+        params = dict[str, PathParam[Any]]()
+        bodies = dict[str, BodyParam[Any]]()
         nodes = dict[str, DependentNode]()
         plugins = dict[str, PluginParam]()
 
@@ -624,7 +687,7 @@ class ParamParser:
                     continue
                 if isinstance(req_param, PluginParam):
                     plugins[req_param.name] = req_param
-                elif isinstance(req_param, RequestBodyParam):
+                elif isinstance(req_param, BodyParam):
                     bodies[req_param.name] = req_param
                 else:
                     params[req_param.name] = req_param

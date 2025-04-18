@@ -25,12 +25,15 @@ from lihil.errors import InvalidMarkTypeError, NotSupportedError
 from lihil.interface.marks import param_mark
 from lihil.plugins.registry import register_plugin_provider, remove_plugin_provider
 from lihil.signature.params import (
+    BodyParam,
     CustomDecoder,
     EndpointParams,
     ParamParser,
+    PathParam,
+    HeaderParam,
     PluginBase,
     PluginParam,
-    RequestBodyParam,
+    QueryParam,
     RequestParam,
 )
 
@@ -63,25 +66,23 @@ def test_custom_decoder():
 # Test RequestParamBase and RequestParam
 def test_request_param():
     # Test with default value
-    param = RequestParam(
+    param = QueryParam(
         type_=str,
         annotation=str,
         name="test",
         alias="test",
         decoder=lambda x: str(x),
-        location="query",
         default="default",
     )
     assert param.required is False
 
     # Test without default value
-    param = RequestParam(
+    param = QueryParam(
         type_=int,
         annotation=str,
         name="test",
         alias="test",
         decoder=lambda x: int(x),
-        location="query",
     )
     assert param.required is True
 
@@ -149,7 +150,7 @@ def test_analyze_param_path(param_parser: ParamParser):
     assert len(result) == 1
     param = result[0]
     assert param.name == "id"
-    assert isinstance(param, RequestParam)
+    assert isinstance(param, PathParam)
     assert param.location == "path"
     assert param.type_ == int
 
@@ -162,7 +163,7 @@ def test_analyze_param_payload(param_parser):
     assert len(result) == 1
     param = result[0]
     assert param.name == "data"
-    assert isinstance(param, RequestBodyParam)
+    assert isinstance(param, BodyParam)
 
     assert param.type_ == SamplePayload
 
@@ -177,7 +178,7 @@ def test_analyze_param_union_payload(param_parser: ParamParser):
 
     param = result[0]
     assert param.name == "data"
-    assert isinstance(param, RequestBodyParam)
+    assert isinstance(param, BodyParam)
 
 
 # Test analyze_param for query parameters
@@ -186,7 +187,7 @@ def test_analyze_param_query(param_parser: ParamParser):
     assert len(result) == 1
     param = result[0]
     assert param.name == "q"
-    assert isinstance(param, RequestParam)
+    assert isinstance(param, QueryParam)
     assert param.location == "query"
 
 
@@ -225,7 +226,7 @@ def test_analyze_markedparam_query(param_parser: ParamParser):
     assert len(result) == 1
     param = result[0]
     assert param.name == "page"
-    assert isinstance(param, RequestParam)
+    assert isinstance(param, QueryParam)
     assert param.location == "query"
 
 
@@ -235,7 +236,7 @@ def test_analyze_markedparam_header(param_parser: ParamParser):
     assert len(result) == 1
     param = result[0]
     assert param.name == "user_agent"
-    assert isinstance(param, RequestParam)
+    assert isinstance(param, HeaderParam)
     assert param.location == "header"
 
 
@@ -244,7 +245,7 @@ def test_analyze_markedparam_header_with_alias(param_parser: ParamParser):
     assert len(result) == 1
     param = result[0]
     assert param.name == "user_agent"
-    assert isinstance(param, RequestParam)
+    assert isinstance(param, HeaderParam)
     assert param.location == "header"
     assert param.alias == "test-alias"
 
@@ -257,7 +258,7 @@ def test_analyze_markedparam_body(param_parser: ParamParser):
     assert len(result) == 1
     param = result[0]
     assert param.name == "data"
-    assert isinstance(param, RequestBodyParam)
+    assert isinstance(param, BodyParam)
 
 
 # Test analyze_markedparam for Path
@@ -268,7 +269,7 @@ def test_analyze_markedparam_path(param_parser: ParamParser):
     assert not isinstance(result[0], DependentNode)
     param = result[0]
     assert param.name == "id"
-    assert isinstance(param, RequestParam)
+    assert isinstance(param, PathParam)
     assert param.location == "path"
 
 
@@ -320,12 +321,13 @@ def test_param_parser_parse_unions(param_parser: ParamParser):
     with pytest.raises(NotSupportedError):
         param_parser.parse_param("test", dict[str, int] | list[int])
 
+
 def test_param_parser_parse_bytes_union(param_parser: ParamParser):
     res = param_parser.parse_param("test", bytes)
 
     param = res[0]
     assert param.location == "query"
-    assert param.type_ ==  bytes
+    assert param.type_ == bytes
 
     res = param.decode('{"test": 2}')
     assert isinstance(res, bytes)
@@ -338,7 +340,7 @@ def test_invalid_param(param_parser: ParamParser):
 
 def test_textual_field(param_parser: ParamParser):
     res = param_parser.parse_param("text", bytes)
-    assert isinstance(res[0], RequestParam)
+    assert isinstance(res[0], QueryParam)
     # assert res[0].decoder is to_bytes
 
 
@@ -347,7 +349,7 @@ def test_form_with_sequence_field(param_parser: ParamParser):
         nums: list[int]
 
     res = param_parser.parse_param("form", Form[SequenceForm])[0]
-    assert isinstance(res, RequestBodyParam)
+    assert isinstance(res, BodyParam)
     assert res.type_ is SequenceForm
 
     class FakeForm:
@@ -513,7 +515,7 @@ def test_http_excp_with_typealis():
 def test_param_with_meta(param_parser: ParamParser):
     PositiveInt = Annotated[int, msgspec.Meta(gt=0)]
     res = param_parser.parse_param("nums", list[PositiveInt])[0]
-    assert res.decode(["1","2","3"]) == [1, 2, 3]
+    assert res.decode(["1", "2", "3"]) == [1, 2, 3]
 
     with pytest.raises(msgspec.ValidationError):
         res.decode("[1,2,3,-4]")

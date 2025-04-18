@@ -809,7 +809,3 @@ async def test_endpoint_with_tuple_query():
 def test_set_1d_iterable():
     for t in (set, frozenset, tuple, list):
         assert is_nontextual_sequence(t)
-
-
-
-from starlette.requests import Request

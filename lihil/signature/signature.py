@@ -18,14 +18,14 @@ from lihil.utils.string import find_path_keys
 from lihil.utils.typing import is_nontextual_sequence
 from lihil.vendor_types import FormData, Headers, QueryParams, Request
 
-from .params import ParamParser, PluginParam, RequestBodyParam, RequestParam
+from .params import ParamParser, PluginParam, BodyParam, RequestParam
 from .returns import EndpointReturn, parse_returns
 
 type ParamMap[T] = dict[str, T]
 type RequestParamMap = dict[str, RequestParam[Any]]
 
 
-def is_form_body(param_pair: tuple[str, RequestBodyParam[Any]] | None):
+def _is_form_body(param_pair: tuple[str, BodyParam[Any]] | None):
     if not param_pair:
         return False
     _, param = param_pair
@@ -42,7 +42,7 @@ class ParseResult(Record):
         return self.params[key]
 
 
-def validate_param[T](
+def _validate_param[T](
     name: str,
     alias: str,
     raw_val: str | list[str] | None,
@@ -66,8 +66,8 @@ def validate_param[T](
         return None, error
 
 
-def validate_body[T](
-    name: str, raw_val: bytes | FormData, param: RequestBodyParam[T]
+def _validate_body[T](
+    name: str, raw_val: bytes | FormData, param: BodyParam[T]
 ) -> tuple[T, None] | tuple[None, ValidationProblem]:
     try:
         value = param.decode(raw_val)
@@ -87,7 +87,7 @@ class EndpointSignature[R](Base):
     query_params: RequestParamMap
     path_params: RequestParamMap
     header_params: RequestParamMap
-    body_param: tuple[str, RequestBodyParam[Struct]] | None
+    body_param: tuple[str, BodyParam[Struct]] | None
     dependencies: ParamMap[DependentNode]
     plugins: ParamMap[PluginParam]
 
@@ -114,15 +114,12 @@ class EndpointSignature[R](Base):
             for name, param in self.header_params.items():
                 alias = param.alias
                 ptype = param.type_
-
-                # param.parse(req_header)
-
                 if is_nontextual_sequence(ptype):
                     raw = req_header.getlist(alias)
                 else:
                     raw = req_header.get(alias)
 
-                val, error = validate_param(name, alias, raw, param)
+                val, error = _validate_param(name, alias, raw, param)
                 if val:
                     params[name] = val
                 else:
@@ -132,7 +129,7 @@ class EndpointSignature[R](Base):
             for name, param in self.path_params.items():
                 alias = param.alias
                 raw = req_path.get(alias)
-                val, error = validate_param(name, alias, raw, param)
+                val, error = _validate_param(name, alias, raw, param)
                 if val:
                     params[name] = val
                 else:
@@ -148,7 +145,7 @@ class EndpointSignature[R](Base):
                 else:
                     raw = req_query.get(alias)
 
-                val, error = validate_param(name, alias, raw, param)
+                val, error = _validate_param(name, alias, raw, param)
                 if val:
                     params[name] = val
                 else:
@@ -156,14 +153,15 @@ class EndpointSignature[R](Base):
 
         if self.body_param and body is not None:
             name, param = self.body_param
+            val, error = None, None
 
             if body == b"" or (isinstance(body, FormData) and len(body) == 0):
                 if is_provided(param.default):
-                    val, error = param.default, None
+                    val = param.default
                 else:
-                    val, error = (None, MissingRequestParam(param.location, name))
+                    error = MissingRequestParam(param.location, name)
             else:
-                val, error = validate_body(name, body, param)
+                val, error = _validate_body(name, body, param)
 
             if val:
                 params[name] = val
@@ -218,7 +216,7 @@ class EndpointSignature[R](Base):
         )
 
         body_param = params.get_body()
-        form_body: bool = is_form_body(body_param)
+        form_body: bool = _is_form_body(body_param)
 
         info = EndpointSignature(
             route_path=route_path,
