@@ -528,3 +528,34 @@ def test_param_with_annot_meta(param_parser: ParamParser):
     res = param_parser.parse_param("name", UnixName)[0]
     with pytest.raises(msgspec.ValidationError):
         res.decode("5")
+
+
+def test_constraint_posint(param_parser: ParamParser):
+    PositiveInt = Annotated[int, msgspec.Meta(gt=0)]
+
+    res = param_parser.parse_param("age", PositiveInt)[0]
+    with pytest.raises(msgspec.ValidationError):
+        res.decode("-5")
+
+
+from datetime import datetime
+
+type TZDATE = Annotated[datetime, msgspec.Meta(tz=True)]
+
+
+def test_constraint_dt(param_parser: ParamParser):
+    res = param_parser.parse_param("time", TZDATE)[0]
+
+    with pytest.raises(msgspec.ValidationError):
+        res.decode("2022-04-02T18:18:10")
+
+    dt = res.decode("2022-04-02T18:18:10-06:00")
+
+    assert isinstance(dt, datetime) and dt.tzinfo
+
+
+
+def test_param_with_bytes_in_union(param_parser: ParamParser):
+
+    with pytest.raises(NotSupportedError):
+        res = param_parser.parse_param("n", int | bytes)

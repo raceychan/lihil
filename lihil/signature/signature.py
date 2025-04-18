@@ -77,7 +77,7 @@ class EndpointSignature[R](Base):
         )
 
         for received, required in zipped:
-            if not received:
+            if received is None:
                 continue
             received: Any
             for name, param in required.items():

@@ -1,10 +1,10 @@
-# import pytest
 from typing import Annotated
 
+import pytest
 from starlette.datastructures import QueryParams
 from starlette.requests import Request
 
-from lihil import Body, Graph, Payload, Route, Text
+from lihil import Body, Empty, Graph, Payload, Route, Text
 from lihil.interface import CustomDecoder
 from lihil.plugins.testclient import LocalClient
 from lihil.problems import CustomValidationError
@@ -232,10 +232,22 @@ def test_prepare_params_with_custom_validation_error():
 
 
 async def test_query_with_default():
-    async def func(name: tuple[str, ...] = ("aloha",)):
+    async def func(name: tuple[str, ...] = ("aloha",)) -> Empty:
         assert name == ("aloha",)
 
     lc = LocalClient()
 
     resp = await lc.call_endpoint(lc.make_endpoint(func))
-    res = await resp.body()
+    await resp.body()
+
+
+
+
+async def test_query_with_default():
+    async def func(name: tuple[str, ...]) -> Empty:
+        assert name == ("aloha",)
+
+    lc = LocalClient()
+
+    resp = await lc.call_endpoint(lc.make_endpoint(func))
+    await resp.body()

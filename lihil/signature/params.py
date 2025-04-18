@@ -205,16 +205,7 @@ class Decodable[D, T](ParamBase[T], kw_only=True):
         return None, error
 
 
-class TextualParam[T](Decodable[str | list[str], T], kw_only=True):
-
-    def __post_init__(self):
-        super().__post_init__()
-
-        if cast(Any, self.decoder) is None:
-            self.decoder = textdecoder_factory(self.type_)
-
-
-class PathParam[T](TextualParam[T], kw_only=True):
+class PathParam[T](Decodable[str | list[str], T], kw_only=True):
     location: ClassVar[ParamLocation] = "path"
 
     def __post_init__(self):
@@ -228,14 +219,12 @@ class PathParam[T](TextualParam[T], kw_only=True):
         try:
             raw = params[self.alias]
         except KeyError:
-            if not is_provided(self.default):
-                return (None, MissingRequestParam(self.location, self.alias))
-            else:
-                return (self.default, None)
+            return (None, MissingRequestParam(self.location, self.alias))
+
         return self.validate(raw)
 
 
-class QueryParam[T](TextualParam[T]):
+class QueryParam[T](Decodable[str | list[str], T]):
     location: ClassVar[ParamLocation] = "query"
     decoder: IDecoder[str | list[str], T] = None  # type: ignore
     multivals: bool = False
@@ -248,9 +237,6 @@ class QueryParam[T](TextualParam[T]):
                 f"query param should not be declared as mapping type, or a union that contains mapping type, received: {self.type_}"
             )
 
-        if cast(Any, self.decoder) is None:
-            self.decoder = textdecoder_factory(self.type_)
-
         self.multivals = is_nontextual_sequence(self.type_)
 
     def extract(self, queries: QueryParams | Headers) -> ParamResult[T]:
@@ -262,10 +248,10 @@ class QueryParam[T](TextualParam[T]):
 
         if raw is None:
             default = self.default
-            if not is_provided(default):
-                return (None, MissingRequestParam(self.location, alias))
-            else:
+            if is_provided(default):
                 return (default, None)
+            else:
+                return (None, MissingRequestParam(self.location, alias))
         return self.validate(raw)
 
 
