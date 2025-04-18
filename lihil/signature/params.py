@@ -2,6 +2,7 @@ from copy import deepcopy
 from inspect import Parameter, signature
 from types import GenericAlias, UnionType
 from typing import (
+    Annotated,
     Any,
     ClassVar,
     Literal,
@@ -20,7 +21,9 @@ from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from ididi.utils.typing_utils import is_builtin_type
-from msgspec import DecodeError, Struct, ValidationError, convert, field
+from msgspec import DecodeError
+from msgspec import Meta as ParamConstraint
+from msgspec import Struct, ValidationError, convert, field
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
@@ -41,7 +44,7 @@ from lihil.interface.marks import (
     Struct,
     extract_mark_type,
 )
-from lihil.interface.struct import Base, IDecoder, IFormDecoder
+from lihil.interface.struct import Base, IDecoder, IFormDecoder, Record
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
 from lihil.problems import (
@@ -101,7 +104,8 @@ def textdecoder_factory[T](
             def str_to_bytes(content: str) -> bytes:
                 return content.encode("utf-8")
 
-            return cast(IDecoder[str | list[str], T], str_to_bytes)  # here T is bytes
+            # here T is bytes
+            return cast(IDecoder[str | list[str], T], str_to_bytes)
 
     def converter(content: str | list[str]) -> T:
         return convert(content, param_type, strict=False)
@@ -171,18 +175,10 @@ def formdecoder_factory[T](
     return form_decoder
 
 
-# TODO: we might support multiple decoders/encoders
-
-"""
-TODO:
-1. def read, read from a request param
-2. def validate, check if value is missing, or is not correct type
-3. def parse, read and validate
-"""
-
 type ParamResult[T] = tuple[T, None] | tuple[None, ValidationProblem]
 
 
+# TODO: we might support multiple decoders/encoders
 class Decodable[D, T](ParamBase[T], kw_only=True):
     decoder: IDecoder[Any, T] = None  # type: ignore
 
@@ -297,13 +293,14 @@ class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
         return self.validate(body)
 
 
-class ParamMetas(Base):
-    metas: tuple[Any, ...]
+class ParamMetas(Record):
 
-    custom_decoder: IDecoder[Any, Any] | None
-    mark_type: ParamMarkType | None
+    metas: tuple[Any, ...] = ()
+    custom_decoder: IDecoder[Any, Any] | None = None
+    mark_type: ParamMarkType | None = None
     factory: INode[..., Any] | None = None
     node_config: NodeConfig | None = None
+    constraint: ParamConstraint | None = None
 
     @classmethod
     def from_metas(cls, metas: list[Any]) -> "ParamMetas":
@@ -311,6 +308,7 @@ class ParamMetas(Base):
         custom_decoder = None
         factory = None
         config = None
+        constraint = None
 
         for idx, meta in enumerate(metas):
             if isinstance(meta, CustomDecoder):
@@ -321,6 +319,8 @@ class ParamMetas(Base):
                 current_mark_type = mark_type
             elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
                 factory, config = metas[idx + 1], metas[idx + 2]
+            elif isinstance(meta, ParamConstraint):
+                constraint = meta
             else:
                 continue
 
@@ -330,6 +330,7 @@ class ParamMetas(Base):
             mark_type=current_mark_type,
             factory=factory,
             node_config=config,
+            constraint=constraint,
         )
 
 
@@ -378,10 +379,18 @@ def req_param_factory[T](
     param_metas: ParamMetas | None = None,
     location: ParamLocation = "query",
 ) -> RequestParam[T]:
+
     if param_metas and param_metas.custom_decoder:
         decoder = param_metas.custom_decoder
-    else:
-        decoder = decoder or textdecoder_factory(param_type)
+
+    if decoder is None:
+        if param_metas and (constraint := param_metas.constraint):
+            param_type = cast(type[T], Annotated[param_type, constraint])
+            default_decoder = textdecoder_factory(param_type=param_type)
+        else:
+
+            default_decoder = textdecoder_factory(param_type)
+        decoder = default_decoder
 
     if location == "path":
         req_param = PathParam(

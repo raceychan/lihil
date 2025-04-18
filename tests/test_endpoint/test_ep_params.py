@@ -520,7 +520,6 @@ def test_param_with_meta(param_parser: ParamParser):
         res.decode("[1,2,3,-4]")
 
 
-@pytest.mark.skip("Not implemented")
 def test_param_with_annot_meta(param_parser: ParamParser):
     UnixName = Annotated[
         str, msgspec.Meta(min_length=1, max_length=32, pattern="^[a-z_][a-z0-9_-]*$")

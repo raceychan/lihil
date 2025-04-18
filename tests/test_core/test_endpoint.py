@@ -661,7 +661,6 @@ async def test_endpoint_login_and_validate_with_str_resp(
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
     testroute.post(login_get_token)
-
     testroute.setup(
         app_config=AppConfig(
             security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])

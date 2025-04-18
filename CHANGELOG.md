@@ -719,10 +719,20 @@ ep = lc.make_endpoint(f)
 
 ## version 0.2.1
 
+
+### Improvements
+
 - rename `JWTAuth` to `JWTAuth`, we might have `BasicAuth`, `DigestAuth` later
 
 - refactor decoder for textual params, including header, query, path, etc.
 use msgspec.convert instead of msgspec.json.decode
 
-- support multi values query
-- support param constraints
+
+### Fixes:
+
+- now support multi value query & headers, declare your query | header param with non-textual sequence such as list, tuple, set and lihil would validate the param accordingly.
+
+
+### Feature
+
+- Single param constraint
