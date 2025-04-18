@@ -2,18 +2,11 @@ from inspect import signature
 from typing import Any, Awaitable, Callable
 
 from ididi import DependentNode, Graph
-from msgspec import DecodeError, Struct, ValidationError, field
+from msgspec import Struct, field
 
 from lihil.config import AppConfig
-from lihil.interface import Base, IEncoder, Record, is_provided
-from lihil.problems import (
-    CustomDecodeErrorMessage,
-    CustomValidationError,
-    InvalidDataType,
-    InvalidJsonReceived,
-    MissingRequestParam,
-    ValidationProblem,
-)
+from lihil.interface import Base, IEncoder, Record
+from lihil.problems import ValidationProblem
 from lihil.utils.string import find_path_keys
 from lihil.vendor_types import FormData, Headers, QueryParams, Request
 
@@ -47,21 +40,6 @@ class ParseResult(Record):
         return self.params[key]
 
 
-def _validate_body[T](
-    name: str, raw_val: bytes | FormData, param: BodyParam[T]
-) -> tuple[T, None] | tuple[None, ValidationProblem]:
-    try:
-        value = param.decode(raw_val)
-        return value, None
-    except ValidationError as mve:
-        error = InvalidDataType(param.location, name, str(mve))
-    except DecodeError:
-        error = InvalidJsonReceived(param.location, name)
-    except CustomValidationError as cve:  # type: ignore
-        error = CustomDecodeErrorMessage(param.location, name, cve.detail)
-    return None, error
-
-
 class EndpointSignature[R](Base):
     route_path: str
 
@@ -92,25 +70,18 @@ class EndpointSignature[R](Base):
         verrors: list[Any] = []
         params: dict[str, Any] = {}
 
-        if req_header:
-            for name, param in self.header_params.items():
-                val, error = param.extract(req_header)
-                if val:
-                    params[name] = val
-                else:
-                    verrors.append(error)
+        zipped = (
+            (req_header, self.header_params),
+            (req_path, self.path_params),
+            (req_query, self.query_params),
+        )
 
-        if req_path:
-            for name, param in self.path_params.items():
-                val, error = param.extract(req_path)
-                if val:
-                    params[name] = val
-                else:
-                    verrors.append(error)
+        for received, required in zipped:
+            if not received:
+                continue
 
-        if req_query:
-            for name, param in self.query_params.items():
-                val, error = param.extract(req_query)
+            for name, param in required.items():
+                val, error = param.extract(received)
                 if val:
                     params[name] = val
                 else:
@@ -118,16 +89,7 @@ class EndpointSignature[R](Base):
 
         if self.body_param and body is not None:
             name, param = self.body_param
-            val, error = None, None
-
-            if body == b"" or (isinstance(body, FormData) and len(body) == 0):
-                if is_provided(param.default):
-                    val = param.default
-                else:
-                    error = MissingRequestParam(param.location, name)
-            else:
-                val, error = _validate_body(name, body, param)
-
+            val, error = param.extract(body)
             if val:
                 params[name] = val
             else:

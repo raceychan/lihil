@@ -23,34 +23,34 @@ def to_bytes(content: str | bytes) -> bytes:
     return content
 
 
-def build_union_decoder(
-    types: tuple[type], target_type: type[str | bytes]
-) -> IDecoder[str | bytes, Any]:
-    rest = tuple(t for t in types if t not in (bytes, str))
+# def build_union_decoder(
+#     types: tuple[type], target_type: type[str | bytes]
+# ) -> IDecoder[str | bytes, Any]:
+#     rest = tuple(t for t in types if t not in (bytes, str))
 
-    if not rest:
-        raise TypeError("union of str and bytes not supported")
+#     if not rest:
+#         raise TypeError("union of str and bytes not supported")
 
-    if len(rest) == 1:
-        rest_decoder = decoder_factory(rest[0])
-    else:
-        new_union = Union[rest]  # type: ignore
-        rest_decoder = decoder_factory(new_union)
+#     if len(rest) == 1:
+#         rest_decoder = decoder_factory(rest[0])
+#     else:
+#         new_union = Union[rest]  # type: ignore
+#         rest_decoder = decoder_factory(new_union)
 
-    raw_decoder = to_str if target_type is str else to_bytes
+#     raw_decoder = to_str if target_type is str else to_bytes
 
-    def decode_reunion(content: bytes) -> IDecoder[str | bytes, Any]:
-        try:
-            res = rest_decoder(content)
-        except DecodeError:
-            return raw_decoder(content)
-        return res
+#     def decode_reunion(content: bytes) -> IDecoder[str | bytes, Any]:
+#         try:
+#             res = rest_decoder(content)
+#         except DecodeError:
+#             return raw_decoder(content)
+#         return res
 
-    return decode_reunion
+#     return decode_reunion
 
 
 @lru_cache(256)
-def decoder_factory[T](t: type[T], strict: bool = True) -> IDecoder[str | bytes, T]:
+def decoder_factory[T](t: type[T], strict: bool = True) -> IDecoder[bytes, T]:
     return JsonDecoder(t, strict=strict).decode
 
 

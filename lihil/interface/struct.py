@@ -17,7 +17,7 @@ from lihil.interface.marks import EMPTY_RETURN_MARK
 from lihil.vendor_types import FormData
 
 
-class IDecoder[I: str | list[str] | bytes, T](Protocol):
+class IDecoder[I, T](Protocol):
     def __call__(self, content: I, /) -> T: ...
 
 

@@ -4,13 +4,13 @@ from typing import Any, Protocol, TypeAliasType
 from ididi import Resolver
 
 from lihil.errors import InvalidMarkTypeError
-from lihil.interface import MISSING, Maybe, RequestParamBase
+from lihil.interface import MISSING, Maybe, ParamBase
 from lihil.interface.marks import extract_mark_type
 from lihil.utils.typing import get_origin_pro
 from lihil.vendor_types import Request
 
 
-class PluginParam(RequestParamBase[Any], kw_only=True):
+class PluginParam(ParamBase[Any], kw_only=True):
     processor: Maybe["ParamProcessor"] = MISSING
     plugin: Maybe["PluginBase"] = MISSING
 
@@ -21,7 +21,6 @@ class ParamProcessor(Protocol):
     ) -> None: ...
 
 
-# Perhaps it is eaasier to just check for subclass of this
 class PluginBase:
     async def process(
         self, params: dict[str, Any], request: Request, resolver: Resolver
@@ -50,7 +49,6 @@ class PluginBase:
 def __plugin_registry():
     plugin_providers: dict[str, PluginBase] = {}
 
-    # TODO:
     def register_plugin_provider(
         mark: TypeAliasType | GenericAlias | str, provider: PluginBase
     ) -> PluginBase:

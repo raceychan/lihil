@@ -31,8 +31,8 @@ from lihil.interface import (
     BodyContentType,
     CustomDecoder,
     Maybe,
+    ParamBase,
     ParamLocation,
-    RequestParamBase,
     is_provided,
 )
 from lihil.interface.marks import (
@@ -119,10 +119,11 @@ def filedeocder_factory(filename: str):
 
 def file_body_param(
     name: str, type_: type[UploadFile], annotation: Any, default: Any
-) -> "BodyParam[Any]":
+) -> "BodyParam[UploadFile]":
     decoder = filedeocder_factory(name)
     content_type = "multipart/form-data"
-    req_param = BodyParam(
+
+    req_param = BodyParam[UploadFile](
         name=name,
         alias=name,
         type_=type_,
@@ -180,24 +181,23 @@ TODO:
 3. def parse, read and validate
 """
 
+type ParamResult[T] = tuple[T, None] | tuple[None, ValidationProblem]
 
-class TextualParam[T](RequestParamBase[T], kw_only=True):
-    decoder: IDecoder[str | list[str], T] = None  # type: ignore
+
+class Decodable[D, T](ParamBase[T], kw_only=True):
+    decoder: IDecoder[Any, T] = None  # type: ignore
 
     def __post_init__(self):
         super().__post_init__()
 
-        if cast(Any, self.decoder) is None:
-            self.decoder = textdecoder_factory(self.type_)
-
-    def decode(self, content: str | list[str]) -> T:
+    def decode(self, content: D) -> T:
         """
         for decoder in self.decoders:
             contennt = decoder(content)
         """
         return self.decoder(content)
 
-    def validate(self, raw: str | list[str]):
+    def validate(self, raw: D) -> ParamResult[T]:
         try:
             value = self.decode(raw)
             return value, None
@@ -210,20 +210,26 @@ class TextualParam[T](RequestParamBase[T], kw_only=True):
         return None, error
 
 
+class TextualParam[T](Decodable[str | list[str], T], kw_only=True):
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        if cast(Any, self.decoder) is None:
+            self.decoder = textdecoder_factory(self.type_)
+
+
 class PathParam[T](TextualParam[T], kw_only=True):
     location: ClassVar[ParamLocation] = "path"
 
     def __post_init__(self):
         super().__post_init__()
-
         if not self.required:
             raise NotSupportedError(
                 f"Path param {self} with default value is not supported"
             )
 
-    def extract(
-        self, params: dict[str, str]
-    ) -> tuple[T, None] | tuple[None, ValidationProblem]:
+    def extract(self, params: dict[str, str]) -> ParamResult[T]:
         try:
             raw = params[self.alias]
         except KeyError:
@@ -252,9 +258,7 @@ class QueryParam[T](TextualParam[T]):
 
         self.multivals = is_nontextual_sequence(self.type_)
 
-    def extract(
-        self, queries: QueryParams | Headers
-    ) -> tuple[T, None] | tuple[None, ValidationProblem]:
+    def extract(self, queries: QueryParams | Headers) -> ParamResult[T]:
         alias = self.alias
         if self.multivals:
             raw = queries.getlist(alias)
@@ -274,16 +278,24 @@ class HeaderParam[T](QueryParam[T]):
     location: ClassVar[ParamLocation] = "header"
 
 
-class BodyParam[T](RequestParamBase[T], kw_only=True):
+class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
     location: ClassVar[ParamLocation] = "body"
-    decoder: IDecoder[bytes, T] | IFormDecoder[T]
     content_type: BodyContentType = "application/json"
 
     def __repr__(self) -> str:
         return f"BodyParam<{self.content_type}>({self.name}: {self.type_repr})"
 
-    def decode(self, content: bytes | FormData) -> T:
-        return self.decoder(content)  # type: ignore
+    def extract(self, body: bytes | FormData) -> ParamResult[T]:
+        if body == b"" or (isinstance(body, FormData) and len(body) == 0):
+            default = self.default
+            if is_provided(default):
+                val = default
+                return (val, None)
+            else:
+                error = MissingRequestParam(self.location, self.alias)
+                return (None, error)
+
+        return self.validate(body)
 
 
 class ParamMetas(Base):
@@ -476,7 +488,9 @@ class ParamParser:
                     name, param_type, annotation=annotation, default=default
                 )
             else:
-                decoder = custom_decoder or decoder_factory(param_type)
+                decoder: IDecoder[bytes, T] = custom_decoder or decoder_factory(
+                    param_type
+                )
                 req_param = BodyParam(
                     name=name,
                     alias=name,
@@ -633,7 +647,7 @@ class ParamParser:
                     type_=type_,
                     annotation=annotation,
                     default=default,
-                    decoder=cast(IFormDecoder[Any], decoder),
+                    decoder=decoder,
                     content_type=content_type,
                 )
                 return body_param

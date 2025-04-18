@@ -83,7 +83,7 @@ def is_set[T](val: Unset[T]) -> TypeGuard[T]:
     return val is not UNSET
 
 
-class RequestParamBase[T](Base):
+class ParamBase[T](Base):
     name: str
     type_: type[T] | UnionType
     location: ClassVar[ParamLocation]
