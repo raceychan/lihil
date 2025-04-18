@@ -119,11 +119,10 @@ def filedeocder_factory(filename: str):
 
 def file_body_param(
     name: str, type_: type[UploadFile], annotation: Any, default: Any
-) -> "BodyParam[UploadFile]":
+) -> "BodyParam[UploadFile | None]":
     decoder = filedeocder_factory(name)
     content_type = "multipart/form-data"
-
-    req_param = BodyParam[UploadFile](
+    req_param = BodyParam(
         name=name,
         alias=name,
         type_=type_,
@@ -137,14 +136,14 @@ def file_body_param(
 
 def formdecoder_factory[T](
     ptype: type[T] | UnionType,
-) -> IFormDecoder[T] | IDecoder[bytes, T] | IDecoder[bytes, bytes]:
+) -> IFormDecoder[T] | IDecoder[bytes, T]:
 
     def dummy_decoder(content: bytes) -> bytes:
         return content
 
     if not isinstance(ptype, type) or not issubclass(ptype, Struct):
         if ptype is bytes:
-            return dummy_decoder
+            return cast(IDecoder[bytes, T], dummy_decoder)
 
         raise NotSupportedError(
             f"Currently only bytes or subclass of Struct is supported for `Form`, received {ptype}"
@@ -369,7 +368,6 @@ class EndpointParams(Base, kw_only=True):
         return body_param
 
 
-# TODO: make this dependency injectable ?
 def req_param_factory[T](
     name: str,
     alias: str,
@@ -487,6 +485,7 @@ class ParamParser:
                 req_param = file_body_param(
                     name, param_type, annotation=annotation, default=default
                 )
+                req_param = cast(RequestParam[T], req_param)  # where T is UploadFile
             else:
                 decoder: IDecoder[bytes, T] = custom_decoder or decoder_factory(
                     param_type
