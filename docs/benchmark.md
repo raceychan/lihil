@@ -1,11 +1,15 @@
 # Benchmark
 
 
-we have a dedicated benchmark repo showing the performance advance of lihil.
+- lihil's dedicated benchmark repo
 
-it is made deliberately easy for you to reproduce them.
 
 [lhl_benchmark](https://github.com/raceychan/lhl_bench)
 
+Tests are deliberately made to be easily reproducible.
 
-more in-depth tests will be uploaded
+
+
+- third-party benchmarks
+
+[web-frameworks-benchmark](https://web-frameworks-benchmark.netlify.app/)

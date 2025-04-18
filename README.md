@@ -18,9 +18,11 @@
 
 Lihil is
 
-- **Performant**: lihil is fast, 50%-100% faster than ASGI frameworks offering similar functionalities, even more with its own server. see [benchmarks](https://github.com/raceychan/lhl_bench)
+
 - **Productive**: ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
-- **Professional**: lihil is designed for enterprise web development, deliver robust&scalable solutions with best practices in microservice architecture and related patterns.
+- **Professional**: Lihil comes with middlewares that are essential for enterprise development—such as authentication, authorization, event publishing, etc. Ensure productivity from day zero. Catered to modern development styles and architectures, including TDD and DDD.
+- **Performant**: Blazing fast across tasks and conditions—Lihil ranks among the fastest Python web frameworks, outperforming comparable ASGI frameworks by 50%–100%, see [lihil benchmarks](https://github.com/raceychan/lhl_bench),  [independent benchmarks](https://web-frameworks-benchmark.netlify.app/result?l=python)
+
 
 ## Features
 
@@ -63,9 +65,45 @@ when such exception is raised from endpoint, client would receive a response lik
 
 ![problem page](/docs/images/order_out_of_stock_problem_page.png)
 
-- **Data validation&Param Parsing**: using `msgspec`, which is about 12x faster than pydantic v2 for valiation and 25x memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html)
+- **Data validation & Param Parsing**: Powerful and extendable data validation using `msgspec`, 12x faster and 25x more memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html), Deep memory optimizations significantly reduce GC overhead, making your services more robust and resilient under load.
 
 ![msgspec_vs_others](/docs/images/msgspec_others.png)
+
+- **Auth Builtin**: comes with authentification & authorization plugins out of the box.
+
+```python
+from lihil import Payload, Route
+from lihil.auth.jwt import JWTAuth, JWTPayload
+from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
+
+me = Route("me")
+token = Route("token")
+
+
+class UserProfile(JWTPayload):
+    __jwt_claims__ = {"expires_in": 300}
+
+    user_id: str = field(name="sub")
+    role: Literal["admin", "user"] = "user"
+
+
+class User(Payload):
+    name: str
+    email: str
+
+
+token_based = OAuth2PasswordFlow(token_url="token")
+
+
+@me.get(auth_scheme=token_based)
+async def get_user(profile: JWTAuth[UserProfile]) -> User:
+    assert profile.role == "user"
+    return User(name="user", email="user@email.com")
+
+@token.post
+async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserProfile]:
+    return UserProfile(user_id="user123")
+```
 
 - **Message System Bulitin**: publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
 
@@ -78,7 +116,7 @@ async def create_user(data: UserCreate, service: UserService, bus: EventBus)->Re
     await bus.publish(UserCreated(**data, user_id=user_id))
 ```
 
-- **Great Testability**: bulit-in `LocalClient` to easily test your endpoints, routes, middlewares, app, everything.
+- **Great Testability**: bulit-in `LocalClient` to easily and independently test your endpoints, routes, middlewares, app.
 
 - **Strong support for AI featuers**: lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
@@ -89,7 +127,7 @@ Lihil is ASGI compatible and uses starlette as ASGI toolkit, which means that:
 
 - starlette `Request`, `Response` and its subclasses, should work just fine with lihil.
 
-Meaning you can declare `Request` in your endpoint and return an instance of `Response`(or subclass of it).
+For example, you can declare `Request` in your endpoint and return an instance of `Response`(or subclass of it).
 
 ```python
 @users.post

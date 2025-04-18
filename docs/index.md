@@ -14,11 +14,11 @@
 
 Lihil is
 
-- **Performant**: lihil is fast, 50%-100% faster than ASGI frameworks offering similar functionalities, even more with its own server. see [benchmarks](https://github.com/raceychan/lhl_bench)
+- **Performant**: 50%-100% faster than ASGI frameworks offering similar functionalities, even more with its own server. see [benchmarks](https://github.com/raceychan/lhl_bench), [web-frameworks-benchmark](https://web-frameworks-benchmark.netlify.app/result?l=python)
 
-- **Productive**: ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
+- **Productive**: Lihil includes essential middleware for enterprise development—such as authentication, authorization, throttling, and event publishing—enabling productivity from day one. Its ergonomic API, strong typing support, and built-in solutions for common challenges—along with developer-friendly features like OpenAPI documentation generation—empower you to build applications quickly without compromising on flexibility or extensibility.
 
-- **professional**: Start small, move fast, achieve great, lihil follows industry standards (RFC9110, 9457, ...) and best practices (EDA, service choreography, etc) to deliver robust and scalable solutions.
+- **professional**: Start small, move fast, achieve great, Lihil follows industry standards (RFC 9110, RFC 9457, etc.) and best practices like event-driven architecture (EDA) and service choreography to help you deliver robust, scalable solutions with confidence.
 
 ## Features
 
