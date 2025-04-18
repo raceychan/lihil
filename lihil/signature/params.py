@@ -77,8 +77,10 @@ def textdecoder_factory[T](
             )
     else:
         if param_type is bytes:
+
             def str_to_bytes(content: str) -> bytes:
                 return content.encode("utf-8")
+
             return cast(IDecoder[str | list[str], T], str_to_bytes)  # here T is bytes
 
     def converter(content: str | list[str]) -> T:
@@ -165,7 +167,7 @@ class RequestParam[T](RequestParamBase[T], kw_only=True):
             )
         if self.location == "query" and is_mapping_type(self.type_):
             raise NotSupportedError(
-                f"query param should not be declared as mapping, or a union that contains mapping, received: {self.type_}"
+                f"query param should not be declared as mapping type, or a union that contains mapping type, received: {self.type_}"
             )
 
         if cast(Any, self.decoder) is None:
@@ -252,11 +254,37 @@ class EndpointParams(Base, kw_only=True):
         elif len(self.bodies) == 1:
             body_param = next(iter(self.bodies.items()))
         else:
-            # "use defstruct to dynamically define a type"
+            # use defstruct to dynamically define a type
             raise NotSupportedError(
                 "Endpoint with multiple body params is not supported"
             )
         return body_param
+
+
+def reqparam_factory[T](
+    name: str,
+    alias: str,
+    param_type: type[T] | UnionType,
+    annotation: Any,
+    default: Maybe[T],
+    param_metas: ParamMetas | None = None,
+    location: ParamLocation = "query",
+) -> RequestParam[T]:
+    if param_metas and param_metas.custom_decoder:
+        decoder = param_metas.custom_decoder
+    else:
+        decoder = textdecoder_factory(param_type)
+
+    req_param = RequestParam(
+        name=name,
+        alias=alias,
+        type_=param_type,
+        annotation=annotation,
+        decoder=decoder,
+        location=location,
+        default=default,
+    )
+    return req_param
 
 
 class ParamParser:
@@ -295,32 +323,6 @@ class ParamParser:
         else:
             return issubclass(param_type, self.plugin_types)
 
-    def _build_reqparam[T](
-        self,
-        name: str,
-        alias: str,
-        param_type: type[T] | UnionType,
-        annotation: Any,
-        default: Maybe[T],
-        param_metas: ParamMetas | None = None,
-        location: ParamLocation = "query",
-    ) -> RequestParam[T]:
-        if param_metas:
-            decoder = param_metas.custom_decoder
-        else:
-            decoder = textdecoder_factory(param_type)
-
-        req_param = RequestParam(
-            name=name,
-            alias=alias,
-            type_=param_type,
-            annotation=annotation,
-            decoder=decoder,
-            location=location,
-            default=default,
-        )
-        return req_param
-
     def _parse_rule_based[T](
         self,
         name: str,
@@ -335,7 +337,7 @@ class ParamParser:
 
         if name in self.path_keys:  # simplest case
             self.seen.discard(name)
-            req_param = self._build_reqparam(
+            req_param = reqparam_factory(
                 name=name,
                 alias=name,
                 param_type=param_type,
@@ -386,7 +388,7 @@ class ParamParser:
             )
             return self._parse_node(node)
         else:  # default case
-            req_param = self._build_reqparam(
+            req_param = reqparam_factory(
                 name=name,
                 alias=name,
                 param_type=param_type,
@@ -419,7 +421,7 @@ class ParamParser:
     ) -> ParsedParam[T]:
         # TODO: auth_header_decoder
         if JW_TOKEN_RETURN_MARK not in param_metas.metas:
-            return self._build_reqparam(
+            return reqparam_factory(
                 name=name,
                 alias=header_key,
                 param_type=type_,
@@ -522,7 +524,7 @@ class ParamParser:
             else:
                 location = "query"
 
-            req_param = self._build_reqparam(
+            req_param = reqparam_factory(
                 name=name,
                 alias=param_alias,
                 param_type=type_,

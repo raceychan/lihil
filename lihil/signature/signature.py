@@ -3,7 +3,6 @@ from typing import Any, Awaitable, Callable, Mapping
 
 from ididi import DependentNode, Graph
 from msgspec import DecodeError, Struct, ValidationError, field
-from starlette.requests import Request
 
 from lihil.config import AppConfig
 from lihil.interface import Base, IEncoder, Record, is_provided
@@ -17,7 +16,7 @@ from lihil.problems import (
 )
 from lihil.utils.string import find_path_keys
 from lihil.utils.typing import is_nontextual_sequence
-from lihil.vendor_types import FormData, QueryParams
+from lihil.vendor_types import FormData, Headers, QueryParams, Request
 
 from .params import ParamParser, PluginParam, RequestBodyParam, RequestParam
 from .returns import EndpointReturn, parse_returns
@@ -104,26 +103,35 @@ class EndpointSignature[R](Base):
     def prepare_params(
         self,
         req_path: Mapping[str, Any] | None = None,
-        req_query: QueryParams[str, Any] | None = None,
-        req_header: Mapping[str, Any] | None = None,
+        req_query: QueryParams | None = None,
+        req_header: Headers | None = None,
         body: bytes | FormData | None = None,
     ) -> ParseResult:
         verrors: list[Any] = []
         params: dict[str, Any] = {}
 
-        # TODO: getlist for query
-        zipped = (
-            (self.header_params, req_header),
-            (self.path_params, req_path),
-        )
-
-        for required, received in zipped:
-            if received is None:
-                continue
-
-            for name, param in required.items():
+        if req_header:
+            for name, param in self.header_params.items():
                 alias = param.alias
-                raw = received.get(alias)
+                ptype = param.type_
+
+                # param.parse(req_header)
+
+                if is_nontextual_sequence(ptype):
+                    raw = req_header.getlist(alias)
+                else:
+                    raw = req_header.get(alias)
+
+                val, error = validate_param(name, alias, raw, param)
+                if val:
+                    params[name] = val
+                else:
+                    verrors.append(error)
+
+        if req_path:
+            for name, param in self.path_params.items():
+                alias = param.alias
+                raw = req_path.get(alias)
                 val, error = validate_param(name, alias, raw, param)
                 if val:
                     params[name] = val

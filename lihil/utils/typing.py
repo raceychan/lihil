@@ -59,9 +59,6 @@ def is_union_type(
 
 
 def is_nontextual_sequence(type_: Any, strict: bool = False):
-    while isinstance(type_, TypeAliasType):
-        type_ = type_.__value__
-
     type_origin = ty_get_origin(type_) or type_
 
     if not isinstance(type_origin, type):
@@ -73,10 +70,7 @@ def is_nontextual_sequence(type_: Any, strict: bool = False):
     if issubclass(type_origin, Sequence):
         return True
 
-    return not strict and (type_origin) in (set, frozenset)
-
-
-
+    return not strict and issubclass(type_origin, (set, frozenset))
 
 
 def is_text_type(t: type | UnionType) -> bool:
@@ -109,9 +103,6 @@ def get_origin_pro[T](
     get_param_origin(MyTypeAlias) -> (int, [QUERY_REQUEST_MARK, CustomEncoder])
     get_param_origin(NewAnnotated) -> (int, [QUERY_REQUEST_MARK, CustomEncoder])
     """
-
-    #    if metas is None:
-    #        metas = []
 
     if isinstance(type_, TypeAliasType):
         return get_origin_pro(type_.__value__, metas)

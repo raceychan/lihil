@@ -2,6 +2,8 @@ from typing import Annotated, Union
 
 import pytest
 
+from lihil.interface import Body, CustomEncoder, Query, Resp
+from lihil.interface.marks import BODY_REQUEST_MARK, QUERY_REQUEST_MARK
 from lihil.utils.typing import (
     deannotate,
     get_origin_pro,
@@ -23,12 +25,9 @@ def test_is_union_type():
     assert not is_union_type(dict[str, str])
 
 
-type MyTV = list[int]
-
-
 def test_is_non_textual_sequence():
     assert is_nontextual_sequence(list[int])
-    assert is_nontextual_sequence(MyTV)
+    assert is_nontextual_sequence(tuple[str])
 
     assert not is_nontextual_sequence(str)
     assert not is_nontextual_sequence(bytes)
@@ -45,13 +44,6 @@ def test_is_text_type():
     assert not is_text_type(int)
     assert not is_text_type(list[int])
 
-
-from lihil.interface import Body, CustomEncoder, Query, Resp
-from lihil.interface.marks import (
-    BODY_REQUEST_MARK,
-    QUERY_REQUEST_MARK,
-    RESP_RETURN_MARK,
-)
 
 type MyTypeAlias = Annotated[Query[int], CustomEncoder]
 type NewAnnotated = Annotated[MyTypeAlias, "aloha"]
