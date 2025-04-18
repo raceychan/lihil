@@ -808,3 +808,23 @@ async def test_endpoint_with_tuple_query():
 def test_set_1d_iterable():
     for t in (set, frozenset, tuple, list):
         assert is_nontextual_sequence(t)
+
+
+from msgspec import Meta
+
+
+async def test_ep_with_constraints():
+    called: bool = False
+
+    async def get_user(
+        n: Annotated[int, Meta(gt=0)], user_id: Annotated[str, Meta(min_length=5)]
+    ):
+        nonlocal called
+        called = True
+
+    lc = LocalClient()
+
+    ep = lc.make_endpoint(get_user, path="/{user_id}")
+    resp = await lc(ep, path_params={"user_id": "user"}, query_params={"n": -1})
+    res = await resp.json()
+    assert not called
