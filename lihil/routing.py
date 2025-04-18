@@ -152,16 +152,7 @@ class Endpoint[R]:
         else:
             self._plugin_items = ()
 
-        self._static = not any(
-            (
-                self._sig.path_params,
-                self._sig.query_params,
-                self._sig.header_params,
-                self._sig.body_param,
-                self._sig.dependencies,
-                self._sig.plugins,
-            )
-        )
+        self._static = self._sig.static
 
         scoped_by_config = bool(self._props and self._props.scoped is True)
 
@@ -193,7 +184,9 @@ class Endpoint[R]:
                 )
         return params
 
-    async def make_static_call(self, scope: IScope, receive: IReceive, send: ISend):
+    async def make_static_call(
+        self, scope: IScope, receive: IReceive, send: ISend
+    ) -> R | Response:
         try:
             return await self._func()
         except Exception as exc:
@@ -240,24 +233,29 @@ class Endpoint[R]:
 
     def return_to_response(self, raw_return: Any) -> Response:
         if isinstance(raw_return, Response):
-            resp = raw_return
-        elif isgenerator(raw_return) or isasyncgen(raw_return):
-            if isgenerator(raw_return) and not isasyncgen(raw_return):
-                encode_wrapper = syncgen_encode_wrapper(raw_return, self._encoder)
-            else:
-                encode_wrapper = agen_encode_wrapper(raw_return, self._encoder)
-            resp = StreamingResponse(
-                encode_wrapper,
-                media_type="text/event-stream",
-                status_code=self._status_code,
-            )
+            return raw_return
         else:
-            resp = Response(
-                content=self._encoder(raw_return),
-                media_type=self._media_type,
-                status_code=self._status_code,
-            )
-        return resp
+            if isasyncgen(raw_return):
+                encode_wrapper = agen_encode_wrapper(raw_return, self._encoder)
+                resp = StreamingResponse(
+                    encode_wrapper,
+                    media_type="text/event-stream",
+                    status_code=self._status_code,
+                )
+            elif isgenerator(raw_return):
+                encode_wrapper = syncgen_encode_wrapper(raw_return, self._encoder)
+                resp = StreamingResponse(
+                    encode_wrapper,
+                    media_type="text/event-stream",
+                    status_code=self._status_code,
+                )
+            else:
+                resp = Response(
+                    content=self._encoder(raw_return),
+                    media_type=self._media_type,
+                    status_code=self._status_code,
+                )
+            return resp
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         if self._scoped:
@@ -267,6 +265,7 @@ class Endpoint[R]:
             return await response(scope, receive, send)
         if self._static:  # when there is no params at all
             raw_return = await self.make_static_call(scope, receive, send)
+            # response = StaticResponse(raw_return)
         else:
             raw_return = await self.make_call(scope, receive, send, self._graph)
         response = self.return_to_response(raw_return)

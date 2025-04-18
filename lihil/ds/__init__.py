@@ -1,20 +1,20 @@
-from starlette.requests import Request
+# from starlette.requests import Request
 
 
-class LHLRequest(Request):
-    """
-    a faster version of starlette.Request, sharing the same interface
+# class LHLRequest(Request):
+#     """
+#     a faster version of starlette.Request, sharing the same interface
 
-    improvement
+#     improvement
 
-    - url
-    - body
-    - json
-    - form
+#     - url
+#     - body
+#     - json
+#     - form
 
-    """
+#     """
 
-    ...
+#     ...
 
     # async def _get_form(
     #     self,

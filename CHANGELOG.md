@@ -736,3 +736,10 @@ use msgspec.convert instead of msgspec.json.decode
 ### Feature
 
 - Single param constraint
+
+
+
+## version 0.2.2
+
+
+- static response
