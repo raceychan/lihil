@@ -1,5 +1,5 @@
 from inspect import signature
-from typing import Any, Awaitable, Callable, Mapping
+from typing import Any, Awaitable, Callable
 
 from ididi import DependentNode, Graph
 from msgspec import DecodeError, Struct, ValidationError, field
@@ -15,14 +15,19 @@ from lihil.problems import (
     ValidationProblem,
 )
 from lihil.utils.string import find_path_keys
-from lihil.utils.typing import is_nontextual_sequence
 from lihil.vendor_types import FormData, Headers, QueryParams, Request
 
-from .params import ParamParser, PluginParam, BodyParam, RequestParam
+from .params import (
+    BodyParam,
+    HeaderParam,
+    ParamParser,
+    PathParam,
+    PluginParam,
+    QueryParam,
+)
 from .returns import EndpointReturn, parse_returns
 
 type ParamMap[T] = dict[str, T]
-type RequestParamMap = dict[str, RequestParam[Any]]
 
 
 def _is_form_body(param_pair: tuple[str, BodyParam[Any]] | None):
@@ -40,30 +45,6 @@ class ParseResult(Record):
 
     def __getitem__(self, key: str):
         return self.params[key]
-
-
-def _validate_param[T](
-    name: str,
-    alias: str,
-    raw_val: str | list[str] | None,
-    param: RequestParam[T],
-) -> tuple[T, None] | tuple[None, ValidationProblem]:
-    if raw_val is None:
-        if is_provided(param.default):
-            return param.default, None
-        else:
-            return (None, MissingRequestParam(param.location, alias))
-    else:
-        try:
-            value = param.decode(raw_val)
-            return value, None
-        except ValidationError as mve:
-            error = InvalidDataType(param.location, name, str(mve))
-        except DecodeError:
-            error = InvalidJsonReceived(param.location, name)
-        except CustomValidationError as cve:  # type: ignore
-            error = CustomDecodeErrorMessage(param.location, name, cve.detail)
-        return None, error
 
 
 def _validate_body[T](
@@ -84,9 +65,10 @@ def _validate_body[T](
 class EndpointSignature[R](Base):
     route_path: str
 
-    query_params: RequestParamMap
-    path_params: RequestParamMap
-    header_params: RequestParamMap
+    query_params: dict[str, QueryParam[Any]]
+    path_params: dict[str, PathParam[Any]]
+    header_params: dict[str, HeaderParam[Any]]
+
     body_param: tuple[str, BodyParam[Struct]] | None
     dependencies: ParamMap[DependentNode]
     plugins: ParamMap[PluginParam]
@@ -102,7 +84,7 @@ class EndpointSignature[R](Base):
 
     def prepare_params(
         self,
-        req_path: Mapping[str, Any] | None = None,
+        req_path: dict[str, str] | None = None,
         req_query: QueryParams | None = None,
         req_header: Headers | None = None,
         body: bytes | FormData | None = None,
@@ -112,14 +94,7 @@ class EndpointSignature[R](Base):
 
         if req_header:
             for name, param in self.header_params.items():
-                alias = param.alias
-                ptype = param.type_
-                if is_nontextual_sequence(ptype):
-                    raw = req_header.getlist(alias)
-                else:
-                    raw = req_header.get(alias)
-
-                val, error = _validate_param(name, alias, raw, param)
+                val, error = param.extract(req_header)
                 if val:
                     params[name] = val
                 else:
@@ -127,9 +102,7 @@ class EndpointSignature[R](Base):
 
         if req_path:
             for name, param in self.path_params.items():
-                alias = param.alias
-                raw = req_path.get(alias)
-                val, error = _validate_param(name, alias, raw, param)
+                val, error = param.extract(req_path)
                 if val:
                     params[name] = val
                 else:
@@ -137,15 +110,7 @@ class EndpointSignature[R](Base):
 
         if req_query:
             for name, param in self.query_params.items():
-                alias = param.alias
-                ptype = param.type_
-
-                if is_nontextual_sequence(ptype):
-                    raw = req_query.getlist(alias)
-                else:
-                    raw = req_query.get(alias)
-
-                val, error = _validate_param(name, alias, raw, param)
+                val, error = param.extract(req_query)
                 if val:
                     params[name] = val
                 else:

@@ -4,12 +4,15 @@ from types import GenericAlias, UnionType
 from typing import (
     Any,
     ClassVar,
+    Literal,
+    Mapping,
     TypeAliasType,
     TypeGuard,
     Union,
     cast,
     get_args,
     get_origin,
+    overload,
 )
 from warnings import warn
 
@@ -17,7 +20,7 @@ from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from ididi.utils.typing_utils import is_builtin_type
-from msgspec import convert, field
+from msgspec import DecodeError, Struct, ValidationError, convert, field
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
@@ -30,6 +33,7 @@ from lihil.interface import (
     Maybe,
     ParamLocation,
     RequestParamBase,
+    is_provided,
 )
 from lihil.interface.marks import (
     JW_TOKEN_RETURN_MARK,
@@ -40,6 +44,14 @@ from lihil.interface.marks import (
 from lihil.interface.struct import Base, IDecoder, IFormDecoder
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
+from lihil.problems import (
+    CustomDecodeErrorMessage,
+    CustomValidationError,
+    InvalidDataType,
+    InvalidJsonReceived,
+    MissingRequestParam,
+    ValidationProblem,
+)
 from lihil.utils.json import decoder_factory
 from lihil.utils.string import parse_header_key
 from lihil.utils.typing import (
@@ -48,8 +60,9 @@ from lihil.utils.typing import (
     is_nontextual_sequence,
     is_union_type,
 )
-from lihil.vendor_types import FormData, Request, UploadFile
+from lihil.vendor_types import FormData, Headers, QueryParams, Request, UploadFile
 
+type RequestParam[T] = PathParam[T] | QueryParam[T] | HeaderParam[T]
 type ParsedParam[T] = RequestParam[T] | BodyParam[T] | DependentNode | PluginParam
 
 
@@ -160,15 +173,45 @@ def formdecoder_factory[T](
 
 # TODO: we might support multiple decoders/encoders
 
+"""
+TODO:
+1. def read, read from a request param
+2. def validate, check if value is missing, or is not correct type
+3. def parse, read and validate
+"""
 
-# TODO: separate path param and (query, header param)
 
-type RequestParam[T] = PathParam[T] | QueryParam[T]
-
-
-class PathParam[T](RequestParamBase[T], kw_only=True):
-    location: ClassVar[ParamLocation] = "path"
+class TextualParam[T](RequestParamBase[T], kw_only=True):
     decoder: IDecoder[str | list[str], T] = None  # type: ignore
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        if cast(Any, self.decoder) is None:
+            self.decoder = textdecoder_factory(self.type_)
+
+    def decode(self, content: str | list[str]) -> T:
+        """
+        for decoder in self.decoders:
+            contennt = decoder(content)
+        """
+        return self.decoder(content)
+
+    def validate(self, raw: str | list[str]):
+        try:
+            value = self.decode(raw)
+            return value, None
+        except ValidationError as mve:
+            error = InvalidDataType(self.location, self.name, str(mve))
+        except DecodeError:
+            error = InvalidJsonReceived(self.location, self.name)
+        except CustomValidationError as cve:  # type: ignore
+            error = CustomDecodeErrorMessage(self.location, self.name, cve.detail)
+        return None, error
+
+
+class PathParam[T](TextualParam[T], kw_only=True):
+    location: ClassVar[ParamLocation] = "path"
 
     def __post_init__(self):
         super().__post_init__()
@@ -178,26 +221,23 @@ class PathParam[T](RequestParamBase[T], kw_only=True):
                 f"Path param {self} with default value is not supported"
             )
 
-        if cast(Any, self.decoder) is None:
-            self.decoder = textdecoder_factory(self.type_)
-
-    def __repr__(self) -> str:
-        name_repr = (
-            self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
-        )
-        return f"PathParam<{self.location}> ({name_repr}: {self.type_repr})"
-
-    def decode(self, content: str | list[str]) -> T:
-        """
-        for decoder in self.decoders:
-            contennt = decoder(content)
-        """
-        return self.decoder(content)
+    def extract(
+        self, params: dict[str, str]
+    ) -> tuple[T, None] | tuple[None, ValidationProblem]:
+        try:
+            raw = params[self.alias]
+        except KeyError:
+            if not is_provided(self.default):
+                return (None, MissingRequestParam(self.location, self.alias))
+            else:
+                return (self.default, None)
+        return self.validate(raw)
 
 
-class QueryParam[T](RequestParamBase[T]):
+class QueryParam[T](TextualParam[T]):
     location: ClassVar[ParamLocation] = "query"
     decoder: IDecoder[str | list[str], T] = None  # type: ignore
+    multivals: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -210,18 +250,24 @@ class QueryParam[T](RequestParamBase[T]):
         if cast(Any, self.decoder) is None:
             self.decoder = textdecoder_factory(self.type_)
 
-    def __repr__(self) -> str:
-        name_repr = (
-            self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
-        )
-        return f"QueryParam<{self.location}> ({name_repr}: {self.type_repr})"
+        self.multivals = is_nontextual_sequence(self.type_)
 
-    def decode(self, content: str | list[str]) -> T:
-        """
-        for decoder in self.decoders:
-            contennt = decoder(content)
-        """
-        return self.decoder(content)
+    def extract(
+        self, queries: QueryParams | Headers
+    ) -> tuple[T, None] | tuple[None, ValidationProblem]:
+        alias = self.alias
+        if self.multivals:
+            raw = queries.getlist(alias)
+        else:
+            raw = queries.get(alias)
+
+        if raw is None:
+            default = self.default
+            if not is_provided(default):
+                return (None, MissingRequestParam(self.location, alias))
+            else:
+                return (default, None)
+        return self.validate(raw)
 
 
 class HeaderParam[T](QueryParam[T]):
@@ -232,10 +278,6 @@ class BodyParam[T](RequestParamBase[T], kw_only=True):
     location: ClassVar[ParamLocation] = "body"
     decoder: IDecoder[bytes, T] | IFormDecoder[T]
     content_type: BodyContentType = "application/json"
-
-    def __post_init__(self):
-        super().__post_init__()
-        assert self.location == "body"
 
     def __repr__(self) -> str:
         return f"BodyParam<{self.content_type}>({self.name}: {self.type_repr})"
@@ -286,7 +328,20 @@ class EndpointParams(Base, kw_only=True):
     nodes: dict[str, DependentNode] = field(default_factory=dict)
     plugins: dict[str, PluginParam] = field(default_factory=dict)
 
-    def get_location(self, location: ParamLocation) -> dict[str, RequestParam[Any]]:
+    @overload
+    def get_location(
+        self, location: Literal["header"]
+    ) -> dict[str, HeaderParam[Any]]: ...
+
+    @overload
+    def get_location(
+        self, location: Literal["query"]
+    ) -> dict[str, QueryParam[Any]]: ...
+
+    @overload
+    def get_location(self, location: Literal["path"]) -> dict[str, PathParam[Any]]: ...
+
+    def get_location(self, location: ParamLocation) -> Mapping[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.location == location}
 
     def get_body(self) -> tuple[str, BodyParam[Any]] | None:
@@ -302,6 +357,7 @@ class EndpointParams(Base, kw_only=True):
         return body_param
 
 
+# TODO: make this dependency injectable ?
 def req_param_factory[T](
     name: str,
     alias: str,

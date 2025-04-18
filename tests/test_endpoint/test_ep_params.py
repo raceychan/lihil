@@ -1,5 +1,5 @@
 import sys
-from typing import Annotated, Any, Union
+from typing import Annotated, Any
 from unittest import mock
 
 import msgspec
@@ -28,13 +28,12 @@ from lihil.signature.params import (
     BodyParam,
     CustomDecoder,
     EndpointParams,
+    HeaderParam,
     ParamParser,
     PathParam,
-    HeaderParam,
     PluginBase,
     PluginParam,
     QueryParam,
-    RequestParam,
 )
 
 
