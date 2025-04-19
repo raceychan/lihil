@@ -234,7 +234,7 @@ Here `create_user` expects a body param `user`, a structual data where each fiel
 
 - Constraints with supported types
 
-Checkout [msgspec constraints](https://jcristharif.com/msgspec/constraints.html) for more details on specific constraints you can set on different types.
+Checkout [msgspec constraints](https://jcristharif.com/msgspec/constraints.html) for more details on specific constraints that you can set on different types.
 
 ##### Custom Encoder/Decoder
 
@@ -265,30 +265,48 @@ def encoder[T](param: T) -> bytes: ...
 - `encoder` should expect a single param with any type that the endpoint function returns, in the `encode_user_id` case, it is `str`, and returns bytes.
 
 
-#### Configuring your endpoint
+#### EndPoint properties
+
+- Provide extra meta data of endpoint through route decorator.
 
 ```python
 @router.get(errors=[UserNotFoundError, UserInactiveError])
 async get_user(user_id: str): ...
 ```
 
-Endpoint can be configured with these options:
+- Endpoint can have these properties:
 
 ```python
 errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
-"""Errors that might be raised from the current `endpoint`. These will be treated as responses and displayed in OpenAPI documentation."""
-
+"Errors that might be raised from the current `endpoint`. These will be treated as responses and displayed in OpenAPI documentation."
 in_schema: bool
-"""Whether to include this `endpoint` in the OpenAPI documentation."""
-
+"Whether to include this endpoint inside openapi docs"
 to_thread: bool
-"""Whether this `endpoint` should run in a separate thread. Only applies to synchronous functions."""
-
+"Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
 scoped: Literal[True] | None
-"""Whether the current `endpoint` should be scoped."""
+"Whether current endpoint should be scoped"
+auth_scheme: AuthBase | None
+"Auth Scheme for access control"
+tags: Sequence[str] | None
+"OAS tag, endpoints with the same tag will be grouped together"
 ```
 
-- `scoped`: if an endpoint requires any dependency that is an async context manager, or its factory returns an async generator, the endpoint would be scoped, and setting scoped to None won't change that, however, for an endpoint that is not scoped, setting `scoped=True` would make it scoped.
+    - `scoped`: if an endpoint requires any dependency that is an async context manager, or its factory returns an async generator, the endpoint would be scoped, and setting scoped to None won't change that, however, for an endpoint that is not scoped, setting `scoped=True` would make it scoped.
+
+- Provide a properties for every endpoint in the route:
+
+
+You might provide default properties when intialize a route,
+
+```python
+from lihil.routing import Route, EndpointProps
+
+default_props = EndpointProps(errors=[UserNotFoundError, UserInactiveError])
+prop_route = Route(props=default_props)
+```
+
+- Here `default_props` would be applied to every endpoint added to `prop_route`.
+- endpoint properties provided via route decorator like `route.get` would override roperties provided by route.
 
 
 ### Route
@@ -307,7 +325,7 @@ users_route = Route("/users")
 
 If you have existing `lihil.Graph` and `lihil.MessageRegistry` that you would like to use, put then in the route constructor.
 
-This is useful when, say if you have keep dependencies and event listeners in separate files, example:
+This is useful if you keep dependencies and event listeners in separate files, example:
 
 ```python
 from project.users.deps import user_graph
@@ -316,7 +334,15 @@ from project.users.listeners import user_eventregistry
 user_route = Route(graph=uesr_graph, registry=user_eventregistry)
 ```
 
-You might also add middlewares to route if you want the middlewares only take effect in the current route.
+You can also add middlewares to a route if you want them to apply only to that specific route.
+
+```python
+from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+
+Route(middlewares=[CORSMiddleware])
+route.add_middleware(HTTPSRedirectMiddleware)
+```
 
 ##### register endpoint to an route.
 
@@ -407,66 +433,44 @@ for complex middleware that require many external dependencies, you might to con
 
 There are several settings you can change to control the behavior of lihil,
 
-you might change them through `lihil.config.AppConfig`, as well as
 
-- ServerConfig:
+1. config file, e.g: `pyproject.toml`
 
-```python
-class ServerConfig(ConfigBase):
-    host: str | None = None
-    port: int | None = None
-    workers: int | None = None
-    reload: bool | None = None
-    root_path: str | None = None
-```
+    ```python
+    lhl = Lihil(config_file="pyproject.toml")
+    ```
 
-- OASConfig:
-```python
-class OASConfig(ConfigBase):
-    oas_path: str = "/openapi"
-    doc_path: str = "/docs"
-    problem_path: str = "/problems"
-    problem_title: str = "lihil-Problem Page"
-    title: str = "lihil-OpenAPI"
-    version: str = "3.1.0"
-```
+    This will look for `tool.lihil` table in the `pyproject.toml` file
+    extra/unkown keys will be forbidden to help prevent misconfiging
 
+    Note: currently only toml file is supported
 
-### `pyproject.toml`
+2. `AppConfig` instance
 
-```python
-lhl = Lihil(config_file="pyproject.toml")
-```
+    ```python
+    lhl = Lihil(app_config=AppConfig(version="0.1.1"))
+    ```
 
-This will look for `tool.lihil` table in the `pyproject.toml` file
-extra/unkown keys will be forbidden to help prevent misconfiging
+    this is particularly useful if you want to inherit from AppConfig and extend it.
 
-Note: currently only toml file is supported
+    ```python
+    from lihil.config import AppConfig
 
-### `AppConfig` instance
+    class MyConfig(AppConfig):
+        app_name: str
 
-```python
-lhl = Lihil(app_config=AppConfig(version="0.1.1"))
-```
+    config = MyConfig.from_file("myconfig.toml")
+    ```
 
-this is particularly useful if you want to inherit from AppConfig and extend it.
+3. Command line arguments:
 
-```python
-from lihil.config import AppConfig
+    ```example
+    python app.py --oas.title "New Title" --is_prod true
+    ```
 
-class MyConfig(AppConfig):
-    app_name: str
+    use `.` to express nested fields
 
-config = MyConfig.from_file("myconfig.toml")
-```
-
-### Command line arguments:
-
-```example
-python app.py --oas.title "New Title" --is_prod true
-```
-
-use `.` to express nested fields
+    add `--help` to see available options
 
 ## Error Hanlding
 
@@ -597,12 +601,12 @@ async def listen_create(created: TodoCreated, _: Any, bus: EventBus):
         await bus.publish(event)
 ```
 
-### DI (dependency injection)
+### Dependency Injection
 
 lihil uses ididi(https://lihil.cc/ididi) for dependency injection.
 
-
 #### Usage in lihil
+
 
 #### register a dependency with a route
 
@@ -659,181 +663,6 @@ async def get_user(token: UserToken) -> Ignore[User]: ...
 
 - If your factory function is a generator(function that contains `yield` keyword), it will be treated as `scoped`, meaning that it will be created before your endpoint function and destoried after. you can use this to achieve business purpose via clients that offer `atomic operation`, such as database connection.
 
-
 - if your function is a sync generator, it will be solved within a separate thread.
 
 - all graph will eventually merged into the main graph holding by `Lihil`, which means that, if you register a dependency with a factory in route `A`, the same factory can be used in every other route if it is required.
-
-#### Ididi cheatsheet
-
-This cheatsheet is designed to give you a quick glance at some of the basic usages of ididi.
-
-```python
-from ididi import Graph, Resolver, Ignore
-
-class Base:
-    def __init__(self, source: str="class"):
-        self.source = source
-
-class CTX(Base):
-    def __init__(self, source: str="class"):
-        super().__init__(source)
-        self.status = "init"
-    async def __aenter__(self):
-        self.status = "started"
-        return self
-    async def __aexit__(self, *args):
-        self.status = "closed"
-
-class Engine(Base): ...
-
-class Connection(CTX):
-    def __init__(self, engine: Engine):
-        super().__init__()
-        self.engine = engine
-
-def get_engine() -> Engine:
-    return Engine("factory")
-
-async def get_conn(engine: Engine) -> Connection:
-    async with Connection(engine) as conn:
-        yield conn
-
-async def func_dep(engine: Engine, conn: Connection) -> Ignore[int]:
-    return 69
-
-async def test_ididi_cheatsheet():
-    dg = Graph()
-    assert isinstance(dg, Resolver)
-
-    engine = dg.resolve(Engine)  # resolve a class
-    assert isinstance(engine, Engine) and engine.source == "class"
-
-    faq_engine = dg.resolve(get_engine)  # resolve a factory function of a class
-    assert isinstance(faq_engine, Engine) and faq_engine.source == "factory"
-
-    side_effect: list[str] = []
-    assert not side_effect
-
-    async with dg.ascope() as ascope:
-        ascope.register_exit_callback(random_callback)
-        # register a callback to be called when scope is exited
-        assert isinstance(ascope, Resolver)
-        # NOTE: scopes are also resolvers, thus can have sub-scope
-        conn = await ascope.aresolve(get_conn)
-        # generator function will be transformed into context manager and can only be resolved within scope.
-        assert isinstance(conn, Connection)
-        assert conn.status == "started"
-        # context manager is entered when scoped is entered.
-        res = await ascope.aresolve(func_dep)
-        assert res == 69
-        # function dependencies are also supported
-
-    assert conn.status == "closed"
-    # context manager is exited when scope is exited.
-    assert side_effect[0] == "callbacked"
-    # registered callback will aslo be called.
-```
-
-
-## Plugins
-
-### Initialization
-
-- init at lifespan
-
-```python
-from lihil import Graph
-
-async def lifespan(app: Lihil):
-    async with YourPlugin() as up:
-        app.graph.register_singleton(up)
-        yield
-
-lhl = LIhil(lifespan=lifespan)
-```
-
-use it anywhere with DI
-
-- init at middleware
-
-plugin can be initialized and injected into middleware,
-middleware can be bind to different route, for example `Throttle`
-
-```python
-# pseudo code
-class ThrottleMiddleware:
-    def __init__(self, app: Ignore[ASGIApp], redis: Redis):
-        self.app = app
-        self.redis = redis
-
-    async def __call__(self, app):
-        await self.redis.run_throttle_script
-        await self.app
-
-```
-
-lihil accepts a factory to build your middleware, so that you can use di inside the factory, and it will perserve typing info as well. Anything callable that requires only one positonal argument can be a factory, which include most ASGI middleware classes.
-
-```python
-lihil.add_middleware(lambda app: app.graph.resolve(ThrottleMiddleware))
-```
-
-- Use it at your endpoints
-
-```python
-async def create_user(user_name: str, plugin: YourPlugin): ...
-```
-
-### DI (dependency injection)
-
-- You can use `Route.factory` to decorate a dependency class/factory function for the class for your dependency, or `Route.add_nodes` to batch add&config many dependencies at once. it is recommended to register dependency where you use them, but you can register them to any route if you want.
-
-- If your factory function is a generator(function that contains `yield` keyword), it will be treated as `scoped`, meaning that it will be created before your endpoint function and destoried after. you can use this to achieve business purpose via clients that offer `atomic operation`, such as database connection.
-
-- You can create function as dependency by `Annotated[Any, use(your_function)]`. Do note that you will need to annotate your dependency function return type with `Ignore` like this
-
-```python
-async def get_user(token: UserToken) -> Ignore[User]: ...
-```
-
-- if your function is a sync generator, it will be solved within a separate thread.
-
-- all graph will eventually merged into the main graph holding by `Lihil`, which means that, if you register a dependency with a factory in route `A`, the same factory can be used in every other route if it is required.
-
-- you can manually construct graph and inject into `Lihil`
-
-
-### Testing
-
-Lihil provide you two techniques for testing, `TestClient` and `LocalClient`
-
-#### `TestClient`
-
-`TestClient` provide you something that is close to manually constructing a request as client and post it to your server.
-
-For integration testing where each request should go through every part of your application, `TestClient` keep your test close to user behavior.
-
-However, if you want something less verbose and with smaller granularity, you can check out `LocalClient`
-
-#### `LocalClient`
-
-`LocalClient` is more a test helper than a full-fledged request client as opposed to `TestClient`, you might use it to call `Lihil` instance, `Route`, and `Endpoint` locally in a fast and ergonomic manner.
-
-```python
-from lihil import LocalClient
-
-...TBC
-```
-
-## openapi docs
-
-default ot `/docs`, change it via `AppConfig.oas`
-
-## problem page
-
-default to `/problems`, change it via `AppConfig.oas`
-
-### What else you would like to know?
-
-Have not found what you are looking for? please let us know by posting in the discussion.

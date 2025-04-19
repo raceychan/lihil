@@ -721,7 +721,7 @@ ep = lc.make_endpoint(f)
 
 ### Improvements
 
-- rename `JWTAuth` to `JWTAuth`, we might have `BasicAuth`, `DigestAuth` later
+- rename `JWToken` to `JWTAuth`, we might have `BasicAuth`, `DigestAuth` later
 
 - refactor decoder for textual params, including header, query, path, etc.
 use msgspec.convert instead of msgspec.json.decode
@@ -795,4 +795,20 @@ type Pair[K, V] = tuple[K, V]
 
 
 async def get_user(p: Pair[int, float]): ...
+```
+
+
+- add `exclude_none`, `exclude_unset` to `Base.asdict`.
+
+
+## Feature
+
+- `AppConfig` is now a global singleton, and can be accessed anywhere via `lihil.config.get_config`
+
+usage
+
+```python
+from lihil.config import get_config, AppConfig
+
+assert isinstance(get_config(), AppConfig)
 ```

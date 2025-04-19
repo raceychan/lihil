@@ -69,7 +69,7 @@ when such exception is raised from endpoint, client would receive a response lik
 
 ![msgspec_vs_others](/docs/images/msgspec_others.png)
 
-- **Auth Builtin**: comes with authentification & authorization plugins out of the box.
+- **Auth Builtin**: lihil comes with authentification & authorization plugins out of the box.
 
 ```python
 from lihil import Payload, Route

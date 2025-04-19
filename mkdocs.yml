@@ -62,7 +62,7 @@ nav:
   - lihil: index.md
   - Tutorial: tutorials.md
   - Advanced Usage: advanced_usage.md
+  - Testing: testing.md
   - MiniCourse: minicourse.md
-  - Features: features.md
   - Benchmark: benchmark.md
   - Contribute: contribute.md
