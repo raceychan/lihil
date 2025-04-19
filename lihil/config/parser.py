@@ -127,20 +127,24 @@ def generate_parser_actions(
             nested_actions = generate_parser_actions(field_type, full_field_name)
             actions.extend(nested_actions)
         else:
+            help_msg = f"{config_field.doc}"
+            if is_provided(field_default):
+                help_msg += f"default: {field_default})"
+
             if field_type is bool:
                 action = {
                     "name": arg_name,
                     "type": "bool",
                     "action": "store_true",
                     "default": field_default,
-                    "help": f"Set {full_field_name}: {config_field.doc} (default: {field_default})",
+                    "help": help_msg,
                 }
             else:
                 action = {
                     "name": arg_name,
                     "type": field_type,
                     "default": field_default,
-                    "help": f"Set {full_field_name}: {config_field.doc} (default: {field_default})",
+                    "help": help_msg,
                 }
             actions.append(action)
     return actions
