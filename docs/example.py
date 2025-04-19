@@ -42,12 +42,7 @@ async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserProfile]:
     return UserProfile(user_id="user123")
 
 
-lhl = Lihil[None](
-    routes=[me, token],
-    app_config=AppConfig(
-        security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-    ),
-)
+lhl = Lihil[None](routes=[me, token])
 
 # =============================
 

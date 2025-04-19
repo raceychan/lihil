@@ -10,14 +10,9 @@ from typing import Any, AsyncContextManager, Callable, Unpack, overload
 from ididi import Graph
 from uvicorn import run as uvi_run
 
-from lihil.config import AppConfig, SyncDeps, config_from_file
+from lihil.config import AppConfig, lhl_get_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
-from lihil.errors import (
-    AppConfiguringError,
-    DuplicatedRouteError,
-    InvalidLifeSpanError,
-    NotSupportedError,
-)
+from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
@@ -40,19 +35,6 @@ def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
         return lifespan
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
-
-
-def read_config(
-    config_file: str | Path | None, app_config: AppConfig | None
-) -> AppConfig:
-    if config_file and app_config:
-        raise AppConfiguringError(
-            "Can't set both config_file and app_config, choose either one of them"
-        )
-    elif app_config:
-        return app_config
-    else:
-        return config_from_file(config_file)
 
 
 StaticCache = dict[str, tuple[dict[str, Any], dict[str, Any]]]
@@ -96,7 +78,9 @@ class Lihil[T](ASGIBase):
         lifespan: LifeSpan[T] | None = None,
     ):
         super().__init__(middlewares)
-        self.app_config = read_config(config_file, app_config)
+        lhl_set_config(config_file, app_config)
+        self.app_config = lhl_get_config()
+
         self.workers = ThreadPoolExecutor(
             max_workers=self.app_config.max_thread_workers
         )
@@ -169,12 +153,9 @@ class Lihil[T](ASGIBase):
 
     def _setup(self) -> None:
         self.call_stack = self.chainup_middlewares(self.call_route)
-        sync_deps = SyncDeps(
-            app_config=self.app_config, graph=self.graph, busterm=self.busterm
-        )
 
         for route in self.routes:
-            route.setup(**sync_deps)
+            route.setup(graph=self.graph, busterm=self.busterm)
 
     def _generate_builtin_routes(self):
         oas_config = self.app_config.oas

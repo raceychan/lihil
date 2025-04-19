@@ -14,7 +14,16 @@ from typing import (
 from lihil.config import AppConfig
 from lihil.constant.status import code as get_status_code
 from lihil.errors import InvalidStatusError, NotSupportedError, StatusConflictError
-from lihil.interface import MISSING, CustomEncoder, IEncoder, Maybe, Record, is_provided
+from lihil.interface import (
+    MISSING,
+    UNSET,
+    CustomEncoder,
+    IEncoder,
+    Maybe,
+    Record,
+    RegularTypes,
+    is_provided,
+)
 from lihil.interface.marks import RESP_RETURN_MARK, ResponseMark, extract_resp_type
 from lihil.utils.json import encode_json, encode_text
 from lihil.utils.typing import get_origin_pro, is_union_type
@@ -54,7 +63,7 @@ def is_empty_return(t: Any):
     return False
 
 
-def is_annotated(annt: Any) -> TypeGuard[type | UnionType]:
+def is_annotated(annt: Any) -> TypeGuard[RegularTypes]:
     return is_provided(annt) and annt is not Parameter.empty
 
 
@@ -110,7 +119,7 @@ def parse_return_pro(
             elif resp_type == "empty":
                 content_type = None
             elif resp_type == "jw_token":
-                if app_config is None or app_config.security is None:
+                if app_config is None or app_config.security is UNSET:
                     raise NotSupportedError(
                         "Security config is required to use JWTAuth"
                     )

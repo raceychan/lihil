@@ -190,10 +190,55 @@ Only `user_id` needs to be provided by the client request, rest will be resolved
 
 Since return param is not declared, `"ok"` will be serialized as json `'"ok"'`, status code will be `200`.
 
-#### Data validation and Custom Encoder/Decoder
+#### Data validation
 
-lihil provide you data validation functionalities out of the box using msgspec, you can also use your own customized encoder/decoder for request params and function return.
+lihil provide you data validation functionalities out of the box using msgspec.
 
+#### Constraints
+
+- You might combine `typing.Annotated` and `msgspec.Meta` to put constraints on params,
+
+```python
+all_users = Route("/users")
+
+@all_users.get
+async def get_users(numers: Annotated[int, msgspec.Meta(gt=0)]):
+    ...
+```
+
+Here `get_user` expects a query param `numers`, an integer with value greater than `0`.
+
+- Constraints with structual data
+
+```python
+from typing import Annotated
+
+from lihil import Payload
+from msgspec import Meta
+
+UnixName = Annotated[
+    str, Meta(min_length=1, max_length=32, pattern="^[a-z_][a-z0-9_-]*$")
+]
+
+class User(Payload):
+    name: UnixName
+    groups: Annotated[set[UnixName], Meta(max_length=16)] = set()
+    cpu_limit: Annotated[float, Meta(ge=0.1, le=8)] = 1
+    mem_limit: Annotated[int, Meta(ge=256, le=8192)] = 1024
+
+@all_users.post
+async def create_user(user: User): ...
+```
+
+Here `create_user` expects a body param `user`, a structual data where each field has constraints.
+
+- Constraints with supported types
+
+Checkout [msgspec constraints](https://jcristharif.com/msgspec/constraints.html) for more details on specific constraints you can set on different types.
+
+##### Custom Encoder/Decoder
+
+You can also use your own customized encoder/decoder for request params and function return.
 To use them, annotate your param type with `CustomDecoder` and your return type with `CustomEncoder`
 
 ```python
@@ -202,8 +247,8 @@ from lihil.di import CustomEncoder, CustomDecoder
 user_route = @Route(/users/{user_id})
 
 async def get_user(
-    user_id: Annotated[MyUserID, CustomDecoder(decode_user_id)]
-) -> Annotated[MyUserId, CustomEncoder(encode_user_id)]:
+    user_id: Annotated[str, CustomDecoder(decode_user_id)]
+) -> Annotated[str, CustomEncoder(encode_user_id)]:
     return user_id
 ```
 
@@ -360,9 +405,34 @@ for complex middleware that require many external dependencies, you might to con
 
 ## Config Your App
 
-You can alter app behavior by `lihil.config.AppConfig`
+There are several settings you can change to control the behavior of lihil,
 
-### via config file
+you might change them through `lihil.config.AppConfig`, as well as
+
+- ServerConfig:
+
+```python
+class ServerConfig(ConfigBase):
+    host: str | None = None
+    port: int | None = None
+    workers: int | None = None
+    reload: bool | None = None
+    root_path: str | None = None
+```
+
+- OASConfig:
+```python
+class OASConfig(ConfigBase):
+    oas_path: str = "/openapi"
+    doc_path: str = "/docs"
+    problem_path: str = "/problems"
+    problem_title: str = "lihil-Problem Page"
+    title: str = "lihil-OpenAPI"
+    version: str = "3.1.0"
+```
+
+
+### `pyproject.toml`
 
 ```python
 lhl = Lihil(config_file="pyproject.toml")
@@ -373,7 +443,7 @@ extra/unkown keys will be forbidden to help prevent misconfiging
 
 Note: currently only toml file is supported
 
-### build `lihil.config.AppConfig` instance menually
+### `AppConfig` instance
 
 ```python
 lhl = Lihil(app_config=AppConfig(version="0.1.1"))
@@ -390,7 +460,7 @@ class MyConfig(AppConfig):
 config = MyConfig.from_file("myconfig.toml")
 ```
 
-You can override config with command line arguments:
+### Command line arguments:
 
 ```example
 python app.py --oas.title "New Title" --is_prod true

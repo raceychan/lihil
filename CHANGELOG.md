@@ -716,7 +716,6 @@ ep = lc.make_endpoint(f)
 - fix a bug where if config_file is None, config through cli arguments won't be read.
 
 
-
 ## version 0.2.1
 
 
@@ -736,3 +735,64 @@ use msgspec.convert instead of msgspec.json.decode
 ### Feature
 
 - Single param constraint
+
+
+## version 0.2.2
+
+## Fixes
+
+- fix a bug where command line arguments for security does not work
+
+## improvements
+
+- better help docs for config
+
+```bash
+uv run python -m docs.example --help
+
+lihil application configuration
+
+options:
+  -h, --help            show this help message and exit
+  --is_prod             Whether the current environment is production
+  --version VERSION     Application version
+  --max_thread_workers MAX_THREAD_WORKERS
+                        Maximum number of thread workers
+  --oas.oas_path OAS.OAS_PATH
+                        Route path for OpenAPI JSON schema
+  --oas.doc_path OAS.DOC_PATH
+                        Route path for Swagger UI
+  --oas.title OAS.TITLE
+                        Title of your Swagger UI
+  --oas.problem_path OAS.PROBLEM_PATH
+                        Route path for problem page
+  --oas.problem_title OAS.PROBLEM_TITLE
+                        Title of your problem page
+  --oas.version OAS.VERSION
+                        Swagger UI version
+  --server.host SERVER.HOST
+                        Host address to bind to (e.g., '127.0.0.1')
+  --server.port SERVER.PORT
+                        Port number to listen on
+  --server.workers SERVER.WORKERS
+                        Number of worker processes
+  --server.reload       Enable auto-reloading during development
+  --server.root_path SERVER.ROOT_PATH
+                        Root path to mount the app under (if behind a proxy)
+  --security.jwt_secret SECURITY.JWT_SECRET
+                        Secret key for encoding and decoding JWTs
+  --security.jwt_algorithms SECURITY.JWT_ALGORITHMS
+                        List of accepted JWT algorithms
+```
+
+
+- better typing support
+
+now you might declare more complex type such as
+
+```python
+type Pair[K, V] = tuple[K, V]
+
+
+async def get_user(p: Pair[int, float]): ...
+```

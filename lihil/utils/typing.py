@@ -14,7 +14,7 @@ from typing import (
 from typing import get_origin as ty_get_origin
 
 
-def union_types(subs: Sequence[type[Any]]) -> type | UnionType | None:
+def union_types(subs: Sequence[type[Any]]) -> type | UnionType | GenericAlias | None:
     """
     convert a sequence of types to a union of types
     union_types([str, int, bytes]) -> Union[str, int, bytes]
@@ -73,7 +73,7 @@ def is_nontextual_sequence(type_: Any, strict: bool = False):
     return not strict and issubclass(type_origin, (set, frozenset))
 
 
-def is_text_type(t: type | UnionType) -> bool:
+def is_text_type(t: type | UnionType | GenericAlias) -> bool:
     if is_union_type(t):
         union_args = get_args(t)
         return any(u in (str, bytes) for u in union_args)
@@ -81,7 +81,7 @@ def is_text_type(t: type | UnionType) -> bool:
     return t in (str, bytes)
 
 
-def is_mapping_type(qtype: type | UnionType) -> bool:
+def is_mapping_type(qtype: type | UnionType | GenericAlias) -> bool:
     if is_union_type(qtype):
         q_union_args = get_args(qtype)
         return any(is_mapping_type(q) for q in q_union_args)
@@ -90,11 +90,61 @@ def is_mapping_type(qtype: type | UnionType) -> bool:
     return qorigin is dict or isinstance(qorigin, type) and issubclass(qorigin, Mapping)
 
 
+def is_generic_type(type_: Any) -> bool:
+    return isinstance(type_, TypeVar) or any(
+        is_generic_type(arg) for arg in get_args(type_)
+    )
+
+
+def replace_typevars(
+    tyvars: tuple[type | TypeVar, ...], nonvars: tuple[type, ...]
+) -> tuple[type, ...]:
+    typevar_map: dict[TypeVar, None | type] = {
+        item: None for item in tyvars if isinstance(item, TypeVar)
+    }
+
+    if len(typevar_map) != len(nonvars):
+        raise ValueError(f"Expected {len(typevar_map)} types in t2, got {len(nonvars)}")
+
+    idx = 0
+    for k in typevar_map:
+        typevar_map[k] = nonvars[idx]
+        idx += 1
+
+    # Replace TypeVars in t1
+    result: list[type] = []
+
+    for item in tyvars:
+        if isinstance(item, TypeVar):
+            mapped = typevar_map[item]
+            assert mapped
+            result.append(mapped)
+        else:
+            result.append(item)
+
+    return tuple(result)
+
+
+def repair_type_generic_alias(type_: TypeAliasType) -> GenericAlias:
+    """
+    type StrDict[V] = dict[str, V]
+    assert repair_type_generic_alias(StrDict[int]) == dict[str, int]
+    assert repair_type_generic_alias(StrDict[float]) == dict[str, float]
+    """
+
+    generic = type_.__value__
+    origin = ty_get_origin(generic)
+    generic_args = generic.__args__
+    type_args = get_args(type_)
+    res = replace_typevars(generic_args, type_args)
+    return GenericAlias(origin, res)
+
+
 # TODO: carry type_args, StriDict[int] -> tyargs = ()
 def get_origin_pro[T](
     type_: type[T] | UnionType | GenericAlias | TypeAliasType,
     metas: list[Any] | None = None,
-) -> tuple[type | UnionType, list[Any] | None]:
+) -> tuple[type | UnionType | GenericAlias, list[Any] | None]:
     """
     type MyTypeAlias = Annotated[Query[int], CustomEncoder]
     type NewAnnotated = Annotated[MyTypeAlias, "aloha"]
@@ -103,6 +153,9 @@ def get_origin_pro[T](
     get_param_origin(MyTypeAlias) -> (int, [QUERY_REQUEST_MARK, CustomEncoder])
     get_param_origin(NewAnnotated) -> (int, [QUERY_REQUEST_MARK, CustomEncoder])
     """
+
+    # TODO: we need to handle cases with type alias + generic alias. e.g.
+    # type StrDict[T] = dict[str, T]
 
     if isinstance(type_, TypeAliasType):
         return get_origin_pro(type_.__value__, metas)
@@ -116,22 +169,26 @@ def get_origin_pro[T](
             dealiased = cast(TypeAliasType, type_).__value__
             dtype, demetas = get_origin_pro(dealiased, metas)
 
-            if demetas and isinstance(dtype, TypeVar):  # type: ignore
-                nontyvar = [
-                    arg for arg in get_args(type_) if not isinstance(arg, TypeVar)
-                ]
-                dtype = nontyvar.pop(0) if nontyvar else dtype
-                # dtype should be the first nontyvar, rest replace the tyvars in dmetas
-                while nontyvar:
-                    for idx, meta in enumerate(demetas):
-                        if isinstance(meta, TypeVar):
-                            demetas[idx] = nontyvar.pop(0)
-                return get_origin_pro(dtype, demetas)
+            if is_generic_type(dtype):  # type: ignore
+                if demetas:
+                    nontyvar = [
+                        arg for arg in get_args(type_) if not isinstance(arg, TypeVar)
+                    ]
+                    dtype = nontyvar.pop(0) if nontyvar else dtype
+                    # dtype should be the first nontyvar, rest replace the tyvars in dmetas
+                    while nontyvar:
+                        for idx, meta in enumerate(demetas):
+                            if isinstance(meta, TypeVar):
+                                demetas[idx] = nontyvar.pop(0)
+                    return get_origin_pro(dtype, demetas)
+                else:
+                    dtype = repair_type_generic_alias(type_)
+                    return dtype, None
             else:
                 return get_origin_pro(dealiased, metas)
         elif current_origin is UnionType:
             union_args = get_args(type_)
-            utypes: list[type | UnionType] = []
+            utypes: list[type | UnionType | GenericAlias] = []
             new_metas: list[Any] = []
             for uarg in union_args:
                 utype, umeta = get_origin_pro(uarg)
@@ -146,8 +203,6 @@ def get_origin_pro[T](
             else:
                 metas.extend(new_metas)
             return get_origin_pro(Union[*utypes], metas)  # type: ignore
-        # elif ty_args := get_args(type_):
-        #     breakpoint()
         else:
             return (cast(type, type_), cast(None, metas))
     else:

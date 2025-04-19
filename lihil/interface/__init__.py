@@ -1,6 +1,6 @@
 # from types import GenericAlias, UnionType
 from dataclasses import dataclass
-from types import UnionType
+from types import GenericAlias, UnionType
 from typing import Any, Callable, ClassVar, Literal
 from typing import Protocol as Protocol
 from typing import TypeGuard, Union, get_args
@@ -49,6 +49,8 @@ type Func[**P, R] = Callable[P, R]
 type Maybe[T] = T | "_Missed"
 
 type StrDict = dict[str, Any]
+
+type RegularTypes = type | UnionType | GenericAlias
 
 
 def get_maybe_vars[T](m: Maybe[T]) -> T | None:

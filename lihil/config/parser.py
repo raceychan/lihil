@@ -1,31 +1,14 @@
 import argparse
-import tomllib
 from pathlib import Path
-from types import UnionType
-from typing import Any, Sequence, TypedDict, Union, cast, get_args, get_origin
+from typing import Any, Sequence, TypeGuard, cast, get_args
 
-from ididi import Graph
-from msgspec import convert, field
+from msgspec import convert
 from msgspec.structs import FieldInfo, fields
+from typing_extensions import Doc
 
-from lihil.errors import AppConfiguringError
-from lihil.interface import (
-    MISSING,
-    Maybe,
-    Record,
-    StrDict,
-    Unset,
-    get_maybe_vars,
-    is_provided,
-    lhl_get_origin,
-)
-from lihil.plugins.bus import BusTerminal
-
-
-class SyncDeps(TypedDict, total=False):
-    app_config: "AppConfig"
-    graph: Graph
-    busterm: BusTerminal
+from lihil.config.app_config import AppConfig, ConfigBase
+from lihil.interface import MISSING, UNSET, Record, StrDict, is_provided
+from lihil.utils.typing import get_origin_pro, is_union_type
 
 
 def get_thread_cnt() -> int:
@@ -78,24 +61,6 @@ def deep_update(original: StrDict, update_data: StrDict) -> StrDict:
     return original
 
 
-def parse_field_type(field: FieldInfo) -> type:
-    "Todo: parse Maybe[int] = MISSING"
-
-    ftype = field.type
-    origin = lhl_get_origin(ftype)
-
-    if origin is UnionType or origin is Union:
-        unions = get_args(ftype)
-        assert unions
-        for targ in unions:
-            return targ
-    elif origin is Maybe:
-        maybe_var = get_maybe_vars(ftype)
-        assert maybe_var
-        return maybe_var
-    return ftype
-
-
 class StoreTrueIfProvided(argparse.Action):
     def __call__(
         self,
@@ -115,63 +80,31 @@ class StoreTrueIfProvided(argparse.Action):
         super().__init__(*args, **kwargs)  # type: ignore
 
 
-class ConfigBase(Record, forbid_unknown_fields=True, frozen=True): ...
+def is_config_type(ftype: Any) -> TypeGuard[type[ConfigBase]]:
+    return isinstance(ftype, type) and issubclass(ftype, ConfigBase)
 
 
-class OASConfig(ConfigBase):
-    oas_path: str = "/openapi"
-    doc_path: str = "/docs"
-    problem_path: str = "/problems"
-    problem_title: str = "lihil-Problem Page"
-    title: str = "lihil-OpenAPI"
-    version: str = "3.1.0"
+class ConfigField(Record):
+    field_type: type
+    doc: str
 
 
-class ServerConfig(ConfigBase):
-    host: str | None = None
-    port: int | None = None
-    workers: int | None = None
-    reload: bool | None = None
-    root_path: str | None = None
+def parse_field_type(field: FieldInfo) -> ConfigField:
+    "Todo: parse Maybe[int] = MISSING"
 
+    ftype, metas = get_origin_pro(field.type)
+    doc: str = ""
+    if metas:
+        for m in metas:
+            if isinstance(m, Doc):
+                doc = m.documentation
+                break
 
-class SecurityConfig(ConfigBase):
-    jwt_secret: str
-    jwt_algorithms: Sequence[str]
+    if is_union_type(ftype):
+        unions = get_args(ftype)
+        ftype = next(filter(lambda x: x not in (None, UNSET, MISSING), unions))
 
-
-class AppConfig(ConfigBase):
-    is_prod: bool = False
-    version: str = "0.1.0"
-    max_thread_workers: int = field(default_factory=get_thread_cnt)
-    oas: OASConfig = field(default_factory=OASConfig)
-    server: ServerConfig = field(default_factory=ServerConfig)
-    security: SecurityConfig | None = None
-
-    @classmethod
-    def _from_toml(cls, file_path: Path) -> StrDict:
-
-        with open(file_path, "rb") as fp:
-            toml = tomllib.load(fp)
-
-        try:
-            lihil_config: StrDict = toml["tool"]["lihil"]
-        except KeyError:
-            try:
-                lihil_config: StrDict = toml["lihil"]
-            except KeyError:
-                raise AppConfiguringError(f"can't find table lihil from {file_path}")
-        return lihil_config
-
-    @classmethod
-    def from_file(cls, file_path: Path) -> StrDict:
-        if not file_path.exists():
-            raise AppConfiguringError(f"path {file_path} not exist")
-
-        file_ext = file_path.suffix[1:]
-        if file_ext != "toml":
-            raise AppConfiguringError(f"Not supported file type {file_ext}")
-        return cls._from_toml(file_path)
+    return ConfigField(cast(type, ftype), doc)
 
 
 def generate_parser_actions(
@@ -182,33 +115,36 @@ def generate_parser_actions(
 
     for field_info in cls_fields:
         field_name = field_info.encode_name
-        field_type = field_info.type
-        field_default = MISSING  # if field_type is not bool else field_info.default
+        field_default: Any = MISSING  # if field_type is not bool else field_info.default
 
         full_field_name = f"{prefix}.{field_name}" if prefix else field_name
         arg_name = f"--{full_field_name}"
 
-        if get_origin(field_type) is Unset:
-            field_type = field_type.__args__[0]
+        config_field = parse_field_type(field_info)
 
-        if isinstance(field_type, type) and issubclass(field_type, ConfigBase):
+        field_type = config_field.field_type
+        if is_config_type(field_type):
             nested_actions = generate_parser_actions(field_type, full_field_name)
             actions.extend(nested_actions)
         else:
+            help_msg = f"{config_field.doc}"
+            if is_provided(field_default):
+                help_msg += f"default: {field_default})"
+
             if field_type is bool:
                 action = {
                     "name": arg_name,
                     "type": "bool",
                     "action": "store_true",
                     "default": field_default,
-                    "help": f"Set {full_field_name} (default: {field_default})",
+                    "help": help_msg,
                 }
             else:
                 action = {
                     "name": arg_name,
-                    "type": parse_field_type(field_info),
+                    "type": field_type,
                     "default": field_default,
-                    "help": f"Set {full_field_name} (default: {field_default})",
+                    "help": help_msg,
                 }
             actions.append(action)
     return actions
@@ -258,9 +194,11 @@ def config_from_file(
         file_path = Path(config_file) if isinstance(config_file, str) else config_file
         config_dict = config_type.from_file(file_path)
     else:
-        config_dict = config_type().asdict()  # everything default
+        config_dict = config_type().asdict(skip_unset=True)
+
     cli_config = config_from_cli(config_type)
     if cli_config:
         deep_update(config_dict, cli_config)
+
     config = convert(config_dict, config_type)
     return config

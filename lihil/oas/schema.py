@@ -1,13 +1,12 @@
 import re
-from types import UnionType
-from typing import Any, Sequence, Union, cast, get_args, get_origin
+from typing import Any, Sequence,  cast, get_args
 
 from msgspec import Struct
 from msgspec.json import schema_components
 
 from lihil.config import OASConfig
 from lihil.constant.status import phrase
-from lihil.interface import is_provided, is_set
+from lihil.interface import is_provided, is_set, RegularTypes
 from lihil.oas import model as oasmodel
 from lihil.problems import (
     DetailBase,
@@ -46,7 +45,7 @@ class OneOfOutput(Struct):
     oneOf: list[SchemaOutput]
 
 
-def json_schema(types: type | UnionType) -> SchemaOutput:
+def json_schema(types: RegularTypes) -> SchemaOutput:
     (schema,), definitions = schema_components(
         (types,),
         ref_template="#/components/schemas/{name}",

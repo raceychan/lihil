@@ -1,27 +1,25 @@
 import argparse
-import tomllib
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from lihil import Lihil
-from lihil.config import (
-    MISSING,
-    AppConfig,
-    AppConfiguringError,
+from lihil.config import AppConfig, AppConfiguringError
+from lihil.config.parser import (
     StoreTrueIfProvided,
     build_parser,
     config_from_cli,
     config_from_file,
     format_nested_dict,
 )
+from lihil.interface import MISSING
 
 # from lihil.config import AppConfig
 
 
 def test_app_read_config():
-    lhl = Lihil(config_file="pyproject.toml")
+    lhl = Lihil[None](config_file="pyproject.toml")
     assert lhl.app_config.oas.doc_path == "/docs"
 
 

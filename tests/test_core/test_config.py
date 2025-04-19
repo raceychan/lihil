@@ -4,26 +4,24 @@ from typing import Optional, Union
 
 import pytest
 from msgspec.structs import FieldInfo
-from starlette.requests import Request
 
-from lihil.config import (
+from lihil.config import OASConfig, ServerConfig
+from lihil.config.parser import (
     AppConfig,
     ConfigBase,
-    OASConfig,
-    ServerConfig,
     StoreTrueIfProvided,
     build_parser,
     config_from_cli,
     config_from_file,
     deep_update,
     format_nested_dict,
+    generate_parser_actions,
     get_thread_cnt,
     is_provided,
     parse_field_type,
 )
 from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, Maybe
-from lihil.plugins.bus import EventBus
 
 
 def test_get_thread_cnt():
@@ -109,15 +107,15 @@ def test_parse_field_type():
     union_field = next(f for f in fields if f.name == "union")
 
     # Regular type
-    assert parse_field_type(regular_field) == int
+    assert parse_field_type(regular_field).field_type == int
 
     # Optional type should return the non-None type
-    assert parse_field_type(optional_field) == str
+    assert parse_field_type(optional_field).field_type == str
 
     # Union type should return the first non-None type
     # Note: behavior depends on the order of types in the Union
     result = parse_field_type(union_field)
-    assert result in (int, str)
+    assert result.field_type in (int, str)
 
 
 def test_build_parser():
@@ -305,7 +303,7 @@ def test_config_from_cli_fix():
 def test_filed_type():
     fi = FieldInfo(name="is_prod", type=Maybe[int], encode_name="is_prod")
 
-    assert parse_field_type(fi) is int
+    assert parse_field_type(fi).field_type is int
 
 
 def test_build_parser_with_bool():
@@ -317,3 +315,7 @@ def test_build_parser_with_bool():
         nested: NestedConfig
 
     parser = build_parser(NewConfig)
+
+
+def test_generate_app_confg_acotions():
+    generate_parser_actions(AppConfig)

@@ -23,7 +23,7 @@ from starlette.responses import Response, StreamingResponse
 
 from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
-from lihil.config import AppConfig, SyncDeps
+from lihil.config import AppConfig, lhl_get_config
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.errors import InvalidParamTypeError
 from lihil.interface import (
@@ -152,16 +152,7 @@ class Endpoint[R]:
         else:
             self._plugin_items = ()
 
-        self._static = not any(
-            (
-                self._sig.path_params,
-                self._sig.query_params,
-                self._sig.header_params,
-                self._sig.body_param,
-                self._sig.dependencies,
-                self._sig.plugins,
-            )
-        )
+        self._static = self._sig.static
 
         scoped_by_config = bool(self._props and self._props.scoped is True)
 
@@ -193,7 +184,9 @@ class Endpoint[R]:
                 )
         return params
 
-    async def make_static_call(self, scope: IScope, receive: IReceive, send: ISend):
+    async def make_static_call(
+        self, scope: IScope, receive: IReceive, send: ISend
+    ) -> R | Response:
         try:
             return await self._func()
         except Exception as exc:
@@ -240,24 +233,29 @@ class Endpoint[R]:
 
     def return_to_response(self, raw_return: Any) -> Response:
         if isinstance(raw_return, Response):
-            resp = raw_return
-        elif isgenerator(raw_return) or isasyncgen(raw_return):
-            if isgenerator(raw_return) and not isasyncgen(raw_return):
-                encode_wrapper = syncgen_encode_wrapper(raw_return, self._encoder)
-            else:
-                encode_wrapper = agen_encode_wrapper(raw_return, self._encoder)
-            resp = StreamingResponse(
-                encode_wrapper,
-                media_type="text/event-stream",
-                status_code=self._status_code,
-            )
+            return raw_return
         else:
-            resp = Response(
-                content=self._encoder(raw_return),
-                media_type=self._media_type,
-                status_code=self._status_code,
-            )
-        return resp
+            if isasyncgen(raw_return):
+                encode_wrapper = agen_encode_wrapper(raw_return, self._encoder)
+                resp = StreamingResponse(
+                    encode_wrapper,
+                    media_type="text/event-stream",
+                    status_code=self._status_code,
+                )
+            elif isgenerator(raw_return):
+                encode_wrapper = syncgen_encode_wrapper(raw_return, self._encoder)
+                resp = StreamingResponse(
+                    encode_wrapper,
+                    media_type="text/event-stream",
+                    status_code=self._status_code,
+                )
+            else:
+                resp = Response(
+                    content=self._encoder(raw_return),
+                    media_type=self._media_type,
+                    status_code=self._status_code,
+                )
+            return resp
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         if self._scoped:
@@ -267,6 +265,7 @@ class Endpoint[R]:
             return await response(scope, receive, send)
         if self._static:  # when there is no params at all
             raw_return = await self.make_static_call(scope, receive, send)
+            # response = StaticResponse(raw_return)
         else:
             raw_return = await self.make_call(scope, receive, send, self._graph)
         response = self.return_to_response(raw_return)
@@ -283,7 +282,8 @@ class Route(ASGIBase):
 
         cls._flyweights[p] = route = super().__new__(cls)
         if parent := cls._flyweights.get(get_parent_path(p)):
-            parent.subroutes.append(route)
+            if route not in parent.subroutes:
+                parent.subroutes.append(route)
         return route
 
     def __init__(  # type: ignore
@@ -305,9 +305,9 @@ class Route(ASGIBase):
         if listeners:
             self.registry.register(*listeners)
         self.busterm = BusTerminal(self.registry, graph=graph)
+        self.app_config: AppConfig | None = None
         self.subroutes: list[Route] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
-        self.app_config: AppConfig | None = None
         self.props = props or EndpointProps(tags=[generate_route_tag(self.path)])
 
     def __repr__(self):
@@ -333,11 +333,10 @@ class Route(ASGIBase):
         rest = self.path.removeprefix(other_path)
         return rest.count("/") < 2
 
-    def setup(self, **deps: Unpack[SyncDeps]):
-        if deps:
-            self.app_config = deps.get("app_config") or self.app_config
-            self.graph = deps.get("graph") or self.graph
-            self.busterm = deps.get("busterm") or self.busterm
+    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
+        self.graph = graph or self.graph
+        self.busterm = busterm or self.busterm
+        self.app_config = lhl_get_config()
 
         for method, ep in self.endpoints.items():
             ep.setup()

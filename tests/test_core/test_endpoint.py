@@ -1,5 +1,5 @@
 import uuid
-from types import UnionType
+from types import GenericAlias, UnionType
 from typing import Annotated, Any, Literal
 
 import pytest
@@ -611,6 +611,8 @@ async def test_endpoint_with_jwt_fail_without_security_config(
 
 
 async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
+    from lihil.config import lhl_set_config
+
     async def get_me(token: JWTAuth[UserProfile]) -> Resp[Text, status.OK]:
         assert token.user_id == "1" and token.user_name == "2"
         return "ok"
@@ -620,12 +622,12 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
     testroute.post(login_get_token)
-
-    testroute.setup(
+    lhl_set_config(
         app_config=AppConfig(
             security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
         )
     )
+    testroute.setup()
 
     login_ep = testroute.get_endpoint(login_get_token)
 
@@ -661,11 +663,12 @@ async def test_endpoint_login_and_validate_with_str_resp(
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
     testroute.post(login_get_token)
-    testroute.setup(
-        app_config=AppConfig(
+    set_config(
+        AppConfig(
             security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
         )
     )
+    testroute.setup()
 
     login_ep = testroute.get_endpoint(login_get_token)
 
@@ -747,7 +750,11 @@ async def test_plugin_without_processor(testroute: Route):
 
     class MyPlugin(PluginBase):
         def parse(
-            self, name: str, type_: type | UnionType, annotation: Any, default: Any
+            self,
+            name: str,
+            type_: type | UnionType | GenericAlias,
+            annotation: Any,
+            default: Any,
         ) -> PluginParam:
             return PluginParam(
                 type_=type_,
