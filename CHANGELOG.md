@@ -739,7 +739,6 @@ use msgspec.convert instead of msgspec.json.decode
 
 ## version 0.2.2
 
-
 ## Fixes
 
 - fix a bug where command line arguments for security does not work
@@ -784,4 +783,16 @@ options:
                         Secret key for encoding and decoding JWTs
   --security.jwt_algorithms SECURITY.JWT_ALGORITHMS
                         List of accepted JWT algorithms
+```
+
+
+- better typing support
+
+now you might declare more complex type such as
+
+```python
+type Pair[K, V] = tuple[K, V]
+
+
+async def get_user(p: Pair[int, float]): ...
 ```
