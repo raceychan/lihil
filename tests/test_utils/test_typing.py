@@ -124,3 +124,32 @@ def test_get_origin_pro_unpack_annotated_in_order():
 def test_get_origin_pro_unpack_textalias_in_order():
     res = get_origin_pro(MARK_THREE)
     assert res == (str, ["ONE", "TWO", "THREE"])
+
+
+type Pair[K, V] = tuple[K, V]
+
+
+def test_get_origin_pro_with_generic_alias():
+
+    ptype, _ = get_origin_pro(dict[str, str])
+    assert ptype == dict[str, str]
+
+    ptype, _ = get_origin_pro(Pair[float, int])
+    assert ptype == tuple[float, int]
+
+
+type StrDict[V] = dict[str, V]
+
+
+def test_generic_alias():
+    ptype, _ = get_origin_pro(StrDict[int])
+    assert ptype == dict[str, int]
+    assert get_origin_pro(StrDict[float])[0] == dict[str, float]
+
+
+def test_get_origin_pro_with_unset():
+    from lihil.interface import UNSET, Unset, UnsetType
+
+    ptype, metas = get_origin_pro(Unset[str])
+
+    assert ptype.__args__ == (UnsetType, str)

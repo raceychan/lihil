@@ -1,21 +1,14 @@
 import argparse
 from pathlib import Path
-from types import UnionType
-from typing import Any, Sequence, TypeGuard, Union, cast, get_args, get_origin
+from typing import Any, Sequence, TypeGuard, cast, get_args
 
 from msgspec import convert
 from msgspec.structs import FieldInfo, fields
+from typing_extensions import Doc
 
 from lihil.config.app_config import AppConfig, ConfigBase
-from lihil.interface import (
-    MISSING,
-    Maybe,
-    StrDict,
-    Unset,
-    get_maybe_vars,
-    is_provided,
-    lhl_get_origin,
-)
+from lihil.interface import MISSING, UNSET, Record, StrDict, is_provided
+from lihil.utils.typing import get_origin_pro, is_union_type
 
 
 def get_thread_cnt() -> int:
@@ -68,24 +61,6 @@ def deep_update(original: StrDict, update_data: StrDict) -> StrDict:
     return original
 
 
-def parse_field_type(field: FieldInfo) -> type:
-    "Todo: parse Maybe[int] = MISSING"
-
-    ftype = field.type
-    origin = lhl_get_origin(ftype)
-
-    if origin is UnionType or origin is Union:
-        unions = get_args(ftype)
-        assert unions
-        for targ in unions:
-            return targ
-    elif origin is Maybe:
-        maybe_var = get_maybe_vars(ftype)
-        assert maybe_var
-        return maybe_var
-    return ftype
-
-
 class StoreTrueIfProvided(argparse.Action):
     def __call__(
         self,
@@ -109,6 +84,29 @@ def is_config_type(ftype: Any) -> TypeGuard[type[ConfigBase]]:
     return isinstance(ftype, type) and issubclass(ftype, ConfigBase)
 
 
+class ConfigField(Record):
+    field_type: type
+    doc: str
+
+
+def parse_field_type(field: FieldInfo) -> ConfigField:
+    "Todo: parse Maybe[int] = MISSING"
+
+    ftype, metas = get_origin_pro(field.type)
+    doc: str = ""
+    if metas:
+        for m in metas:
+            if isinstance(m, Doc):
+                doc = m.documentation
+                break
+
+    if is_union_type(ftype):
+        unions = get_args(ftype)
+        ftype = next(filter(lambda x: x not in (None, UNSET, MISSING), unions))
+
+    return ConfigField(cast(type, ftype), doc)
+
+
 def generate_parser_actions(
     config_type: type[ConfigBase], prefix: str = ""
 ) -> list[dict[str, Any]]:
@@ -117,19 +115,14 @@ def generate_parser_actions(
 
     for field_info in cls_fields:
         field_name = field_info.encode_name
-        field_type = field_info.type
         field_default = MISSING  # if field_type is not bool else field_info.default
 
         full_field_name = f"{prefix}.{field_name}" if prefix else field_name
         arg_name = f"--{full_field_name}"
 
-        field_origin = get_origin(field_type) or field_type
+        config_field = parse_field_type(field_info)
 
-        if field_origin is Unset:
-            field_type = field_type.__args__[0]
-
-        # BUG: union type like  SecurityConfig | None
-        # or Unset[SeucirytConfig]
+        field_type = config_field.field_type
         if is_config_type(field_type):
             nested_actions = generate_parser_actions(field_type, full_field_name)
             actions.extend(nested_actions)
@@ -140,14 +133,14 @@ def generate_parser_actions(
                     "type": "bool",
                     "action": "store_true",
                     "default": field_default,
-                    "help": f"Set {full_field_name} (default: {field_default})",
+                    "help": f"Set {full_field_name}: {config_field.doc} (default: {field_default})",
                 }
             else:
                 action = {
                     "name": arg_name,
-                    "type": parse_field_type(field_info),
+                    "type": field_type,
                     "default": field_default,
-                    "help": f"Set {full_field_name} (default: {field_default})",
+                    "help": f"Set {full_field_name}: {config_field.doc} (default: {field_default})",
                 }
             actions.append(action)
     return actions
@@ -205,12 +198,3 @@ def config_from_file(
 
     config = convert(config_dict, config_type)
     return config
-
-
-"""
-TODO: config read order
-
-1. pyproject.toml
-2. .env
-3. CLI
-"""
