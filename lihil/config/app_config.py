@@ -5,7 +5,7 @@ from typing import Sequence
 from msgspec import field
 
 from lihil.errors import AppConfiguringError
-from lihil.interface import Record, StrDict
+from lihil.interface import UNSET, Record, StrDict, Unset
 
 
 def get_thread_cnt() -> int:
@@ -52,7 +52,7 @@ class AppConfig(ConfigBase):
     max_thread_workers: int = field(default_factory=get_thread_cnt)
     oas: OASConfig = field(default_factory=OASConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
-    security: SecurityConfig | None = None
+    security: Unset[SecurityConfig] = UNSET
 
     @classmethod
     def _from_toml(cls, file_path: Path) -> StrDict:

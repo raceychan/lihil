@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 from types import UnionType
-from typing import Any, Sequence, Union, cast, get_args, get_origin
+from typing import Any, Sequence, TypeGuard, Union, cast, get_args, get_origin
 
 from msgspec import convert
 from msgspec.structs import FieldInfo, fields
@@ -105,6 +105,10 @@ class StoreTrueIfProvided(argparse.Action):
         super().__init__(*args, **kwargs)  # type: ignore
 
 
+def is_config_type(ftype: Any) -> TypeGuard[type[ConfigBase]]:
+    return isinstance(ftype, type) and issubclass(ftype, ConfigBase)
+
+
 def generate_parser_actions(
     config_type: type[ConfigBase], prefix: str = ""
 ) -> list[dict[str, Any]]:
@@ -124,7 +128,9 @@ def generate_parser_actions(
         if field_origin is Unset:
             field_type = field_type.__args__[0]
 
-        if isinstance(field_type, type) and issubclass(field_type, ConfigBase):
+        # BUG: union type like  SecurityConfig | None
+        # or Unset[SeucirytConfig]
+        if is_config_type(field_type):
             nested_actions = generate_parser_actions(field_type, full_field_name)
             actions.extend(nested_actions)
         else:
@@ -191,10 +197,12 @@ def config_from_file(
         file_path = Path(config_file) if isinstance(config_file, str) else config_file
         config_dict = config_type.from_file(file_path)
     else:
-        config_dict = config_type().asdict()  # everything default
+        config_dict = config_type().asdict(skip_unset=True)
+
     cli_config = config_from_cli(config_type)
     if cli_config:
         deep_update(config_dict, cli_config)
+
     config = convert(config_dict, config_type)
     return config
 
@@ -206,33 +214,3 @@ TODO: config read order
 2. .env
 3. CLI
 """
-
-from lihil.errors import AppConfiguringError
-
-DEFAULT_CONFIG = AppConfig()
-
-
-def config_registry():
-    _app_config: AppConfig = DEFAULT_CONFIG
-
-    def _set_config(
-        config_file: str | Path | None = None, app_config: AppConfig | None = None
-    ) -> None:
-        if config_file and app_config:
-            raise AppConfiguringError(
-                "Can't set both config_file and app_config, choose either one of them"
-            )
-
-        nonlocal _app_config
-        if app_config:
-            _app_config = app_config
-        else:
-            _app_config = config_from_file(config_file)
-
-    def _get_config() -> AppConfig:
-        return _app_config
-
-    return _set_config, _get_config
-
-
-lhl_set_config, lhl_get_config = config_registry()

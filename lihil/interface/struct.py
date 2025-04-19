@@ -13,6 +13,7 @@ from msgspec import Struct
 from msgspec.structs import asdict as struct_asdict
 from msgspec.structs import replace as struct_replace
 
+from lihil.interface import UNSET
 from lihil.interface.marks import EMPTY_RETURN_MARK
 from lihil.vendor_types import FormData
 
@@ -47,15 +48,25 @@ class Base(Struct):
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
 
-    def asdict(self, skip_defaults: bool = False) -> dict[str, Any]:
-        if not skip_defaults:
+    def asdict(
+        self, skip_defaults: bool = False, skip_unset: bool = False
+    ) -> dict[str, Any]:
+        if not skip_defaults and not skip_unset:
             return struct_asdict(self)
 
-        vals: dict[str, Any] = {}
-        for f, dft in zip(self.__struct_fields__, self.__struct_defaults__):
-            if (val := getattr(self, f)) != dft:
-                vals[f] = val
-        return vals
+        if skip_defaults:  # unset is always default so we do not care
+            vals: dict[str, Any] = {}
+            for fname, default in zip(self.__struct_fields__, self.__struct_defaults__):
+                val = getattr(self, fname)
+                if val != default:
+                    vals[fname] = val
+            return vals
+        else:
+            return {
+                f: val
+                for f in self.__struct_fields__
+                if (val := getattr(self, f)) is not UNSET
+            }
 
     def replace(self, /, **changes: Any) -> Self:
         return struct_replace(self, **changes)

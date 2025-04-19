@@ -5,9 +5,8 @@ from unittest.mock import patch
 import pytest
 
 from lihil import Lihil
-from lihil.config import AppConfig
+from lihil.config import AppConfig, AppConfiguringError
 from lihil.config.parser import (
-    AppConfiguringError,
     StoreTrueIfProvided,
     build_parser,
     config_from_cli,
@@ -20,7 +19,7 @@ from lihil.interface import MISSING
 
 
 def test_app_read_config():
-    lhl = Lihil(config_file="pyproject.toml")
+    lhl = Lihil[None](config_file="pyproject.toml")
     assert lhl.app_config.oas.doc_path == "/docs"
 
 
