@@ -280,7 +280,6 @@ class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
 
 
 class ParamMetas(Record):
-
     metas: tuple[Any, ...] = ()
     custom_decoder: IDecoder[Any, Any] | None = None
     mark_type: ParamMarkType | None = None

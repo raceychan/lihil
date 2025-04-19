@@ -716,7 +716,6 @@ ep = lc.make_endpoint(f)
 - fix a bug where if config_file is None, config through cli arguments won't be read.
 
 
-
 ## version 0.2.1
 
 
@@ -738,8 +737,14 @@ use msgspec.convert instead of msgspec.json.decode
 - Single param constraint
 
 
-
 ## version 0.2.2
 
 
-- static response
+## Fixes
+
+- fix a bug where command line arguments for security does not work(generate_parser_action)
+
+
+## improvements
+
+- better help docs for config, read docs for arguments

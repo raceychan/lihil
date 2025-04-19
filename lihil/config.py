@@ -120,11 +120,17 @@ class ConfigBase(Record, forbid_unknown_fields=True, frozen=True): ...
 
 class OASConfig(ConfigBase):
     oas_path: str = "/openapi"
+    "Route path for openapi json schema"
     doc_path: str = "/docs"
-    problem_path: str = "/problems"
-    problem_title: str = "lihil-Problem Page"
+    "Route path for swagger ui"
     title: str = "lihil-OpenAPI"
+    "Title of your swagger ui"
+    problem_path: str = "/problems"
+    "Route path for problem page"
+    problem_title: str = "lihil-Problem Page"
+    "Title of your problem page"
     version: str = "3.1.0"
+    "Swagger UI version"
 
 
 class ServerConfig(ConfigBase):
@@ -264,3 +270,14 @@ def config_from_file(
         deep_update(config_dict, cli_config)
     config = convert(config_dict, config_type)
     return config
+
+
+"""
+TODO: config read order
+
+1. pyproject.toml
+2. .env
+3. CLI
+
+which means cli would override previous settings.
+"""
