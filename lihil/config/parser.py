@@ -1,9 +1,8 @@
 import argparse
 from pathlib import Path
 from types import UnionType
-from typing import Any, Sequence, TypedDict, Union, cast, get_args, get_origin
+from typing import Any, Sequence, Union, cast, get_args, get_origin
 
-from ididi import Graph
 from msgspec import convert
 from msgspec.structs import FieldInfo, fields
 
@@ -210,9 +209,11 @@ TODO: config read order
 
 from lihil.errors import AppConfiguringError
 
+DEFAULT_CONFIG = AppConfig()
+
 
 def config_registry():
-    _app_config: AppConfig | None = None
+    _app_config: AppConfig = DEFAULT_CONFIG
 
     def _set_config(
         config_file: str | Path | None = None, app_config: AppConfig | None = None
@@ -229,11 +230,9 @@ def config_registry():
             _app_config = config_from_file(config_file)
 
     def _get_config() -> AppConfig:
-        if _app_config is None:
-            raise AppConfiguringError("App config not set")
         return _app_config
 
     return _set_config, _get_config
 
 
-set_config, get_config = config_registry()
+lhl_set_config, lhl_get_config = config_registry()

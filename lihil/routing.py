@@ -23,7 +23,7 @@ from starlette.responses import Response, StreamingResponse
 
 from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
-from lihil.config import AppConfig, get_config
+from lihil.config import AppConfig, lhl_get_config
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.errors import InvalidParamTypeError
 from lihil.interface import (
@@ -282,7 +282,8 @@ class Route(ASGIBase):
 
         cls._flyweights[p] = route = super().__new__(cls)
         if parent := cls._flyweights.get(get_parent_path(p)):
-            parent.subroutes.append(route)
+            if route not in parent.subroutes:
+                parent.subroutes.append(route)
         return route
 
     def __init__(  # type: ignore
@@ -335,7 +336,7 @@ class Route(ASGIBase):
     def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm
-        self.app_config = get_config()
+        self.app_config = lhl_get_config()
 
         for method, ep in self.endpoints.items():
             ep.setup()

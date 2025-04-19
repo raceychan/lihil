@@ -611,7 +611,7 @@ async def test_endpoint_with_jwt_fail_without_security_config(
 
 
 async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
-    from lihil.config.config_parser import set_config
+    from lihil.config import lhl_set_config
 
     async def get_me(token: JWTAuth[UserProfile]) -> Resp[Text, status.OK]:
         assert token.user_id == "1" and token.user_name == "2"
@@ -622,7 +622,7 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
     testroute.post(login_get_token)
-    set_config(
+    lhl_set_config(
         app_config=AppConfig(
             security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
         )
@@ -663,11 +663,12 @@ async def test_endpoint_login_and_validate_with_str_resp(
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
     testroute.post(login_get_token)
-    testroute.setup(
-        app_config=AppConfig(
+    set_config(
+        AppConfig(
             security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
         )
     )
+    testroute.setup()
 
     login_ep = testroute.get_endpoint(login_get_token)
 

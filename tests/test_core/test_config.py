@@ -4,9 +4,9 @@ from typing import Optional, Union
 
 import pytest
 from msgspec.structs import FieldInfo
-from starlette.requests import Request
 
-from lihil.config.config_parser import (
+from lihil.config import OASConfig, ServerConfig
+from lihil.config.parser import (
     AppConfig,
     ConfigBase,
     StoreTrueIfProvided,
@@ -19,10 +19,8 @@ from lihil.config.config_parser import (
     is_provided,
     parse_field_type,
 )
-from lihil.config import OASConfig,ServerConfig
 from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, Maybe
-from lihil.plugins.bus import EventBus
 
 
 def test_get_thread_cnt():

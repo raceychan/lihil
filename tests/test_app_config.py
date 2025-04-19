@@ -1,5 +1,4 @@
 import argparse
-import tomllib
 from pathlib import Path
 from unittest.mock import patch
 
@@ -7,7 +6,7 @@ import pytest
 
 from lihil import Lihil
 from lihil.config import AppConfig
-from lihil.config.config_parser import (
+from lihil.config.parser import (
     AppConfiguringError,
     StoreTrueIfProvided,
     build_parser,

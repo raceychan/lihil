@@ -10,8 +10,7 @@ from typing import Any, AsyncContextManager, Callable, Unpack, overload
 from ididi import Graph
 from uvicorn import run as uvi_run
 
-from lihil.config import AppConfig
-from lihil.config.config_parser import get_config, set_config
+from lihil.config import AppConfig, lhl_get_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
@@ -79,8 +78,8 @@ class Lihil[T](ASGIBase):
         lifespan: LifeSpan[T] | None = None,
     ):
         super().__init__(middlewares)
-        set_config(config_file, app_config)
-        self.app_config = get_config()
+        lhl_set_config(config_file, app_config)
+        self.app_config = lhl_get_config()
 
         self.workers = ThreadPoolExecutor(
             max_workers=self.app_config.max_thread_workers
