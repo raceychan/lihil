@@ -35,5 +35,5 @@ from .vendor_types import UploadFile as UploadFile
 
 # from .server.runner import run as run
 
-VERSION = "0.2.1"
+VERSION = "0.2.2"
 __version__ = VERSION
