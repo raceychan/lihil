@@ -115,7 +115,7 @@ def generate_parser_actions(
 
     for field_info in cls_fields:
         field_name = field_info.encode_name
-        field_default = MISSING  # if field_type is not bool else field_info.default
+        field_default: Any = MISSING  # if field_type is not bool else field_info.default
 
         full_field_name = f"{prefix}.{field_name}" if prefix else field_name
         arg_name = f"--{full_field_name}"

@@ -21,7 +21,7 @@ from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from ididi.utils.typing_utils import is_builtin_type
-from msgspec import DecodeError
+from msgspec import UNSET, DecodeError
 from msgspec import Meta as ParamConstraint
 from msgspec import Struct, ValidationError, convert, field
 from msgspec.structs import fields as get_fields
@@ -36,6 +36,7 @@ from lihil.interface import (
     Maybe,
     ParamBase,
     ParamLocation,
+    RegularTypes,
     is_provided,
 )
 from lihil.interface.marks import (
@@ -558,7 +559,7 @@ class ParamParser:
         else:
             custom_decoder = param_metas.custom_decoder
             if custom_decoder is None:
-                if self.app_config is None or self.app_config.security is None:
+                if self.app_config is None or self.app_config.security is UNSET:
                     raise MissingDependencyError("security config")
                 sec_config = self.app_config.security
                 secret = sec_config.jwt_secret
@@ -664,7 +665,7 @@ class ParamParser:
     def _parse_plugin_from_meta(
         self,
         name: str,
-        type_: type | UnionType,
+        type_: RegularTypes,
         annotation: type[Any] | UnionType | GenericAlias | TypeAliasType,
         default: Maybe[Any],
         metas: list[Any] | None,

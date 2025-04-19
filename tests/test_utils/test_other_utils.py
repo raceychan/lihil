@@ -90,3 +90,21 @@ def test_parse_header_key():
 
     with pytest.raises(NotSupportedError):
         parser.parse_param("test", Header[str, Literal[5]])
+
+
+
+def test_payload_replace():
+    class User(Base):
+        user_name: str
+
+
+    user = User("user")
+    assert user.replace(user_name="new").user_name == "new"
+
+def test_payload_skip_none():
+    class User(Base):
+        user_name: str
+        age: int | None = None
+
+
+    assert "age" not in User("user").asdict(skip_none=True)

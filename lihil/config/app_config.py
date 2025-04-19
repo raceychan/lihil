@@ -46,7 +46,11 @@ class ServerConfig(ConfigBase):
 
 class SecurityConfig(ConfigBase):
     jwt_secret: Annotated[str, Doc("Secret key for encoding and decoding JWTs")]
-    jwt_algorithms: Annotated[Sequence[str], Doc("List of accepted JWT algorithms")]
+    jwt_algorithms: Annotated[
+        str | Sequence[str], Doc("List of accepted JWT algorithms")
+    ]
+
+
 
 
 class AppConfig(ConfigBase):

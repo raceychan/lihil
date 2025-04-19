@@ -123,7 +123,7 @@ else:
     def jwt_encoder_factory[T](
         *,
         secret: str,
-        algorithms: Sequence[str],
+        algorithms: str | Sequence[str],
         options: JWTOptions | None = None,
         payload_type: type[T] | UnionType,
     ):
@@ -134,6 +134,9 @@ else:
             raise NotSupportedError(
                 "payload type must be str or subclass of JWTPayload"
             )
+
+        if isinstance(algorithms, str):
+            algorithms = [algorithms]
 
         jws_encode = PyJWS(algorithms=algorithms, options=options).encode
 
@@ -159,7 +162,7 @@ else:
     def jwt_decoder_factory[T](
         *,
         secret: str,
-        algorithms: Sequence[str],
+        algorithms: str | Sequence[str],
         options: JWTOptions | None = None,
         payload_type: type[T] | UnionType,
     ):
@@ -176,8 +179,10 @@ else:
                 # payload.validate_claims()
                 # return payload
 
+                algos = [algorithms] if isinstance(algorithms, str) else algorithms
+
                 decoded: dict[str, Any] = jwt.decode(
-                    token, key=secret, algorithms=algorithms
+                    token, key=secret, algorithms=algos
                 )
                 return convert(decoded, payload_type)
             except InvalidTokenError:

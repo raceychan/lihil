@@ -1,10 +1,10 @@
-from types import GenericAlias, MappingProxyType, UnionType
+from types import GenericAlias, MappingProxyType
 from typing import Any, Protocol, TypeAliasType
 
 from ididi import Resolver
 
 from lihil.errors import InvalidMarkTypeError
-from lihil.interface import MISSING, Maybe, ParamBase
+from lihil.interface import MISSING, Maybe, ParamBase, RegularTypes
 from lihil.interface.marks import extract_mark_type
 from lihil.utils.typing import get_origin_pro
 from lihil.vendor_types import Request
@@ -32,7 +32,7 @@ class PluginBase:
     def parse(
         self,
         name: str,
-        type_: type | UnionType,
+        type_: RegularTypes,
         annotation: Any,
         default: Any,
     ) -> PluginParam:

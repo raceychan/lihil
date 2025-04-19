@@ -1,5 +1,5 @@
 import uuid
-from types import UnionType
+from types import GenericAlias, UnionType
 from typing import Annotated, Any, Literal
 
 import pytest
@@ -750,7 +750,11 @@ async def test_plugin_without_processor(testroute: Route):
 
     class MyPlugin(PluginBase):
         def parse(
-            self, name: str, type_: type | UnionType, annotation: Any, default: Any
+            self,
+            name: str,
+            type_: type | UnionType | GenericAlias,
+            annotation: Any,
+            default: Any,
         ) -> PluginParam:
             return PluginParam(
                 type_=type_,

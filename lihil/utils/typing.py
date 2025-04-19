@@ -14,7 +14,7 @@ from typing import (
 from typing import get_origin as ty_get_origin
 
 
-def union_types(subs: Sequence[type[Any]]) -> type | UnionType | None:
+def union_types(subs: Sequence[type[Any]]) -> type | UnionType | GenericAlias | None:
     """
     convert a sequence of types to a union of types
     union_types([str, int, bytes]) -> Union[str, int, bytes]
@@ -73,7 +73,7 @@ def is_nontextual_sequence(type_: Any, strict: bool = False):
     return not strict and issubclass(type_origin, (set, frozenset))
 
 
-def is_text_type(t: type | UnionType) -> bool:
+def is_text_type(t: type | UnionType | GenericAlias) -> bool:
     if is_union_type(t):
         union_args = get_args(t)
         return any(u in (str, bytes) for u in union_args)
@@ -81,7 +81,7 @@ def is_text_type(t: type | UnionType) -> bool:
     return t in (str, bytes)
 
 
-def is_mapping_type(qtype: type | UnionType) -> bool:
+def is_mapping_type(qtype: type | UnionType | GenericAlias) -> bool:
     if is_union_type(qtype):
         q_union_args = get_args(qtype)
         return any(is_mapping_type(q) for q in q_union_args)
@@ -182,16 +182,13 @@ def get_origin_pro[T](
                                 demetas[idx] = nontyvar.pop(0)
                     return get_origin_pro(dtype, demetas)
                 else:
-                    if isinstance(dtype, GenericAlias) or is_union_type(dtype):
-                        dtype = repair_type_generic_alias(type_)
-                        return dtype, None
-                    else:
-                        raise TypeError(f"Unhanlded type {dtype}")
+                    dtype = repair_type_generic_alias(type_)
+                    return dtype, None
             else:
                 return get_origin_pro(dealiased, metas)
         elif current_origin is UnionType:
             union_args = get_args(type_)
-            utypes: list[type | UnionType] = []
+            utypes: list[type | UnionType | GenericAlias] = []
             new_metas: list[Any] = []
             for uarg in union_args:
                 utype, umeta = get_origin_pro(uarg)

@@ -317,6 +317,5 @@ def test_build_parser_with_bool():
     parser = build_parser(NewConfig)
 
 
-@pytest.mark.debug
 def test_generate_app_confg_acotions():
     generate_parser_actions(AppConfig)
