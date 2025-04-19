@@ -6,11 +6,9 @@ import pytest
 from msgspec.structs import FieldInfo
 from starlette.requests import Request
 
-from lihil.config import (
+from lihil.config.config_parser import (
     AppConfig,
     ConfigBase,
-    OASConfig,
-    ServerConfig,
     StoreTrueIfProvided,
     build_parser,
     config_from_cli,
@@ -21,6 +19,7 @@ from lihil.config import (
     is_provided,
     parse_field_type,
 )
+from lihil.config import OASConfig,ServerConfig
 from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, Maybe
 from lihil.plugins.bus import EventBus

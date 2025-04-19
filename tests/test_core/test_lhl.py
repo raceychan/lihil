@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from lihil.config import AppConfig, ServerConfig
+from lihil.config import AppConfig, ServerConfig, get_config
 from lihil.constant.resp import ServiceUnavailableResp, lhlserver_static_resp
 from lihil.errors import (
     AppConfiguringError,
@@ -14,7 +14,7 @@ from lihil.errors import (
     NotSupportedError,
 )
 from lihil.interface import ASGIApp, Base
-from lihil.lihil import Lihil, lifespan_wrapper, read_config
+from lihil.lihil import Lihil, lifespan_wrapper, set_config
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
 
@@ -95,15 +95,15 @@ async def test_lifespan_wrapper_with_invalid():
 async def test_read_config_with_app_config():
     # Test read_config with app_config
     app_config = AppConfig(max_thread_workers=8)
-    result = read_config(None, app_config)
-    assert result is app_config
+    result = set_config(None, app_config)
+    assert get_config() is app_config
 
 
 async def test_read_config_with_both():
     # Test read_config with both config_file and app_config
     app_config = AppConfig()
     with pytest.raises(AppConfiguringError):
-        read_config("config.json", app_config)
+        set_config("config.json", app_config)
 
 
 async def test_lihil_basic_routing():
@@ -982,7 +982,6 @@ async def test_lhl_add_seen_subroute():
 
     sub_route = parent_route / "sub"
     ssub = parent_route / "second"
-
 
     lhl = Lihil()
 

@@ -6,9 +6,8 @@ from unittest.mock import patch
 import pytest
 
 from lihil import Lihil
-from lihil.config import (
-    MISSING,
-    AppConfig,
+from lihil.config import AppConfig
+from lihil.config.config_parser import (
     AppConfiguringError,
     StoreTrueIfProvided,
     build_parser,
@@ -16,6 +15,7 @@ from lihil.config import (
     config_from_file,
     format_nested_dict,
 )
+from lihil.interface import MISSING
 
 # from lihil.config import AppConfig
 

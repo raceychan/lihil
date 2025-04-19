@@ -23,7 +23,7 @@ from starlette.responses import Response, StreamingResponse
 
 from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
-from lihil.config import AppConfig, SyncDeps
+from lihil.config import AppConfig, get_config
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.errors import InvalidParamTypeError
 from lihil.interface import (
@@ -304,9 +304,9 @@ class Route(ASGIBase):
         if listeners:
             self.registry.register(*listeners)
         self.busterm = BusTerminal(self.registry, graph=graph)
+        self.app_config: AppConfig | None = None
         self.subroutes: list[Route] = []
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
-        self.app_config: AppConfig | None = None
         self.props = props or EndpointProps(tags=[generate_route_tag(self.path)])
 
     def __repr__(self):
@@ -332,11 +332,10 @@ class Route(ASGIBase):
         rest = self.path.removeprefix(other_path)
         return rest.count("/") < 2
 
-    def setup(self, **deps: Unpack[SyncDeps]):
-        if deps:
-            self.app_config = deps.get("app_config") or self.app_config
-            self.graph = deps.get("graph") or self.graph
-            self.busterm = deps.get("busterm") or self.busterm
+    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
+        self.graph = graph or self.graph
+        self.busterm = busterm or self.busterm
+        self.app_config = get_config()
 
         for method, ep in self.endpoints.items():
             ep.setup()

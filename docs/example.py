@@ -1,7 +1,7 @@
 from lihil import Lihil, Payload, Route, field
-from lihil.config import AppConfig, SecurityConfig
 from lihil.auth.jwt import JWTAuth, JWTPayload
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
+from lihil.config import AppConfig, SecurityConfig
 
 me = Route("me")
 token = Route("token")
@@ -39,12 +39,7 @@ async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserPayload]:
     return UserPayload(user_id="user123")
 
 
-lhl = Lihil[None](
-    routes=[me, token],
-    # app_config=AppConfig(
-    #     security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-    # ),
-)
+lhl = Lihil[None](routes=[me, token])
 
 # =============================
 
