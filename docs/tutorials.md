@@ -666,3 +666,7 @@ async def get_user(token: UserToken) -> Ignore[User]: ...
 - if your function is a sync generator, it will be solved within a separate thread.
 
 - all graph will eventually merged into the main graph holding by `Lihil`, which means that, if you register a dependency with a factory in route `A`, the same factory can be used in every other route if it is required.
+
+### Have not found what you are looking for?
+
+please let us know by posting in the discussion.

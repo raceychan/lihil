@@ -75,7 +75,3 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
     assert res.status_code == 200
     assert await res.text() == "ok"
 ```
-
-### What else you would like to know?
-
-Have not found what you are looking for? please let us know by posting in the discussion.
