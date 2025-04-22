@@ -29,14 +29,19 @@ Lihil is
 - **Dependency injection**: inject factories, functions, sync/async, scoped/singletons based on type hints, blazingly fast.
 
 ```python
-async def get_conn(engine: Engine):
+from lihil import Route
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection
+
+async def get_conn(engine: AsyncEngine) -> AsyncConnection:
     async with engine.connect() as conn:
         yield conn
 
 async def get_users(conn: AsyncConnection):
     return await conn.execute(text("SELECT * FROM users"))
 
-@Route("users").get
+all_users = Route("users")
+
+@all_users.get
 async def list_users(users: Annotated[list[User], use(get_users)], is_active: bool=True):
     return [u for u in users if u.is_active == is_active]
 ```
@@ -67,7 +72,7 @@ when such exception is raised from endpoint, client would receive a response lik
 
 - **Data validation & Param Parsing**: Powerful and extendable data validation using `msgspec`, 12x faster and 25x more memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html), Deep memory optimizations significantly reduce GC overhead, making your services more robust and resilient under load.
 
-![msgspec_vs_others](/docs/images/msgspec_others.png)
+![msgspec vs others](/docs/images/msgspec_others.png)
 
 - **Auth Builtin**: lihil comes with authentification & authorization plugins out of the box.
 
@@ -76,26 +81,14 @@ from lihil import Payload, Route
 from lihil.auth.jwt import JWTAuth, JWTPayload
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 
-me = Route("me")
-token = Route("token")
-
-
 class UserProfile(JWTPayload):
-    __jwt_claims__ = {"expires_in": 300}
+    # get support from typehints about what are the available claims
+    __jwt_claims__ = {"expires_in": 300}  # jwt expires in 300 seconds.
 
     user_id: str = field(name="sub")
     role: Literal["admin", "user"] = "user"
 
-
-class User(Payload):
-    name: str
-    email: str
-
-
-token_based = OAuth2PasswordFlow(token_url="token")
-
-
-@me.get(auth_scheme=token_based)
+@me.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))
 async def get_user(profile: JWTAuth[UserProfile]) -> User:
     assert profile.role == "user"
     return User(name="user", email="user@email.com")
@@ -104,6 +97,8 @@ async def get_user(profile: JWTAuth[UserProfile]) -> User:
 async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserProfile]:
     return UserProfile(user_id="user123")
 ```
+
+When you return `UserProfile` from `create_token` endpoint, it would automatically be serialized as a json web token.
 
 - **Message System Bulitin**: publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
 
@@ -149,14 +144,17 @@ async def hello():
     return {"hello": "world!"}
 ```
 
-a more realistic example would be
 
 ```python
 from lihil import Lihil, Route, use, EventBus
+from msgspec import Meta
 
 chat_route = Route("/chats/{chat_id}")
 message_route = chat_route / "messages"
 UserToken = NewType("UserToken", str)
+
+chat_route.factory(UserService)
+message_route.factory(get_chat_service)
 
 @chat_route.factory
 def parse_access_token(
@@ -166,13 +164,13 @@ def parse_access_token(
 
 @message_route.post
 async def stream(
-   service: ChatService,
-   token: ParsedToken,
+   service: ChatService,  # get_chat_service gets called and inject instance of ChatService here.
+   profile: JWTAuth[UserProfile], # Auth Bearer: {jwt_token}` Header gets validated into UserProfile.
    bus: EventBus,
-   chat_id: str,
-   data: CreateMessage
-) -> Annotated[Stream[GPTMessage], CustomEncoder(gpt_encoder)]:
-    chat = service.get_user_chat(token.sub)
+   chat_id: Annotated[str, Meta[min_length=1]], # validates the path param `chat_id` has to be a string with length > 1.
+   data: CreateMessage # request body
+) -> Annotated[Stream[GPTMessage], CustomEncoder(gpt_encoder)]: # returns server side events
+    chat = service.get_user_chat(profile.user_id)
     chat.add_message(data)
     answer = service.ask(chat, model=data.model)
     buffer = []
@@ -237,6 +235,8 @@ This allows you to override configurations using command-line arguments.
 
 If your app is deployed in a containerized environment, such as Kubernetes, providing secrets this way is usually safer than storing them in files.
 
+use `--help` to see available configs.
+
 ### serve with uvicorn
 
 lihil is ASGI compatible, you can run it with an ASGI server, such as uvicorn
@@ -277,7 +277,7 @@ check detailed tutorials at https://lihil.cc/lihil/tutorials/, covering
 
 No contribution is trivial, and every contribution is appreciated. However, our focus and goals vary at different stages of this project.
 
-### version 0.1.x: Feature Parity
+### version 0.1.x: Feature Parity (alpha-stage)
 
 - Feature Parity: we should offer core functionalities of a web framework ASAP, similar to what fastapi is offering right now. Given both fastapi and lihil uses starlette, this should not take too much effort.
 
@@ -294,7 +294,7 @@ Based on the above points, in version v0.1.x, we welcome contributions in the fo
 - Feature Requests: We are open to discussions on what features lihil should have or how existing features can be improved. However, at this stage, we take a conservative approach to adding new features unless there is a significant advantage.
 
 
-### version 0.2.x Cool Stuff
+### version 0.2.x Cool Stuff (beta-stage)
 
 - Out-of-process event system (RabbitMQ, Kafka, etc.).
 - A highly performant schema-based query builder based on asyncpg
@@ -304,6 +304,8 @@ Based on the above points, in version v0.1.x, we welcome contributions in the fo
 
 ### version 0.3.x performance boost
 
-- rewrite starlette request form:
-    1. use multipart
-    2. rewrite starlette `Multidict`, `Formdata`, perhaps using https://github.com/aio-libs/multidict
+Premature optimization is the root of all eveil, we will not do heavy optimization unless lihil has almost every feature we want.
+We might deliver our own server in c, also rewrite some hot-spot classes such as `Request` and `Response`.
+Experiments show that this would make lihil as fast as some rust webframworks like actix and axum, but the price for that is the speed of iteration gets much slower.
+
+### version 0.4.x production ready

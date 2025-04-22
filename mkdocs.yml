@@ -61,8 +61,9 @@ markdown_extensions:
 nav:
   - lihil: index.md
   - Tutorial: tutorials.md
-  - Advanced Usage: advanced_usage.md
+  - Advance: advanced.md
   - Testing: testing.md
   - MiniCourse: minicourse.md
   - Benchmark: benchmark.md
   - Contribute: contribute.md
+  - Blog: blog.md
