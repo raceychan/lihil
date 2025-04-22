@@ -29,21 +29,21 @@ Lihil is
 - **Dependency injection**: inject factories, functions, sync/async, scoped/singletons based on type hints, blazingly fast.
 
 ```python
-from lihil import Route
+from lihil import Route, Ignore
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection
 
 async def get_conn(engine: AsyncEngine) -> AsyncConnection:
     async with engine.connect() as conn:
         yield conn
 
-async def get_users(conn: AsyncConnection):
+async def get_users(conn: AsyncConnection) -> Ignore[list[User]]:
     return await conn.execute(text("SELECT * FROM users"))
 
 all_users = Route("users")
 
 @all_users.get
 async def list_users(users: Annotated[list[User], use(get_users)], is_active: bool=True):
-    return [u for u in users if u.is_active == is_active]
+    return [u for u in users if u.is_active == is_activelist[Uselist[User]r]]
 ```
 
 - **OpenAPI docs & Error Response Generator**
@@ -106,7 +106,7 @@ When you return `UserProfile` from `create_token` endpoint, it would automatical
 from lihil import Route, EventBus, Empty, Resp, status
 
 @Route("users").post
-async def create_user(data: UserCreate, service: UserService, bus: EventBus)->Resp[Empty, status.Created]:
+async def create_user(data: UserCreate, service: UserService, bus: EventBus) -> Resp[Empty, status.Created]:
     user_id = await service.create_user(data)
     await bus.publish(UserCreated(**data, user_id=user_id))
 ```
@@ -116,21 +116,21 @@ async def create_user(data: UserCreate, service: UserService, bus: EventBus)->Re
 - **Strong support for AI featuers**: lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
 
-## Compatability with starlette
+## ASGI-compatibility & Vendor types from starlette
 
-Lihil is ASGI compatible and uses starlette as ASGI toolkit, which means that:
+Lihil is ASGI compatible and absorbs the `Request`, `Response` interfaces from Starlette.
 
-- starlette `Request`, `Response` and its subclasses, should work just fine with lihil.
-
-For example, you can declare `Request` in your endpoint and return an instance of `Response`(or subclass of it).
+You can declare `Request` in your endpoint and return an instance of `Response`(or its subclass).
 
 ```python
+from lihil import Request, Response
+
 @users.post
 async def create_user(req: Request):
-    return Response(...)
+    return Response(content=b"hello, world")
 ```
 
-- lihil is ASGI-Compatible, ASGI middlewares that works for any ASGIApp should also work with lihil.
+- ASGI middlewares that works for any ASGIApp should also work with lihil, including those from Starlette.
 
 ## Quick Start
 
@@ -192,7 +192,7 @@ pip install lihil
 
 ### uv
 
-if you want to install this project with uv
+if you want to install lihil using uv
 
 [uv install guide](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
 
@@ -202,7 +202,7 @@ if you want to install this project with uv
 uv init project_name
 ```
 
-2. install lihil via uv, this will solve all dependencies for your in a dedicated venv.
+2. install lihil via uv, this will solve all dependencies for your in a dedicated virtual environment.
 
 ```bash
 uv add lihil

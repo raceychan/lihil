@@ -63,6 +63,7 @@ nav:
   - Tutorial: tutorials.md
   - Advance: advanced.md
   - Testing: testing.md
+  - Deployment: deployment.md
   - MiniCourse: minicourse.md
   - Benchmark: benchmark.md
   - Contribute: contribute.md

@@ -124,14 +124,6 @@ class RequestResult(Base):
         return self.is_chunked
 
 
-"""
-TODO:
-
-ltc = LocalClient()
-await ltc(app, path="/", path_params=dict(q=5))
-"""
-
-
 class LocalClient:
     """A client for testing ASGI applications."""
 
