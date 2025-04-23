@@ -59,20 +59,23 @@ see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
 - Custom Decoders: Apply custom decoders to have the maximum control of how your param should be parsed & validated.
 
 ```python
-from lihil import Payload, Header, Route, Meta
+from lihil import Payload, Header, Route, Meta, use
+from .service import get_user_service, UserService
 
 class UserPayload(Payload): # memory optimized data structure that does not involve in gc.
     user_name: Annotated[str, Meta(min_length=1)] # non-empty string with length >= 1
 
 all_users = Route("users")
+all_users.factory(get_user_service)
 
 # All parameters are automatically parsed and validated
 @all_users.sub("{user_id}").post # POST /users/{user_id}
 async def create_user(
     user_id: str,                                           # from URL path
     auth_token: Header[str, Literal["x-auth-token"]],       # from request headers
-    user_data: UserPayload                                  # from request body
-) -> Resp[Empty, 201]: ...
+    user_data: UserPayload,                                 # from request body
+    service: UserService
+) -> Resp[str, 201]: ...
 ```
 
 ### Dependency Injection

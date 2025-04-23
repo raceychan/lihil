@@ -819,7 +819,7 @@ assert isinstance(get_config(), AppConfig)
 
 ### Fixex
 
-- [ ] `Route.sub` and `Lihil.sub` would avoid duplicate sub being added to route
+- [x] `Route.sub` and `Lihil.sub` would avoid duplicate sub being added to route
 
 ```python
 
@@ -833,3 +833,5 @@ async def create_user(): ...
 ```
 
 This used to result in two same `Route(f"users/{user_id}")` being added to `Route("users")`
+
+- [ ] static response

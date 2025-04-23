@@ -51,6 +51,7 @@ async def create_user(
     # All parameters are automatically parsed and validated
     ...
 
+
 @token.post
 async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserProfile]:
     assert credentials.username == "admin" and credentials.password == "admin"

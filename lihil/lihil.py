@@ -255,7 +255,8 @@ class Lihil[T](ASGIBase):
 
     def sub(self, path: str) -> "Route":
         route = self.root.sub(path)
-        self.routes.append(route)
+        if route not in self.routes:
+            self.routes.append(route)
         return route
 
     def run(self, file_path: str, runner: Callable[..., None] = uvi_run):

@@ -357,8 +357,11 @@ class Route(ASGIBase):
 
     def sub(self, path: str) -> "Route":
         sub_path = trim_path(path)
-        current_path = merge_path(self.path, sub_path)
-        sub = Route(path=current_path, graph=self.graph)
+        merged_path = merge_path(self.path, sub_path)
+        for sub in self.subroutes:
+            if sub.path == merged_path:
+                return sub
+        sub = Route(path=merged_path, graph=self.graph)
         self.subroutes.append(sub)
         return sub
 
