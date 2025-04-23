@@ -222,6 +222,22 @@ class LocalClient:
             body=body,
         )
 
+    def _encode_header(self, headers: dict[str, str]) -> list[tuple[bytes, bytes]]:
+        return [
+            (k.lower().encode("utf-8"), v.encode("utf-8")) for k, v in headers.items()
+        ]
+
+    def _encode_body(self, body: Any) -> bytes:
+        if body is not None:
+            if isinstance(body, bytes):
+                body_bytes = body
+            else:
+                body_bytes = json_encode(body)
+        else:
+            body_bytes = b""
+
+        return body_bytes
+
     async def request(
         self,
         app: ASGIApp,
@@ -254,19 +270,10 @@ class LocalClient:
             path = path_template
 
         # Convert headers to ASGI format
-        asgi_headers = [
-            (k.lower().encode("utf-8"), v.encode("utf-8"))
-            for k, v in request_headers.items()
-        ]
+        asgi_headers = self._encode_header(request_headers)
 
         # Prepare body
-        if body is not None:
-            if isinstance(body, bytes):
-                body_bytes = body
-            else:
-                body_bytes = json_encode(body)
-        else:
-            body_bytes = b""
+        body_bytes = self._encode_body(body)
 
         # Prepare ASGI scope
         scope = {

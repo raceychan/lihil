@@ -5,6 +5,7 @@ from ididi import Graph, Resolver
 from starlette.responses import Response
 
 from lihil import EventBus
+from lihil.errors import NotSupportedError
 from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import InvalidRequestErrors
@@ -33,7 +34,7 @@ class WebSocketEndpoint(Endpoint[None]):
     def setup(self) -> None:
         super().setup()
         if self._require_body:
-            raise Exception("websocket does not have body")
+            raise NotSupportedError("websocket does not support body param")
 
     async def make_call(
         self,

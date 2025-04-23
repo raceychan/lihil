@@ -7,3 +7,9 @@ from starlette.requests import Request as Request, cookie_parser as cookie_parse
 from starlette.responses import Response as Response
 from starlette.types import Lifespan as Lifespan
 from starlette.websockets import WebSocket as WebSocket
+
+
+try:
+    from starlette.testclient import TestClient as TestClient
+except ImportError:
+    pass
