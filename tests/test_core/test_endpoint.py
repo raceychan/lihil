@@ -7,10 +7,12 @@ from ididi import AsyncScope, Graph, Ignore, use
 from starlette.requests import Request
 
 from lihil import (
+    Cookie,
     Empty,
     Form,
     Header,
     Json,
+    Meta,
     Payload,
     Query,
     Request,
@@ -820,9 +822,6 @@ def test_set_1d_iterable():
         assert is_nontextual_sequence(t)
 
 
-from msgspec import Meta
-
-
 async def test_ep_with_constraints():
     called: bool = False
 
@@ -838,3 +837,46 @@ async def test_ep_with_constraints():
     resp = await lc(ep, path_params={"user_id": "user"}, query_params={"n": -1})
     res = await resp.json()
     assert not called
+
+
+async def test_ep_with_cookie():
+    called: bool = False
+
+    async def get_user(
+        refresh_token: Annotated[
+            Cookie[str, Literal["refresh-token"]], Meta(min_length=1)
+        ],
+        user_id: Annotated[str, Meta(min_length=5)],
+    ):
+        nonlocal called
+        assert len(user_id) >= 5
+        called = True
+        return True
+
+    lc = LocalClient(headers={"cookie": "refresh-token=asdf"})
+
+    ep = lc.make_endpoint(get_user, path="/{user_id}")
+    resp = await lc(ep, path_params={"user_id": "user123"})
+    res = await resp.json()
+    assert res
+    assert called
+
+
+async def test_ep_with_cookie2():
+    called: bool = False
+
+    async def get_user(
+        refresh_token: Annotated[Cookie[str], Meta(min_length=1)],
+        user_id: Annotated[str, Meta(min_length=5)],
+    ):
+        nonlocal called
+        called = True
+        return True
+
+    lc = LocalClient(headers={"cookie": "refresh-token=asdf"})
+
+    ep = lc.make_endpoint(get_user, path="/{user_id}")
+    resp = await lc(ep, path_params={"user_id": "user123"})
+    res = await resp.json()
+    assert res
+    assert called

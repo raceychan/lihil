@@ -7,7 +7,6 @@ import pytest
 
 from lihil import (
     MISSING,
-    Cookie,
     Body,
     DependentNode,
     EventBus,
@@ -231,6 +230,7 @@ def test_analyze_markedparam_query(param_parser: ParamParser):
 
 
 # Test analyze_markedparam for Header
+@pytest.mark.debug
 def test_analyze_markedparam_header(param_parser: ParamParser):
     result = param_parser.parse_param("user_agent", Header[str])
     assert len(result) == 1
@@ -555,53 +555,34 @@ def test_constraint_dt(param_parser: ParamParser):
     assert isinstance(dt, datetime) and dt.tzinfo
 
 
-
 def test_param_with_bytes_in_union(param_parser: ParamParser):
 
     with pytest.raises(NotSupportedError):
         res = param_parser.parse_param("n", int | bytes)
 
 
-# def test_parse_cookie(param_parser: ParamParser):
+from typing import Literal
 
-#     res = param_parser.parse_param("ads_id", Cookie[str, "ads_id"])[0]
+from starlette.requests import Request
 
-#     assert res.location == "header"
-#     assert res.type_ == str
-#     breakpoint()
-from lihil.interface.marks import HEADER_REQUEST_MARK
-from lihil.utils.typing import get_origin_pro, repair_type_generic_alias, deannotate
+from lihil.interface.marks import HEADER_REQUEST_MARK, Cookie
+from lihil.utils.typing import get_origin_pro
 
 
-# @pytest.mark.debug
-# def test_parse_cookie():
+def test_parse_cookie(param_parser: ParamParser):
 
-#     t, meta  = get_origin_pro(Header[str, "ads_id"])
-#     assert t == str and meta == ["ads_id", HEADER_REQUEST_MARK]
+    t, meta = get_origin_pro(Header[str, "ads_id"])
+    assert t == str and meta == ["ads_id", HEADER_REQUEST_MARK]
 
+    t, meta = get_origin_pro(Cookie[str, Literal["ads_id"]])
 
-#     t, meta  = get_origin_pro(Cookie[str, "ads_id"])
+    res = param_parser.parse_param("cookies", Cookie[str, "ads_id"])[0]
+    assert res.cookie_name == "ads_id"
 
-#     breakpoint()
-#     assert t == str and meta == ["cookie", "ads_id", HEADER_REQUEST_MARK]
-#     # breakpoint()
+    def cookie_decoder(x): x
 
-# from typing import TypeVar
-# from lihil import Resp, status
-
-# @pytest.mark.debug
-# def test_deannotate():
-#     # res, meta = deannotate(Annotated[Annotated[str, "hehe"], "aloha"])
-#     # assert res == str and meta == ["hehe", "aloha"]
-
-#     # res, meta = deannotate(Header.__value__)
-#     # assert isinstance(res, TypeVar) and len(meta) == 2
-
-
-#     # res, meta = deannotate(Cookie.__value__)
-#     # assert isinstance(res, TypeVar) and len(meta) == 3
-
-
-#     res, meta = get_origin_pro(Annotated[Resp[str, status.NO_CONTENT], "hello"])
-#     breakpoint()
-#     # breakpoint()
+    res = param_parser.parse_param(
+        "cookies", Annotated[Cookie[str, "ads_id"], CustomDecoder(cookie_decoder)]
+    )[0]
+    assert res.cookie_name == "ads_id"
+    assert res.decoder is cookie_decoder

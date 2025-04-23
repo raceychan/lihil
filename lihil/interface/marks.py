@@ -120,7 +120,7 @@ type Form[T] = Annotated[T, FORM_REQUEST_MARK]
 type Path[T] = Annotated[T, PATH_REQUEST_MARK]
 type Use[T] = Annotated[T, USE_DEPENDENCY_MARK]
 
-type Cookie[T, C: LiteralString] = Annotated[Header[T, Literal["cookie"]], C]
+type Cookie[T, C: LiteralString] = Header[Annotated[T, C], Literal["cookie"]]
 
 type ParamMarkType = Literal[
     "query", "header", "body", "form", "path", "use", "jw_token"

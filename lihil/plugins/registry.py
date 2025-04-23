@@ -7,7 +7,7 @@ from lihil.errors import InvalidMarkTypeError
 from lihil.interface import MISSING, Maybe, ParamBase, RegularTypes
 from lihil.interface.marks import extract_mark_type
 from lihil.utils.typing import get_origin_pro
-from lihil.vendor_types import Request
+from lihil.vendors import Request
 
 
 class PluginParam(ParamBase[Any], kw_only=True):

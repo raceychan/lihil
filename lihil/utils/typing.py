@@ -103,34 +103,8 @@ def replace_typevars(
     return tuple(result)
 
 
-# def repair_type_annotate_alias(
-#     annt_type: TypeVar, metas: list[Any] | None, type_args: tuple[Any, ...]
-# ) -> tuple[Any, list[Any] | None]:
-
-#     new_type: type = type_args[0]
-#     if not metas:
-#         return new_type, metas
-
-#     meta_vars: dict[TypeVar, None] = {
-#         meta: None for meta in metas if isinstance(meta, TypeVar)
-#     }
-
-#     idx = 1
-
-#     for meta in meta_vars:
-#         meta_vars[meta] = type_args[idx]
-
-#         idx += 1
-
-#     for i, m in enumerate(metas):
-#         if isinstance(m, TypeVar):
-#             metas[i] = meta_vars[m]
-
-#     return new_type, metas
-
-
 def repair_type_generic_alias(
-    type_: TypeAliasType, type_args: tuple[Any, ...] | None = None
+    type_: TypeAliasType | GenericAlias, type_args: tuple[Any, ...]
 ) -> GenericAlias:
     """
     type StrDict[V] = dict[str, V]
@@ -142,9 +116,6 @@ def repair_type_generic_alias(
     generic = type_.__value__
     origin = ty_get_origin(generic)
     generic_args = generic.__args__
-
-    if type_args is None:
-        type_args = get_args(type_)
     res = replace_typevars(generic_args, type_args)
     return GenericAlias(origin, res)
 
@@ -208,10 +179,6 @@ def get_origin_pro[T](
         return get_origin_pro(type_.__value__, metas, type_args)
 
     if (current_origin := ty_get_origin(type_)) is None:
-        # if isinstance(type_, TypeVar) and type_args:
-        #     return repair_type_annotate_alias(type_, metas, type_args)
-        # else:
-
         return (cast(type, type_), cast(None, metas))
 
     if type_args is None:  # perserve the top most type arguments only
@@ -237,6 +204,7 @@ def get_origin_pro[T](
                     for idx, meta in enumerate(demetas):
                         if isinstance(meta, TypeVar):
                             demetas[idx] = nontyvar.pop(0)
+
                 return get_origin_pro(dtype, demetas, type_args)
             else:
                 dtype = repair_type_generic_alias(type_, type_args)

@@ -10,7 +10,7 @@ from lihil.config import OASConfig
 from lihil.interface.problem import DetailBase
 from lihil.routing import EndpointProps, Route
 from lihil.utils.json import encode_json
-from lihil.vendor_types import Response
+from lihil.vendors import Response
 
 from .doc_ui import get_problem_ui_html, get_swagger_ui_html
 from .schema import generate_oas

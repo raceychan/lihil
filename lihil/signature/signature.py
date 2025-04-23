@@ -8,10 +8,11 @@ from lihil.config import AppConfig
 from lihil.interface import Base, IEncoder, Record
 from lihil.problems import ValidationProblem
 from lihil.utils.string import find_path_keys
-from lihil.vendor_types import FormData, Headers, QueryParams, Request
+from lihil.vendors import FormData, Headers, QueryParams, Request, cookie_parser
 
 from .params import (
     BodyParam,
+    CookieParam,
     HeaderParam,
     ParamParser,
     PathParam,
@@ -70,8 +71,27 @@ class EndpointSignature[R](Base):
         verrors: list[Any] = []
         params: dict[str, Any] = {}
 
+        if req_header:
+            raw_cookies: str | None = None
+            cookie_params: dict[str, str] | None = None
+            for name, param in self.header_params.items():
+                if isinstance(param, CookieParam):
+                    if raw_cookies is None:
+                        raw_cookie = req_header["cookie"]
+                    if cookie_params is None:
+                        cookie_params = cookie_parser(raw_cookie)
+
+                    raw_cookie: str = cookie_params[param.cookie_name]
+                    val, error = param.validate(raw_cookie)
+                else:
+                    val, error = param.extract(req_header)
+
+                if val:
+                    params[name] = val
+                else:
+                    verrors.append(error)
+
         zipped = (
-            (req_header, self.header_params),
             (req_path, self.path_params),
             (req_query, self.query_params),
         )

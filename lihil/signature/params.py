@@ -65,9 +65,9 @@ from lihil.utils.typing import (
     is_nontextual_sequence,
     is_union_type,
 )
-from lihil.vendor_types import FormData, Headers, QueryParams, Request, UploadFile
+from lihil.vendors import FormData, Headers, QueryParams, Request, UploadFile
 
-type RequestParam[T] = PathParam[T] | QueryParam[T] | HeaderParam[T]
+type RequestParam[T] = PathParam[T] | QueryParam[T] | HeaderParam[T] | CookieParam[T]
 type ParsedParam[T] = RequestParam[T] | BodyParam[T] | DependentNode | PluginParam
 
 
@@ -261,6 +261,11 @@ class HeaderParam[T](QueryParam[T]):
     location: ClassVar[ParamLocation] = "header"
 
 
+class CookieParam[T](HeaderParam[T], kw_only=True):
+    alias = "cookie"
+    cookie_name: str
+
+
 class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
     location: ClassVar[ParamLocation] = "body"
     content_type: BodyContentType = "application/json"
@@ -281,7 +286,23 @@ class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
         return self.validate(body)
 
 
+"""
 class ParamMetas(Record):
+    mark_type: Maybe[ParamMarkType] = MISSING
+    metas: tuple[Any, ...] = ()
+
+class RequestParamMeta(ParamMetas)
+    custom_decoder: Maybe[IDecoder[Any, Any]] = MISSING
+    constraint: ParamConstraint | None = None
+
+class NodeParamMeta(ParamMetas):
+    factory: Maybe[INode[..., Any]] = MISSING
+    node_config: NodeConfig
+"""
+
+
+class ParamMetas(Record):
+    # TODO: specification, HeaderParamMeta, NodeParamMeta, etc.
     metas: tuple[Any, ...] = ()
     custom_decoder: IDecoder[Any, Any] | None = None
     mark_type: ParamMarkType | None = None
@@ -291,7 +312,7 @@ class ParamMetas(Record):
 
     @classmethod
     def from_metas(cls, metas: list[Any]) -> "ParamMetas":
-        current_mark_type = None
+        current_mark_type = None  # TODO: default to query
         custom_decoder = None
         factory = None
         config = None
@@ -389,6 +410,19 @@ def req_param_factory[T](
             default=default,
         )
     elif location == "header":
+        if alias == "cookie":
+            assert param_metas
+            cookie_name = param_metas.metas[0]
+            cookie_name = parse_header_key(name, cookie_name)
+            return CookieParam(
+                name=name,
+                cookie_name=cookie_name,
+                alias=alias,
+                type_=param_type,
+                annotation=annotation,
+                decoder=decoder,
+                default=default,
+            )
         return HeaderParam(
             name=name,
             alias=alias,
@@ -585,6 +619,79 @@ class ParamParser:
 
         return req_param
 
+    def _parse_header[T](
+        self,
+        name: str,
+        type_: type[T] | UnionType,
+        annotation: Any,
+        default: Maybe[T],
+        param_metas: ParamMetas,
+    ) -> ParsedParam[T]:
+        location = "header"
+        pmetas = param_metas.metas
+        if not pmetas:
+            header_key = to_kebab_case(name)
+        else:
+            mark_idx = pmetas.index(HEADER_REQUEST_MARK)
+            key_meta = pmetas[mark_idx - 1]
+            header_key = parse_header_key(name, key_meta).lower()
+
+        if header_key == "authorization":
+            return self._parse_auth_header(
+                name=name,
+                header_key=header_key,
+                type_=type_,
+                annotation=annotation,
+                default=default,
+                param_metas=param_metas,
+            )
+        else:
+            param_alias = header_key
+
+        return req_param_factory(
+            name=name,
+            alias=param_alias,
+            param_type=type_,
+            annotation=annotation,
+            location=location,
+            default=default,
+            param_metas=param_metas,
+        )
+
+    def _parse_body[T](
+        self,
+        name: str,
+        param_alias: str,
+        type_: type[T] | UnionType,
+        annotation: Any,
+        default: Maybe[T],
+        mark_type: Literal["form", "body"],
+        custom_decoder: IDecoder[Any, Any] | None,
+    ) -> BodyParam[T]:
+        if mark_type == "form":
+            content_type = "multipart/form-data"
+            decoder = custom_decoder or formdecoder_factory(type_)
+            body_param = BodyParam(
+                name=name,
+                alias=param_alias,
+                type_=type_,
+                annotation=annotation,
+                default=default,
+                decoder=decoder,
+                content_type=content_type,
+            )
+        else:
+            decoder = custom_decoder or decoder_factory(type_)
+            body_param = BodyParam(
+                name=name,
+                alias=param_alias,
+                type_=type_,
+                annotation=annotation,
+                default=default,
+                decoder=decoder,
+            )
+        return body_param
+
     def _parse_marked[T](
         self,
         name: str,
@@ -605,55 +712,25 @@ class ParamParser:
             # Easy case, Pure non-deps request params with param marks.
             location: ParamLocation
             param_alias = name
-            content_type: BodyContentType = "application/json"
 
             if mark_type == "header":
-                location = "header"
-
-                pmetas = param_metas.metas
-                if not pmetas:
-                    header_key = to_kebab_case(name)
-                else:
-                    mark_idx = pmetas.index(HEADER_REQUEST_MARK)
-                    key_meta = pmetas[mark_idx - 1]
-
-                header_key = parse_header_key(name, key_meta).lower()
-                if header_key == "authorization":
-                    return self._parse_auth_header(
-                        name=name,
-                        header_key=header_key,
-                        type_=type_,
-                        annotation=annotation,
-                        default=default,
-                        param_metas=param_metas,
-                    )
-                else:
-                    param_alias = header_key
-            elif mark_type == "body":
-                decoder = custom_decoder or decoder_factory(type_)
-                body_param = BodyParam(
+                return self._parse_header(
                     name=name,
-                    alias=param_alias,
                     type_=type_,
                     annotation=annotation,
                     default=default,
-                    decoder=decoder,
-                    content_type=content_type,
+                    param_metas=param_metas,
                 )
-                return body_param
-            elif mark_type == "form":
-                content_type = "multipart/form-data"
-                decoder = custom_decoder or formdecoder_factory(type_)
-                body_param = BodyParam(
-                    name=name,
-                    alias=param_alias,
+            elif mark_type in ("body", "form"):
+                return self._parse_body(
+                    name,
+                    param_alias=param_alias,
                     type_=type_,
                     annotation=annotation,
                     default=default,
-                    decoder=decoder,
-                    content_type=content_type,
+                    mark_type=mark_type,
+                    custom_decoder=custom_decoder,
                 )
-                return body_param
 
             elif mark_type == "path":
                 location = "path"
@@ -708,6 +785,7 @@ class ParamParser:
         default: Maybe[T] = LIHIL_MISSING,
     ) -> list[ParsedParam[T]]:
         parsed_type, pmetas = get_origin_pro(annotation)
+        parsed_type = cast(type[T], parsed_type)
 
         if plugins := self._parse_plugin_from_meta(
             name, parsed_type, annotation, default, pmetas

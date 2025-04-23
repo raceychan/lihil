@@ -834,4 +834,15 @@ async def create_user(): ...
 
 This used to result in two same `Route(f"users/{user_id}")` being added to `Route("users")`
 
+- [x] `Cookie` Param
+
+```python
+from lihil import Cookie
+
+async def get_user(
+    refresh_token: Annotated[Cookie[str, Literal["refresh-token"]], Meta(min_length=1)], user_id: Annotated[str, Meta(min_length=5)]
+): ...
+```
+
+
 - [ ] static response

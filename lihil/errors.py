@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any
 
 
 class LihilError(Exception):
@@ -23,7 +23,7 @@ class StatusConflictError(LihilError):
 
 class InvalidStatusError(LihilError):
     def __init__(self, code: Any) -> None:
-        super().__init__(f"Invalid status code {code}")
+        super().__init__(f"Invalid status code {code!r}")
 
 
 class AppConfiguringError(LihilError): ...

@@ -15,7 +15,7 @@ from msgspec.structs import replace as struct_replace
 
 from lihil.interface import UNSET
 from lihil.interface.marks import EMPTY_RETURN_MARK
-from lihil.vendor_types import FormData
+from lihil.vendors import FormData
 
 
 class IDecoder[I, T](Protocol):
