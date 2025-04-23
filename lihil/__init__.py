@@ -16,6 +16,7 @@ from .interface import MISSING as MISSING
 from .interface import Body as Body
 from .interface import Empty as Empty
 from .interface import Form as Form
+from .interface import Cookie as Cookie
 from .interface import Header as Header
 from .interface import Json as Json
 from .interface import Path as Path

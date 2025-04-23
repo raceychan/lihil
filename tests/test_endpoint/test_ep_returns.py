@@ -89,7 +89,7 @@ def test_return_param_init():
     param = EndpointReturn(
         type_=str, encoder=lambda x: b"", status=200, annotation="test"
     )
-    assert "Return(test, 200)" in repr(param)
+    assert "Return<test, 200>" in repr(param)
 
 
 def test_return_param_from_mark():

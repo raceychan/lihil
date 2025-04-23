@@ -81,7 +81,7 @@ class EndpointReturn[T](Record):
                 raise StatusConflictError(self.status, self.type_)
 
     def __repr__(self) -> str:
-        return f"Return({self.annotation}, {self.status})"
+        return f"Return<{self.annotation}, {self.status}>"
 
 
 DEFAULT_RETURN = EndpointReturn(

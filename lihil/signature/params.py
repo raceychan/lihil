@@ -40,6 +40,7 @@ from lihil.interface import (
     is_provided,
 )
 from lihil.interface.marks import (
+    HEADER_REQUEST_MARK,
     JW_TOKEN_RETURN_MARK,
     ParamMarkType,
     Struct,
@@ -57,7 +58,7 @@ from lihil.problems import (
     ValidationProblem,
 )
 from lihil.utils.json import decoder_factory
-from lihil.utils.string import parse_header_key
+from lihil.utils.string import parse_header_key, to_kebab_case
 from lihil.utils.typing import (
     get_origin_pro,
     is_mapping_type,
@@ -300,7 +301,7 @@ class ParamMetas(Record):
             if isinstance(meta, CustomDecoder):
                 custom_decoder = meta
             elif mark_type := extract_mark_type(meta):
-                if current_mark_type and mark_type is not current_mark_type:
+                if current_mark_type and (mark_type != current_mark_type):
                     raise NotSupportedError("can't use more than one param mark")
                 current_mark_type = mark_type
             elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
@@ -608,7 +609,15 @@ class ParamParser:
 
             if mark_type == "header":
                 location = "header"
-                header_key = parse_header_key(name, param_metas.metas).lower()
+
+                pmetas = param_metas.metas
+                if not pmetas:
+                    header_key = to_kebab_case(name)
+                else:
+                    mark_idx = pmetas.index(HEADER_REQUEST_MARK)
+                    key_meta = pmetas[mark_idx - 1]
+
+                header_key = parse_header_key(name, key_meta).lower()
                 if header_key == "authorization":
                     return self._parse_auth_header(
                         name=name,

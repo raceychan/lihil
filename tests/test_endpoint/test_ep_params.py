@@ -7,6 +7,7 @@ import pytest
 
 from lihil import (
     MISSING,
+    Cookie,
     Body,
     DependentNode,
     EventBus,
@@ -559,3 +560,48 @@ def test_param_with_bytes_in_union(param_parser: ParamParser):
 
     with pytest.raises(NotSupportedError):
         res = param_parser.parse_param("n", int | bytes)
+
+
+# def test_parse_cookie(param_parser: ParamParser):
+
+#     res = param_parser.parse_param("ads_id", Cookie[str, "ads_id"])[0]
+
+#     assert res.location == "header"
+#     assert res.type_ == str
+#     breakpoint()
+from lihil.interface.marks import HEADER_REQUEST_MARK
+from lihil.utils.typing import get_origin_pro, repair_type_generic_alias, deannotate
+
+
+# @pytest.mark.debug
+# def test_parse_cookie():
+
+#     t, meta  = get_origin_pro(Header[str, "ads_id"])
+#     assert t == str and meta == ["ads_id", HEADER_REQUEST_MARK]
+
+
+#     t, meta  = get_origin_pro(Cookie[str, "ads_id"])
+
+#     breakpoint()
+#     assert t == str and meta == ["cookie", "ads_id", HEADER_REQUEST_MARK]
+#     # breakpoint()
+
+# from typing import TypeVar
+# from lihil import Resp, status
+
+# @pytest.mark.debug
+# def test_deannotate():
+#     # res, meta = deannotate(Annotated[Annotated[str, "hehe"], "aloha"])
+#     # assert res == str and meta == ["hehe", "aloha"]
+
+#     # res, meta = deannotate(Header.__value__)
+#     # assert isinstance(res, TypeVar) and len(meta) == 2
+
+
+#     # res, meta = deannotate(Cookie.__value__)
+#     # assert isinstance(res, TypeVar) and len(meta) == 3
+
+
+#     res, meta = get_origin_pro(Annotated[Resp[str, status.NO_CONTENT], "hello"])
+#     breakpoint()
+#     # breakpoint()

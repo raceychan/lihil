@@ -97,7 +97,8 @@ def test_status_conflict(rusers: Route):
 
     rusers.get(get_user)
     with pytest.raises(StatusConflictError):
-        rusers.get_endpoint(get_user).setup()
+        ep = rusers.get_endpoint(get_user)
+        ep.setup()
 
 
 def test_annotated_generic(rusers: Route):
@@ -204,6 +205,7 @@ async def test_scoped_endpoint(rusers: Route, lc: LocalClient):
     await lc.call_endpoint(ep)
 
 
+@pytest.mark.debug
 async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
     async def get() -> Resp[Empty, 400]:

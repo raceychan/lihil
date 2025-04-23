@@ -1,11 +1,10 @@
 import re
 from re import Pattern
-from typing import Any, Literal, Sequence, TypeVar, get_args, get_origin
+from typing import Any, Literal, TypeVar, get_args, get_origin
 
 from starlette.routing import compile_path
 
 from lihil.errors import NotSupportedError
-from lihil.interface.marks import HEADER_REQUEST_MARK
 
 RE_PATH_KEYS = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 "Must be a valid python variable name?"
@@ -131,25 +130,19 @@ def build_path_regex(path: str, path_params: None = None) -> Pattern[str]:
     return path_regex
 
 
-def parse_header_key(name: str, metas: Sequence[Any] | None = None) -> str:
-    if metas is None:
+def parse_header_key(name: str, key: Any) -> str:
+    if key is None or isinstance(key, TypeVar): # default case
         return to_kebab_case(name)
 
-    mark_idx = metas.index(HEADER_REQUEST_MARK)
-    key_meta = metas[mark_idx - 1]
-
-    if isinstance(key_meta, str):
-        return key_meta
-    elif isinstance(key_meta, TypeVar):
-        key = to_kebab_case(name)
-    elif get_origin(key_meta) is Literal:
-        key = get_args(key_meta)[0]
+    if isinstance(key, str):
+        return key
+    elif get_origin(key) is Literal:
+        key = get_args(key)[0]
     else:
-        raise NotSupportedError(f"Invalid header key {key_meta}")
+        raise NotSupportedError(f"Invalid header key {key}")
 
     if not isinstance(key, str):
-        raise NotSupportedError(f"Invalid header key {key_meta}")
-
+        raise NotSupportedError(f"Invalid header key {key}")
     return key
 
 

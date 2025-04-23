@@ -26,10 +26,6 @@ Lihil is
 
 ## Features
 
-### **Low memory Usage**
-
-lihil is deeply optimized for memory usage, significantly reduce GC overhead, making your services more robust and resilient under load.
-
 ### **Param Parsing & Validation**
 
 Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints using `msgspe`, which is extremly performant, **12x faster** and **25x more memory efficient** than pydantic v2.
@@ -42,7 +38,7 @@ see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
 - Custom Decoders: Apply custom decoders to have the maximum control of how your param should be parsed & validated.
 
 ```python
-from lihil import Payload, Header, Route, Meta, use
+from lihil import Payload, Header, Route, Meta
 from .service import get_user_service, UserService
 
 class UserPayload(Payload): # memory optimized data structure that does not involve in gc.
@@ -60,6 +56,11 @@ async def create_user(
     service: UserService
 ) -> Resp[str, 201]: ...
 ```
+
+### **Low memory Usage**
+
+lihil is deeply optimized for memory usage, significantly reduce GC overhead, making your services more robust and resilient under load.
+
 
 ### **Dependency injection**:
 
