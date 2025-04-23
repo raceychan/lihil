@@ -53,16 +53,18 @@ Lihil provides a sophisticated parameter parsing system that automatically extra
 - Custom Decoders: Apply custom decoders to transform raw input into complex types
 
 ```python
+class UserPayload(Payload): # memory optimized data structure that does not involve in gc.
+    user_name: Annotated[str, Meta(min_length=1)] # non-empty string with length >= 1
 
-@Route("/users/{user_id}")
+all_users = Route("users")
+
+# All parameters are automatically parsed and validated
+@all_users.sub("{user_id}").post # POST /users/{user_id}
 async def create_user(
     user_id: str,                                           # from URL path
-    name: Query[str],                                       # from query string
     auth_token: Header[str, Literal["x-auth-token"]],       # from request headers
     user_data: UserPayload                                  # from request body
-):
-    # All parameters are automatically parsed and type-converted
-    ...
+) -> Resp[Empty, 201]: ...
 ```
 
 ### Dependency Injection

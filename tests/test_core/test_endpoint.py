@@ -206,7 +206,7 @@ async def test_scoped_endpoint(rusers: Route, lc: LocalClient):
 
 async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
-    async def get() -> Resp[Empty, 204]:
+    async def get() -> Resp[Empty, 400]:
         return "asdf"
 
     rusers.get(get)
@@ -214,6 +214,7 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
     res = await lc.call_endpoint(ep)
 
+    assert res.status_code == 400
     assert await res.body() == b""
 
 

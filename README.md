@@ -26,6 +26,30 @@ Lihil is
 
 ## Features
 
+- **Param Parsing & Validation**
+
+Lihil provides a sophisticated parameter parsing system that automatically extracts and converts parameters from different request locations:
+
+- Multiple Parameter Sources: Automatically parse parameters from query strings, path parameters, headers, and request bodies
+- Type-Based Parsing: Parameters are automatically converted to their annotated types
+- Alias Support: Define custom parameter names that differ from function argument names
+- Custom Decoders: Apply custom decoders to transform raw input into complex types
+
+```python
+class UserPayload(Payload): # memory optimized data structure that does not involve in gc.
+    user_name: Annotated[str, Meta(min_length=1)] # non-empty string with length >= 1
+
+all_users = Route("users")
+
+# All parameters are automatically parsed and validated
+@all_users.sub("{user_id}").post # POST /users/{user_id}
+async def create_user(
+    user_id: str,                                           # from URL path
+    auth_token: Header[str, Literal["x-auth-token"]],       # from request headers
+    user_data: UserPayload                                  # from request body
+) -> Resp[Empty, 201]: ...
+```
+
 - **Dependency injection**: inject factories, functions, sync/async, scoped/singletons based on type hints, blazingly fast.
 
 ```python
@@ -36,14 +60,14 @@ async def get_conn(engine: AsyncEngine) -> AsyncConnection:
     async with engine.connect() as conn:
         yield conn
 
-async def get_users(conn: AsyncConnection) -> Ignore[list[User]]:
-    return await conn.execute(text("SELECT * FROM users"))
+async def get_users(conn: AsyncConnection, nums: Annotated[int, Meta(lt=100)]) -> Ignore[list[User]]:
+    return await conn.execute(text(f"SELECT * FROM users limit {nums}"))
 
 all_users = Route("users")
 
 @all_users.get
-async def list_users(users: Annotated[list[User], use(get_users)], is_active: bool=True):
-    return [u for u in users if u.is_active == is_activelist[Uselist[User]r]]
+async def list_users(users: Annotated[list[User], use(get_users)], is_active: bool=True) -> list[[User]]:
+    return [u for u in users if u.is_active == is_active]
 ```
 
 - **OpenAPI docs & Error Response Generator**
@@ -108,7 +132,7 @@ from lihil import Route, EventBus, Empty, Resp, status
 @Route("users").post
 async def create_user(data: UserCreate, service: UserService, bus: EventBus) -> Resp[Empty, status.Created]:
     user_id = await service.create_user(data)
-    await bus.publish(UserCreated(**data, user_id=user_id))
+    await bus.publish(UserCreated(**data.asdict(), user_id=user_id))
 ```
 
 - **Great Testability**: bulit-in `LocalClient` to easily and independently test your endpoints, routes, middlewares, app.
@@ -294,7 +318,7 @@ Based on the above points, in version v0.1.x, we welcome contributions in the fo
 - Feature Requests: We are open to discussions on what features lihil should have or how existing features can be improved. However, at this stage, we take a conservative approach to adding new features unless there is a significant advantage.
 
 
-### version 0.2.x Cool Stuff (beta-stage)
+### version 0.2.x: Cool Stuff (beta-stage)
 
 - Out-of-process event system (RabbitMQ, Kafka, etc.).
 - A highly performant schema-based query builder based on asyncpg
@@ -302,10 +326,10 @@ Based on the above points, in version v0.1.x, we welcome contributions in the fo
 - More middleware and official plugins (e.g., throttling, caching, auth).
 
 
-### version 0.3.x performance boost
+### version 0.3.x: Bug Fixes & Performance boost
 
 Premature optimization is the root of all eveil, we will not do heavy optimization unless lihil has almost every feature we want.
 We might deliver our own server in c, also rewrite some hot-spot classes such as `Request` and `Response`.
 Experiments show that this would make lihil as fast as some rust webframworks like actix and axum, but the price for that is the speed of iteration gets much slower.
 
-### version 0.4.x production ready
+### version 0.4.x onwards:  production ready

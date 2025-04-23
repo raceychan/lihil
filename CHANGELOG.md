@@ -816,3 +816,20 @@ assert isinstance(get_config(), AppConfig)
 
 
 ## version 0.2.3
+
+### Fixex
+
+- [ ] `Route.sub` and `Lihil.sub` would avoid duplicate sub being added to route
+
+```python
+
+all_users = Route("users")
+
+@all_users.sub("{user_id}").get
+async def get_user(): ...
+
+@all_users.sub("{user_id}").post
+async def create_user(): ...
+```
+
+This used to result in two same `Route(f"users/{user_id}")` being added to `Route("users")`
