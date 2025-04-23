@@ -12,8 +12,6 @@ from typing import (
     get_args,
 )
 
-from starlette.requests import Request
-from starlette.responses import Response
 
 from lihil.constant import status as http_status
 from lihil.interface import ParamLocation, Record, lhl_get_origin
@@ -21,6 +19,7 @@ from lihil.interface.problem import DetailBase, ProblemDetail
 from lihil.utils.json import encode_json
 from lihil.utils.string import to_kebab_case, trimdoc
 from lihil.utils.typing import all_subclasses, is_union_type
+from lihil.vendors import Request, Response #, WebSocket
 
 """
 Unlike starlette, only sync error handler is allowed
@@ -144,6 +143,7 @@ def __erresp_factory_registry():
             detail, status_code=detail.status, headers=exc.headers
         )
 
+    # TODO: default ws catch
     _solver(default_error_catch)
 
     return MappingProxyType(exc_handlers), _solver, get_solver

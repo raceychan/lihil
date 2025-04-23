@@ -65,13 +65,13 @@ from lihil.utils.typing import (
     is_nontextual_sequence,
     is_union_type,
 )
-from lihil.vendors import FormData, Headers, QueryParams, Request, UploadFile
+from lihil.vendors import FormData, Headers, QueryParams, Request, UploadFile, WebSocket
 
 type RequestParam[T] = PathParam[T] | QueryParam[T] | HeaderParam[T] | CookieParam[T]
 type ParsedParam[T] = RequestParam[T] | BodyParam[T] | DependentNode | PluginParam
 
 
-LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver)
+LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver, WebSocket)
 
 
 def is_file_body(annt: Any) -> TypeGuard[type[UploadFile]]:
@@ -849,7 +849,3 @@ class ParamParser:
         return EndpointParams(
             params=params, bodies=bodies, nodes=nodes, plugins=plugins
         )
-
-
-
-from starlette.websockets import WebSocket

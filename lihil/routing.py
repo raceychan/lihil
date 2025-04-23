@@ -6,6 +6,7 @@ from typing import (
     Callable,
     Literal,
     Pattern,
+    Self,
     Sequence,
     TypedDict,
     Union,
@@ -272,11 +273,10 @@ class Endpoint[R]:
         await response(scope, receive, send)
 
 
-
 class Route(ASGIBase):
-    _flyweights: dict[str, "Route"] = {}
+    _flyweights: dict[str, "Self"] = {}
 
-    def __new__(cls, path: str = "", **_):
+    def __new__(cls, path: str = "", **_) -> Self:
         p = trim_path(path)
         if p_route := cls._flyweights.get(p):
             return p_route
