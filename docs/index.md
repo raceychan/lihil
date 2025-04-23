@@ -43,16 +43,24 @@ uv add lihil
 
 ## Features
 
-### Param Parsing & Validation
+### **Low memory Usage**
 
-Lihil provides a sophisticated parameter parsing system that automatically extracts and converts parameters from different request locations:
+lihil is deeply optimized for memory usage, significantly reduce GC overhead, making your services more robust and resilient under load.
 
-- Multiple Parameter Sources: Automatically parse parameters from query strings, path parameters, headers, and request bodies
-- Type-Based Parsing: Parameters are automatically converted to their annotated types
-- Alias Support: Define custom parameter names that differ from function argument names
-- Custom Decoders: Apply custom decoders to transform raw input into complex types
+### **Param Parsing & Validation**
+
+Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints using `msgspe`, which is extremly performant, **12x faster** and **25x more memory efficient** than pydantic v2.
+
+see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
+
+
+- Param Parsing: Automatically parse parameters from query strings, path parameters, headers, and request bodies
+- Validation: Parameters are automatically converted to & validated against their annotated types and constraints.
+- Custom Decoders: Apply custom decoders to have the maximum control of how your param should be parsed & validated.
 
 ```python
+from lihil import Payload, Header, Route, Meta
+
 class UserPayload(Payload): # memory optimized data structure that does not involve in gc.
     user_name: Annotated[str, Meta(min_length=1)] # non-empty string with length >= 1
 
@@ -90,7 +98,7 @@ async def list_users(users: Annotated[list[User], use(get_users)], is_active: bo
     return [u for u in users if u.is_active == is_active]
 ```
 
-for more in-depth tutorials on DI, checkout https://lihil.cc/ididi
+For more in-depth tutorials on DI, checkout https://lihil.cc/ididi
 
 ### OpenAPI schemas
 

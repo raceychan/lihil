@@ -6,6 +6,8 @@ from ididi import Graph as Graph
 from ididi import Ignore as Ignore
 from ididi import Resolver as Resolver
 from ididi import use as use
+from msgspec import Meta as Meta
+from msgspec import Struct as Struct
 from msgspec import field as field
 
 from .constant import status as status

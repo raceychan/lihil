@@ -26,16 +26,24 @@ Lihil is
 
 ## Features
 
-- **Param Parsing & Validation**
+### **Low memory Usage**
 
-Lihil provides a sophisticated parameter parsing system that automatically extracts and converts parameters from different request locations:
+lihil is deeply optimized for memory usage, significantly reduce GC overhead, making your services more robust and resilient under load.
 
-- Multiple Parameter Sources: Automatically parse parameters from query strings, path parameters, headers, and request bodies
-- Type-Based Parsing: Parameters are automatically converted to their annotated types
-- Alias Support: Define custom parameter names that differ from function argument names
-- Custom Decoders: Apply custom decoders to transform raw input into complex types
+### **Param Parsing & Validation**
+
+Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints using `msgspe`, which is extremly performant, **12x faster** and **25x more memory efficient** than pydantic v2.
+
+see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
+
+
+- Param Parsing: Automatically parse parameters from query strings, path parameters, headers, and request bodies
+- Validation: Parameters are automatically converted to & validated against their annotated types and constraints.
+- Custom Decoders: Apply custom decoders to have the maximum control of how your param should be parsed & validated.
 
 ```python
+from lihil import Payload, Header, Route, Meta
+
 class UserPayload(Payload): # memory optimized data structure that does not involve in gc.
     user_name: Annotated[str, Meta(min_length=1)] # non-empty string with length >= 1
 
@@ -50,7 +58,9 @@ async def create_user(
 ) -> Resp[Empty, 201]: ...
 ```
 
-- **Dependency injection**: inject factories, functions, sync/async, scoped/singletons based on type hints, blazingly fast.
+### **Dependency injection**:
+
+**Inject factories, functions, sync/async, scoped/singletons based on type hints, blazingly fast.**
 
 ```python
 from lihil import Route, Ignore
@@ -70,7 +80,7 @@ async def list_users(users: Annotated[list[User], use(get_users)], is_active: bo
     return [u for u in users if u.is_active == is_active]
 ```
 
-- **OpenAPI docs & Error Response Generator**
+### **OpenAPI docs & Error Response Generator**
 
 lihil creates smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
 
@@ -90,13 +100,11 @@ when such exception is raised from endpoint, client would receive a response lik
 
 ![outofstock](/docs/images/order_out_of_stock.png)
 
-- **Problems Page**: declare exceptions using route decorator and they will be displayed as route response at openapi schemas & problem page
+### **Problems Page**: declare exceptions using route decorator and they will be displayed as route response at openapi schemas & problem page
 
 ![problem page](/docs/images/order_out_of_stock_problem_page.png)
 
-- **Data validation & Param Parsing**: Powerful and extendable data validation using `msgspec`, 12x faster and 25x more memory efficient than pydantic v2, see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html), Deep memory optimizations significantly reduce GC overhead, making your services more robust and resilient under load.
 
-![msgspec vs others](/docs/images/msgspec_others.png)
 
 - **Auth Builtin**: lihil comes with authentification & authorization plugins out of the box.
 
