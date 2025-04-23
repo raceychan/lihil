@@ -33,9 +33,11 @@ from .plugins.bus import EventBus as EventBus
 from .plugins.testclient import LocalClient as LocalClient
 from .problems import HTTPException as HTTPException
 from .routing import Route as Route
+from .websocket import WebSocketRoute as WebSocketRoute
 from .vendors import Request as Request
 from .vendors import Response as Response
 from .vendors import UploadFile as UploadFile
+from .vendors import WebSocket as WebSocket
 
 # from .server.runner import run as run
 
