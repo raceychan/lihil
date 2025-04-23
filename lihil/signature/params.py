@@ -849,3 +849,7 @@ class ParamParser:
         return EndpointParams(
             params=params, bodies=bodies, nodes=nodes, plugins=plugins
         )
+
+
+
+from starlette.websockets import WebSocket

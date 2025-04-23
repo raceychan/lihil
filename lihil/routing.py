@@ -272,6 +272,7 @@ class Endpoint[R]:
         await response(scope, receive, send)
 
 
+
 class Route(ASGIBase):
     _flyweights: dict[str, "Route"] = {}
 

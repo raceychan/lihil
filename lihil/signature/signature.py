@@ -8,7 +8,7 @@ from lihil.config import AppConfig
 from lihil.interface import Base, IEncoder, Record
 from lihil.problems import ValidationProblem
 from lihil.utils.string import find_path_keys
-from lihil.vendors import FormData, Headers, QueryParams, Request, cookie_parser
+from lihil.vendors import FormData, Headers, QueryParams, Request, cookie_parser, WebSocket
 
 from .params import (
     BodyParam,
@@ -75,13 +75,15 @@ class EndpointSignature[R](Base):
             raw_cookies: str | None = None
             cookie_params: dict[str, str] | None = None
             for name, param in self.header_params.items():
-                if isinstance(param, CookieParam):
+                if param.alias == "cookie":
+                    cookie: CookieParam[Any] = param  # type: ignore
+
                     if raw_cookies is None:
                         raw_cookie = req_header["cookie"]
                     if cookie_params is None:
                         cookie_params = cookie_parser(raw_cookie)
 
-                    raw_cookie: str = cookie_params[param.cookie_name]
+                    raw_cookie: str = cookie_params[cookie.cookie_name]
                     val, error = param.validate(raw_cookie)
                 else:
                     val, error = param.extract(req_header)
@@ -118,7 +120,7 @@ class EndpointSignature[R](Base):
         parsed_result = ParseResult(params, verrors)
         return parsed_result
 
-    def parse_query(self, req: Request) -> ParseResult:
+    def parse_query(self, req: Request | WebSocket) -> ParseResult:
         req_path = req.path_params if self.path_params else None
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
