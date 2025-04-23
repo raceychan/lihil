@@ -11,5 +11,5 @@ from starlette.websockets import WebSocket as WebSocket
 
 try:
     from starlette.testclient import TestClient as TestClient
-except ImportError:
+except (ImportError, RuntimeError):
     pass
