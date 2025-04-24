@@ -80,6 +80,41 @@ async def list_users(users: Annotated[list[User], use(get_users)], is_active: bo
     return [u for u in users if u.is_active == is_active]
 ```
 
+### **WebSocket**
+
+lihil supports usage of websocket, you might create `WebSocketRoute.ws_handler` to register function that handles websockets.
+
+```python
+ws_route = WebSocketRoute("web_socket/{session_id}")
+
+async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
+    await ws.accept()
+    yield ws
+    await ws.close()
+
+async def ws_handler(
+    ws: Annotated[WebSocket, use(ws_factory, reuse=False)],
+    session_id: str,
+    max_users: int,
+):
+    assert session_id == "session123" and max_users == 5
+    await ws.send_text("Hello, world!")
+
+ws_route.ws_handler(ws_handler)
+
+lhl = Lihil[None]()
+lhl.include_routes(ws_route)
+
+client = TestClient(lhl)
+with client:
+    with client.websocket_connect(
+        "/web_socket/session123?max_users=5"
+    ) as websocket:
+        data = websocket.receive_text()
+        assert data == "Hello, world!"
+```
+
+
 ### **OpenAPI docs & Error Response Generator**
 
 - Lihil creates smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
