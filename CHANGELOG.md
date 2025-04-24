@@ -834,6 +834,12 @@ async def create_user(): ...
 
 This used to result in two same `Route(f"users/{user_id}")` being added to `Route("users")`
 
+
+- [x]  fix a bug where the default lifespan of lihil would not emit "lifespan.shutdown" event
+
+
+### Features
+
 - [x] `Cookie` Param
 
 ```python
@@ -845,14 +851,67 @@ async def get_user(
 ```
 
 
-- [ ] websocket
+- [x] websocket
 
 ```python
- async def websocket_endpoint(websocket: WebSocket) -> None:
-    await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        await websocket.send_text(f"Message text was: {data}")
+from lihil import WebSocketRoute, WebSocket
+ws_route = WebSocketRoute("web_socket/{session_id}")
+
+async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
+    await ws.accept()
+    yield ws
+    await ws.close()
+
+async def ws_handler(
+    ws: Annotated[WebSocket, use(ws_factory, reuse=False)], session_id: str, max_users: int
+):
+    assert session_id == "session123" and max_users == 5
+    await ws.send_text("Hello, world!")
+
+ws_route.ws_handler(ws_handler)
+
+lhl = Lihil[None]()
+lhl.include_routes(ws_route)
+
+client = TestClient(lhl)
+with client:
+    with client.websocket_connect(
+        "/web_socket/session123?max_users=5"
+    ) as websocket:
+        data = websocket.receive_text()
+        assert data == "Hello, world!"
 ```
+
+the websocket usage is pretty close to regular route, except
+
+- websocket handler can't have body param
+- websocket only accepts get method
+
+
+### Improvement
+
+- [x] now lihil primitives might be used with function dependency for
+
+```python
+async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
+    await ws.accept()
+    yield ws
+    await ws.close()
+
+async def ws_handler(
+    ws: Annotated[WebSocket, use(ws_factory, reuse=False)], session_id: str, max_users: int
+):
+    assert session_id == "session123" and max_users == 5
+    await ws.send_text("Hello, world!")
+```
+
+NOTE that for this to work, both `ws_handler` and `ws_factory` should name `WebSocket` with a same name, which is `ws` in this case.
+
+- [x] now `lihil.use` would set "reuse" default to False
+
+
+
+## version 0.2.4
+
 
 - [ ] static response

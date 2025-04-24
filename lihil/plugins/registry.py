@@ -15,6 +15,13 @@ class PluginParam(ParamBase[Any], kw_only=True):
     plugin: Maybe["PluginBase"] = MISSING
 
 
+    def __repr__(self) -> str:
+        name_repr = (
+            self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
+        )
+        return f"{self.__class__.__name__}<Plugin> ({name_repr}: {self.type_repr})"
+
+
 class ParamProcessor(Protocol):
     async def __call__(
         self, params: dict[str, Any], request: Request, resolver: Resolver

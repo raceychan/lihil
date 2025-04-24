@@ -5,7 +5,6 @@ from ididi import DependentNode as DependentNode
 from ididi import Graph as Graph
 from ididi import Ignore as Ignore
 from ididi import Resolver as Resolver
-from ididi import use as use
 from msgspec import Meta as Meta
 from msgspec import Struct as Struct
 from msgspec import field as field
@@ -38,8 +37,9 @@ from .vendors import Request as Request
 from .vendors import Response as Response
 from .vendors import UploadFile as UploadFile
 from .vendors import WebSocket as WebSocket
+from .vendors import use as use
 
 # from .server.runner import run as run
 
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 __version__ = VERSION

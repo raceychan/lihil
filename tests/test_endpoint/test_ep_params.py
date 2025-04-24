@@ -433,7 +433,7 @@ def test_param_provider_with_invalid_mark(param_parser):
 
 
 def test_param_provider_with_invalid_plugin(param_parser: ParamParser):
-    assert not param_parser.is_plugin_type(5)
+    assert not param_parser.is_lhl_primitive(5)
 
 
 def test_path_param_with_default_fail(param_parser: ParamParser):
@@ -579,7 +579,8 @@ def test_parse_cookie(param_parser: ParamParser):
     res = param_parser.parse_param("cookies", Cookie[str, "ads_id"])[0]
     assert res.cookie_name == "ads_id"
 
-    def cookie_decoder(x): x
+    def cookie_decoder(x):
+        x
 
     res = param_parser.parse_param(
         "cookies", Annotated[Cookie[str, "ads_id"], CustomDecoder(cookie_decoder)]

@@ -71,7 +71,9 @@ type RequestParam[T] = PathParam[T] | QueryParam[T] | HeaderParam[T] | CookiePar
 type ParsedParam[T] = RequestParam[T] | BodyParam[T] | DependentNode | PluginParam
 
 
-LIHIL_DEPENDENCIES: tuple[type, ...] = (Request, EventBus, Resolver, WebSocket)
+STARLETTE_TYPES: tuple[type, ...] = (Request, WebSocket)
+LIHIL_TYPES: tuple[type, ...] = (EventBus, Resolver)
+LIHIL_PRIMITIVES: tuple[type, ...] = STARLETTE_TYPES + LIHIL_TYPES
 
 
 def is_file_body(annt: Any) -> TypeGuard[type[UploadFile]]:
@@ -296,7 +298,7 @@ class RequestParamMeta(ParamMetas)
     constraint: ParamConstraint | None = None
 
 class NodeParamMeta(ParamMetas):
-    factory: Maybe[INode[..., Any]] = MISSING
+    factory: Maybe[INode[..., Any]]
     node_config: NodeConfig
 """
 
@@ -465,21 +467,21 @@ class ParamParser:
             self.seen = set()
 
         # mark_type or param_type, dict[str | type, PluginProvider]
-        self.plugin_types = LIHIL_DEPENDENCIES
+        self.lhl_primitives = LIHIL_PRIMITIVES
         self.app_config = app_config
 
-    def is_plugin_type(self, param_type: Any) -> TypeGuard[type]:
+    def is_lhl_primitive(self, param_type: Any) -> TypeGuard[type]:
         "Dependencies that should be injected and managed by lihil"
         if not isinstance(param_type, type):
             param_origin = get_origin(param_type)
             if param_origin is Union:
-                return any(self.is_plugin_type(arg) for arg in get_args(param_type))
+                return any(self.is_lhl_primitive(arg) for arg in get_args(param_type))
             elif param_origin and is_builtin_type(param_origin):
                 return False
             else:
-                return self.is_plugin_type(type(param_type))
+                return self.is_lhl_primitive(type(param_type))
         else:
-            return issubclass(param_type, self.plugin_types)
+            return issubclass(param_type, self.lhl_primitives)
 
     def _parse_rule_based[T](
         self,
@@ -504,12 +506,20 @@ class ParamParser:
                 param_metas=param_metas,
                 location="path",
             )
-        elif self.is_plugin_type(param_type):
-            return [
-                PluginParam(
-                    type_=param_type, annotation=annotation, name=name, default=default
+        elif self.is_lhl_primitive(param_type):
+            plugin = PluginParam(
+                type_=param_type, annotation=annotation, name=name, default=default
+            )
+            plugins = [plugin]
+
+            if param_metas and param_metas.factory:  # Annotated[Dep, use(dep_factory)]
+                assert param_metas.node_config
+                node = self.graph.analyze(
+                    param_metas.factory, config=param_metas.node_config
                 )
-            ]
+                plugins += self._parse_node(node)
+
+            return cast(list[ParsedParam[Any]], plugins)
         elif is_body_param(param_type):
             if is_file_body(param_type):
                 req_param = file_body_param(

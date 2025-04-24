@@ -1,40 +1,51 @@
-from functools import partial
-from typing import Any, Unpack
+from inspect import iscoroutinefunction
+from typing import Any
 
 from ididi import Graph, Resolver
 from starlette.responses import Response
 
-from lihil import EventBus
 from lihil.errors import NotSupportedError
 from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
-from lihil.plugins.bus import BusTerminal
+from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import InvalidRequestErrors
-from lihil.routing import (
-    Endpoint,
-    EndpointProps,
-    IEndpointProps,
-    Route,
-    async_wrapper,
-    build_path_regex,
-)
+from lihil.routing import EndpointSignature, RouteBase, build_path_regex
 from lihil.signature import ParseResult
 from lihil.vendors import WebSocket
 
 
-class WebSocketEndpoint(Endpoint[None]):
-    def __init__(
-        self, route: "WebSocketRoute", func: Func[..., None], props: EndpointProps
-    ):
+class WebSocketEndpoint:
+    def __init__(self, route: "WebSocketRoute", func: Func[..., None]):
         self._route = route
         self._unwrapped_func = func
-        self._func = async_wrapper(func, threaded=props.to_thread)
-        self._props = props
+        if not iscoroutinefunction(func):
+            raise NotSupportedError("sync function is not supported for websocket")
+        self._func = func
         self._name = func.__name__
 
     def setup(self) -> None:
-        super().setup()
-        if self._require_body:
+        self._graph = self._route.graph
+        self._busterm = self._route.busterm
+
+        self._sig = EndpointSignature.from_function(
+            graph=self._route.graph,
+            route_path=self._route.path,
+            f=self._unwrapped_func,
+            app_config=self._route.app_config,
+        )
+
+        self._dep_items = self._sig.dependencies.items()
+        if self._sig.plugins:
+            self._plugin_items = self._sig.plugins.items()
+        else:
+            self._plugin_items = ()
+
+        if self._sig.body_param is not None:
             raise NotSupportedError("websocket does not support body param")
+
+        self._scoped: bool = self._sig.scoped
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._route.path!r} {self._func})"
 
     async def make_call(
         self,
@@ -62,9 +73,8 @@ class WebSocketEndpoint(Endpoint[None]):
                     params[name] = bus
                 elif issubclass(ptype, Resolver):
                     params[name] = resolver
-
                 else:
-                    params = parsed_result.params
+                    raise NotSupportedError(f"{ptype} is not supported")
 
                 for name, dep in self._dep_items:
                     params[name] = await resolver.aresolve(dep.dependent, **params)
@@ -87,44 +97,25 @@ class WebSocketEndpoint(Endpoint[None]):
             await self.make_call(scope, receive, send, self._graph)
 
 
-class WebSocketRoute(Route):
+class WebSocketRoute(RouteBase):
     endpoint: WebSocketEndpoint
     call_stack: ASGIApp | None = None
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         if not self.call_stack:
-            # raise Exception("not setup")
-            self.call_stack = self.endpoint
+            raise RuntimeError(f"{self.__class__.__name__}({self.path}) not setup")
         await self.call_stack(scope, receive, send)
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.path!r})"
+        return f"{self.__class__.__name__}({self.path!r}, {self.endpoint})"
 
     def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
         super().setup(graph, busterm)
         self.endpoint.setup()
         self.call_stack = self.chainup_middlewares(self.endpoint)
 
-    def socket(
-        self,
-        func: Any = None,
-        **endpoint_props: Unpack[IEndpointProps],
-    ) -> Any:
-        if func is None:
-            decor = partial(self.socket, **endpoint_props)
-            return decor
-
-        if endpoint_props:
-            new_props = EndpointProps.from_unpack(**endpoint_props)
-            props = self.props.merge(new_props)
-        else:
-            props = self.props
-
-        endpoint = WebSocketEndpoint(
-            self,
-            func=func,
-            props=props,
-        )
+    def ws_handler(self, func: Any = None) -> Any:
+        endpoint = WebSocketEndpoint(self, func=func)
 
         self.endpoint = endpoint
         if self.path_regex is None:

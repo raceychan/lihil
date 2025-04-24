@@ -5,7 +5,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
 from pathlib import Path
-from typing import Any, AsyncContextManager, Callable, Unpack, overload
+from typing import Any, AsyncContextManager, Callable, Unpack, cast, overload
 
 from ididi import Graph
 from uvicorn import run as uvi_run
@@ -17,9 +17,17 @@ from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
-from lihil.routing import ASGIBase, EndpointProps, Func, IEndpointProps, Route
+from lihil.routing import (
+    ASGIBase,
+    EndpointProps,
+    Func,
+    IEndpointProps,
+    Route,
+    RouteBase,
+)
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
+from lihil.websocket import WebSocketRoute
 
 type LifeSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 
@@ -87,7 +95,7 @@ class Lihil[T](ASGIBase):
         self.graph = graph or Graph(self_inject=True, workers=self.workers)
         self.busterm = busterm or BusTerminal()
         # =========== keep above order ============
-        self.routes: list[Route] = []
+        self.routes: list[RouteBase] = []
 
         if routes:
             self.include_routes(*routes)
@@ -128,28 +136,31 @@ class Lihil[T](ASGIBase):
                 raise
             else:
                 await send({"type": "lifespan.startup.complete"})
-                return
 
-        user_ls = self._userls(self)
-        try:
-            self._app_state = await user_ls.__aenter__()
-            self._setup()
-        except BaseException:
-            exc_text = traceback.format_exc()
-            await send({"type": "lifespan.startup.failed", "message": exc_text})
-        else:
-            await send({"type": "lifespan.startup.complete"})
-
-        await receive()
-
-        try:
-            await user_ls.__aexit__(None, None, None)
-        except BaseException:
-            exc_text = traceback.format_exc()
-            await send({"type": "lifespan.shutdown.failed", "message": exc_text})
-            raise
-        else:
+            await receive()
             await send({"type": "lifespan.shutdown.complete"})
+
+        else:
+            user_ls = self._userls(self)
+            try:
+                self._app_state = await user_ls.__aenter__()
+                self._setup()
+            except BaseException:
+                exc_text = traceback.format_exc()
+                await send({"type": "lifespan.startup.failed", "message": exc_text})
+            else:
+                await send({"type": "lifespan.startup.complete"})
+
+            await receive()
+
+            try:
+                await user_ls.__aexit__(None, None, None)
+            except BaseException:
+                exc_text = traceback.format_exc()
+                await send({"type": "lifespan.shutdown.failed", "message": exc_text})
+                raise
+            else:
+                await send({"type": "lifespan.shutdown.complete"})
 
     def _setup(self) -> None:
         self.call_stack = self.chainup_middlewares(self.call_route)
@@ -167,11 +178,11 @@ class Lihil[T](ASGIBase):
         problem_route = get_problem_route(oas_config, problems)
         self.include_routes(openapi_route, doc_route, problem_route)
 
-    def _merge_deps(self, route: Route):
+    def _merge_deps(self, route: RouteBase):
         self.graph.merge(route.graph)
         self.busterm.include(route.registry)
 
-    def include_routes(self, *routes: Route, __seen__: set[str] | None = None):
+    def include_routes(self, *routes: RouteBase, __seen__: set[str] | None = None):
         seen = __seen__ or set()
         for route in routes:
             if route.path in seen:
@@ -179,8 +190,12 @@ class Lihil[T](ASGIBase):
 
             self._merge_deps(route)
             if route.path == "/":
-                if self.routes and self.root.endpoints:
-                    raise DuplicatedRouteError(route, self.root)
+                if self.root:
+                    if isinstance(self.root, Route) and self.root.endpoints:
+                        raise DuplicatedRouteError(route, self.root)
+                    elif isinstance(self.root, WebSocketRoute) and self.root.endpoint:
+                        raise DuplicatedRouteError(route, self.root)
+
                 self.root = route
                 self.routes.insert(0, self.root)
             else:
@@ -253,7 +268,7 @@ class Lihil[T](ASGIBase):
                 await InternalErrorResp(scope, receive, send)
             raise
 
-    def sub(self, path: str) -> "Route":
+    def sub(self, path: str) -> "RouteBase":
         route = self.root.sub(path)
         if route not in self.routes:
             self.routes.append(route)
@@ -303,6 +318,7 @@ class Lihil[T](ASGIBase):
     def get[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
+        assert isinstance(self.root, Route)
         return self.root.get(func, **epconfig)
 
     @overload
@@ -316,6 +332,7 @@ class Lihil[T](ASGIBase):
     def put[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
+        assert isinstance(self.root, Route)
         return self.root.put(func, **epconfig)
 
     @overload
@@ -329,7 +346,7 @@ class Lihil[T](ASGIBase):
     def post[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return self.root.post(func, **epconfig)
+        return cast(Route, self.root).post(func, **epconfig)
 
     @overload
     def delete[**P, R](
@@ -342,7 +359,7 @@ class Lihil[T](ASGIBase):
     def delete[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return self.root.delete(func, **epconfig)
+        return cast(Route, self.root).delete(func, **epconfig)
 
     @overload
     def patch[**P, R](
@@ -355,7 +372,7 @@ class Lihil[T](ASGIBase):
     def patch[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return self.root.patch(func, **epconfig)
+        return cast(Route, self.root).patch(func, **epconfig)
 
     @overload
     def head[**P, R](
@@ -368,7 +385,7 @@ class Lihil[T](ASGIBase):
     def head[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return self.root.head(func, **epconfig)
+        return cast(Route, self.root).head(func, **epconfig)
 
     @overload
     def options[**P, R](
@@ -381,7 +398,7 @@ class Lihil[T](ASGIBase):
     def options[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return self.root.options(func, **epconfig)
+        return cast(Route, self.root).options(func, **epconfig)
 
     @overload
     def trace[**P, R](
@@ -394,7 +411,7 @@ class Lihil[T](ASGIBase):
     def trace[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return self.root.trace(func, **epconfig)
+        return cast(Route, self.root).trace(func, **epconfig)
 
     @overload
     def connect[**P, R](
@@ -407,4 +424,4 @@ class Lihil[T](ASGIBase):
     def connect[**P, R](
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return self.root.connect(func, **epconfig)
+        return cast(Route, self.root).connect(func, **epconfig)

@@ -1,12 +1,12 @@
 import re
-from typing import Any, Sequence,  cast, get_args
+from typing import Any, Sequence, cast, get_args
 
 from msgspec import Struct
 from msgspec.json import schema_components
 
 from lihil.config import OASConfig
 from lihil.constant.status import phrase
-from lihil.interface import is_provided, is_set, RegularTypes
+from lihil.interface import RegularTypes, is_provided, is_set
 from lihil.oas import model as oasmodel
 from lihil.problems import (
     DetailBase,
@@ -14,7 +14,7 @@ from lihil.problems import (
     InvalidRequestErrors,
     ProblemDetail,
 )
-from lihil.routing import Endpoint, Route
+from lihil.routing import Endpoint, Route, RouteBase
 from lihil.signature import EndpointSignature, RequestParam
 from lihil.utils.string import to_kebab_case, trimdoc
 
@@ -419,7 +419,7 @@ class ValidationErrors(Struct):
 
 
 def generate_oas(
-    routes: Sequence[Route],
+    routes: Sequence[RouteBase],
     oas_config: OASConfig,
     app_version: str,
 ) -> oasmodel.OpenAPI:
@@ -432,7 +432,7 @@ def generate_oas(
     schemas: dict[str, Any]
 
     for route in routes:
-        if not route.props.in_schema:
+        if not isinstance(route, Route) or not route.props.in_schema:
             continue
         paths[route.path] = get_path_item_from_route(
             route=route,

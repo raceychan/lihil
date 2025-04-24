@@ -273,7 +273,7 @@ class Endpoint[R]:
         await response(scope, receive, send)
 
 
-class Route(ASGIBase):
+class RouteBase(ASGIBase):
     _flyweights: dict[str, "Self"] = {}
 
     def __new__(cls, path: str = "", **_) -> Self:
@@ -295,35 +295,22 @@ class Route(ASGIBase):
         registry: MessageRegistry | None = None,
         listeners: list[Callable[..., Any]] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
-        props: EndpointProps | None = None,
     ):
         super().__init__(middlewares)
         self.path = trim_path(path)
         self.path_regex: Pattern[str] | None = None
-        self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self.graph = graph or Graph(self_inject=False)
         self.registry = registry or MessageRegistry(event_base=Event, graph=graph)
         if listeners:
             self.registry.register(*listeners)
         self.busterm = BusTerminal(self.registry, graph=graph)
         self.app_config: AppConfig | None = None
-        self.subroutes: list[Route] = []
-        self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
-        self.props = props or EndpointProps(tags=[generate_route_tag(self.path)])
+        self.subroutes: list[Self] = []
 
-    def __repr__(self):
-        endpoints_repr = "".join(
-            f", {method}: {endpoint.unwrapped_func}"
-            for method, endpoint in self.endpoints.items()
-        )
-        return f"{self.__class__.__name__}({self.path!r}{endpoints_repr})"
-
-    def __truediv__(self, path: str) -> "Route":
+    def __truediv__(self, path: str) -> "Self":
         return self.sub(path)
 
-    async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
-        endpoint = self.call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
-        await endpoint(scope, receive, send)
+    async def __call__(self, scope: IScope, receive: IReceive, send: ISend): ...
 
     def is_direct_child_of(self, other_path: "Route | str") -> bool:
         if isinstance(other_path, Route):
@@ -334,10 +321,90 @@ class Route(ASGIBase):
         rest = self.path.removeprefix(other_path)
         return rest.count("/") < 2
 
+    def sub(self, path: str) -> "Self":
+        sub_path = trim_path(path)
+        merged_path = merge_path(self.path, sub_path)
+        for sub in self.subroutes:
+            if sub.path == merged_path:
+                return sub
+        sub = self.__class__(
+            path=merged_path,
+            graph=self.graph,
+            registry=self.registry,
+            middlewares=self.middle_factories,
+        )
+        self.subroutes.append(sub)
+        return sub
+
+    def match(self, scope: IScope) -> IScope | None:
+        path = scope["path"]
+        if not self.path_regex or not (m := self.path_regex.match(path)):
+            return None
+        scope["path_params"] = m.groupdict()
+        return scope
+
+    def add_nodes[T](
+        self, *nodes: Union[IDependent[T], tuple[IDependent[T], INodeConfig]]
+    ) -> None:
+        self.graph.add_nodes(*nodes)
+
+    def factory[R](self, node: Callable[..., R], **node_config: Unpack[INodeConfig]):
+        return self.graph.node(node, **node_config)
+
+    def listen(self, listener: Callable[[Event, Any], None]) -> None:
+        self.registry.register(listener)
+
+    def has_listener(self, listener: Callable[..., Any]) -> bool:
+        event_metas = list(self.registry.event_mapping.values())
+
+        for metas in event_metas:
+            for meta in metas:
+                if meta.handler is listener:
+                    return True
+        return False
+
     def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm
         self.app_config = lhl_get_config()
+
+
+class Route(RouteBase):
+
+    def __init__(  # type: ignore
+        self,
+        path: str = "",
+        *,
+        graph: Graph | None = None,
+        registry: MessageRegistry | None = None,
+        listeners: list[Callable[..., Any]] | None = None,
+        middlewares: list[MiddlewareFactory[Any]] | None = None,
+        props: EndpointProps | None = None,
+    ):
+        super().__init__(
+            path,
+            graph=graph,
+            registry=registry,
+            listeners=listeners,
+            middlewares=middlewares,
+        )
+        self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
+        self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
+        self.props = props or EndpointProps(tags=[generate_route_tag(self.path)])
+
+    def __repr__(self):
+        endpoints_repr = "".join(
+            f", {method}: {endpoint.unwrapped_func}"
+            for method, endpoint in self.endpoints.items()
+        )
+        return f"{self.__class__.__name__}({self.path!r}{endpoints_repr})"
+
+    async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
+        endpoint = self.call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
+        await endpoint(scope, receive, send)
+
+    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
+        super().setup(graph, busterm)
 
         for method, ep in self.endpoints.items():
             ep.setup()
@@ -355,28 +422,6 @@ class Route(ASGIBase):
                 return ep
         else:
             raise KeyError(f"{method_func} is not in current route")
-
-    def sub(self, path: str) -> "Route":
-        sub_path = trim_path(path)
-        merged_path = merge_path(self.path, sub_path)
-        for sub in self.subroutes:
-            if sub.path == merged_path:
-                return sub
-        sub = Route(path=merged_path, graph=self.graph)
-        self.subroutes.append(sub)
-        return sub
-
-    def match(self, scope: IScope) -> IScope | None:
-        path = scope["path"]
-        if not self.path_regex or not (m := self.path_regex.match(path)):
-            return None
-        scope["path_params"] = m.groupdict()
-        return scope
-
-    def add_nodes[T](
-        self, *nodes: Union[IDependent[T], tuple[IDependent[T], INodeConfig]]
-    ) -> None:
-        self.graph.add_nodes(*nodes)
 
     def redirect(self, method: MethodType, **path_params: str) -> None:
         # owner = method.__self__
@@ -406,21 +451,6 @@ class Route(ASGIBase):
             if self.path_regex is None:
                 self.path_regex = build_path_regex(self.path)
         return func
-
-    def factory[R](self, node: Callable[..., R], **node_config: Unpack[INodeConfig]):
-        return self.graph.node(node, **node_config)
-
-    def listen(self, listener: Callable[[Event, Any], None]) -> None:
-        self.registry.register(listener)
-
-    def has_listener(self, listener: Callable[..., Any]) -> bool:
-        event_metas = list(self.registry.event_mapping.values())
-
-        for metas in event_metas:
-            for meta in metas:
-                if meta.handler is listener:
-                    return True
-        return False
 
     # ============ Http Methods ================
 

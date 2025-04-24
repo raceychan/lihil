@@ -8,7 +8,7 @@ from typing import Any
 
 from lihil.config import OASConfig
 from lihil.interface.problem import DetailBase
-from lihil.routing import EndpointProps, Route
+from lihil.routing import EndpointProps, Route, RouteBase
 from lihil.utils.json import encode_json
 from lihil.vendors import Response
 
@@ -17,7 +17,7 @@ from .schema import generate_oas
 
 
 def get_openapi_route(
-    oas_config: OASConfig, routes: list[Route], app_version: str
+    oas_config: OASConfig, routes: list[RouteBase], app_version: str
 ) -> Route:
     oas_path = oas_config.oas_path
 

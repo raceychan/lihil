@@ -30,11 +30,11 @@ class Timer:
     def __repr__(self):
         return f"Timer(cost={self.cost}s, precison: {self._precision})"
 
-    async def __aenter__(self):
+    def __aenter__(self):
         self._start = perf_counter()
         return self
 
-    async def __aexit__(self, exc_type: type[Exception], exc: Exception, tb: Any):
+    def __aexit__(self, exc_type: type[Exception], exc: Exception, tb: Any):
         end = perf_counter()
         self._cost = round(end - self._start, self._precision)
         self._end = end
