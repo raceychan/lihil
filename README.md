@@ -83,9 +83,11 @@ async def list_users(users: Annotated[list[User], use(get_users)], is_active: bo
 
 ### **WebSocket**
 
-lihil supports usage of websocket, you might create `WebSocketRoute.ws_handler` to register function that handles websockets.
+lihil supports the usage of websocket, you might use `WebSocketRoute.ws_handler` to register function that handles websockets.
 
 ```python
+from lihil import WebSocketRoute, WebSocket, Ignore, use
+
 ws_route = WebSocketRoute("web_socket/{session_id}")
 
 async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
@@ -93,6 +95,7 @@ async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
     yield ws
     await ws.close()
 
+@ws_route.ws_handler
 async def ws_handler(
     ws: Annotated[WebSocket, use(ws_factory, reuse=False)],
     session_id: str,
@@ -101,10 +104,13 @@ async def ws_handler(
     assert session_id == "session123" and max_users == 5
     await ws.send_text("Hello, world!")
 
-ws_route.ws_handler(ws_handler)
-
 lhl = Lihil[None]()
 lhl.include_routes(ws_route)
+```
+
+Testing
+```python
+from lihil.vendors import TestClient # require httpx installed
 
 client = TestClient(lhl)
 with client:

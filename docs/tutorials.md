@@ -433,7 +433,7 @@ an route with path `/` is the root route, if not provided, root route is created
 
 ### WebSocket
 
-lihil supports usage of websocket, you might create `WebSocketRoute.ws_handler` to register function that handles websockets.
+lihil supports the usage of websocket, you might use `WebSocketRoute.ws_handler` to register function that handles websockets.
 
 #### Usage
 
