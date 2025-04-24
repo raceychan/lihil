@@ -25,6 +25,7 @@ from lihil.routing import (
     Route,
     RouteBase,
 )
+from lihil.signature.params import LIHIL_PRIMITIVES
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 from lihil.websocket import WebSocketRoute
@@ -92,7 +93,9 @@ class Lihil[T](ASGIBase):
         self.workers = ThreadPoolExecutor(
             max_workers=self.app_config.max_thread_workers
         )
-        self.graph = graph or Graph(self_inject=True, workers=self.workers)
+        self.graph = graph or Graph(
+            self_inject=True, workers=self.workers, ignore=LIHIL_PRIMITIVES
+        )
         self.busterm = busterm or BusTerminal()
         # =========== keep above order ============
         self.routes: list[RouteBase] = []

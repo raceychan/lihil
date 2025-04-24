@@ -913,5 +913,9 @@ NOTE that for this to work, both `ws_handler` and `ws_factory` should name `WebS
 
 ## version 0.2.4
 
+### Improvements
+- [x] graph ignore lihil primitives by default, meaning
 
 - [ ] static response
+
+- [ ] raise error? or warning, when RouteBase.flyweight detects duplicate route

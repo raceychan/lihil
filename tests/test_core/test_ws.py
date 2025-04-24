@@ -63,7 +63,7 @@ async def test_ws_full_fledge():
 
     ws_route = WebSocketRoute("web_socket/{session_id}")
 
-    async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
+    async def ws_factory(ws: WebSocket) -> Ignore[AsyncResource[WebSocket]]:
         await ws.accept()
         yield ws
         await ws.close()
@@ -94,13 +94,8 @@ async def test_ws_repr():
 
     ws_route = WebSocketRoute("web_socket/{session_id}")
 
-    async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
-        await ws.accept()
-        yield ws
-        await ws.close()
-
     async def ws_handler(
-        ws: Annotated[WebSocket, use(ws_factory)],
+        ws: WebSocket,
         session_id: str,
         max_users: int,
     ):
