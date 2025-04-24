@@ -28,7 +28,7 @@ Lihil is
 
 ### **Param Parsing & Validation**
 
-Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints using `msgspe`, which is extremly performant, **12x faster** and **25x more memory efficient** than pydantic v2.
+Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints using `msgspec`, which is extremly performant, **12x faster** and **25x more memory efficient** than pydantic v2.
 
 see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
 
