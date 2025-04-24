@@ -10,7 +10,9 @@ In the [ASGI callchain](./minicourse.md) the `endpoint` is typically at the end.
 
 Let's start with a function that creates a `User` in database.
 
-#### Expose a function as an endpoint
+#### Quick Start:
+
+Expose a random function as an endpoint
 
 **`app/users/api.py`**
 
@@ -60,55 +62,7 @@ users_route = Route("/users")
 async def create_user(): ...
 ```
 
-
-#### Declare endpoint meta using marks
-
-Often you would like to change status code, or content type, to do so, you can use one or a combination of several `return marks`. for example, to change stauts code:
-
-```python
-from lihil import Resp, status
-
-async def create_user(user: UserData, engine: Engine) -> Resp[UserDB, status.Created]:
-    ...
-```
-
-Now `create_user` would return a status code `201`, instead of the default `200`.
-
-##### Return Marks
-
-There are several other return marks you might want to use:
-
-- `Json[T]` for response with content-type `application/json`, the default case
-- `Text` for response with content-type `text/plain`
-- `HTML` for response with content-type `text/html`
-- `Empty` for empty response
-
-**Compound Case**
-
-- `Resp[T, 200]` for response with status code `200`. where `T` can be anything json serializable, or another return mark.
-
-for instance, in the `create_user` example, we use `Resp[UserDB, status.Created]` to declare our return type, here `T` is `UserDB`.
-
-by default, the return convert is json-serialized, so that it is equiavlent to `Resp[Json[UserDB], status.Created]`.
-
-if you would like to return a response with content type `text/html`, you might use `HTML`
-
-```python
-async def hello() -> HTML:
-    return "<p>hello, world!</p>"
-```
-
-##### Return Union
-
-it is valid to return union of multiple types, they will be shown as `anyOf` schemas in the open api specification.
-
-```python
-async def create_user() -> User | TemporaryUser: ...
-```
-
-#### Param Parsing & Dependency Injection
-
-You can also use marks provide meta data for your params. for example:
+#### Param Parsing
 
 ```python
 from lihil import use, Ignore
@@ -142,24 +96,40 @@ Here,
 2. `conn` will be created by `get_conn` and return an instance of `AsyncConnection`, where the the connection will be returned to engine after request.
 3. `UserDB` will be json-serialized, and return a response with content-type being `application/json`, status code being `201`.
 
-
 ##### Param Marks
 
-- `Query` for query param, the default case
-- `Path` for path param
-- `Header` for header param
-- `Body` for body param
-- `Form` for body param with content type `multipart/from-data`
-- `Use` for dependency
+Explicitly declaring a parameter with a param mark tells Lihil to treat it as-is, without further analysis.
 
-##### Param Parsing Rules
+- `Header[T, H]` for header param with type `T` and header key `H`
+- `Cookie[T, C]` for cookie param with type `T` and cookie name `C`
+- `Path[T]` for path param with type `T`
+- `Query[T]` for query param with type `T`
+- `Body[T]` for body param with type `T`
+- `Form[T]` for body param with content type `multipart/from-data` and type [T]
+- `Use[T]` for dependency with type `T`
 
-if a param is not declared with any param mark, the following rule would apply to parse it:
+`Header` and `Cookie` allows your to provide metadata for param parsing,
 
-- if the param name appears in route path, it is interpreted as a path param.
-- if the param type is a subclass of `msgspec.Struct`, it is interpreted as a body param.
-- if the param type is registered in the route graph, or is a lihil-builtin type, it will be interpered as a dependency and will be resolved by lihil
-- otherise, it is interpreted as a query param.
+Use `typing.Literal` to provide header/cookie name,
+
+```python
+async def login(cred: Header[str, Literal["User-Credentials"]], x_access_token: Header[str]) : ...
+```
+
+- Here param `cred` expects a header with key `User-Credentials`.
+
+- If key not provided, The kebab case of param name is used, for example, here `x_access_token` expects a header with key `x-access-token`
+
+
+##### Param Analysis Rules
+
+If a param is not declared with any param mark, the following rule would apply to parse it:
+
+- If the param name appears in route path, it is interpreted as a path param.
+- If the param type is a subclass of `msgspec.Struct`, it is interpreted as a body param.
+- If the param type is registered in the route graph, or is a lihil-primitive type, it will be interpered as a dependency and will be resolved by lihil
+
+- Otherise, it is interpreted as a query param.
 
 Example:
 
@@ -235,6 +205,64 @@ Here `create_user` expects a body param `user`, a structual data where each fiel
 - Constraints with supported types
 
 Checkout [msgspec constraints](https://jcristharif.com/msgspec/constraints.html) for more details on specific constraints that you can set on different types.
+
+
+#### Return Marks
+
+Often you would like to change the status code, or content type of your endpoint,  to do so, you can use one or a combination of several `return marks`. for example, to change stauts code:
+
+```python
+from lihil import Resp, status
+
+async def create_user(user: UserData, engine: Engine) -> Resp[UserDB, status.Created]:
+    ...
+```
+
+Now `create_user` would return a status code `201`, instead of the default `200`.
+
+There are several other return marks you might want to use:
+
+- `Json[T]` for response with content-type `application/json`
+
+Endpoints are assumed to return `Json[T]` by default, `async def f() -> str` is the same as  `async def f() -> Json[str]`
+
+- `Stream[T]` for server sent event with content-type `text/event-stream`
+- `Text` for response with content-type `text/plain`
+- `HTML` for response with content-type `text/html`
+- `Empty` for empty response
+
+You can use these return marks just like plain python return type hint
+
+```python
+from lihil import Json
+
+async def demo() -> Json[list[int]]: ...
+```
+
+return marks have no runtime/typing effect outside of lihil, your type checker would treat `Json[T]` as `T`.
+
+
+##### Response with status code
+
+- `Resp[T, 200]` for response with status code `200`. where `T` can be anything json serializable, or another return mark.
+
+For instance, in the `create_user` example, we use `Resp[UserDB, status.Created]` to declare our return type, here `T` is `UserDB`.
+
+- By default, the return convert is json-serialized, so that it is equiavlent to `Resp[Json[UserDB], status.Created]`.
+- If you would like to return a response with content type `text/html`, you might use `HTML`
+
+```python
+async def hello() -> HTML:
+    return "<p>hello, world!</p>"
+```
+
+##### Return Union
+
+it is valid to return union of multiple types, they will be shown as `anyOf` schemas in the open api specification.
+
+```python
+async def create_user() -> User | TemporaryUser: ...
+```
 
 ##### Custom Encoder/Decoder
 
@@ -402,6 +430,54 @@ here both `get_user` and `update_user` are under the same route.
 #### The root route
 
 an route with path `/` is the root route, if not provided, root route is created with `Lihil` by default, anything registered via `Lihil.{http method}` is the under the root route.
+
+### WebSocket
+
+lihil supports usage of websocket, you might create `WebSocketRoute.ws_handler` to register function that handles websockets.
+
+#### Usage
+
+```python
+ws_route = WebSocketRoute("web_socket/{session_id}")
+
+async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
+    await ws.accept()
+    yield ws
+    await ws.close()
+
+async def ws_handler(
+    ws: Annotated[WebSocket, use(ws_factory, reuse=False)],
+    session_id: str,
+    max_users: int,
+):
+    assert session_id == "session123" and max_users == 5
+    await ws.send_text("Hello, world!")
+
+ws_route.ws_handler(ws_handler)
+
+lhl = Lihil[None]()
+lhl.include_routes(ws_route)
+
+client = TestClient(lhl)
+with client:
+    with client.websocket_connect(
+        "/web_socket/session123?max_users=5"
+    ) as websocket:
+        data = websocket.receive_text()
+        assert data == "Hello, world!"
+```
+
+#### websocket vs http
+
+- WebSocket handlers must be asynchronous — since communication is bidirectional and event-driven, the handler must use async def to support non-blocking interaction.
+
+- WebSocket connections do not support request bodies in the same way as HTTP — there is no Body parameter during the handshake. All data is exchanged after the connection is established, typically through messages sent via the WebSocket protocol.
+
+- WebSockets are stateful — unlike HTTP, which is stateless, a WebSocket connection persists, allowing continuous communication between the client and server. This enables maintaining per-connection state (e.g. user sessions, in-memory data).
+
+- WebSockets use a different lifecycle — they begin with an HTTP handshake (usually a GET request), then upgrade the protocol. After that, communication is done over the WebSocket protocol, not HTTP.
+
+- Standard request/response patterns do not apply — WebSockets are message-based and support real-time interaction, so traditional concepts like status codes, headers per message, or body parsing don’t directly apply after the initial handshake.
 
 ### Middlewares
 

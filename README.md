@@ -28,12 +28,13 @@ Lihil is
 
 ### **Param Parsing & Validation**
 
+
 Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints using `msgspec`, which is extremly performant, **12x faster** and **25x more memory efficient** than pydantic v2.
 
 see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
 
 
-- Param Parsing: Automatically parse parameters from query strings, path parameters, headers, and request bodies
+- Param Parsing: Automatically parse parameters from query strings, path parameters, headers, cookies, and request bodies
 - Validation: Parameters are automatically converted to & validated against their annotated types and constraints.
 - Custom Decoders: Apply custom decoders to have the maximum control of how your param should be parsed & validated.
 
@@ -57,14 +58,10 @@ async def create_user(
 ) -> Resp[str, 201]: ...
 ```
 
-### **Low memory Usage**
-
-lihil is deeply optimized for memory usage, significantly reduce GC overhead, making your services more robust and resilient under load.
-
 
 ### **Dependency injection**:
 
-**Inject factories, functions, sync/async, scoped/singletons based on type hints, blazingly fast.**
+- **Inject factories, functions, sync/async, scoped/singletons based on type hints, blazingly fast.**
 
 ```python
 from lihil import Route, Ignore
@@ -84,11 +81,46 @@ async def list_users(users: Annotated[list[User], use(get_users)], is_active: bo
     return [u for u in users if u.is_active == is_active]
 ```
 
+### **WebSocket**
+
+lihil supports usage of websocket, you might create `WebSocketRoute.ws_handler` to register function that handles websockets.
+
+```python
+ws_route = WebSocketRoute("web_socket/{session_id}")
+
+async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
+    await ws.accept()
+    yield ws
+    await ws.close()
+
+async def ws_handler(
+    ws: Annotated[WebSocket, use(ws_factory, reuse=False)],
+    session_id: str,
+    max_users: int,
+):
+    assert session_id == "session123" and max_users == 5
+    await ws.send_text("Hello, world!")
+
+ws_route.ws_handler(ws_handler)
+
+lhl = Lihil[None]()
+lhl.include_routes(ws_route)
+
+client = TestClient(lhl)
+with client:
+    with client.websocket_connect(
+        "/web_socket/session123?max_users=5"
+    ) as websocket:
+        data = websocket.receive_text()
+        assert data == "Hello, world!"
+```
+
+
 ### **OpenAPI docs & Error Response Generator**
 
-lihil creates smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
+- Lihil creates smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
 
-your exception classes are also automatically transformed to a `Problem` and genrate detailed response accordingly.
+- Your exception classes are also automatically transformed to a `Problem` and genrate detailed response accordingly.
 
 ```python
 class OutOfStockError(HTTPException[str]):
@@ -104,13 +136,16 @@ when such exception is raised from endpoint, client would receive a response lik
 
 ![outofstock](/docs/images/order_out_of_stock.png)
 
-### **Problems Page**: declare exceptions using route decorator and they will be displayed as route response at openapi schemas & problem page
+### **Problems Page**:
+
+Declare exceptions using route decorator and they will be displayed as route response at openapi schemas & problem page
 
 ![problem page](/docs/images/order_out_of_stock_problem_page.png)
 
 
+### **Auth Builtin**:
 
-- **Auth Builtin**: lihil comes with authentification & authorization plugins out of the box.
+- Lihil comes with authentification & authorization plugins out of the box.
 
 ```python
 from lihil import Payload, Route
@@ -134,9 +169,11 @@ async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserProfile]:
     return UserProfile(user_id="user123")
 ```
 
-When you return `UserProfile` from `create_token` endpoint, it would automatically be serialized as a json web token.
+> When you return `UserProfile` from `create_token` endpoint, it would automatically be serialized as a json web token.
 
-- **Message System Bulitin**: publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
+### **Message System Bulitin**:
+
+- Publish command/event anywhere in your app with both in-process and out-of-process event handlers. Optimized data structure for maximum efficiency, de/serialize millions events from external service within seconds.
 
 ```python
 from lihil import Route, EventBus, Empty, Resp, status
@@ -147,16 +184,31 @@ async def create_user(data: UserCreate, service: UserService, bus: EventBus) -> 
     await bus.publish(UserCreated(**data.asdict(), user_id=user_id))
 ```
 
-- **Great Testability**: bulit-in `LocalClient` to easily and independently test your endpoints, routes, middlewares, app.
 
-- **Strong support for AI featuers**: lihil takes AI as a main usecase, AI related features such as SSE, remote handler will be well supported, there will also be tutorials on how to develop your own AI agent/chatbot using lihil.
+### **Great Testability**:
 
+- bulit-in `LocalClient` to easily and independently test your endpoints, routes, middlewares, app.
+
+### **Low memory Usage**
+
+- lihil is deeply optimized for memory usage, significantly reduce GC overhead, making your services more robust and resilient under load.
+
+### **Strong support for AI featuers**:
+
+- lihil takes AI as a main usecase, AI related features such as SSE, MCP, remote handler will be implemented before 0.3.x
+
+- [X] SSE
+- [ ] MCP
+- [ ] Rmote Handler
+
+There will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
 ## ASGI-compatibility & Vendor types from starlette
 
-Lihil is ASGI compatible and absorbs the `Request`, `Response` interfaces from Starlette.
+- Lihil is ASGI compatible and absorbs the `Request`, `Response`, `WebSocket` interfaces from Starlette.
+> Implementations of these interfaces are subject to change.
 
-You can declare `Request` in your endpoint and return an instance of `Response`(or its subclass).
+- You can declare `Request` in your endpoint and return an instance of `Response`(or its subclass).
 
 ```python
 from lihil import Request, Response
@@ -179,7 +231,6 @@ lhl = Lihil()
 async def hello():
     return {"hello": "world!"}
 ```
-
 
 ```python
 from lihil import Lihil, Route, use, EventBus
