@@ -4,14 +4,19 @@ import pytest
 from starlette.datastructures import QueryParams
 from starlette.requests import Request
 
-from lihil import Body, Empty, Graph, Payload, Route, Text
+from lihil import Body, Empty, Graph, Payload, Route, Text, Use
 from lihil.interface import CustomDecoder
 from lihil.plugins.testclient import LocalClient
 from lihil.problems import CustomValidationError
 from lihil.signature.signature import EndpointSignature
 from lihil.utils.json import encode_text
 
-route = Route("/{p}")
+
+@pytest.fixture
+def route():
+    # Route.reset_route_cache()
+    route = Route("/{p}")
+    return route
 
 
 class Engine: ...
@@ -26,7 +31,7 @@ def get_engine() -> Engine:
     return Engine()
 
 
-async def test_call_endpoint():
+async def test_call_endpoint(route: Route):
     route.add_nodes(UserService, get_engine)
 
     @route.post
@@ -47,13 +52,14 @@ async def test_call_endpoint():
     assert result == b"ok"
 
 
-async def test_non_use_dep():
+async def test_non_use_dep(route: Route):
     @route.get
-    async def get_todo(p: str, service: UserService): ...
+    async def get_todo(p: str, service: Use[UserService]): ...
 
     ep = route.get_endpoint(get_todo)
     ep.setup()
     deps = ep.sig.dependencies
+
     assert len(deps) == 1  # only service not engine
 
 
@@ -239,8 +245,6 @@ async def test_query_with_default():
 
     resp = await lc.call_endpoint(lc.make_endpoint(func))
     await resp.body()
-
-
 
 
 async def test_query_with_default():

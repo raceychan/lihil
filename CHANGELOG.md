@@ -914,7 +914,8 @@ NOTE that for this to work, both `ws_handler` and `ws_factory` should name `WebS
 ## version 0.2.4
 
 ### Improvements
-- [x] graph ignore lihil primitives by default, meaning
+
+- [x] graph ignore lihil primitives by default
 
 - [x] static response
 

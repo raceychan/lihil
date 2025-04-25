@@ -12,7 +12,6 @@ class StaticResponse(Response):
         self.status_code = status_code
         self.media_type = media_type
         self.body = content
-
         content_length_header = (
             b"content-length",
             str(len(self.body)).encode("latin-1"),

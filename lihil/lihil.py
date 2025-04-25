@@ -193,7 +193,7 @@ class Lihil[T](ASGIBase):
 
             self._merge_deps(route)
             if route.path == "/":
-                if self.root:
+                if self.routes:
                     if isinstance(self.root, Route) and self.root.endpoints:
                         raise DuplicatedRouteError(route, self.root)
                     elif isinstance(self.root, WebSocketRoute) and self.root.endpoint:
@@ -218,9 +218,7 @@ class Lihil[T](ASGIBase):
         charset: str = "utf-8",
     ) -> None:
         if not is_plain_path(path):
-            raise NotSupportedError(
-                "staic resource with dynamic path is not supported"
-            )
+            raise NotSupportedError("staic resource with dynamic path is not supported")
         if isinstance(static_content, Callable):
             static_content = static_content()
         elif isinstance(static_content, str):

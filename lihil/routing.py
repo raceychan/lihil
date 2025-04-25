@@ -289,7 +289,6 @@ class RouteBase(ASGIBase):
         p = trim_path(path)
         if p_route := cls._flyweights.get(p):
             return p_route
-
         cls._flyweights[p] = route = super().__new__(cls)
         if parent := cls._flyweights.get(get_parent_path(p)):
             if route not in parent.subroutes:
@@ -376,6 +375,10 @@ class RouteBase(ASGIBase):
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm
         self.app_config = lhl_get_config()
+
+    @classmethod
+    def reset_route_cache(cls):
+        cls._flyweights = {}
 
 
 class Route(RouteBase):
