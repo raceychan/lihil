@@ -518,7 +518,6 @@ class ParamParser:
                     param_metas.factory, config=param_metas.node_config
                 )
                 plugins += self._parse_node(node)
-
             return cast(list[ParsedParam[Any]], plugins)
         elif is_body_param(param_type):
             if is_file_body(param_type):
@@ -540,18 +539,7 @@ class ParamParser:
                 )
         elif param_type in self.graph.nodes:
             node = self.graph.analyze(param_type)
-            params: list[ParsedParam[Any]] = [node]
-            for dep_name, dep in node.dependencies.items():
-                ptype, dep_dfault = dep.param_type, dep.default_
-                if dep_dfault is IDIDI_MISSING:
-                    default = LIHIL_MISSING
-                if ptype in self.graph.nodes:
-                    # only add top level dependency, leave subs to ididi
-                    continue
-                ptype = cast(type, ptype)
-                sub_params = self.parse_param(dep_name, ptype, default)
-                params.extend(sub_params)
-            return params
+            return self._parse_node(node)
         elif param_metas and param_metas.factory:  # Annotated[Dep, use(dep_factory)]
             assert param_metas.node_config
             node = self.graph.analyze(
@@ -576,6 +564,9 @@ class ParamParser:
             ptype, default = dep.param_type, dep.default_
             if default is IDIDI_MISSING:
                 default = LIHIL_MISSING
+            if ptype in self.graph.nodes:
+                # only add top level dependency, leave subs to ididi
+                continue
             ptype = cast(type, ptype)
             sub_params = self.parse_param(dep_name, ptype, default)
             params.extend(sub_params)

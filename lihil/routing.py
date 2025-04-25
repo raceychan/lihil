@@ -26,6 +26,7 @@ from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
 from lihil.config import AppConfig, lhl_get_config
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
+from lihil.ds.resp import StaticResponse
 from lihil.errors import InvalidParamTypeError
 from lihil.interface import (
     HTTP_METHODS,
@@ -161,7 +162,10 @@ class Endpoint[R]:
         self._status_code = self._sig.default_status
         self._scoped: bool = self._sig.scoped or scoped_by_config
         self._encoder = self._sig.return_encoder
-        self._media_type = next(iter(self._sig.return_params.values())).content_type
+        self._media_type = (
+            next(iter(self._sig.return_params.values())).content_type
+            or "application/json"
+        )
 
     async def inject_plugins(
         self, params: dict[str, Any], request: Request, resolver: Resolver
@@ -250,6 +254,12 @@ class Endpoint[R]:
                     media_type="text/event-stream",
                     status_code=self._status_code,
                 )
+            elif self._static:
+                resp = StaticResponse(
+                    self._encoder(raw_return),
+                    media_type=self._media_type,
+                    status_code=self._status_code,
+                )
             else:
                 resp = Response(
                     content=self._encoder(raw_return),
@@ -266,7 +276,6 @@ class Endpoint[R]:
             return await response(scope, receive, send)
         if self._static:  # when there is no params at all
             raw_return = await self.make_static_call(scope, receive, send)
-            # response = StaticResponse(raw_return)
         else:
             raw_return = await self.make_call(scope, receive, send, self._graph)
         response = self.return_to_response(raw_return)

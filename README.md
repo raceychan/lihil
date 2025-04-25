@@ -84,6 +84,50 @@ async def list_users(users: Annotated[list[User], use(get_users)], is_active: bo
     return [u for u in users if u.is_active == is_active]
 ```
 
+<<<<<<< Updated upstream
+=======
+### **WebSocket**
+
+lihil supports the usage of websocket, you might use `WebSocketRoute.ws_handler` to register a function that handles websockets.
+
+```python
+from lihil import WebSocketRoute, WebSocket, Ignore, use
+
+ws_route = WebSocketRoute("web_socket/{session_id}")
+
+async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
+    await ws.accept()
+    yield ws
+    await ws.close()
+
+@ws_route.ws_handler
+async def ws_handler(
+    ws: Annotated[WebSocket, use(ws_factory, reuse=False)],
+    session_id: str,
+    max_users: int,
+):
+    assert session_id == "session123" and max_users == 5
+    await ws.send_text("Hello, world!")
+
+lhl = Lihil[None]()
+lhl.include_routes(ws_route)
+```
+
+Testing
+```python
+from lihil.vendors import TestClient # require httpx installed
+
+client = TestClient(lhl)
+with client:
+    with client.websocket_connect(
+        "/web_socket/session123?max_users=5"
+    ) as websocket:
+        data = websocket.receive_text()
+        assert data == "Hello, world!"
+```
+
+
+>>>>>>> Stashed changes
 ### **OpenAPI docs & Error Response Generator**
 
 lihil creates smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
@@ -244,9 +288,9 @@ uv init project_name
 uv add lihil
 ```
 
-## serve your application
+## Serve your application
 
-### serve with lihil
+### Serve with lihil
 
 #### app.py
 
@@ -273,7 +317,7 @@ If your app is deployed in a containerized environment, such as Kubernetes, prov
 
 use `--help` to see available configs.
 
-### serve with uvicorn
+### Serve with uvicorn
 
 lihil is ASGI compatible, you can run it with an ASGI server, such as uvicorn
 start a server with `app.py`, default to port 8000
@@ -287,7 +331,7 @@ import uvicorn
 uvicorn.run(app)
 ```
 
-## versioning
+## Versioning
 
 lihil follows semantic versioning, where a version in x.y.z represents:
 
@@ -295,7 +339,7 @@ lihil follows semantic versioning, where a version in x.y.z represents:
 - y: minor, feature updates
 - z: patch, bug fixes, typing updates
 
-**v1.0.0** will be the first stable major version.
+Thecnically, **v1.0.0 will be the first stable major version. However, breaking changes from 0.4.x onwards is highly unlikely.
 
 ## Tutorials
 

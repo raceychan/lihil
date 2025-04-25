@@ -219,7 +219,7 @@ class Lihil[T](ASGIBase):
     ) -> None:
         if not is_plain_path(path):
             raise NotSupportedError(
-                "staic resource with dynamic route is not supported"
+                "staic resource with dynamic path is not supported"
             )
         if isinstance(static_content, Callable):
             static_content = static_content()

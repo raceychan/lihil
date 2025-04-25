@@ -8,7 +8,14 @@ from lihil.config import AppConfig
 from lihil.interface import Base, IEncoder, Record
 from lihil.problems import ValidationProblem
 from lihil.utils.string import find_path_keys
-from lihil.vendors import FormData, Headers, QueryParams, Request, cookie_parser, WebSocket
+from lihil.vendors import (
+    FormData,
+    Headers,
+    QueryParams,
+    Request,
+    WebSocket,
+    cookie_parser,
+)
 
 from .params import (
     BodyParam,
@@ -153,6 +160,11 @@ class EndpointSignature[R](Base):
                 self.plugins,
             )
         )
+
+    @property
+    def media_type(self) -> str:
+        default = "application/json"
+        return next(iter(self.return_params.values())).content_type or default
 
     @classmethod
     def from_function[FR](
