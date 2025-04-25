@@ -45,7 +45,6 @@ from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.utils.string import (
     build_path_regex,
     generate_route_tag,
-    get_parent_path,
     merge_path,
     trim_path,
 )
@@ -283,18 +282,6 @@ class Endpoint[R]:
 
 
 class RouteBase(ASGIBase):
-    _flyweights: dict[str, "Self"] = {}
-
-    def __new__(cls, path: str = "", **_) -> Self:
-        p = trim_path(path)
-        if p_route := cls._flyweights.get(p):
-            return p_route
-        cls._flyweights[p] = route = super().__new__(cls)
-        if parent := cls._flyweights.get(get_parent_path(p)):
-            if route not in parent.subroutes:
-                parent.subroutes.append(route)
-        return route
-
     def __init__(  # type: ignore
         self,
         path: str = "",
@@ -376,9 +363,9 @@ class RouteBase(ASGIBase):
         self.busterm = busterm or self.busterm
         self.app_config = lhl_get_config()
 
-    @classmethod
-    def reset_route_cache(cls):
-        cls._flyweights = {}
+    # @classmethod
+    # def reset_route_cache(cls):
+    #     cls._flyweights = {}
 
 
 class Route(RouteBase):

@@ -78,7 +78,7 @@ class Lihil[T](ASGIBase):
     def __init__(
         self,
         *,
-        routes: list[Route] | None = None,
+        routes: list[RouteBase] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
         app_config: AppConfig | None = None,
         graph: Graph | None = None,
@@ -100,10 +100,14 @@ class Lihil[T](ASGIBase):
         # =========== keep above order ============
         self.routes: list[RouteBase] = []
 
-        if routes:
-            self.include_routes(*routes)
 
-        if not any(route.path == "/" for route in self.routes):
+
+        if routes:
+            if not any(route.path == "/" for route in routes):
+                self.root = Route("/", graph=self.graph)
+                self.routes.insert(0, self.root)
+            self.include_routes(*routes)
+        else:
             self.root = Route("/", graph=self.graph)
             self.routes.insert(0, self.root)
 

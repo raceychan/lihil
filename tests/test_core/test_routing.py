@@ -1,8 +1,8 @@
-from typing import Annotated, Literal
+from typing import Literal
 
 import pytest
 
-from lihil import BusTerminal, Graph, Text, status
+from lihil import Graph, Text, status
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, Header, IReceive, IScope, ISend, Resp
@@ -12,17 +12,6 @@ from lihil.routing import Route
 
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.signature.params import ParamParser
-
-
-async def test_route_flyweight_pattern():
-    # Test flyweight pattern
-    route1 = Route("/test")
-    route2 = Route("/test")
-    assert route1 is route2
-
-    # Different paths create different instances
-    route3 = Route("/other")
-    assert route1 is not route3
 
 
 async def test_route_truediv_operator():
@@ -721,21 +710,3 @@ async def test_parse_header_with_key():
     param = res[0]
 
     assert param.alias == "authorization"
-
-
-def test_route_flyweight():
-    r1 = Route("/asdf")
-    r2 = Route("/asdf/aaa")
-    r3 = Route("/asdf/aaa/{user_id}")
-
-    assert r2 in r1.subroutes
-    assert r3 in r2.subroutes
-
-
-def test_route_cache():
-
-    r1 = Route("/asdf")
-    assert r1 is Route("/asdf")
-
-    Route.reset_route_cache()
-    assert r1 is not Route("/asdf")

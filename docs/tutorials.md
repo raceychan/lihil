@@ -403,8 +403,6 @@ here both `get_user` and `update_user` are under the same route.
 
 an route with path `/` is the root route, if not provided, root route is created with `Lihil` by default, anything registered via `Lihil.{http method}` is the under the root route.
 
-<<<<<<< Updated upstream
-=======
 ### WebSocket
 
 lihil supports the usage of websocket, you might use `WebSocketRoute.ws_handler` to register a function that handles websockets.
@@ -457,7 +455,6 @@ with client:
 
 - Standard request/response patterns do not apply — WebSockets are message-based and support real-time interaction, so traditional concepts like status codes, headers per message, or body parsing don’t directly apply after the initial handshake.
 
->>>>>>> Stashed changes
 ### Middlewares
 
 Both `Lihil` and `Route` has `add_middleware` API that accept one, or a sequence of `MiddlewareFactory`.

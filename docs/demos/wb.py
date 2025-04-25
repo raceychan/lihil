@@ -11,14 +11,14 @@ async def homepage() -> Text:
     return ""
 
 
-@root.sub("/user/{user_id}").get
-async def get_user(user_id: str) -> Text:
-    return user_id
-
-
 @root.sub("/user").post
 async def userinfo() -> Text:
     return ""
+
+
+@root.sub("/user/{user_id}").get
+async def get_user(user_id: str) -> Text:
+    return user_id
 
 
 lhl = Lihil[None](routes=[root])

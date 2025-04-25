@@ -915,8 +915,28 @@ NOTE that for this to work, both `ws_handler` and `ws_factory` should name `WebS
 
 ### Improvements
 
-- [x] graph ignore lihil primitives by default
+- [x] graph ignore lihil primitives(Request, Websocket, ...) by default
 
 - [x] static response
 
-- [ ] raise error? or warning, when RouteBase.flyweight detects duplicate route
+- [x] No longer cache Route by path.
+
+previously, instances of `Route` will be cached by their path
+
+```python
+assert Route("user") is Route("user")
+```
+
+This  was for the sake of convenience, so that user do
+```python
+@Route("/user").get
+def get_user(): ...
+
+@Route("/user").post
+def create_user(): ...
+```
+
+But the fundamental flaws of this design is that,
+
+1. users do not expect this.
+2. testing is harder.

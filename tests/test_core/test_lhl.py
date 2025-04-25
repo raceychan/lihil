@@ -14,7 +14,7 @@ from lihil.errors import (
     NotSupportedError,
 )
 from lihil.interface import ASGIApp, Base
-from lihil.lihil import Lihil, lifespan_wrapper, lhl_set_config
+from lihil.lihil import Lihil, lhl_set_config, lifespan_wrapper
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
 
@@ -605,6 +605,7 @@ async def test_include_root_route_fail():
         return {"message": "Root route"}
 
     root_route.get(root_handler)
+    app.get(root_handler)
 
     # Include the root route
     with pytest.raises(DuplicatedRouteError):
@@ -815,7 +816,7 @@ async def test_include_routes_with_duplicate_root():
         return {"message": "root"}
 
     new_root = Route("/")
-    new_root.add_endpoint("GET", func=root_handler)
+    app.root.add_endpoint("GET", func=root_handler)
 
     # This should raise DuplicatedRouteError
     with pytest.raises(DuplicatedRouteError):
@@ -972,7 +973,7 @@ async def test_lhl_add_sub_route_before_route():
 
 async def test_lhl_rerpr():
     config = AppConfig(server=ServerConfig(host="127.0.0.1", port=8000))
-    lhl = Lihil(app_config=config)
+    lhl = Lihil[None](app_config=config)
     lhl_repr = repr(lhl)
     assert lhl_repr
 
@@ -983,6 +984,10 @@ async def test_lhl_add_seen_subroute():
     sub_route = parent_route / "sub"
     ssub = parent_route / "second"
 
-    lhl = Lihil()
+    lhl = Lihil[None]()
 
-    lhl.include_routes(parent_route, sub_route, __seen__={"/second"})
+    # sub route should not raise error when seen
+    lhl.include_routes(sub_route, parent_route , __seen__={"/second"})
+
+    with pytest.raises(DuplicatedRouteError):
+        lhl.include_routes(ssub, __seen__={"/second"})
