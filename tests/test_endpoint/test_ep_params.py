@@ -497,6 +497,7 @@ type ParamP1 = Annotated[Query[str], CustomDecoder(decoder1)]
 type ParamP2 = Annotated[ParamP1, CustomDecoder(decoder2)]
 
 
+@pytest.mark.debug
 def test_param_decoder_override(param_parser: ParamParser):
     r1 = param_parser.parse_param("test", ParamP1)[0]
     assert r1.decoder is decoder1

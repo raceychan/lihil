@@ -175,9 +175,10 @@ class EndpointSignature[R](Base):
         app_config: AppConfig | None = None,
     ) -> "EndpointSignature[FR]":
         path_keys = find_path_keys(route_path)
-
+        # Rename ParmaParser to FuncParser
         parser = ParamParser(graph, path_keys, app_config=app_config)
-        params = parser.parse(f, path_keys)
+        params = parser.parse(f)
+        # TODO: let ParamParser parse returns too
         return_params = parse_returns(
             signature(f).return_annotation, app_config=app_config
         )

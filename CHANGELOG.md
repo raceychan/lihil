@@ -913,11 +913,17 @@ NOTE that for this to work, both `ws_handler` and `ws_factory` should name `WebS
 
 ## version 0.2.4
 
+A simple, daily maintainence patch, mainly for refactoring.
+
 ### Improvements
 
 - [x] graph ignore lihil primitives(Request, Websocket, ...) by default
 
 - [x] static response
+
+now static response with non-generator returns would return `StaticResponse` instead.
+
+### Refactors
 
 - [x] No longer cache Route by path.
 
@@ -936,7 +942,10 @@ def get_user(): ...
 def create_user(): ...
 ```
 
-But the fundamental flaws of this design is that,
+But the fundamental flaws of this design is that:
 
-1. users do not expect this.
+1. users might not expect this.
 2. testing is harder.
+
+
+- [ ] specialized param meta
