@@ -81,17 +81,10 @@ async def list_users(users: Annotated[list[User], use(get_users)], is_active: bo
     return [u for u in users if u.is_active == is_active]
 ```
 
-<<<<<<< HEAD
-### **WebSocket**
 
-lihil supports the usage of websocket, you might use `WebSocketRoute.ws_handler` to register function that handles websockets.
-=======
-<<<<<<< Updated upstream
-=======
 ### **WebSocket**
 
 lihil supports the usage of websocket, you might use `WebSocketRoute.ws_handler` to register a function that handles websockets.
->>>>>>> version/0.2.4
 
 ```python
 from lihil import WebSocketRoute, WebSocket, Ignore, use
@@ -130,10 +123,6 @@ with client:
 ```
 
 
-<<<<<<< HEAD
-=======
->>>>>>> Stashed changes
->>>>>>> version/0.2.4
 ### **OpenAPI docs & Error Response Generator**
 
 - Lihil creates smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
