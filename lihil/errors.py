@@ -14,7 +14,6 @@ class DuplicatedRouteError(LihilError):
 
 class InvalidLifeSpanError(LihilError): ...
 
-
 class StatusConflictError(LihilError):
     def __init__(self, status: int, type_: Any):
         msg = f"{status} conflicts with return type {type_}"
@@ -36,7 +35,6 @@ class MiddlewareBuildError(LihilError):
 
 class InvalidParamTypeError(LihilError):
     ...
-
 
 
 class NotSupportedError(LihilError):

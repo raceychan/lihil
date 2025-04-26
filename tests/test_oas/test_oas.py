@@ -32,7 +32,9 @@ class Order(Payload, tag=True):
     price: float
 
 
-user_route = Route("/user/{user_id}/order/{order_id}")
+@pytest.fixture
+def user_route():
+    return Route("/user/{user_id}/order/{order_id}")
 
 
 class OrderNotFound(HTTPException[str]):
@@ -42,7 +44,7 @@ class OrderNotFound(HTTPException[str]):
 oas_config = OASConfig()
 
 
-def test_get_order_schema():
+def test_get_order_schema(user_route: Route):
     async def get_order(
         user_id: str | int, order_id: str, q: int | str, l: str, u: User
     ) -> Order | User: ...
@@ -59,7 +61,7 @@ def test_get_order_schema():
     )
 
 
-def test_get_hello_return():
+def test_get_hello_return(user_route: Route):
     @user_route.get
     async def get_hello(
         user_id: str, order_id: str, q: int, l: str, u: User

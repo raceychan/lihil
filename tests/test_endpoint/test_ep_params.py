@@ -1,9 +1,10 @@
 import sys
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from unittest import mock
 
 import msgspec
 import pytest
+from starlette.requests import Request
 
 from lihil import (
     MISSING,
@@ -22,7 +23,7 @@ from lihil import (
 )
 from lihil.config import AppConfig, SecurityConfig
 from lihil.errors import InvalidMarkTypeError, NotSupportedError
-from lihil.interface.marks import param_mark
+from lihil.interface.marks import HEADER_REQUEST_MARK, Cookie, param_mark
 from lihil.plugins.registry import register_plugin_provider, remove_plugin_provider
 from lihil.signature.params import (
     BodyParam,
@@ -35,6 +36,7 @@ from lihil.signature.params import (
     PluginParam,
     QueryParam,
 )
+from lihil.utils.typing import get_origin_pro
 
 
 # Helper classes for testing
@@ -230,7 +232,6 @@ def test_analyze_markedparam_query(param_parser: ParamParser):
 
 
 # Test analyze_markedparam for Header
-@pytest.mark.debug
 def test_analyze_markedparam_header(param_parser: ParamParser):
     result = param_parser.parse_param("user_agent", Header[str])
     assert len(result) == 1
@@ -561,14 +562,6 @@ def test_param_with_bytes_in_union(param_parser: ParamParser):
         res = param_parser.parse_param("n", int | bytes)
 
 
-from typing import Literal
-
-from starlette.requests import Request
-
-from lihil.interface.marks import HEADER_REQUEST_MARK, Cookie
-from lihil.utils.typing import get_origin_pro
-
-
 def test_parse_cookie(param_parser: ParamParser):
 
     t, meta = get_origin_pro(Header[str, "ads_id"])
@@ -587,3 +580,32 @@ def test_parse_cookie(param_parser: ParamParser):
     )[0]
     assert res.cookie_name == "ads_id"
     assert res.decoder is cookie_decoder
+
+
+async def test_endpoint_with_body_decoder(param_parser: ParamParser):
+    class UserData(Payload):
+        user_name: str
+
+    def user_decoder(data: bytes) -> UserData: ...
+    async def create_user(user: Annotated[UserData, CustomDecoder(user_decoder)]): ...
+
+
+    param_parser.parse(create_user)
+
+
+async def test_endpoint_with_header_key(param_parser: ParamParser):
+
+    async def with_header_key(user_agen: Header[str, Literal["User-Agent"]]): ...
+    async def without_header_key(user_agen: Header[str]): ...
+
+
+    param_parser.parse(with_header_key)
+    param_parser.parse(without_header_key)
+
+
+async def test_parse_ep_with_path_key(param_parser: ParamParser):
+
+    async def get_user(user_id: str): ...
+
+    res = param_parser.parse(get_user, ("user_id",))
+    assert res.params["user_id"].location == "path"

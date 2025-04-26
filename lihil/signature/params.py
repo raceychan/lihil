@@ -46,7 +46,7 @@ from lihil.interface.marks import (
     Struct,
     extract_mark_type,
 )
-from lihil.interface.struct import Base, IDecoder, IFormDecoder, Record
+from lihil.interface.struct import Base, IDecoder, IFormDecoder
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
 from lihil.problems import (
@@ -182,7 +182,6 @@ def formdecoder_factory[T](
 type ParamResult[T] = tuple[T, None] | tuple[None, ValidationProblem]
 
 
-# TODO: we might support multiple decoders/encoders
 class Decodable[D, T](ParamBase[T], kw_only=True):
     decoder: IDecoder[Any, T] = None  # type: ignore
 
@@ -251,8 +250,7 @@ class QueryParam[T](Decodable[str | list[str], T]):
             raw = queries.get(alias)
 
         if raw is None:
-            default = self.default
-            if is_provided(default):
+            if is_provided(default := self.default):
                 return (default, None)
             else:
                 return (None, MissingRequestParam(self.location, alias))
@@ -277,8 +275,7 @@ class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
 
     def extract(self, body: bytes | FormData) -> ParamResult[T]:
         if body == b"" or (isinstance(body, FormData) and len(body) == 0):
-            default = self.default
-            if is_provided(default):
+            if is_provided(default := self.default):
                 val = default
                 return (val, None)
             else:
@@ -288,60 +285,19 @@ class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
         return self.validate(body)
 
 
-"""
-class ParamMetas(Record):
-    mark_type: Maybe[ParamMarkType] = MISSING
-    metas: tuple[Any, ...] = ()
+class ParamMetasBase(Base):
+    metas: list[Any]
 
-class RequestParamMeta(ParamMetas)
-    custom_decoder: Maybe[IDecoder[Any, Any]] = MISSING
+
+class RequestParamMeta(ParamMetasBase):
+    mark_type: ParamMarkType | None = None
+    custom_decoder: IDecoder[Any, Any] | None = None
     constraint: ParamConstraint | None = None
 
-class NodeParamMeta(ParamMetas):
+
+class NodeParamMeta(ParamMetasBase, kw_only=True):
     factory: Maybe[INode[..., Any]]
     node_config: NodeConfig
-"""
-
-
-class ParamMetas(Record):
-    # TODO: specification, HeaderParamMeta, NodeParamMeta, etc.
-    metas: tuple[Any, ...] = ()
-    custom_decoder: IDecoder[Any, Any] | None = None
-    mark_type: ParamMarkType | None = None
-    factory: INode[..., Any] | None = None
-    node_config: NodeConfig | None = None
-    constraint: ParamConstraint | None = None
-
-    @classmethod
-    def from_metas(cls, metas: list[Any]) -> "ParamMetas":
-        current_mark_type = None  # TODO: default to query
-        custom_decoder = None
-        factory = None
-        config = None
-        constraint = None
-
-        for idx, meta in enumerate(metas):
-            if isinstance(meta, CustomDecoder):
-                custom_decoder = meta
-            elif mark_type := extract_mark_type(meta):
-                if current_mark_type and (mark_type != current_mark_type):
-                    raise NotSupportedError("can't use more than one param mark")
-                current_mark_type = mark_type
-            elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
-                factory, config = metas[idx + 1], metas[idx + 2]
-            elif isinstance(meta, ParamConstraint):
-                constraint = meta
-            else:
-                continue
-
-        return ParamMetas(
-            metas=tuple(metas),
-            custom_decoder=custom_decoder.decode if custom_decoder else None,
-            mark_type=current_mark_type,
-            factory=factory,
-            node_config=config,
-            constraint=constraint,
-        )
 
 
 class EndpointParams(Base, kw_only=True):
@@ -386,21 +342,18 @@ def req_param_factory[T](
     annotation: Any,
     default: Maybe[T],
     decoder: IDecoder[str | list[str], T] | None = None,
-    param_metas: ParamMetas | None = None,
+    param_metas: RequestParamMeta | None = None,
     location: ParamLocation = "query",
 ) -> RequestParam[T]:
 
-    if param_metas and param_metas.custom_decoder:
-        decoder = param_metas.custom_decoder
+    if isinstance(param_metas, RequestParamMeta) and param_metas.constraint:
+        param_type = cast(type[T], Annotated[param_type, param_metas.constraint])
 
     if decoder is None:
-        if param_metas and (constraint := param_metas.constraint):
-            param_type = cast(type[T], Annotated[param_type, constraint])
-            default_decoder = textdecoder_factory(param_type=param_type)
+        if param_metas and param_metas.custom_decoder:
+            decoder = param_metas.custom_decoder
         else:
-
-            default_decoder = textdecoder_factory(param_type)
-        decoder = default_decoder
+            decoder = textdecoder_factory(param_type=param_type)
 
     if location == "path":
         req_param = PathParam(
@@ -489,14 +442,11 @@ class ParamParser:
         param_type: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_metas: ParamMetas | None = None,
+        param_metas: RequestParamMeta | None = None,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
-        custom_decoder = None
-        if param_metas and param_metas.custom_decoder:
-            custom_decoder = param_metas.custom_decoder
-
         if name in self.path_keys:  # simplest case
             self.seen.discard(name)
+            assert not isinstance(param_metas, NodeParamMeta)
             req_param = req_param_factory(
                 name=name,
                 alias=name,
@@ -507,19 +457,10 @@ class ParamParser:
                 location="path",
             )
         elif self.is_lhl_primitive(param_type):
-            plugin = PluginParam(
+            plugin: ParsedParam[Any] = PluginParam(
                 type_=param_type, annotation=annotation, name=name, default=default
             )
-            plugins = [plugin]
-
-            if param_metas and param_metas.factory:  # Annotated[Dep, use(dep_factory)]
-                assert param_metas.node_config
-                node = self.graph.analyze(
-                    param_metas.factory, config=param_metas.node_config
-                )
-                plugins += self._parse_node(node)
-
-            return cast(list[ParsedParam[Any]], plugins)
+            return plugin
         elif is_body_param(param_type):
             if is_file_body(param_type):
                 req_param = file_body_param(
@@ -527,9 +468,11 @@ class ParamParser:
                 )
                 req_param = cast(RequestParam[T], req_param)  # where T is UploadFile
             else:
-                decoder: IDecoder[bytes, T] = custom_decoder or decoder_factory(
-                    param_type
-                )
+                if param_metas and param_metas.custom_decoder:
+                    decoder = param_metas.custom_decoder
+                else:
+                    decoder = decoder_factory(param_type)
+
                 req_param = BodyParam(
                     name=name,
                     alias=name,
@@ -539,25 +482,7 @@ class ParamParser:
                     decoder=decoder,
                 )
         elif param_type in self.graph.nodes:
-            node = self.graph.analyze(param_type)
-            params: list[ParsedParam[Any]] = [node]
-            for dep_name, dep in node.dependencies.items():
-                ptype, dep_dfault = dep.param_type, dep.default_
-                if dep_dfault is IDIDI_MISSING:
-                    default = LIHIL_MISSING
-                if ptype in self.graph.nodes:
-                    # only add top level dependency, leave subs to ididi
-                    continue
-                ptype = cast(type, ptype)
-                sub_params = self.parse_param(dep_name, ptype, default)
-                params.extend(sub_params)
-            return params
-        elif param_metas and param_metas.factory:  # Annotated[Dep, use(dep_factory)]
-            assert param_metas.node_config
-            node = self.graph.analyze(
-                param_metas.factory, config=param_metas.node_config
-            )
-            return self._parse_node(node)
+            return self._parse_node(param_type)
         else:  # default case
             req_param = req_param_factory(
                 name=name,
@@ -570,12 +495,22 @@ class ParamParser:
             )
         return req_param
 
-    def _parse_node(self, node: DependentNode) -> list[ParsedParam[Any]]:
+    def _parse_node(
+        self, node_type: INode[..., Any], node_config: NodeConfig | None = None
+    ) -> list[ParsedParam[Any]]:
+        if node_config:
+            node = self.graph.analyze(node_type, config=node_config)
+        else:
+            node = self.graph.analyze(node_type)
+
         params: list[Any | DependentNode] = [node]
         for dep_name, dep in node.dependencies.items():
             ptype, default = dep.param_type, dep.default_
             if default is IDIDI_MISSING:
                 default = LIHIL_MISSING
+            if ptype in self.graph.nodes:
+                # only add top level dependency, leave subs to ididi
+                continue
             ptype = cast(type, ptype)
             sub_params = self.parse_param(dep_name, ptype, default)
             params.extend(sub_params)
@@ -588,7 +523,7 @@ class ParamParser:
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_metas: ParamMetas,
+        param_metas: RequestParamMeta,
     ) -> ParsedParam[T]:
         # TODO: auth_header_decoder
         if JW_TOKEN_RETURN_MARK not in param_metas.metas:
@@ -602,8 +537,9 @@ class ParamParser:
                 default=default,
             )
         else:
-            custom_decoder = param_metas.custom_decoder
-            if custom_decoder is None:
+            if param_metas.custom_decoder:
+                decoder = param_metas.custom_decoder
+            else:
                 if self.app_config is None or self.app_config.security is UNSET:
                     raise MissingDependencyError("security config")
                 sec_config = self.app_config.security
@@ -614,8 +550,6 @@ class ParamParser:
                 decoder = jwt_decoder_factory(
                     secret=secret, algorithms=algos, payload_type=type_
                 )
-            else:
-                decoder = custom_decoder
 
             req_param = req_param_factory(
                 name=name,
@@ -635,16 +569,13 @@ class ParamParser:
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_metas: ParamMetas,
+        param_metas: RequestParamMeta,
     ) -> ParsedParam[T]:
         location = "header"
         pmetas = param_metas.metas
-        if not pmetas:
-            header_key = to_kebab_case(name)
-        else:
-            mark_idx = pmetas.index(HEADER_REQUEST_MARK)
-            key_meta = pmetas[mark_idx - 1]
-            header_key = parse_header_key(name, key_meta).lower()
+        mark_idx = pmetas.index(HEADER_REQUEST_MARK)
+        key_meta = pmetas[mark_idx - 1]
+        header_key = parse_header_key(name, key_meta).lower()
 
         if header_key == "authorization":
             return self._parse_auth_header(
@@ -708,16 +639,14 @@ class ParamParser:
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_metas: ParamMetas,
+        param_metas: RequestParamMeta,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
-        custom_decoder = (
-            param_metas.custom_decoder if param_metas.custom_decoder else None
-        )
+        custom_decoder = param_metas.custom_decoder
         mark_type = param_metas.mark_type
+        assert mark_type
 
         if mark_type == "use":
-            node = self.graph.analyze(type_)
-            return self._parse_node(node)
+            return self._parse_node(type_)
         else:
             # Easy case, Pure non-deps request params with param marks.
             location: ParamLocation
@@ -788,6 +717,32 @@ class ParamParser:
                         )
         return plugins if plugins else None
 
+    def _parse_meta(
+        self, metas: list[Any] | None
+    ) -> RequestParamMeta | NodeParamMeta | None:
+        if not metas:
+            return None
+        request_meta = RequestParamMeta(metas)
+        for idx, meta in enumerate(metas):
+            if isinstance(meta, CustomDecoder):
+                request_meta.custom_decoder = meta.decode
+            elif mark_type := extract_mark_type(meta):
+                if request_meta.mark_type and request_meta.mark_type != mark_type:
+                    raise NotSupportedError("can't use more than one param mark")
+                request_meta.mark_type = mark_type
+            elif meta == USE_FACTORY_MARK:
+                factory, config = metas[idx + 1], metas[idx + 2]
+                return NodeParamMeta(
+                    metas=metas,
+                    factory=factory,
+                    node_config=config,
+                )
+            elif isinstance(meta, ParamConstraint):
+                request_meta.constraint = meta
+            else:
+                continue
+        return request_meta
+
     def parse_param[T](
         self,
         name: str,
@@ -802,7 +757,11 @@ class ParamParser:
         ):
             return plugins
 
-        param_metas = ParamMetas.from_metas(pmetas) if pmetas else None
+        param_metas = self._parse_meta(pmetas)
+
+        if isinstance(param_metas, NodeParamMeta):
+            return self._parse_node(param_metas.factory, param_metas.node_config)
+
         if param_metas is None or not param_metas.mark_type:
             res = self._parse_rule_based(
                 name=name,
@@ -830,23 +789,23 @@ class ParamParser:
         if path_keys:
             self.path_keys += path_keys
 
-        params = dict[str, RequestParam[Any]]()
-        bodies = dict[str, BodyParam[Any]]()
-        nodes = dict[str, DependentNode]()
-        plugins = dict[str, PluginParam]()
+        params: dict[str, RequestParam[Any]] = {}
+        bodies: dict[str, BodyParam[Any]] = {}
+        nodes: dict[str, DependentNode] = {}
+        plugins: dict[str, PluginParam] = {}
 
         for name, param in func_params:
             annotation, default = param.annotation, param.default
-            default = (
-                LIHIL_MISSING if param.default is Parameter.empty else param.default
-            )
+            if param.default is Parameter.empty:
+                default = LIHIL_MISSING
+            else:
+                default = param.default
             parsed_params = self.parse_param(name, annotation, default)
 
             for req_param in parsed_params:
                 if isinstance(req_param, DependentNode):
                     nodes[name] = req_param
-                    continue
-                if isinstance(req_param, PluginParam):
+                elif isinstance(req_param, PluginParam):
                     plugins[req_param.name] = req_param
                 elif isinstance(req_param, BodyParam):
                     bodies[req_param.name] = req_param

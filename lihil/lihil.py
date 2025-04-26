@@ -25,6 +25,7 @@ from lihil.routing import (
     Route,
     RouteBase,
 )
+from lihil.signature.params import LIHIL_PRIMITIVES
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 from lihil.websocket import WebSocketRoute
@@ -77,7 +78,7 @@ class Lihil[T](ASGIBase):
     def __init__(
         self,
         *,
-        routes: list[Route] | None = None,
+        routes: list[RouteBase] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
         app_config: AppConfig | None = None,
         graph: Graph | None = None,
@@ -92,15 +93,19 @@ class Lihil[T](ASGIBase):
         self.workers = ThreadPoolExecutor(
             max_workers=self.app_config.max_thread_workers
         )
-        self.graph = graph or Graph(self_inject=True, workers=self.workers)
+        self.graph = graph or Graph(
+            self_inject=True, workers=self.workers, ignore=LIHIL_PRIMITIVES
+        )
         self.busterm = busterm or BusTerminal()
         # =========== keep above order ============
         self.routes: list[RouteBase] = []
 
         if routes:
+            if not any(route.path == "/" for route in routes):
+                self.root = Route("/", graph=self.graph)
+                self.routes.insert(0, self.root)
             self.include_routes(*routes)
-
-        if not any(route.path == "/" for route in self.routes):
+        else:
             self.root = Route("/", graph=self.graph)
             self.routes.insert(0, self.root)
 
@@ -190,12 +195,9 @@ class Lihil[T](ASGIBase):
 
             self._merge_deps(route)
             if route.path == "/":
-                if self.root:
+                if self.routes:
                     if isinstance(self.root, Route) and self.root.endpoints:
                         raise DuplicatedRouteError(route, self.root)
-                    elif isinstance(self.root, WebSocketRoute) and self.root.endpoint:
-                        raise DuplicatedRouteError(route, self.root)
-
                 self.root = route
                 self.routes.insert(0, self.root)
             else:
@@ -215,9 +217,7 @@ class Lihil[T](ASGIBase):
         charset: str = "utf-8",
     ) -> None:
         if not is_plain_path(path):
-            raise NotSupportedError(
-                "staic resource with dynamic route is not supported"
-            )
+            raise NotSupportedError("staic resource with dynamic path is not supported")
         if isinstance(static_content, Callable):
             static_content = static_content()
         elif isinstance(static_content, str):

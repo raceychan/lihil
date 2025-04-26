@@ -1,11 +1,8 @@
-from typing import Annotated, Literal
+from typing import Literal
 
 import pytest
 
-from lihil import BusTerminal, Graph, Text, status
-
-# from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
-from lihil.signature.params import ParamParser
+from lihil import Graph, Text, status
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, Header, IReceive, IScope, ISend, Resp
@@ -13,16 +10,8 @@ from lihil.plugins.bus import Event
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
 
-
-async def test_route_flyweight_pattern():
-    # Test flyweight pattern
-    route1 = Route("/test")
-    route2 = Route("/test")
-    assert route1 is route2
-
-    # Different paths create different instances
-    route3 = Route("/other")
-    assert route1 is not route3
+# from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
+from lihil.signature.params import ParamParser
 
 
 async def test_route_truediv_operator():

@@ -98,7 +98,7 @@ class WebSocketEndpoint:
 
 
 class WebSocketRoute(RouteBase):
-    endpoint: WebSocketEndpoint
+    endpoint: WebSocketEndpoint | None = None
     call_stack: ASGIApp | None = None
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
@@ -111,6 +111,9 @@ class WebSocketRoute(RouteBase):
 
     def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
         super().setup(graph, busterm)
+        if self.endpoint is None:
+            raise RuntimeError(f"Empty websocket route")
+
         self.endpoint.setup()
         self.call_stack = self.chainup_middlewares(self.endpoint)
 

@@ -433,11 +433,11 @@ an route with path `/` is the root route, if not provided, root route is created
 
 ### WebSocket
 
-lihil supports the usage of websocket, you might use `WebSocketRoute.ws_handler` to register function that handles websockets.
-
-#### Usage
+lihil supports the usage of websocket, you might use `WebSocketRoute.ws_handler` to register a function that handles websockets.
 
 ```python
+from lihil import WebSocketRoute, WebSocket, Ignore, use
+
 ws_route = WebSocketRoute("web_socket/{session_id}")
 
 async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
@@ -445,6 +445,7 @@ async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
     yield ws
     await ws.close()
 
+@ws_route.ws_handler
 async def ws_handler(
     ws: Annotated[WebSocket, use(ws_factory, reuse=False)],
     session_id: str,
@@ -453,10 +454,13 @@ async def ws_handler(
     assert session_id == "session123" and max_users == 5
     await ws.send_text("Hello, world!")
 
-ws_route.ws_handler(ws_handler)
-
 lhl = Lihil[None]()
 lhl.include_routes(ws_route)
+```
+
+Testing
+```python
+from lihil.vendors import TestClient # require httpx installed
 
 client = TestClient(lhl)
 with client:
@@ -544,9 +548,17 @@ There are several settings you can change to control the behavior of lihil,
     python app.py --oas.title "New Title" --is_prod true
     ```
 
-    use `.` to express nested fields
+    - use `.` to express nested fields
 
-    add `--help` to see available options
+    - add `--help` to see available options
+
+You can access `AppConfig` anywhere in your app via `lihil.config.lhl_get_config`
+
+```python
+from lihil.config import lhl_get_config, AppConfig
+
+app_config: AppConfig = lhl_get_config()
+```
 
 ## Error Hanlding
 

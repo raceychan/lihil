@@ -26,6 +26,7 @@ from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
 from lihil.config import AppConfig, lhl_get_config
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
+from lihil.ds.resp import StaticResponse
 from lihil.errors import InvalidParamTypeError
 from lihil.interface import (
     HTTP_METHODS,
@@ -44,7 +45,6 @@ from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.utils.string import (
     build_path_regex,
     generate_route_tag,
-    get_parent_path,
     merge_path,
     trim_path,
 )
@@ -161,7 +161,10 @@ class Endpoint[R]:
         self._status_code = self._sig.default_status
         self._scoped: bool = self._sig.scoped or scoped_by_config
         self._encoder = self._sig.return_encoder
-        self._media_type = next(iter(self._sig.return_params.values())).content_type
+        self._media_type = (
+            next(iter(self._sig.return_params.values())).content_type
+            or "application/json"
+        )
 
     async def inject_plugins(
         self, params: dict[str, Any], request: Request, resolver: Resolver
@@ -250,6 +253,12 @@ class Endpoint[R]:
                     media_type="text/event-stream",
                     status_code=self._status_code,
                 )
+            elif self._static:
+                resp = StaticResponse(
+                    self._encoder(raw_return),
+                    media_type=self._media_type,
+                    status_code=self._status_code,
+                )
             else:
                 resp = Response(
                     content=self._encoder(raw_return),
@@ -266,7 +275,6 @@ class Endpoint[R]:
             return await response(scope, receive, send)
         if self._static:  # when there is no params at all
             raw_return = await self.make_static_call(scope, receive, send)
-            # response = StaticResponse(raw_return)
         else:
             raw_return = await self.make_call(scope, receive, send, self._graph)
         response = self.return_to_response(raw_return)
@@ -274,19 +282,6 @@ class Endpoint[R]:
 
 
 class RouteBase(ASGIBase):
-    _flyweights: dict[str, "Self"] = {}
-
-    def __new__(cls, path: str = "", **_) -> Self:
-        p = trim_path(path)
-        if p_route := cls._flyweights.get(p):
-            return p_route
-
-        cls._flyweights[p] = route = super().__new__(cls)
-        if parent := cls._flyweights.get(get_parent_path(p)):
-            if route not in parent.subroutes:
-                parent.subroutes.append(route)
-        return route
-
     def __init__(  # type: ignore
         self,
         path: str = "",
@@ -367,6 +362,10 @@ class RouteBase(ASGIBase):
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm
         self.app_config = lhl_get_config()
+
+    # @classmethod
+    # def reset_route_cache(cls):
+    #     cls._flyweights = {}
 
 
 class Route(RouteBase):
