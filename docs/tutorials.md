@@ -440,7 +440,7 @@ from lihil import WebSocketRoute, WebSocket, Ignore, use
 
 ws_route = WebSocketRoute("web_socket/{session_id}")
 
-async def ws_factory(ws: Ignore[WebSocket]) -> Ignore[AsyncResource[WebSocket]]:
+async def ws_factory(ws: WebSocket) -> Ignore[AsyncResource[WebSocket]]:
     await ws.accept()
     yield ws
     await ws.close()
