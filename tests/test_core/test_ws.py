@@ -59,8 +59,8 @@ async def test_ws_with_body_fail():
         client.__enter__()
 
 
+@pytest.mark.debug
 async def test_ws_full_fledge():
-
     ws_route = WebSocketRoute("web_socket/{session_id}")
 
     async def ws_factory(ws: WebSocket) -> Ignore[AsyncResource[WebSocket]]:

@@ -948,4 +948,4 @@ But the fundamental flaws of this design is that:
 2. testing is harder.
 
 
-- [ ] specialized param meta
+- [x] specialized param meta

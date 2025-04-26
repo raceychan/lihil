@@ -100,8 +100,6 @@ class Lihil[T](ASGIBase):
         # =========== keep above order ============
         self.routes: list[RouteBase] = []
 
-
-
         if routes:
             if not any(route.path == "/" for route in routes):
                 self.root = Route("/", graph=self.graph)
@@ -200,9 +198,6 @@ class Lihil[T](ASGIBase):
                 if self.routes:
                     if isinstance(self.root, Route) and self.root.endpoints:
                         raise DuplicatedRouteError(route, self.root)
-                    elif isinstance(self.root, WebSocketRoute) and self.root.endpoint:
-                        raise DuplicatedRouteError(route, self.root)
-
                 self.root = route
                 self.routes.insert(0, self.root)
             else:

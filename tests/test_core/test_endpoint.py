@@ -26,6 +26,7 @@ from lihil import (
     field,
     status,
 )
+from lihil.interface import CustomDecoder
 from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.config import AppConfig, SecurityConfig
@@ -207,7 +208,6 @@ async def test_scoped_endpoint(rusers: Route, lc: LocalClient):
     await lc.call_endpoint(ep)
 
 
-@pytest.mark.debug
 async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
     async def get() -> Resp[Empty, 400]:
@@ -861,7 +861,6 @@ async def test_ep_with_cookie():
     assert res
     assert called
 
-
 async def test_ep_with_cookie2():
     called: bool = False
 
@@ -880,3 +879,13 @@ async def test_ep_with_cookie2():
     res = await resp.json()
     assert res
     assert called
+
+
+async def tests_calling_ep_query_without_default():
+    lc = LocalClient()
+
+    async def get_user(user_id: int):
+        ...
+
+    resp = await lc(lc.make_endpoint(get_user))
+    assert resp.status_code == 422

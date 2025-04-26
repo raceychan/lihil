@@ -46,7 +46,7 @@ from lihil.interface.marks import (
     Struct,
     extract_mark_type,
 )
-from lihil.interface.struct import Base, IDecoder, IFormDecoder, Record
+from lihil.interface.struct import Base, IDecoder, IFormDecoder
 from lihil.plugins.bus import EventBus
 from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
 from lihil.problems import (
@@ -250,8 +250,7 @@ class QueryParam[T](Decodable[str | list[str], T]):
             raw = queries.get(alias)
 
         if raw is None:
-            default = self.default
-            if is_provided(default):
+            if is_provided(default := self.default):
                 return (default, None)
             else:
                 return (None, MissingRequestParam(self.location, alias))
@@ -276,8 +275,7 @@ class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
 
     def extract(self, body: bytes | FormData) -> ParamResult[T]:
         if body == b"" or (isinstance(body, FormData) and len(body) == 0):
-            default = self.default
-            if is_provided(default):
+            if is_provided(default := self.default):
                 val = default
                 return (val, None)
             else:
@@ -444,7 +442,7 @@ class ParamParser:
         param_type: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_metas: RequestParamMeta | NodeParamMeta | None = None,
+        param_metas: RequestParamMeta | None = None,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
         if name in self.path_keys:  # simplest case
             self.seen.discard(name)
@@ -459,16 +457,10 @@ class ParamParser:
                 location="path",
             )
         elif self.is_lhl_primitive(param_type):
-            plugin = PluginParam(
+            plugin: ParsedParam[Any] = PluginParam(
                 type_=param_type, annotation=annotation, name=name, default=default
             )
-            plugins = [plugin]
-
-            if isinstance(param_metas, NodeParamMeta):
-                plugins += self._parse_node(
-                    param_metas.factory, node_config=param_metas.node_config
-                )
-            return cast(list[ParsedParam[Any]], plugins)
+            return plugin
         elif is_body_param(param_type):
             if is_file_body(param_type):
                 req_param = file_body_param(
@@ -476,10 +468,7 @@ class ParamParser:
                 )
                 req_param = cast(RequestParam[T], req_param)  # where T is UploadFile
             else:
-                if (
-                    isinstance(param_metas, RequestParamMeta)
-                    and param_metas.custom_decoder
-                ):
+                if param_metas and param_metas.custom_decoder:
                     decoder = param_metas.custom_decoder
                 else:
                     decoder = decoder_factory(param_type)
@@ -494,12 +483,7 @@ class ParamParser:
                 )
         elif param_type in self.graph.nodes:
             return self._parse_node(param_type)
-        elif isinstance(param_metas, NodeParamMeta):  # Annotated[Dep, use(dep_factory)]
-            return self._parse_node(
-                param_metas.factory, node_config=param_metas.node_config
-            )
         else:  # default case
-
             req_param = req_param_factory(
                 name=name,
                 alias=name,
@@ -589,12 +573,9 @@ class ParamParser:
     ) -> ParsedParam[T]:
         location = "header"
         pmetas = param_metas.metas
-        if not pmetas:
-            header_key = to_kebab_case(name)
-        else:
-            mark_idx = pmetas.index(HEADER_REQUEST_MARK)
-            key_meta = pmetas[mark_idx - 1]
-            header_key = parse_header_key(name, key_meta).lower()
+        mark_idx = pmetas.index(HEADER_REQUEST_MARK)
+        key_meta = pmetas[mark_idx - 1]
+        header_key = parse_header_key(name, key_meta).lower()
 
         if header_key == "authorization":
             return self._parse_auth_header(
@@ -661,10 +642,8 @@ class ParamParser:
         param_metas: RequestParamMeta,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
         custom_decoder = param_metas.custom_decoder
-
-        assert is_provided(param_metas.mark_type)
-
         mark_type = param_metas.mark_type
+        assert mark_type
 
         if mark_type == "use":
             return self._parse_node(type_)
@@ -674,7 +653,6 @@ class ParamParser:
             param_alias = name
 
             if mark_type == "header":
-                assert isinstance(param_metas, RequestParamMeta)
                 return self._parse_header(
                     name=name,
                     type_=type_,
@@ -744,9 +722,7 @@ class ParamParser:
     ) -> RequestParamMeta | NodeParamMeta | None:
         if not metas:
             return None
-
         request_meta = RequestParamMeta(metas)
-
         for idx, meta in enumerate(metas):
             if isinstance(meta, CustomDecoder):
                 request_meta.custom_decoder = meta.decode
@@ -754,7 +730,7 @@ class ParamParser:
                 if request_meta.mark_type and request_meta.mark_type != mark_type:
                     raise NotSupportedError("can't use more than one param mark")
                 request_meta.mark_type = mark_type
-            elif meta == USE_FACTORY_MARK:  # TODO: use PluginParser
+            elif meta == USE_FACTORY_MARK:
                 factory, config = metas[idx + 1], metas[idx + 2]
                 return NodeParamMeta(
                     metas=metas,
@@ -780,6 +756,7 @@ class ParamParser:
             name, parsed_type, annotation, default, pmetas
         ):
             return plugins
+
         param_metas = self._parse_meta(pmetas)
 
         if isinstance(param_metas, NodeParamMeta):
