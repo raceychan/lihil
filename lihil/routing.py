@@ -158,7 +158,7 @@ class Endpoint[R]:
         scoped_by_config = bool(self._props and self._props.scoped is True)
 
         self._require_body: bool = self._sig.body_param is not None
-        self._status_code = self._sig.default_status
+        self._status_code = self._sig.status_code
         self._scoped: bool = self._sig.scoped or scoped_by_config
         self._encoder = self._sig.return_encoder
         self._media_type = (

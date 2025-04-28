@@ -949,3 +949,40 @@ But the fundamental flaws of this design is that:
 
 
 - [x] specialized param meta
+
+
+## version 0.2.5
+
+- refactor signature attributes
+
+### Improvements
+
+#### `HTTPException.__json_example__`
+
+1. no longer required `type_`, `title`, expects return value of a Typedict with total=False
+
+__json_example__ can be either a callable, or a dict.
+
+
+2. support `Annotated[T, Meta(examples=[value])]`
+
+```python
+class AddressOutOfScopeProblem(Base):
+    current_address: Annotated[str, Meta(examples=["home"])]
+    service_radius: Annotated[float, Meta(examples=[3.5])]
+    distance: Annotated[float, Meta(examples=4)]
+
+    message: str = ""
+
+    def __post_init__(self):
+        self.message = f"Your current address {self.current_address} is {self.distance} miles away and our service radius is {self.service_radius}"
+
+class InvalidOrderError(HTTPException[AddressOutOfScopeProblem]):
+    "Address out of service zone"
+    __status__ = 422
+
+    instance: Annotated[str, Meta(examples=["2cd20e0c-9ddc-4fdc-8f61-b32f62ac784d"])]
+    detail: AddressOutOfScopeProblem
+```
+
+3. collect __json_example__ recursively.

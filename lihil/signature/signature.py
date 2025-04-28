@@ -51,15 +51,15 @@ class ParseResult(Record):
 class EndpointSignature[R](Base):
     route_path: str
 
-    query_params: dict[str, QueryParam[Any]]
-    path_params: dict[str, PathParam[Any]]
-    header_params: dict[str, HeaderParam[Any]]
-
+    query_params: ParamMap[QueryParam[Any]]
+    path_params: ParamMap[PathParam[Any]]
+    header_params: ParamMap[HeaderParam[Any]]
     body_param: tuple[str, BodyParam[Struct]] | None
+
     dependencies: ParamMap[DependentNode]
     plugins: ParamMap[PluginParam]
 
-    default_status: int
+    status_code: int
     scoped: bool
     form_body: bool
 
@@ -183,8 +183,7 @@ class EndpointSignature[R](Base):
             signature(f).return_annotation, app_config=app_config
         )
 
-        default_status = next(iter(return_params))
-        default_encoder = return_params[default_status].encoder
+        status, retparam = next(iter(return_params.items()))
 
         scoped = any(
             graph.should_be_scoped(node.dependent) for node in params.nodes.values()
@@ -202,8 +201,8 @@ class EndpointSignature[R](Base):
             plugins=params.plugins,
             dependencies=params.nodes,
             return_params=return_params,
-            default_status=default_status,
-            return_encoder=default_encoder,
+            status_code=status,
+            return_encoder=retparam.encoder,
             scoped=scoped,
             form_body=form_body,
         )

@@ -589,7 +589,6 @@ async def test_endpoint_with_body_decoder(param_parser: ParamParser):
     def user_decoder(data: bytes) -> UserData: ...
     async def create_user(user: Annotated[UserData, CustomDecoder(user_decoder)]): ...
 
-
     param_parser.parse(create_user)
 
 
@@ -597,7 +596,6 @@ async def test_endpoint_with_header_key(param_parser: ParamParser):
 
     async def with_header_key(user_agen: Header[str, Literal["User-Agent"]]): ...
     async def without_header_key(user_agen: Header[str]): ...
-
 
     param_parser.parse(with_header_key)
     param_parser.parse(without_header_key)
