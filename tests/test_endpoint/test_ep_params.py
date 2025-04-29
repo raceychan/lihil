@@ -25,12 +25,12 @@ from lihil.config import AppConfig, SecurityConfig
 from lihil.errors import InvalidMarkTypeError, NotSupportedError
 from lihil.interface.marks import HEADER_REQUEST_MARK, Cookie, param_mark
 from lihil.plugins.registry import register_plugin_provider, remove_plugin_provider
-from lihil.signature.params import (
+from lihil.signature.parser import (
     BodyParam,
     CustomDecoder,
     EndpointParams,
+    EndpointParser,
     HeaderParam,
-    ParamParser,
     PathParam,
     PluginBase,
     PluginParam,
@@ -106,11 +106,11 @@ def test_singleton_param():
 
 
 @pytest.fixture
-def param_parser() -> ParamParser:
-    return ParamParser(Graph())
+def param_parser() -> EndpointParser:
+    return EndpointParser(Graph(), "test")
 
 
-def test_parsed_params(param_parser: ParamParser):
+def test_parsed_params(param_parser: EndpointParser):
     param_parser.graph.analyze(DependentService)
 
     def str_decoder(x: str) -> str:
@@ -126,25 +126,25 @@ def test_parsed_params(param_parser: ParamParser):
         service: DependentService,
     ): ...
 
-    res = param_parser.parse(endpoint)
+    sig = param_parser.parse(endpoint)
 
-    q = res.params["q"]
-    data = res.bodies["data"]
+    q = sig.query_params["q"]
+    data = sig.body_param
 
     assert q.location == "query"
     assert q.type_ == str
 
-    assert data.type_ == dict[str, str]
+    assert data[1].type_ == dict[str, str]
 
-    service = res.nodes["service"]
+    service = sig.dependencies["service"]
     assert service.dependent == DependentService
 
-    req = res.plugins["req"]
+    req = sig.plugins["req"]
     assert req.type_ == Request
 
 
 # Test analyze_param for path parameters
-def test_analyze_param_path(param_parser: ParamParser):
+def test_analyze_param_path(param_parser: EndpointParser):
     param_parser.path_keys = ("id",)
     result = param_parser.parse_param("id", int, MISSING)
 
@@ -169,7 +169,7 @@ def test_analyze_param_payload(param_parser):
     assert param.type_ == SamplePayload
 
 
-def test_analyze_param_union_payload(param_parser: ParamParser):
+def test_analyze_param_union_payload(param_parser: EndpointParser):
     result = param_parser.parse_param("data", Body[SamplePayload | None], MISSING)
 
     assert len(result) == 1
@@ -183,7 +183,7 @@ def test_analyze_param_union_payload(param_parser: ParamParser):
 
 
 # Test analyze_param for query parameters
-def test_analyze_param_query(param_parser: ParamParser):
+def test_analyze_param_query(param_parser: EndpointParser):
     result = param_parser.parse_param("q", str, MISSING)
     assert len(result) == 1
     param = result[0]
@@ -193,7 +193,7 @@ def test_analyze_param_query(param_parser: ParamParser):
 
 
 # Test analyze_param for dependencies
-def test_analyze_param_dependency(param_parser: ParamParser):
+def test_analyze_param_dependency(param_parser: EndpointParser):
     graph = Graph()
     graph.node(SimpleDependency)
     param_parser.graph = graph
@@ -205,7 +205,7 @@ def test_analyze_param_dependency(param_parser: ParamParser):
 
 
 # Test analyze_param for lihil dependencies
-def test_analyze_param_lihil_dep(param_parser: ParamParser):
+def test_analyze_param_lihil_dep(param_parser: EndpointParser):
     result = param_parser.parse_param("request", Request, MISSING)
 
     assert len(result) == 1
@@ -216,7 +216,7 @@ def test_analyze_param_lihil_dep(param_parser: ParamParser):
 
 
 # Test analyze_markedparam for Query
-def test_analyze_markedparam_query(param_parser: ParamParser):
+def test_analyze_markedparam_query(param_parser: EndpointParser):
     query_type = Query[int]
     result = param_parser.parse_param(
         "page",
@@ -232,7 +232,7 @@ def test_analyze_markedparam_query(param_parser: ParamParser):
 
 
 # Test analyze_markedparam for Header
-def test_analyze_markedparam_header(param_parser: ParamParser):
+def test_analyze_markedparam_header(param_parser: EndpointParser):
     result = param_parser.parse_param("user_agent", Header[str])
     assert len(result) == 1
     param = result[0]
@@ -241,7 +241,7 @@ def test_analyze_markedparam_header(param_parser: ParamParser):
     assert param.location == "header"
 
 
-def test_analyze_markedparam_header_with_alias(param_parser: ParamParser):
+def test_analyze_markedparam_header_with_alias(param_parser: EndpointParser):
     result = param_parser.parse_param("user_agent", Header[str, "test-alias"])
     assert len(result) == 1
     param = result[0]
@@ -252,7 +252,7 @@ def test_analyze_markedparam_header_with_alias(param_parser: ParamParser):
 
 
 # Test analyze_markedparam for Body
-def test_analyze_markedparam_body(param_parser: ParamParser):
+def test_analyze_markedparam_body(param_parser: EndpointParser):
     body_type = Body[dict]
     result = param_parser.parse_param("data", body_type)
 
@@ -263,7 +263,7 @@ def test_analyze_markedparam_body(param_parser: ParamParser):
 
 
 # Test analyze_markedparam for Path
-def test_analyze_markedparam_path(param_parser: ParamParser):
+def test_analyze_markedparam_path(param_parser: EndpointParser):
     path_type = Path[int]
     result = param_parser.parse_param("id", path_type)
     assert len(result) == 1
@@ -274,13 +274,13 @@ def test_analyze_markedparam_path(param_parser: ParamParser):
     assert param.location == "path"
 
 
-def test_analyze_multiple_marks(param_parser: ParamParser):
+def test_analyze_multiple_marks(param_parser: EndpointParser):
     with pytest.raises(NotSupportedError):
         param_parser.parse_param("page", Query[int] | Path[int])
 
 
 # Test analyze_markedparam for Use
-def test_analyze_markedparam_use(param_parser: ParamParser):
+def test_analyze_markedparam_use(param_parser: EndpointParser):
     param_parser.graph.node(SimpleDependency)
 
     use_type = Use[SimpleDependency]
@@ -291,7 +291,7 @@ def test_analyze_markedparam_use(param_parser: ParamParser):
 
 
 # Test analyze_nodeparams
-def test_analyze_nodeparams(param_parser: ParamParser):
+def test_analyze_nodeparams(param_parser: EndpointParser):
     # Create a node with dependencies
 
     param_parser.graph.analyze(DependentService)
@@ -302,28 +302,27 @@ def test_analyze_nodeparams(param_parser: ParamParser):
 
 
 # Test analyze_endpoint_params
-def test_analyze_endpoint_params(param_parser: ParamParser):
+def test_analyze_endpoint_params(param_parser: EndpointParser):
     param_parser.path_keys = ("id",)
 
     def func(id: int, q: str = ""): ...
 
-    result = param_parser.parse(func)
+    sig = param_parser.parse(func)
 
-    assert isinstance(result, EndpointParams)
-    assert len(result.params) == 2  # Both id and q should be in params
+    # assert isinstance(sig, EndpointParams)
+    assert len(sig.path_params) == 1  # Both id and q should be in params
+    assert len(sig.query_params) == 1  # Both id and q should be in params
 
     # Check that path parameter was correctly identified
-    path_params = result.get_location("path")
-    assert len(path_params) == 1
-    assert "id" in path_params
+    assert "id" in sig.path_params
 
 
-def test_param_parser_parse_unions(param_parser: ParamParser):
+def test_param_parser_parse_unions(param_parser: EndpointParser):
     with pytest.raises(NotSupportedError):
         param_parser.parse_param("test", dict[str, int] | list[int])
 
 
-def test_param_parser_parse_bytes_union(param_parser: ParamParser):
+def test_param_parser_parse_bytes_union(param_parser: EndpointParser):
     res = param_parser.parse_param("test", bytes)
 
     param = res[0]
@@ -334,18 +333,18 @@ def test_param_parser_parse_bytes_union(param_parser: ParamParser):
     assert isinstance(res, bytes)
 
 
-def test_invalid_param(param_parser: ParamParser):
+def test_invalid_param(param_parser: EndpointParser):
     with pytest.raises(NotSupportedError):
         param_parser.parse_param("aloha", 5)
 
 
-def test_textual_field(param_parser: ParamParser):
+def test_textual_field(param_parser: EndpointParser):
     res = param_parser.parse_param("text", bytes)
     assert isinstance(res[0], QueryParam)
     # assert res[0].decoder is to_bytes
 
 
-def test_form_with_sequence_field(param_parser: ParamParser):
+def test_form_with_sequence_field(param_parser: EndpointParser):
     class SequenceForm(Payload):
         nums: list[int]
 
@@ -366,7 +365,7 @@ def test_form_with_sequence_field(param_parser: ParamParser):
     assert res == SequenceForm([1, 2, 3])
 
 
-def test_form_body_with_default_val(param_parser: ParamParser):
+def test_form_body_with_default_val(param_parser: EndpointParser):
     class LoginInfo(Payload):
         name: str = "name"
         age: int = 15
@@ -382,12 +381,12 @@ def test_form_body_with_default_val(param_parser: ParamParser):
     assert res.age == 15
 
 
-def test_param_repr_with_union_args(param_parser: ParamParser):
+def test_param_repr_with_union_args(param_parser: EndpointParser):
     param = param_parser.parse_param("param", str | int)[0]
     param.__repr__()
 
 
-def test_body_param_repr(param_parser: ParamParser):
+def test_body_param_repr(param_parser: EndpointParser):
     param = param_parser.parse_param("data", Form[bytes])[0]
     param.__repr__()
 
@@ -411,7 +410,7 @@ class CachedProvider(PluginBase):
         )
 
 
-def test_param_provider(param_parser: ParamParser):
+def test_param_provider(param_parser: EndpointParser):
     provider = CachedProvider()
     register_plugin_provider(Cached[str], provider)
 
@@ -433,26 +432,25 @@ def test_param_provider_with_invalid_mark(param_parser):
         register_plugin_provider(Annotated[str, "asdf"], None)
 
 
-def test_param_provider_with_invalid_plugin(param_parser: ParamParser):
+def test_param_provider_with_invalid_plugin(param_parser: EndpointParser):
     assert not param_parser.is_lhl_primitive(5)
 
 
-def test_path_param_with_default_fail(param_parser: ParamParser):
+def test_path_param_with_default_fail(param_parser: EndpointParser):
     with pytest.raises(NotSupportedError):
         param_parser.parse_param(name="user_id", annotation=Path[str], default="user")
 
 
-def test_multiple_body_is_not_suuported(param_parser: ParamParser):
+def test_multiple_body_is_not_suuported(param_parser: EndpointParser):
 
     def invalid_ep(user_data: Body[str], order_data: Body[str]): ...
 
-    res = param_parser.parse(invalid_ep)
-
     with pytest.raises(NotSupportedError):
-        res.get_body()
+        res = param_parser.parse(invalid_ep)
 
 
-def test_parse_JWTAuth_without_pyjwt_installed(param_parser: ParamParser):
+
+def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
     with mock.patch.dict("sys.modules", {"jwt": None}):
         if "lihil.auth.jwt" in sys.modules:
             del sys.modules["lihil.auth.jwt"]
@@ -469,7 +467,7 @@ def test_parse_JWTAuth_without_pyjwt_installed(param_parser: ParamParser):
     param_parser.parse(ep_expects_jwt)
 
 
-def test_JWTAuth_with_custom_decoder(param_parser: ParamParser):
+def test_JWTAuth_with_custom_decoder(param_parser: EndpointParser):
     from lihil.auth.jwt import JWTAuth
     from lihil.interface import CustomDecoder
 
@@ -480,7 +478,7 @@ def test_JWTAuth_with_custom_decoder(param_parser: ParamParser):
     param_parser.parse(ep_expects_jwt)
 
 
-def test_custom_plugin(param_parser: ParamParser):
+def test_custom_plugin(param_parser: EndpointParser):
     from lihil.plugins.registry import PluginBase
 
     class MyPlugin(PluginBase): ...
@@ -498,7 +496,7 @@ type ParamP1 = Annotated[Query[str], CustomDecoder(decoder1)]
 type ParamP2 = Annotated[ParamP1, CustomDecoder(decoder2)]
 
 
-def test_param_decoder_override(param_parser: ParamParser):
+def test_param_decoder_override(param_parser: EndpointParser):
     r1 = param_parser.parse_param("test", ParamP1)[0]
     assert r1.decoder is decoder1
 
@@ -513,7 +511,7 @@ def test_http_excp_with_typealis():
     assert err.status == 404
 
 
-def test_param_with_meta(param_parser: ParamParser):
+def test_param_with_meta(param_parser: EndpointParser):
     PositiveInt = Annotated[int, msgspec.Meta(gt=0)]
     res = param_parser.parse_param("nums", list[PositiveInt])[0]
     assert res.decode(["1", "2", "3"]) == [1, 2, 3]
@@ -522,7 +520,7 @@ def test_param_with_meta(param_parser: ParamParser):
         res.decode("[1,2,3,-4]")
 
 
-def test_param_with_annot_meta(param_parser: ParamParser):
+def test_param_with_annot_meta(param_parser: EndpointParser):
     UnixName = Annotated[
         str, msgspec.Meta(min_length=1, max_length=32, pattern="^[a-z_][a-z0-9_-]*$")
     ]
@@ -532,7 +530,7 @@ def test_param_with_annot_meta(param_parser: ParamParser):
         res.decode("5")
 
 
-def test_constraint_posint(param_parser: ParamParser):
+def test_constraint_posint(param_parser: EndpointParser):
     PositiveInt = Annotated[int, msgspec.Meta(gt=0)]
 
     res = param_parser.parse_param("age", PositiveInt)[0]
@@ -545,7 +543,7 @@ from datetime import datetime
 type TZDATE = Annotated[datetime, msgspec.Meta(tz=True)]
 
 
-def test_constraint_dt(param_parser: ParamParser):
+def test_constraint_dt(param_parser: EndpointParser):
     res = param_parser.parse_param("time", TZDATE)[0]
 
     with pytest.raises(msgspec.ValidationError):
@@ -556,13 +554,13 @@ def test_constraint_dt(param_parser: ParamParser):
     assert isinstance(dt, datetime) and dt.tzinfo
 
 
-def test_param_with_bytes_in_union(param_parser: ParamParser):
+def test_param_with_bytes_in_union(param_parser: EndpointParser):
 
     with pytest.raises(NotSupportedError):
         res = param_parser.parse_param("n", int | bytes)
 
 
-def test_parse_cookie(param_parser: ParamParser):
+def test_parse_cookie(param_parser: EndpointParser):
 
     t, meta = get_origin_pro(Header[str, "ads_id"])
     assert t == str and meta == ["ads_id", HEADER_REQUEST_MARK]
@@ -582,7 +580,7 @@ def test_parse_cookie(param_parser: ParamParser):
     assert res.decoder is cookie_decoder
 
 
-async def test_endpoint_with_body_decoder(param_parser: ParamParser):
+async def test_endpoint_with_body_decoder(param_parser: EndpointParser):
     class UserData(Payload):
         user_name: str
 
@@ -592,7 +590,7 @@ async def test_endpoint_with_body_decoder(param_parser: ParamParser):
     param_parser.parse(create_user)
 
 
-async def test_endpoint_with_header_key(param_parser: ParamParser):
+async def test_endpoint_with_header_key(param_parser: EndpointParser):
 
     async def with_header_key(user_agen: Header[str, Literal["User-Agent"]]): ...
     async def without_header_key(user_agen: Header[str]): ...
@@ -601,9 +599,10 @@ async def test_endpoint_with_header_key(param_parser: ParamParser):
     param_parser.parse(without_header_key)
 
 
-async def test_parse_ep_with_path_key(param_parser: ParamParser):
+async def test_parse_ep_with_path_key(param_parser: EndpointParser):
+    param_parser.path_keys = ("user_id",)
 
     async def get_user(user_id: str): ...
 
-    res = param_parser.parse(get_user, ("user_id",))
-    assert res.params["user_id"].location == "path"
+    sig = param_parser.parse(get_user)
+    assert sig.path_params["user_id"]

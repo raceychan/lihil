@@ -1,13 +1,10 @@
-from inspect import signature
 from typing import Any, Awaitable, Callable
 
-from ididi import DependentNode, Graph
+from ididi import DependentNode
 from msgspec import Struct, field
 
-from lihil.config import AppConfig
 from lihil.interface import Base, IEncoder, Record
 from lihil.problems import ValidationProblem
-from lihil.utils.string import find_path_keys
 from lihil.vendors import (
     FormData,
     Headers,
@@ -21,21 +18,13 @@ from .params import (
     BodyParam,
     CookieParam,
     HeaderParam,
-    ParamParser,
     PathParam,
     PluginParam,
     QueryParam,
 )
-from .returns import EndpointReturn, parse_returns
+from .returns import EndpointReturn
 
 type ParamMap[T] = dict[str, T]
-
-
-def _is_form_body(param_pair: tuple[str, BodyParam[Any]] | None):
-    if not param_pair:
-        return False
-    _, param = param_pair
-    return param.content_type == "multipart/form-data" and param.type_ is not bytes
 
 
 class ParseResult(Record):
@@ -59,14 +48,12 @@ class EndpointSignature[R](Base):
     dependencies: ParamMap[DependentNode]
     plugins: ParamMap[PluginParam]
 
-    status_code: int
     scoped: bool
-    form_body: bool
+    is_form_body: bool
 
+    status_code: int
     return_encoder: IEncoder[R]
     return_params: dict[int, EndpointReturn[R]]
-
-    def override(self) -> None: ...
 
     def prepare_params(
         self,
@@ -139,7 +126,7 @@ class EndpointSignature[R](Base):
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
 
-        if self.form_body:
+        if self.is_form_body:
             body = await req.form()  # TODO: let user decide form configs
             params = self.prepare_params(req_path, req_query, req_header, body)
             params.callbacks.append(body.close)
@@ -165,45 +152,3 @@ class EndpointSignature[R](Base):
     def media_type(self) -> str:
         default = "application/json"
         return next(iter(self.return_params.values())).content_type or default
-
-    @classmethod
-    def from_function[FR](
-        cls,
-        graph: Graph,
-        route_path: str,
-        f: Callable[..., FR | Awaitable[FR]],
-        app_config: AppConfig | None = None,
-    ) -> "EndpointSignature[FR]":
-        path_keys = find_path_keys(route_path)
-        # Rename ParmaParser to FuncParser
-        parser = ParamParser(graph, path_keys, app_config=app_config)
-        params = parser.parse(f)
-        # TODO: let ParamParser parse returns too
-        return_params = parse_returns(
-            signature(f).return_annotation, app_config=app_config
-        )
-
-        status, retparam = next(iter(return_params.items()))
-
-        scoped = any(
-            graph.should_be_scoped(node.dependent) for node in params.nodes.values()
-        )
-
-        body_param = params.get_body()
-        form_body: bool = _is_form_body(body_param)
-
-        info = EndpointSignature(
-            route_path=route_path,
-            header_params=params.get_location("header"),
-            query_params=params.get_location("query"),
-            path_params=params.get_location("path"),
-            body_param=body_param,
-            plugins=params.plugins,
-            dependencies=params.nodes,
-            return_params=return_params,
-            status_code=status,
-            return_encoder=retparam.encoder,
-            scoped=scoped,
-            form_body=form_body,
-        )
-        return info

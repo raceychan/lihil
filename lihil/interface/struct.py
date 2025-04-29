@@ -85,11 +85,6 @@ class Base(Struct):
         return self.__class__(**merged)
 
 
-# class ParamBase[T](Base):
-#     type_: type
-#     decoder: IDecoder[T]
-
-
 @dataclass_transform(frozen_default=True)
 class Record(Base, frozen=True, gc=False, cache_hash=True): ...  # type: ignore
 

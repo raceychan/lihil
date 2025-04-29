@@ -8,7 +8,7 @@ from lihil import Graph, Header
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, Base, Maybe, get_maybe_vars
 from lihil.lihil import ThreadPoolExecutor
-from lihil.signature.params import ParamParser
+from lihil.signature import EndpointParser
 from lihil.utils.json import encode_text
 from lihil.utils.string import parse_header_key
 from lihil.utils.threading import sync_ctx_to_thread
@@ -83,7 +83,7 @@ def test_encode_test():
 def test_parse_header_key():
     assert parse_header_key("AuthToken", None) == "auth-token"
 
-    parser = ParamParser(graph=Graph())
+    parser = EndpointParser(graph=Graph(), route_path="test")
 
     with pytest.raises(NotSupportedError):
         parser.parse_param("test", Header[str, 5])

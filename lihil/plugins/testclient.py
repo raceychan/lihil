@@ -358,7 +358,7 @@ class LocalClient:
         3. set ep.graph = new graph
         4. reset ep.graph to old graph
         """
-        ep.setup()
+        ep._route.setup()
 
         resp = await self.request(
             app=ep,
@@ -502,5 +502,5 @@ class LocalClient:
 
         route.add_endpoint(method, func=f, **props)
         ep = route.get_endpoint(method)
-        ep.setup()
+        route.setup()
         return ep

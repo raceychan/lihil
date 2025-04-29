@@ -24,7 +24,9 @@ async def listen_twice(created: TodoCreated, _: Any):
 
 @pytest.fixture
 def bus_route():
-    return Route("/bus", listeners=[listen_create, listen_twice])
+    route= Route("/bus", listeners=[listen_create, listen_twice])
+    route.setup()
+    return route
 
 
 async def test_bus_is_singleton(bus_route: Route):

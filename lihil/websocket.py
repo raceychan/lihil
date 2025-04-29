@@ -8,8 +8,8 @@ from lihil.errors import NotSupportedError
 from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
 from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import InvalidRequestErrors
-from lihil.routing import EndpointSignature, RouteBase, build_path_regex
-from lihil.signature import ParseResult
+from lihil.routing import RouteBase, build_path_regex
+from lihil.signature import EndpointParser, ParseResult
 from lihil.vendors import WebSocket
 
 
@@ -26,12 +26,7 @@ class WebSocketEndpoint:
         self._graph = self._route.graph
         self._busterm = self._route.busterm
 
-        self._sig = EndpointSignature.from_function(
-            graph=self._route.graph,
-            route_path=self._route.path,
-            f=self._unwrapped_func,
-            app_config=self._route.app_config,
-        )
+        self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
 
         self._dep_items = self._sig.dependencies.items()
         if self._sig.plugins:
@@ -81,7 +76,7 @@ class WebSocketEndpoint:
 
             await self._func(**params)
         except Exception as exc:
-            await ws.close()
+            await ws.close(reason=str(exc))
             raise
 
     async def __call__(
@@ -111,6 +106,8 @@ class WebSocketRoute(RouteBase):
 
     def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
         super().setup(graph, busterm)
+        self.endpoint_parser = EndpointParser(self.graph, self.path, self.app_config)
+
         if self.endpoint is None:
             raise RuntimeError(f"Empty websocket route")
 

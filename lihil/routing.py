@@ -41,6 +41,7 @@ from lihil.interface import (
 from lihil.plugins.bus import BusTerminal, Event, EventBus, MessageRegistry
 from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
 from lihil.signature import EndpointSignature, ParseResult
+from lihil.signature.parser import EndpointParser
 from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.utils.string import (
     build_path_regex,
@@ -139,13 +140,7 @@ class Endpoint[R]:
     def setup(self) -> None:
         self._graph = self._route.graph
         self._busterm = self._route.busterm
-
-        self._sig = EndpointSignature.from_function(
-            graph=self._route.graph,
-            route_path=self._route.path,
-            f=self._unwrapped_func,
-            app_config=self._route.app_config,
-        )
+        self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
 
         self._dep_items = self._sig.dependencies.items()
         if self._sig.plugins:
@@ -155,11 +150,9 @@ class Endpoint[R]:
 
         self._static = self._sig.static
 
-        scoped_by_config = bool(self._props and self._props.scoped is True)
-
         self._require_body: bool = self._sig.body_param is not None
         self._status_code = self._sig.status_code
-        self._scoped: bool = self._sig.scoped or scoped_by_config
+        self._scoped: bool = self._sig.scoped or self._props.scoped is True
         self._encoder = self._sig.return_encoder
         self._media_type = (
             next(iter(self._sig.return_params.values())).content_type
@@ -361,11 +354,7 @@ class RouteBase(ASGIBase):
     def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm
-        self.app_config = lhl_get_config()
-
-    # @classmethod
-    # def reset_route_cache(cls):
-    #     cls._flyweights = {}
+        self.app_config = self.app_config or lhl_get_config()
 
 
 class Route(RouteBase):
@@ -404,6 +393,7 @@ class Route(RouteBase):
 
     def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
         super().setup(graph, busterm)
+        self.endpoint_parser = EndpointParser(self.graph, self.path, self.app_config)
 
         for method, ep in self.endpoints.items():
             ep.setup()

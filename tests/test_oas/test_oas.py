@@ -34,7 +34,9 @@ class Order(Payload, tag=True):
 
 @pytest.fixture
 def user_route():
-    return Route("/user/{user_id}/order/{order_id}")
+    route= Route("/user/{user_id}/order/{order_id}")
+    route.setup()
+    return route
 
 
 class OrderNotFound(HTTPException[str]):
@@ -52,7 +54,7 @@ def test_get_order_schema(user_route: Route):
     user_route.post(errors=OrderNotFound)(get_order)
 
     current_ep = user_route.endpoints["POST"]
-    current_ep.setup()
+    user_route.setup()
     ep_rt = current_ep.sig.return_params[200]
     ep_rt.type_ == Union[Order, User]
     components = {"schemas": {}}
@@ -156,7 +158,7 @@ async def test_ep_with_empty_resp():
     route.get(empty_ep)
 
     ep = route.get_endpoint("GET")
-    ep.setup()
+    route.setup()
     schema = get_resp_schemas(ep, {}, "")
     assert schema["200"].description == "No Content"
 
@@ -173,7 +175,7 @@ async def test_ep_with_annotated_resp():
     route.get(empty_ep)
 
     ep = route.get_endpoint("GET")
-    ep.setup()
+    route.setup()
     schema = get_resp_schemas(ep, {}, "")
     assert schema
 
@@ -213,7 +215,7 @@ def test_ep_with_status_larger_than_300():
     route = Route()
     route.post(create_user)
     ep = route.get_endpoint(create_user)
-    ep.setup()
+    route.setup()
 
     get_resp_schemas(ep, {}, "")
 
@@ -224,7 +226,7 @@ def test_ep_without_ret():
     route = Route()
     route.post(create_user)
     ep = route.get_endpoint(create_user)
-    ep.setup()
+    route.setup()
 
     get_resp_schemas(ep, {}, "")
 
@@ -237,7 +239,7 @@ def test_ep_with_auth():
     route.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_user)
 
     ep = route.get_endpoint("GET")
-    ep.setup()
+    route.setup()
 
     sc = {}
     get_ep_security(ep, sc)

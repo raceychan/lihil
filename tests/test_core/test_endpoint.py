@@ -26,10 +26,9 @@ from lihil import (
     field,
     status,
 )
-from lihil.interface import CustomDecoder
 from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
-from lihil.config import AppConfig, SecurityConfig
+from lihil.config import DEFAULT_CONFIG, AppConfig, SecurityConfig, lhl_set_config
 from lihil.errors import (
     InvalidParamTypeError,
     MissingDependencyError,
@@ -40,6 +39,7 @@ from lihil.plugins.registry import PluginBase, PluginParam
 from lihil.plugins.testclient import LocalClient
 from lihil.utils.threading import async_wrapper
 from lihil.utils.typing import is_nontextual_sequence
+from lihil.signature.parser import EndpointParser
 
 
 class User(Payload, kw_only=True):
@@ -58,7 +58,14 @@ def rusers() -> Route:
 
 @pytest.fixture
 def testroute() -> Route:
-    return Route("test")
+    app_config = AppConfig(
+        security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
+    )
+    lhl_set_config(None, app_config)
+    route =  Route("test")
+    route.endpoint_parser = EndpointParser(route.graph, route.path)
+    yield route
+    lhl_set_config(None, DEFAULT_CONFIG)
 
 
 @pytest.fixture
@@ -81,8 +88,8 @@ async def create_user(
 
 def test_return_status(rusers: Route):
     rusers.post(create_user)
+    rusers.setup()
     ep = rusers.get_endpoint(create_user)
-    ep.setup()
     assert "q" in ep.sig.query_params
     assert "func_dep" in ep.sig.dependencies
     assert "user_id" in ep.sig.path_params
@@ -101,7 +108,7 @@ def test_status_conflict(rusers: Route):
     rusers.get(get_user)
     with pytest.raises(StatusConflictError):
         ep = rusers.get_endpoint(get_user)
-        ep.setup()
+        rusers.setup()
 
 
 def test_annotated_generic(rusers: Route):
@@ -110,7 +117,7 @@ def test_annotated_generic(rusers: Route):
 
     rusers.put(update_user)
     ep = rusers.get_endpoint(update_user)
-    ep.setup()
+    rusers.setup()
     repr(ep)
     assert ep.sig.return_params[200].type_ == dict[str, str]
 
@@ -383,6 +390,7 @@ async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
 
     rusers.get(get)
     with pytest.raises(NotSupportedError):
+        rusers.setup()
         rusers.get_endpoint("GET").setup()
 
 
@@ -409,7 +417,7 @@ async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
-    ep.setup()
+    rusers.setup()
     assert ep.sig.query_params
     assert not ep.sig.path_params
 
@@ -422,7 +430,7 @@ async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
-    ep.setup()
+    rusers.setup()
     assert ep.sig.query_params
     assert "aloha" in ep.sig.query_params
     assert ep.sig.query_params["aloha"].type_ is int
@@ -436,7 +444,7 @@ async def test_ep_with_random_annoated_path1(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
-    ep.setup()
+    rusers.setup()
     assert ep.sig.path_params
     assert "user_id" in ep.sig.path_params
     assert ep.sig.path_params["user_id"].type_ is int
@@ -453,7 +461,7 @@ async def test_ep_with_random_annoated_path2(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
-    ep.setup()
+    rusers.setup()
     assert ep.sig.body_param
     assert ep.sig.body_param[1].type_ is UserInfo
 
@@ -549,10 +557,11 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
 
     ep = testroute.get_endpoint(get_token)
 
-    testroute.app_config = AppConfig(
+    app_config = AppConfig(
         security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
     )
-    ep.setup()
+    lhl_set_config(None, app_config)
+    testroute.setup()
 
     res = await lc.submit_form(
         ep, form_data={"username": "user", "password": "pasword"}
@@ -578,7 +587,7 @@ async def test_oauth2_not_plugin():
     route.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_user)
 
     ep = route.get_endpoint("GET")
-    ep.setup()
+    route.setup()
 
     pg = ep.sig.plugins
     assert not pg
@@ -590,12 +599,8 @@ async def test_endpoint_with_jwt_decode_fail(testroute: Route, lc: LocalClient):
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
 
-    testroute.app_config = AppConfig(
-        security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-    )
-
     ep = testroute.get_endpoint(get_me)
-    ep.setup()
+    testroute.setup()
 
     res = await lc(ep, headers={"Authorization": "adsfjaklsdjfklajsdfkjaklsdfj"})
     assert res.status_code == 401
@@ -608,10 +613,12 @@ async def test_endpoint_with_jwt_fail_without_security_config(
         assert isinstance(token, UserProfile)
 
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
+    testroute.app_config = DEFAULT_CONFIG
 
     ep = testroute.get_endpoint(get_me)
 
     with pytest.raises(MissingDependencyError):
+        testroute.setup()
         ep.setup()
 
 
@@ -718,7 +725,7 @@ async def test_ep_is_scoped(testroute: Route):
 
     testroute.get(func)
     ep = testroute.get_endpoint(func)
-    ep.setup()
+    testroute.setup()
 
     assert ep.scoped
 
@@ -861,6 +868,7 @@ async def test_ep_with_cookie():
     assert res
     assert called
 
+
 async def test_ep_with_cookie2():
     called: bool = False
 
@@ -884,8 +892,7 @@ async def test_ep_with_cookie2():
 async def tests_calling_ep_query_without_default():
     lc = LocalClient()
 
-    async def get_user(user_id: int):
-        ...
+    async def get_user(user_id: int): ...
 
     resp = await lc(lc.make_endpoint(get_user))
     assert resp.status_code == 422

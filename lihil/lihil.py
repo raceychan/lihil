@@ -25,10 +25,9 @@ from lihil.routing import (
     Route,
     RouteBase,
 )
-from lihil.signature.params import LIHIL_PRIMITIVES
+from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
-from lihil.websocket import WebSocketRoute
 
 type LifeSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 

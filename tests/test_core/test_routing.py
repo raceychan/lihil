@@ -11,7 +11,7 @@ from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
 
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
-from lihil.signature.params import ParamParser
+from lihil.signature import EndpointParser
 
 
 async def test_route_truediv_operator():
@@ -704,7 +704,7 @@ async def test_route_with_nested_empty_response():
 
 
 async def test_parse_header_with_key():
-    parser = ParamParser(Graph())
+    parser = EndpointParser(Graph(), "test")
 
     res = parser.parse_param("token", Header[str, Literal["Authorization"]])
     param = res[0]

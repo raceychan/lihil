@@ -8,7 +8,7 @@ from lihil import Body, Empty, Graph, Payload, Route, Text, Use
 from lihil.interface import CustomDecoder
 from lihil.plugins.testclient import LocalClient
 from lihil.problems import CustomValidationError
-from lihil.signature.signature import EndpointSignature
+from lihil.signature import EndpointParser
 from lihil.utils.json import encode_text
 
 
@@ -57,7 +57,7 @@ async def test_non_use_dep(route: Route):
     async def get_todo(p: str, service: Use[UserService]): ...
 
     ep = route.get_endpoint(get_todo)
-    ep.setup()
+    route.setup()
     deps = ep.sig.dependencies
 
     assert len(deps) == 1  # only service not engine
@@ -233,7 +233,7 @@ def test_prepare_params_with_custom_validation_error():
         user_data: Annotated[Body[str], CustomDecoder(decoder_with_error)],
     ): ...
 
-    sig = EndpointSignature.from_function(graph=Graph(), route_path="/route", f=func)
+    sig = EndpointParser(graph=Graph(), route_path="/route").parse(func)
     sig.prepare_params(req_query=QueryParams({"user_id": "adsf"}), body=b"asdf")
 
 

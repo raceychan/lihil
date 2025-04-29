@@ -163,7 +163,7 @@ def parse_single_return[R](
     annt: Maybe[type[R] | TypeAliasType | GenericAlias | UnionType],
 ) -> "EndpointReturn[R]":
     if not is_annotated(annt):
-        return DEFAULT_RETURN
+        return DEFAULT_RETURN # type: ignore
 
     ret_type, metas = get_origin_pro(annt)
     return parse_return_pro(ret_type, annt, metas)

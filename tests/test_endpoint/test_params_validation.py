@@ -4,7 +4,7 @@ import pytest
 from ididi import Graph
 
 from lihil.interface import Header, Payload
-from lihil.signature import EndpointSignature
+from lihil.signature import EndpointParser, EndpointSignature
 from lihil.utils.json import encode_json
 
 
@@ -26,7 +26,7 @@ async def create_user(user: User) -> User: ...
 def get_order_dep() -> EndpointSignature[Any]:
     dg = Graph()
     path = "/users/{user_id}/orders/{order_id}"
-    dep = EndpointSignature.from_function(dg, path, get_order)
+    dep = EndpointParser(dg, path).parse(get_order)
     return dep
 
 
@@ -34,7 +34,7 @@ def get_order_dep() -> EndpointSignature[Any]:
 def create_user_dep() -> EndpointSignature[Any]:
     dg = Graph()
     path = "/user"
-    dep = EndpointSignature.from_function(dg, path, create_user)
+    dep = EndpointParser(dg, path).parse(create_user)
     return dep
 
 
