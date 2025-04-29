@@ -5,7 +5,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
 from pathlib import Path
-from typing import Any, AsyncContextManager, Callable, Unpack, cast, overload
+from typing import Any, AsyncContextManager, Awaitable, Callable, Unpack, cast, overload
 
 from ididi import Graph
 from uvicorn import run as uvi_run
@@ -145,25 +145,21 @@ class Lihil[T](ASGIBase):
 
         ls = self._lifespan()
 
-        try:
-            await ls.__aenter__()
-        except BaseException:
-            exc_text = traceback.format_exc()
-            await send({"type": "lifespan.startup.failed", "message": exc_text})
-            raise
-        else:
-            await send({"type": "lifespan.startup.complete"})
+        async def event_handler(event_coro: Awaitable[None | bool], event_type: str):
+            try:
+                await event_coro
+            except BaseException:
+                exc_text = traceback.format_exc()
+                await send(
+                    {"type": f"lifespan.{event_type}.failed", "message": exc_text}
+                )
+                raise
+            else:
+                await send({"type": f"lifespan.{event_type}.complete"})
 
+        await event_handler(ls.__aenter__(), "startup")
         await receive()
-
-        try:
-            await ls.__aexit__(None, None, None)
-        except BaseException:
-            exc_text = traceback.format_exc()
-            await send({"type": "lifespan.shutdown.failed", "message": exc_text})
-            raise
-        else:
-            await send({"type": "lifespan.shutdown.complete"})
+        await event_handler(ls.__aexit__(None, None, None), "shutdown")
 
     def _setup(self) -> None:
         self.call_stack = self.chainup_middlewares(self.call_route)

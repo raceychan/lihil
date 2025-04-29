@@ -986,3 +986,8 @@ class InvalidOrderError(HTTPException[AddressOutOfScopeProblem]):
 ```
 
 3. collect __json_example__ recursively.
+
+
+### Fxies
+
+- Fix a bug where if an exception happens in user provided lifespan(if there is one) before yield, it would not be raised and the app would contine to run
