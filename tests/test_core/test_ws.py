@@ -37,6 +37,7 @@ async def test_ws():
         assert data == "Hello, world!"
 
 
+@pytest.mark.debug
 async def test_ws_with_body_fail():
 
     ws_route = WebSocketRoute("web_socket")
@@ -55,11 +56,11 @@ async def test_ws_with_body_fail():
     lhl.include_routes(ws_route)
 
     client = TestClient(lhl)
+
     with pytest.raises(NotSupportedError):
         client.__enter__()
 
 
-@pytest.mark.debug
 async def test_ws_full_fledge():
     ws_route = WebSocketRoute("web_socket/{session_id}")
 
@@ -163,3 +164,7 @@ async def test_ws_close_on_exc():
         with pytest.raises(Exception):
             with client.websocket_connect("/error/session123?max_users=5") as websocket:
                 websocket.receive_text()
+
+
+
+from starlette.applications import Starlette

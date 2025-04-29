@@ -16,6 +16,7 @@ from uuid import uuid4
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
 
+from lihil.errors import LihilError
 from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload
 from lihil.routing import Endpoint, IEndpointProps, Route
 
@@ -443,6 +444,9 @@ class LocalClient:
         sent_messages: list[dict[str, str]] = []
 
         async def send(message: dict[str, str]) -> None:
+            prefix, type_, result = message["type"].split(".")
+            if result == "failed":
+                raise LihilError(message["message"])
             sent_messages.append(message)
 
         await app(scope, receive, send)

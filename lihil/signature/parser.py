@@ -632,7 +632,6 @@ class EndpointParser:
             else:
                 default = param.default
             parsed_params = self.parse_param(name, annotation, default)
-
             for req_param in parsed_params:
                 if isinstance(req_param, DependentNode):
                     nodes[name] = req_param
@@ -645,11 +644,9 @@ class EndpointParser:
 
         if self.seen:
             warn(f"Unused path keys {self.seen}")
-
         ep_params = EndpointParams(
             params=params, bodies=bodies, nodes=nodes, plugins=plugins
         )
-
         return ep_params
 
     def parse[R](self, f: Callable[..., R]) -> EndpointSignature[R]:

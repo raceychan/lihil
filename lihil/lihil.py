@@ -128,43 +128,42 @@ class Lihil[T](ASGIBase):
     def app_state(self) -> T | None:
         return self._app_state
 
+    @asynccontextmanager
+    async def _lifespan(self):
+        if self._userls is None:
+            self._setup()
+            yield
+        else:
+            user_ls = self._userls(self)
+            async with user_ls as app_state:
+                self._app_state = app_state
+                self._setup
+                yield
+
     async def _on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         await receive()
 
-        if self._userls is None:
-            try:
-                self._setup()
-            except BaseException:
-                exc_text = traceback.format_exc()
-                await send({"type": "lifespan.startup.failed", "message": exc_text})
-                raise
-            else:
-                await send({"type": "lifespan.startup.complete"})
+        ls = self._lifespan()
 
-            await receive()
-            await send({"type": "lifespan.shutdown.complete"})
-
+        try:
+            await ls.__aenter__()
+        except BaseException:
+            exc_text = traceback.format_exc()
+            await send({"type": "lifespan.startup.failed", "message": exc_text})
+            raise
         else:
-            user_ls = self._userls(self)
-            try:
-                self._app_state = await user_ls.__aenter__()
-                self._setup()
-            except BaseException:
-                exc_text = traceback.format_exc()
-                await send({"type": "lifespan.startup.failed", "message": exc_text})
-            else:
-                await send({"type": "lifespan.startup.complete"})
+            await send({"type": "lifespan.startup.complete"})
 
-            await receive()
+        await receive()
 
-            try:
-                await user_ls.__aexit__(None, None, None)
-            except BaseException:
-                exc_text = traceback.format_exc()
-                await send({"type": "lifespan.shutdown.failed", "message": exc_text})
-                raise
-            else:
-                await send({"type": "lifespan.shutdown.complete"})
+        try:
+            await ls.__aexit__(None, None, None)
+        except BaseException:
+            exc_text = traceback.format_exc()
+            await send({"type": "lifespan.shutdown.failed", "message": exc_text})
+            raise
+        else:
+            await send({"type": "lifespan.shutdown.complete"})
 
     def _setup(self) -> None:
         self.call_stack = self.chainup_middlewares(self.call_route)
