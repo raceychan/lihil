@@ -5,6 +5,7 @@ from typing import (
     Any,
     Callable,
     Literal,
+    Mapping,
     Pattern,
     Self,
     Sequence,
@@ -139,6 +140,7 @@ class Endpoint[R]:
     def setup(self) -> None:
         self._graph = self._route.graph
         self._busterm = self._route.busterm
+        self._app_state = self._route.app_state
         self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
 
         self._dep_items = self._sig.dependencies.items()
@@ -167,8 +169,12 @@ class Endpoint[R]:
                 params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-            else:
-                raise ValueError
+            else:  # AppState
+                if (state := self._app_state) is None:
+                    raise ValueError(
+                        f"{self} requires state param {name}, but app state is not set"
+                    )
+                params[name] = state[name]
 
     async def make_static_call(
         self, scope: IScope, receive: IReceive, send: ISend
@@ -338,7 +344,13 @@ class RouteBase(ASGIBase):
                     return True
         return False
 
-    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
+    def setup(
+        self,
+        graph: Graph | None = None,
+        busterm: BusTerminal | None = None,
+        app_state: Mapping[str, Any] | None = None,
+    ):
+        self.app_state = app_state
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm
         self.app_config = self.app_config or lhl_get_config()
@@ -378,8 +390,13 @@ class Route(RouteBase):
         endpoint = self.call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
         await endpoint(scope, receive, send)
 
-    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
-        super().setup(graph, busterm)
+    def setup(
+        self,
+        graph: Graph | None = None,
+        busterm: BusTerminal | None = None,
+        app_state: Mapping[str, Any] | None = None,
+    ):
+        super().setup(app_state=app_state, graph=graph, busterm=busterm)
         self.endpoint_parser = EndpointParser(self.graph, self.path, self.app_config)
 
         for method, ep in self.endpoints.items():

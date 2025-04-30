@@ -51,8 +51,6 @@ class SecurityConfig(ConfigBase):
     ]
 
 
-
-
 class AppConfig(ConfigBase):
     is_prod: Annotated[bool, Doc("Whether the current environment is production")] = (
         False

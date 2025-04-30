@@ -17,6 +17,7 @@ from lihil.interface.asgi import IScope as IScope
 from lihil.interface.asgi import ISend as ISend
 from lihil.interface.asgi import MiddlewareFactory as MiddlewareFactory
 from lihil.interface.marks import HTML as HTML
+from lihil.interface.marks import AppState as AppState
 from lihil.interface.marks import Body as Body
 from lihil.interface.marks import Cookie as Cookie
 from lihil.interface.marks import Form as Form

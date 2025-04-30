@@ -962,7 +962,10 @@ But the fundamental flaws of this design is that:
 
 ### Improvements
 
-#### `HTTPException.__json_example__`
+
+1. separate `read_config` from `set_config`
+
+<!-- #### `HTTPException.__json_example__`
 
 1. no longer required `type_`, `title`, expects return value of a Typedict with total=False
 
@@ -990,9 +993,9 @@ class InvalidOrderError(HTTPException[AddressOutOfScopeProblem]):
     detail: AddressOutOfScopeProblem
 ```
 
-3. collect __json_example__ recursively.
+3. collect __json_example__ recursively. -->
 
 
 ### Fxies
 
-- Fix a bug where if an exception happens in user provided lifespan(if there is one) before yield, it would not be raised and the app would contine to run
+- Fix a bug where if an exception happens in user provided lifespan(if there is one) before yield, it would not be raised and the app would continue to run

@@ -6,10 +6,10 @@ import pytest
 from lihil.config import AppConfig, ServerConfig, lhl_get_config
 from lihil.constant.resp import ServiceUnavailableResp, lhlserver_static_resp
 from lihil.errors import (
-    LihilError,
     AppConfiguringError,
     DuplicatedRouteError,
     InvalidLifeSpanError,
+    LihilError,
     MiddlewareBuildError,
     NotSupportedError,
 )
@@ -21,7 +21,6 @@ from lihil.routing import Route
 
 class CustomAppState(Base):
     counter: int = 0
-
 
 
 async def test_lifespan_wrapper_with_none():
@@ -64,15 +63,8 @@ async def test_lifespan_wrapper_with_invalid():
 async def test_read_config_with_app_config():
     # Test read_config with app_config
     app_config = AppConfig(max_thread_workers=8)
-    result = lhl_set_config(None, app_config)
+    result = lhl_set_config(app_config)
     assert lhl_get_config() is app_config
-
-
-async def test_read_config_with_both():
-    # Test read_config with both config_file and app_config
-    app_config = AppConfig()
-    with pytest.raises(AppConfiguringError):
-        lhl_set_config("config.json", app_config)
 
 
 async def test_lihil_basic_routing():
@@ -133,7 +125,6 @@ async def test_lihil_include_routes():
 
     # Initialize app lifespan
 
-
     # Test with client
     client = LocalClient()
 
@@ -168,7 +159,6 @@ async def test_lihil_include_routes_with_subroutes():
     app.include_routes(api_route)
 
     # Initialize app lifespan
-
 
     # Test with client
     client = LocalClient()
@@ -212,7 +202,6 @@ async def test_lihil_static_route():
 
     # Initialize app lifespan
 
-
     # Test with client
     client = LocalClient()
 
@@ -234,7 +223,6 @@ async def test_lihil_static_route_with_callable():
 
     # Initialize app lifespan
 
-
     # Test with client
     client = LocalClient()
 
@@ -253,7 +241,6 @@ async def test_lihil_static_route_with_json():
     app.static("/json", data, content_type="application/json")
 
     # Initialize app lifespan
-
 
     # Test with client
     client = LocalClient()
@@ -365,7 +352,6 @@ async def test_lihil_middleware_sequence():
     app.add_middleware([middleware1, middleware2])
 
     # Initialize app lifespan
-
 
     # Test with client
     client = LocalClient()
@@ -530,7 +516,6 @@ async def test_init_app_with_routes():
 
     # Initialize app lifespan
 
-
     # Test with client
     client = LocalClient()
 
@@ -581,7 +566,6 @@ async def test_include_root_route_fail():
 
     # Initialize app lifespan
 
-
     # Test with client
     client = LocalClient()
 
@@ -605,7 +589,6 @@ async def test_include_root_route_ok():
     root_route.get(root_handler)
 
     # Initialize app lifespan
-
 
     # Test with client
     client = LocalClient()
@@ -635,7 +618,6 @@ async def test_include_middleware_fail():
     #     async with app._on_lifespan(1,2,3):
     #         ...
 
-
     print(app)
 
 
@@ -660,7 +642,6 @@ async def test_a_fail_middleware():
 
     # Initialize app lifespan
 
-
     # Test with client - should propagate the error
     client = LocalClient()
     with pytest.raises(ValueError):
@@ -678,7 +659,6 @@ async def test_root_put():
     app.put(put_handler)
 
     # Initialize app lifespan
-
 
     # Test with client
     client = LocalClient()
@@ -700,7 +680,6 @@ async def test_root_post():
 
     # Initialize app lifespan
 
-
     # Test with client
     client = LocalClient()
 
@@ -720,7 +699,6 @@ async def test_root_delete():
     app.delete(delete_handler)
 
     # Initialize app lifespan
-
 
     # Test with client
     client = LocalClient()
@@ -830,7 +808,6 @@ async def test_a_problem_endpoint():
     problem_solver(custom_error_handler)
 
     client = LocalClient()
-
 
     # Test the error endpoint
     response = await client.call_app(app, method="GET", path="/error")
@@ -962,7 +939,7 @@ async def test_lhl_add_seen_subroute():
     lhl = Lihil[None]()
 
     # sub route should not raise error when seen
-    lhl.include_routes(sub_route, parent_route , __seen__={"/second"})
+    lhl.include_routes(sub_route, parent_route, __seen__={"/second"})
 
     with pytest.raises(DuplicatedRouteError):
         lhl.include_routes(ssub, __seen__={"/second"})

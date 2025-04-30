@@ -11,6 +11,7 @@ from msgspec import field as field
 
 from .constant import status as status
 
+from .interface import AppState as AppState
 from .interface import Cookie as Cookie
 from .interface import HTML as HTML
 from .interface import MISSING as MISSING

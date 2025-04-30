@@ -1,5 +1,5 @@
 from inspect import iscoroutinefunction
-from typing import Any, cast
+from typing import Any, Mapping, cast
 
 from ididi import Graph, Resolver
 from starlette.responses import Response
@@ -13,7 +13,7 @@ from lihil.signature import EndpointParser, ParseResult
 from lihil.vendors import WebSocket
 
 
-class WebSocketEndpoint:
+class WebSocketEndpoint:  # TODO:  endpoint base
     def __init__(self, route: "WebSocketRoute", func: Func[..., None]):
         self._route = route
         self._unwrapped_func = func
@@ -25,11 +25,11 @@ class WebSocketEndpoint:
     def setup(self) -> None:
         self._graph = self._route.graph
         self._busterm = self._route.busterm
-
+        self._app_state = self._route.app_state
         self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
 
         self._dep_items = self._sig.dependencies.items()
-        self._state_items = self._sig.states.items()
+        self._states_items = self._sig.states.items()
 
         if self._sig.body_param is not None:
             raise NotSupportedError("websocket does not support body param")
@@ -38,6 +38,25 @@ class WebSocketEndpoint:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._route.path!r} {self._func})"
+
+    def inject_states(
+        self, params: dict[str, Any], websocket: WebSocket, resolver: Resolver
+    ):
+        for name, p in self._states_items:
+            ptype = cast(type, p.type_)
+            if issubclass(ptype, WebSocket):
+                params[name] = websocket
+            elif issubclass(ptype, EventBus):
+                bus = self._busterm.create_event_bus(resolver)
+                params[name] = bus
+            elif issubclass(ptype, Resolver):
+                params[name] = resolver
+            else:  # AppState
+                if (state := self._app_state) is None:
+                    raise ValueError(
+                        f"{self} requires state param {name}, but app state is not set"
+                    )
+                params[name] = state[name]
 
     async def make_call(
         self,
@@ -54,21 +73,10 @@ class WebSocketEndpoint:
                 raise InvalidRequestErrors(detail=errors)
 
             params = parsed_result.params
-            for name, p in self._state_items:
-                ptype = cast(type, p.type_)
+            self.inject_states(params, ws, resolver)
 
-                if issubclass(ptype, WebSocket):
-                    params[name] = ws
-                elif issubclass(ptype, EventBus):
-                    bus = self._busterm.create_event_bus(resolver)
-                    params[name] = bus
-                elif issubclass(ptype, Resolver):
-                    params[name] = resolver
-                else:
-                    raise NotSupportedError(f"{ptype} is not supported")
-
-                for name, dep in self._dep_items:
-                    params[name] = await resolver.aresolve(dep.dependent, **params)
+            for name, dep in self._dep_items:
+                params[name] = await resolver.aresolve(dep.dependent, **params)
 
             await self._func(**params)
         except Exception as exc:
@@ -100,8 +108,13 @@ class WebSocketRoute(RouteBase):
     def __repr__(self):
         return f"{self.__class__.__name__}({self.path!r}, {self.endpoint})"
 
-    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
-        super().setup(graph, busterm)
+    def setup(
+        self,
+        graph: Graph | None = None,
+        busterm: BusTerminal | None = None,
+        app_state: Mapping[str, Any] | None = None,
+    ):
+        super().setup(graph=graph, busterm=busterm, app_state=app_state)
         self.endpoint_parser = EndpointParser(self.graph, self.path, self.app_config)
 
         if self.endpoint is None:

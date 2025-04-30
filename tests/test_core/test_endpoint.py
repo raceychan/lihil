@@ -53,11 +53,11 @@ def testroute() -> Route:
     app_config = AppConfig(
         security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
     )
-    lhl_set_config(None, app_config)
+    lhl_set_config(app_config)
     route = Route("test")
     route.endpoint_parser = EndpointParser(route.graph, route.path)
     yield route
-    lhl_set_config(None, DEFAULT_CONFIG)
+    lhl_set_config(DEFAULT_CONFIG)
 
 
 @pytest.fixture
@@ -552,7 +552,7 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
     app_config = AppConfig(
         security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
     )
-    lhl_set_config(None, app_config)
+    lhl_set_config(app_config)
     testroute.setup()
 
     res = await lc.submit_form(

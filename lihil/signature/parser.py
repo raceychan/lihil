@@ -479,6 +479,8 @@ class EndpointParser:
 
         if mark_type == "use":
             return self._parse_node(type_)
+        elif mark_type == "state":
+            return StateParam(name, type_, annotation,  default=default)
         else:
             # Easy case, Pure non-deps request params with param marks.
             location: ParamLocation
@@ -583,14 +585,7 @@ class EndpointParser:
     ) -> list[ParsedParam[T]]:
         parsed_type, pmetas = get_origin_pro(annotation)
         parsed_type = cast(type[T], parsed_type)
-
-        # if plugins := self._parse_plugin_from_meta(
-        #     name, parsed_type, annotation, default, pmetas
-        # ):
-        #     return plugins
-
         param_metas = self._parse_meta(pmetas)
-
         if isinstance(param_metas, NodeParamMeta):
             return self._parse_node(param_metas.factory, param_metas.node_config)
 

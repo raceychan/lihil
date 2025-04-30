@@ -3,6 +3,7 @@ from ididi.interfaces import AsyncResource
 
 from lihil import (
     Annotated,
+    AppState,
     EventBus,
     Graph,
     Ignore,
@@ -37,7 +38,6 @@ async def test_ws():
         assert data == "Hello, world!"
 
 
-@pytest.mark.debug
 async def test_ws_with_body_fail():
 
     ws_route = WebSocketRoute("web_socket")
@@ -156,7 +156,7 @@ async def test_ws_close_on_exc():
 
     ws_route.ws_handler(ws_handler)
 
-    lhl = Lihil[None]()
+    lhl = Lihil()
     lhl.include_routes(ws_route)
 
     client = TestClient(lhl)
@@ -166,5 +166,43 @@ async def test_ws_close_on_exc():
                 websocket.receive_text()
 
 
+async def test_ws_with_app_state():
 
-from starlette.applications import Starlette
+    route = WebSocketRoute("/test")
+
+    async def f(ws: WebSocket, name: AppState[str]):
+        await ws.accept()
+        await ws.send_text(name)
+        await ws.close()
+
+    route.ws_handler(f)
+
+    mystate = dict(name="lihil")
+    lhl = Lihil[None](routes=[route])
+    lhl._app_state = mystate  # type: ignore
+
+    client = TestClient(lhl)
+    with client:
+        with client.websocket_connect("/test") as websocket:
+            text = websocket.receive_text()
+            assert text == "lihil"
+
+
+async def test_ws_with_app_state():
+
+    route = WebSocketRoute("/test")
+
+    async def f(ws: WebSocket, name: AppState[str]):
+        await ws.accept()
+        await ws.send_text(name)
+        await ws.close()
+
+    route.ws_handler(f)
+
+    lhl = Lihil[None](routes=[route])
+
+    client = TestClient(lhl)
+    with client:
+        with pytest.raises(ValueError):
+            with client.websocket_connect("/test") as websocket:
+                websocket.receive_text()

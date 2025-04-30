@@ -5,12 +5,22 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
 from pathlib import Path
-from typing import Any, AsyncContextManager, Awaitable, Callable, Unpack, cast, overload
+from types import MappingProxyType
+from typing import (
+    Any,
+    AsyncContextManager,
+    Awaitable,
+    Callable,
+    Mapping,
+    Unpack,
+    cast,
+    overload,
+)
 
 from ididi import Graph
 from uvicorn import run as uvi_run
 
-from lihil.config import AppConfig, lhl_get_config, lhl_set_config
+from lihil.config import AppConfig, lhl_get_config, lhl_read_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
@@ -30,6 +40,9 @@ from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 
 type LifeSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
+
+
+EMPTY_APP_STATE: Mapping[str, Any] = MappingProxyType({})
 
 
 def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
@@ -71,8 +84,8 @@ class StaticRoute:
         pass
 
 
-class Lihil[T](ASGIBase):
-    _userls: LifeSpan[T] | None
+class Lihil[T: Mapping[str, Any] | None](ASGIBase):
+    _userls: LifeSpan[T | None] | None
 
     def __init__(
         self,
@@ -86,7 +99,10 @@ class Lihil[T](ASGIBase):
         lifespan: LifeSpan[T] | None = None,
     ):
         super().__init__(middlewares)
-        lhl_set_config(config_file, app_config)
+        if app_config:
+            lhl_set_config(app_config)
+        elif config_file:
+            app_config = lhl_read_config(config_file)
         self.app_config = lhl_get_config()
 
         self.workers = ThreadPoolExecutor(
@@ -109,8 +125,9 @@ class Lihil[T](ASGIBase):
             self.routes.insert(0, self.root)
 
         self._userls = lifespan_wrapper(lifespan)
-        self.static_route: StaticRoute | None = None
         self._app_state: T | None = None
+
+        self.static_route: StaticRoute | None = None
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
         self._generate_builtin_routes()
@@ -137,7 +154,7 @@ class Lihil[T](ASGIBase):
             user_ls = self._userls(self)
             async with user_ls as app_state:
                 self._app_state = app_state
-                self._setup
+                self._setup()
                 yield
 
     async def _on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
@@ -161,7 +178,9 @@ class Lihil[T](ASGIBase):
         self.call_stack = self.chainup_middlewares(self.call_route)
 
         for route in self.routes:
-            route.setup(graph=self.graph, busterm=self.busterm)
+            route.setup(
+                app_state=self._app_state, graph=self.graph, busterm=self.busterm
+            )
 
     def _generate_builtin_routes(self):
         oas_config = self.app_config.oas
