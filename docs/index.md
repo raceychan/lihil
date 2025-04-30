@@ -1,4 +1,4 @@
-#
+# NOTE: We have refactored our docs site and migrated from [lihil/lihil](https://lihil.cc/lihil/) (You are here) to [lihil](https://lihil.cc/docs/), This site is deprecated and won't have the latest updates
 
 ![Lihil](./images/lihil_logo_transparent.png)
 
