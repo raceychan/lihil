@@ -28,7 +28,7 @@ from starlette.datastructures import FormData
 from lihil.config import AppConfig
 from lihil.errors import MissingDependencyError, NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
-from lihil.interface import UNSET, CustomDecoder, Maybe, ParamLocation, RegularTypes
+from lihil.interface import UNSET, CustomDecoder, Maybe, ParamLocation
 from lihil.interface.marks import (
     HEADER_REQUEST_MARK,
     JW_TOKEN_RETURN_MARK,
@@ -37,7 +37,6 @@ from lihil.interface.marks import (
 )
 from lihil.interface.struct import IDecoder, IFormDecoder
 from lihil.plugins.bus import EventBus
-from lihil.plugins.registry import PLUGIN_REGISTRY, PluginBase, PluginParam
 from lihil.utils.json import decoder_factory
 from lihil.utils.string import find_path_keys, parse_header_key
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
@@ -49,11 +48,13 @@ from .params import (
     EndpointParams,
     HeaderParam,
     NodeParamMeta,
+    ParamMap,
     ParsedParam,
     PathParam,
     QueryParam,
     RequestParam,
     RequestParamMeta,
+    StateParam,
 )
 from .returns import parse_returns
 from .signature import EndpointSignature
@@ -288,10 +289,10 @@ class EndpointParser:
                 location="path",
             )
         elif self.is_lhl_primitive(param_type):
-            plugin: ParsedParam[Any] = PluginParam(
+            states: StateParam = StateParam(
                 type_=param_type, annotation=annotation, name=name, default=default
             )
-            return plugin
+            return states
         elif is_body_param(param_type):
             if is_file_body(param_type):
                 req_param = file_body_param(
@@ -518,35 +519,35 @@ class EndpointParser:
             )
             return req_param
 
-    def _parse_plugin_from_meta(
-        self,
-        name: str,
-        type_: RegularTypes,
-        annotation: type[Any] | UnionType | GenericAlias | TypeAliasType,
-        default: Maybe[Any],
-        metas: list[Any] | None,
-    ) -> list[ParsedParam[Any]] | None:
-        if not metas:
-            return None
+    # def _parse_plugin_from_meta(
+    #     self,
+    #     name: str,
+    #     type_: RegularTypes,
+    #     annotation: type[Any] | UnionType | GenericAlias | TypeAliasType,
+    #     default: Maybe[Any],
+    #     metas: list[Any] | None,
+    # ) -> list[ParsedParam[Any]] | None:
+    #     if not metas:
+    #         return None
 
-        plugins: list[ParsedParam[Any]] = []
-        for meta in metas:
-            if isinstance(meta, PluginBase):
-                plugin = meta.parse(name, type_, annotation, default)
-                plugins.append(plugin)
-            elif isinstance(meta, type) and issubclass(meta, PluginBase):
-                raise NotSupportedError(f"Plugin {meta} is not Initialized")
-            else:
-                mark_type = extract_mark_type(meta)
-                if mark_type:
-                    if provider := PLUGIN_REGISTRY.get(mark_type):
-                        plugin = provider.parse(name, type_, annotation, default)
-                        plugins.append(plugin)
-                    else:
-                        NotSupportedError(
-                            "Mixed param mark and plugins is not supported"
-                        )
-        return plugins if plugins else None
+    #     plugins: list[ParsedParam[Any]] = []
+    #     for meta in metas:
+    #         if isinstance(meta, PluginBase):
+    #             plugin = meta.parse(name, type_, annotation, default)
+    #             plugins.append(plugin)
+    #         elif isinstance(meta, type) and issubclass(meta, PluginBase):
+    #             raise NotSupportedError(f"Plugin {meta} is not Initialized")
+    #         else:
+    #             mark_type = extract_mark_type(meta)
+    #             if mark_type:
+    #                 if provider := PLUGIN_REGISTRY.get(mark_type):
+    #                     plugin = provider.parse(name, type_, annotation, default)
+    #                     plugins.append(plugin)
+    #                 else:
+    #                     NotSupportedError(
+    #                         "Mixed param mark and plugins is not supported"
+    #                     )
+    #     return plugins if plugins else None
 
     def _parse_meta(
         self, metas: list[Any] | None
@@ -583,10 +584,10 @@ class EndpointParser:
         parsed_type, pmetas = get_origin_pro(annotation)
         parsed_type = cast(type[T], parsed_type)
 
-        if plugins := self._parse_plugin_from_meta(
-            name, parsed_type, annotation, default, pmetas
-        ):
-            return plugins
+        # if plugins := self._parse_plugin_from_meta(
+        #     name, parsed_type, annotation, default, pmetas
+        # ):
+        #     return plugins
 
         param_metas = self._parse_meta(pmetas)
 
@@ -620,10 +621,10 @@ class EndpointParser:
         if path_keys:
             self.path_keys += path_keys
 
-        params: dict[str, RequestParam[Any]] = {}
-        bodies: dict[str, BodyParam[Any]] = {}
-        nodes: dict[str, DependentNode] = {}
-        plugins: dict[str, PluginParam] = {}
+        params: ParamMap[RequestParam[Any]] = {}
+        bodies: ParamMap[BodyParam[Any]] = {}
+        nodes: ParamMap[DependentNode] = {}
+        states: ParamMap[StateParam] = {}
 
         for name, param in func_params.items():
             annotation, default = param.annotation, param.default
@@ -635,17 +636,18 @@ class EndpointParser:
             for req_param in parsed_params:
                 if isinstance(req_param, DependentNode):
                     nodes[name] = req_param
-                elif isinstance(req_param, PluginParam):
-                    plugins[req_param.name] = req_param
+
                 elif isinstance(req_param, BodyParam):
                     bodies[req_param.name] = req_param
+                elif isinstance(req_param, StateParam):
+                    states[req_param.name] = req_param
                 else:
                     params[req_param.name] = req_param
 
         if self.seen:
             warn(f"Unused path keys {self.seen}")
         ep_params = EndpointParams(
-            params=params, bodies=bodies, nodes=nodes, plugins=plugins
+            params=params, bodies=bodies, nodes=nodes, states=states
         )
         return ep_params
 
@@ -669,7 +671,7 @@ class EndpointParser:
             query_params=params.get_location("query"),
             path_params=params.get_location("path"),
             body_param=body_param,
-            plugins=params.plugins,
+            states=params.states,
             dependencies=params.nodes,
             return_params=retns,
             status_code=status,

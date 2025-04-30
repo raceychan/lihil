@@ -16,7 +16,6 @@ from lihil.interface import (
 )
 from lihil.interface.marks import ParamMarkType
 from lihil.interface.struct import Base, IDecoder
-from lihil.plugins.registry import PluginParam
 from lihil.problems import (
     CustomDecodeErrorMessage,
     CustomValidationError,
@@ -29,15 +28,27 @@ from lihil.utils.typing import is_mapping_type, is_nontextual_sequence
 from lihil.vendors import FormData, Headers, QueryParams
 
 type RequestParam[T] = PathParam[T] | QueryParam[T] | HeaderParam[T] | CookieParam[T]
-type ParsedParam[T] = RequestParam[T] | BodyParam[T] | DependentNode | PluginParam
+type ParsedParam[T] = RequestParam[T] | BodyParam[T] | DependentNode | StateParam
 type ParamResult[T] = tuple[T, None] | tuple[None, ValidationProblem]
+
+type ParamMap[T] = dict[str, T]
+
+
+class StateParam(ParamBase[Any]): ...
 
 
 class Decodable[D, T](ParamBase[T], kw_only=True):
+    location: ClassVar[ParamLocation]
     decoder: IDecoder[Any, T] = None  # type: ignore
 
     def __post_init__(self):
         super().__post_init__()
+
+    def __repr__(self) -> str:
+        name_repr = (
+            self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
+        )
+        return f"{self.__class__.__name__}<{self.location}> ({name_repr}: {self.type_repr})"
 
     def decode(self, content: D) -> T:
         """
@@ -152,23 +163,21 @@ class NodeParamMeta(ParamMetasBase, kw_only=True):
 
 
 class EndpointParams(Base, kw_only=True):
-    params: dict[str, RequestParam[Any]] = field(default_factory=dict)
-    bodies: dict[str, BodyParam[Any]] = field(default_factory=dict)
-    nodes: dict[str, DependentNode] = field(default_factory=dict)
-    plugins: dict[str, PluginParam] = field(default_factory=dict)
+    params: ParamMap[RequestParam[Any]] = field(default_factory=dict)
+    bodies: ParamMap[BodyParam[Any]] = field(default_factory=dict)
+    nodes: ParamMap[DependentNode] = field(default_factory=dict)
+    states: ParamMap[StateParam] = field(default_factory=dict)
 
     @overload
     def get_location(
         self, location: Literal["header"]
-    ) -> dict[str, HeaderParam[Any]]: ...
+    ) -> ParamMap[HeaderParam[Any]]: ...
 
     @overload
-    def get_location(
-        self, location: Literal["query"]
-    ) -> dict[str, QueryParam[Any]]: ...
+    def get_location(self, location: Literal["query"]) -> ParamMap[QueryParam[Any]]: ...
 
     @overload
-    def get_location(self, location: Literal["path"]) -> dict[str, PathParam[Any]]: ...
+    def get_location(self, location: Literal["path"]) -> ParamMap[PathParam[Any]]: ...
 
     def get_location(self, location: ParamLocation) -> Mapping[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.location == location}

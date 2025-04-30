@@ -1,6 +1,5 @@
 import uuid
-from types import GenericAlias, UnionType
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 import pytest
 from ididi import AsyncScope, Graph, Ignore, use
@@ -16,7 +15,6 @@ from lihil import (
     Payload,
     Query,
     Request,
-    Resolver,
     Resp,
     Route,
     Stream,
@@ -29,17 +27,11 @@ from lihil import (
 from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.config import DEFAULT_CONFIG, AppConfig, SecurityConfig, lhl_set_config
-from lihil.errors import (
-    InvalidParamTypeError,
-    MissingDependencyError,
-    NotSupportedError,
-    StatusConflictError,
-)
-from lihil.plugins.registry import PluginBase, PluginParam
+from lihil.errors import MissingDependencyError, NotSupportedError, StatusConflictError
 from lihil.plugins.testclient import LocalClient
+from lihil.signature.parser import EndpointParser
 from lihil.utils.threading import async_wrapper
 from lihil.utils.typing import is_nontextual_sequence
-from lihil.signature.parser import EndpointParser
 
 
 class User(Payload, kw_only=True):
@@ -62,7 +54,7 @@ def testroute() -> Route:
         security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
     )
     lhl_set_config(None, app_config)
-    route =  Route("test")
+    route = Route("test")
     route.endpoint_parser = EndpointParser(route.graph, route.path)
     yield route
     lhl_set_config(None, DEFAULT_CONFIG)
@@ -589,8 +581,7 @@ async def test_oauth2_not_plugin():
     ep = route.get_endpoint("GET")
     route.setup()
 
-    pg = ep.sig.plugins
-    assert not pg
+    assert ep.sig.header_params
 
 
 async def test_endpoint_with_jwt_decode_fail(testroute: Route, lc: LocalClient):
@@ -703,18 +694,6 @@ async def test_endpoint_login_and_validate_with_str_resp(
     assert await res.text() == "ok"
 
 
-async def test_ep_with_plugin_type(testroute: Route, lc: LocalClient):
-
-    class MyPlugin(PluginBase): ...
-
-    async def myep(param: Annotated[str, MyPlugin]): ...
-
-    testroute.get(myep)
-
-    with pytest.raises(NotSupportedError):
-        testroute.setup()
-
-
 async def test_ep_is_scoped(testroute: Route):
     class Engine: ...
 
@@ -728,59 +707,6 @@ async def test_ep_is_scoped(testroute: Route):
     testroute.setup()
 
     assert ep.scoped
-
-
-async def test_ep_with_plugin(testroute: Route):
-    class MyParamProcessor(PluginBase):
-        def __init__(self, name: str):
-            self.name = name
-
-        async def process(
-            self, params: dict[str, Any], request: Request, resolver: Resolver
-        ) -> None:
-            params[self.name] = "processed"
-
-    called: bool = False
-
-    def func(p: Annotated[str, MyParamProcessor("p")]):
-        nonlocal called
-        called = True
-        assert p == "processed"
-
-    testroute.get(func)
-
-    ep = testroute.get_endpoint(func)
-    ep.setup()
-
-    assert ep.sig.plugins
-
-    await LocalClient()(ep)
-    assert called
-
-
-async def test_plugin_without_processor(testroute: Route):
-
-    class MyPlugin(PluginBase):
-        def parse(
-            self,
-            name: str,
-            type_: type | UnionType | GenericAlias,
-            annotation: Any,
-            default: Any,
-        ) -> PluginParam:
-            return PluginParam(
-                type_=type_,
-                annotation=annotation,
-                name=name,
-                default=default,
-                plugin=self,
-            )
-
-    async def f(p: Annotated[str, MyPlugin()]): ...
-
-    lc = LocalClient()
-    with pytest.raises(InvalidParamTypeError):
-        await lc(lc.make_endpoint(f))
 
 
 async def test_endpoint_with_list_query():

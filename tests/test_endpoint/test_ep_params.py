@@ -24,17 +24,14 @@ from lihil import (
 from lihil.config import AppConfig, SecurityConfig
 from lihil.errors import InvalidMarkTypeError, NotSupportedError
 from lihil.interface.marks import HEADER_REQUEST_MARK, Cookie, param_mark
-from lihil.plugins.registry import register_plugin_provider, remove_plugin_provider
 from lihil.signature.parser import (
     BodyParam,
     CustomDecoder,
-    EndpointParams,
     EndpointParser,
     HeaderParam,
     PathParam,
-    PluginBase,
-    PluginParam,
     QueryParam,
+    StateParam,
 )
 from lihil.utils.typing import get_origin_pro
 
@@ -97,12 +94,12 @@ def test_request_param():
 
 
 # Test PluginParam
-def test_singleton_param():
-    param = PluginParam(type_=Request, annotation=Request, name="request")
-    assert param.required is True
+# def test_singleton_param():
+#     param = PluginParam(type_=Request, annotation=Request, name="request")
+#     assert param.required is True
 
-    param = PluginParam(type_=EventBus, annotation=EventBus, name="bus", default=None)
-    assert param.required is False
+#     param = PluginParam(type_=EventBus, annotation=EventBus, name="bus", default=None)
+#     assert param.required is False
 
 
 @pytest.fixture
@@ -139,7 +136,7 @@ def test_parsed_params(param_parser: EndpointParser):
     service = sig.dependencies["service"]
     assert service.dependent == DependentService
 
-    req = sig.plugins["req"]
+    req = sig.states["req"]
     assert req.type_ == Request
 
 
@@ -211,7 +208,7 @@ def test_analyze_param_lihil_dep(param_parser: EndpointParser):
     assert len(result) == 1
     param = result[0]
     assert param.name == "request"
-    assert isinstance(param, PluginParam)
+    assert isinstance(param, StateParam)
     assert param.type_ == Request
 
 
@@ -394,42 +391,42 @@ def test_body_param_repr(param_parser: EndpointParser):
 type Cached[T] = Annotated[T, param_mark("cached")]
 
 
-class CachedProvider(PluginBase):
-    async def process(
-        self, params: dict[str, Any], request: Request, resolver: Resolver
-    ) -> None:
-        params["param"] = "cached"
+# class CachedProvider(PluginBase):
+#     async def process(
+#         self, params: dict[str, Any], request: Request, resolver: Resolver
+#     ) -> None:
+#         params["param"] = "cached"
 
-    def parse(self, name: str, type_: type, default, annotation):
-        return PluginParam(
-            type_=type_,
-            name=name,
-            annotation=annotation,
-            default=default,
-            processor=self.process,
-        )
-
-
-def test_param_provider(param_parser: EndpointParser):
-    provider = CachedProvider()
-    register_plugin_provider(Cached[str], provider)
-
-    param = param_parser.parse_param("data", Cached[str])[0]
-    assert isinstance(param, PluginParam)
-    assert param.type_ == str
-
-    with pytest.raises(Exception) as exc:
-        register_plugin_provider("cached", provider)
-
-    remove_plugin_provider(Cached[str])
+#     def parse(self, name: str, type_: type, default, annotation):
+#         return PluginParam(
+#             type_=type_,
+#             name=name,
+#             annotation=annotation,
+#             default=default,
+#             processor=self.process,
+#         )
 
 
-def test_param_provider_with_invalid_mark(param_parser):
-    with pytest.raises(InvalidMarkTypeError):
-        register_plugin_provider(5, None)
+# def test_param_provider(param_parser: EndpointParser):
+#     provider = CachedProvider()
+#     register_plugin_provider(Cached[str], provider)
 
-    with pytest.raises(InvalidMarkTypeError):
-        register_plugin_provider(Annotated[str, "asdf"], None)
+#     param = param_parser.parse_param("data", Cached[str])[0]
+#     assert isinstance(param, PluginParam)
+#     assert param.type_ == str
+
+#     with pytest.raises(Exception) as exc:
+#         register_plugin_provider("cached", provider)
+
+#     remove_plugin_provider(Cached[str])
+
+
+# def test_param_provider_with_invalid_mark(param_parser):
+#     with pytest.raises(InvalidMarkTypeError):
+#         register_plugin_provider(5, None)
+
+#     with pytest.raises(InvalidMarkTypeError):
+#         register_plugin_provider(Annotated[str, "asdf"], None)
 
 
 def test_param_provider_with_invalid_plugin(param_parser: EndpointParser):
@@ -447,7 +444,6 @@ def test_multiple_body_is_not_suuported(param_parser: EndpointParser):
 
     with pytest.raises(NotSupportedError):
         res = param_parser.parse(invalid_ep)
-
 
 
 def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
@@ -474,16 +470,6 @@ def test_JWTAuth_with_custom_decoder(param_parser: EndpointParser):
     def ep_expects_jwt(
         user_id: Annotated[JWTAuth[str], CustomDecoder(lambda c: c)],
     ): ...
-
-    param_parser.parse(ep_expects_jwt)
-
-
-def test_custom_plugin(param_parser: EndpointParser):
-    from lihil.plugins.registry import PluginBase
-
-    class MyPlugin(PluginBase): ...
-
-    def ep_expects_jwt(user_id: Annotated[str, MyPlugin()]): ...
 
     param_parser.parse(ep_expects_jwt)
 

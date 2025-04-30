@@ -1,5 +1,5 @@
 from inspect import iscoroutinefunction
-from typing import Any
+from typing import Any, cast
 
 from ididi import Graph, Resolver
 from starlette.responses import Response
@@ -29,10 +29,7 @@ class WebSocketEndpoint:
         self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
 
         self._dep_items = self._sig.dependencies.items()
-        if self._sig.plugins:
-            self._plugin_items = self._sig.plugins.items()
-        else:
-            self._plugin_items = ()
+        self._state_items = self._sig.states.items()
 
         if self._sig.body_param is not None:
             raise NotSupportedError("websocket does not support body param")
@@ -57,9 +54,8 @@ class WebSocketEndpoint:
                 raise InvalidRequestErrors(detail=errors)
 
             params = parsed_result.params
-            for name, p in self._plugin_items:
-                ptype = p.type_
-                assert isinstance(ptype, type)
+            for name, p in self._state_items:
+                ptype = cast(type, p.type_)
 
                 if issubclass(ptype, WebSocket):
                     params[name] = ws

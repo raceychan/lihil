@@ -955,6 +955,11 @@ But the fundamental flaws of this design is that:
 
 - refactor signature attributes
 
+
+## Features
+
+- remove `PluginParam`
+
 ### Improvements
 
 #### `HTTPException.__json_example__`

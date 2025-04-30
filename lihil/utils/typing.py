@@ -149,14 +149,6 @@ def deannotate[T](
                 flattened_metadata.extend(metas)
         else:
             flattened_metadata.append(item)
-    # if isinstance(ty_get_origin(atype), TypeAliasType):
-    #     new_type, new_metas = deannotate(atype.__value__)
-    #     new_type: type[T]
-    #     if new_metas:
-    #         merged: list[Any] = new_metas + flattened_metadata
-    #     else:
-    #         merged = flattened_metadata
-    #     return (new_type, merged)
     return (atype, flattened_metadata)
 
 

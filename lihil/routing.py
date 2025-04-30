@@ -27,7 +27,6 @@ from lihil.auth.oauth import AuthBase
 from lihil.config import AppConfig, lhl_get_config
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.ds.resp import StaticResponse
-from lihil.errors import InvalidParamTypeError
 from lihil.interface import (
     HTTP_METHODS,
     ASGIApp,
@@ -143,10 +142,7 @@ class Endpoint[R]:
         self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
 
         self._dep_items = self._sig.dependencies.items()
-        if self._sig.plugins:
-            self._plugin_items = self._sig.plugins.items()
-        else:
-            self._plugin_items = ()
+        self._states_items = self._sig.states.items()
 
         self._static = self._sig.static
 
@@ -159,13 +155,11 @@ class Endpoint[R]:
             or "application/json"
         )
 
-    async def inject_plugins(
+    def inject_states(
         self, params: dict[str, Any], request: Request, resolver: Resolver
     ):
-        for name, p in self._plugin_items:
-            ptype = p.type_
-            assert isinstance(ptype, type)
-
+        for name, p in self._states_items:
+            ptype = cast(type, p.type_)
             if issubclass(ptype, Request):
                 params[name] = request
             elif issubclass(ptype, EventBus):
@@ -173,13 +167,8 @@ class Endpoint[R]:
                 params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-            elif p.processor:
-                await p.processor(params, request, resolver)
             else:
-                raise InvalidParamTypeError(
-                    f"Plugin {p.plugin} has no processor defined"
-                )
-        return params
+                raise ValueError
 
     async def make_static_call(
         self, scope: IScope, receive: IReceive, send: ISend
@@ -207,12 +196,10 @@ class Endpoint[R]:
             if errors := parsed_result.errors:
                 raise InvalidRequestErrors(detail=errors)
 
-            if self._plugin_items:
-                params = await self.inject_plugins(
-                    parsed_result.params, request, resolver
-                )
-            else:
-                params = parsed_result.params
+            params = parsed_result.params
+
+            if self._states_items:
+                self.inject_states(params, request, resolver)
 
             for name, dep in self._dep_items:
                 params[name] = await resolver.aresolve(dep.dependent, **params)

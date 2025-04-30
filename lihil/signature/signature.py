@@ -18,13 +18,12 @@ from .params import (
     BodyParam,
     CookieParam,
     HeaderParam,
+    ParamMap,
     PathParam,
-    PluginParam,
     QueryParam,
+    StateParam,
 )
 from .returns import EndpointReturn
-
-type ParamMap[T] = dict[str, T]
 
 
 class ParseResult(Record):
@@ -46,7 +45,7 @@ class EndpointSignature[R](Base):
     body_param: tuple[str, BodyParam[Struct]] | None
 
     dependencies: ParamMap[DependentNode]
-    plugins: ParamMap[PluginParam]
+    states: ParamMap[StateParam]
 
     scoped: bool
     is_form_body: bool
@@ -144,7 +143,7 @@ class EndpointSignature[R](Base):
                 self.header_params,
                 self.body_param,
                 self.dependencies,
-                self.plugins,
+                self.states,
             )
         )
 
