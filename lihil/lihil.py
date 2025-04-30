@@ -141,24 +141,20 @@ class Lihil[T](ASGIBase):
                 yield
 
     async def _on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
-        await receive()
-
-        ls = self._lifespan()
-
-        async def event_handler(event_coro: Awaitable[None | bool], event_type: str):
+        async def event_handler(event_coro: Awaitable[None | bool], event: str):
             try:
                 await event_coro
             except BaseException:
                 exc_text = traceback.format_exc()
-                await send(
-                    {"type": f"lifespan.{event_type}.failed", "message": exc_text}
-                )
+                await send({"type": f"lifespan.{event}.failed", "message": exc_text})
                 raise
             else:
-                await send({"type": f"lifespan.{event_type}.complete"})
+                await send({"type": f"lifespan.{event}.complete"})
 
+        ls = self._lifespan()
+        await receive()  # receive {'type': 'lifespan.startup'}
         await event_handler(ls.__aenter__(), "startup")
-        await receive()
+        await receive()  # receive {'type': 'lifespan.shutdown'}
         await event_handler(ls.__aexit__(None, None, None), "shutdown")
 
     def _setup(self) -> None:
@@ -270,8 +266,10 @@ class Lihil[T](ASGIBase):
 
     def run(self, file_path: str, runner: Callable[..., None] = uvi_run):
         """
+        ```python
         app = Lihil()
         app.run(__file__)
+        ```
         """
 
         server_config = self.app_config.server

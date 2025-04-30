@@ -1,5 +1,3 @@
-#
-
 ![Lihil](./images/lihil_logo_transparent.png)
 
 **Lihil** &nbsp;*/ˈliːhaɪl/* — a **performant**, **productive**, and **professional** web framework with a vision:
