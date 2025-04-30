@@ -13,7 +13,7 @@
 [![Downloads](https://img.shields.io/pypi/dm/lihil.svg)](https://pypistats.org/packages/lihil)
 [![Python Version](https://img.shields.io/pypi/pyversions/lihil.svg)](https://pypi.org/project/lihil/)
 
-📚 Docs: https://lihil.cc/lihil
+📚 Docs: https://lihil.cc
 ---
 
 Lihil is
