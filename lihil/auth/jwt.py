@@ -174,13 +174,7 @@ else:
                 scheme, _, token = content.partition(" ")
                 if scheme.lower() != "bearer":
                     raise InvalidAuthError(f"Invalid authorization scheme {scheme}")
-                # TODO: rewrite jwt.decode_complete
-                # payload = decode(deocded)
-                # payload.validate_claims()
-                # return payload
-
                 algos = [algorithms] if isinstance(algorithms, str) else algorithms
-
                 decoded: dict[str, Any] = jwt.decode(
                     token, key=secret, algorithms=algos
                 )

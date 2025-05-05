@@ -12,9 +12,13 @@ DEFAULT_CONFIG = AppConfig()
 def config_registry():
     _app_config: AppConfig = DEFAULT_CONFIG
 
-    def _set_config(app_config: AppConfig) -> None:
+    def _set_config(app_config: AppConfig | None = None) -> None:
+        # TODO? if app_config is None then reset to DEFAULT_CONFIG
         nonlocal _app_config
-        _app_config = app_config
+        if app_config is None:
+            _app_config = DEFAULT_CONFIG
+        else:
+            _app_config = app_config
 
     def _read_config(
         config_file: str | Path, config_type: type[AppConfig] = AppConfig

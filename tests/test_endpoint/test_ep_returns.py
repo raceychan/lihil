@@ -5,18 +5,17 @@ import pytest
 
 from lihil import Payload
 from lihil.constant.status import OK
+from lihil.errors import InvalidStatusError, NotSupportedError, StatusConflictError
+from lihil.interface.marks import HTML, Json, Resp, Stream, Text
 from lihil.signature.returns import (
     DEFAULT_RETURN,
     CustomEncoder,
     EndpointReturn,
     agen_encode_wrapper,
     parse_returns,
-    parse_single_return,
     parse_status,
     syncgen_encode_wrapper,
 )
-from lihil.errors import InvalidStatusError, StatusConflictError, NotSupportedError
-from lihil.interface.marks import HTML, Json, Resp, Stream, Text
 from lihil.utils.typing import is_py_singleton
 
 
@@ -94,34 +93,33 @@ def test_return_param_init():
 
 def test_return_param_from_mark():
     # Test with Text mark (line 131)
-    param = parse_single_return(Text)
-    assert "text/plain" in param.content_type
+    param = parse_returns(Text)[200]
+    assert "text/plain" == param.content_type
     assert param.type_ == bytes
 
     # Test with HTML mark (line 143-146)
-    param = parse_single_return(HTML)
-    assert "text/html" in param.content_type
+    param = parse_returns(HTML)[200]
+    assert "text/html" == param.content_type
     assert param.type_ == bytes
 
     # Test with Stream mark (line 151-152)
-    param = parse_single_return(Stream[bytes])
-    assert "text/event-stream" in param.content_type
+    param = parse_returns(Stream[bytes])[200]
+    assert "text/event-stream" == param.content_type
     assert param.type_ == bytes
 
     # Test with Json mark
-    param = parse_single_return(Json[dict])
-    assert "application/json" in param.content_type
+    param = parse_returns(Json[dict])[200]
+    assert "application/json" == param.content_type
 
     # Test with Resp mark
-    param = parse_single_return(Resp[str, 201])
-    assert param.status == 201
-    assert param.type_ == str
+    param = parse_returns(Resp[str, 201])
+    assert param[201].type_ == str
 
 
 def test_return_param_from_annotated1():
     encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
 
-    param = parse_single_return(Annotated[str, encoder])
+    param = parse_returns(Annotated[str, encoder])[200]
     assert param.type_ == str
     assert param.encoder == encoder.encode
 
@@ -130,8 +128,7 @@ def test_return_param_from_annotated2():
     encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
 
     # Test with Annotated and Resp
-    param = parse_single_return(Annotated[Resp[str, 201], encoder])
-    assert param.status == 201
+    param = parse_returns(Annotated[Resp[str, 201], encoder])[201]
     assert param.type_ == str
     assert param.encoder == encoder.encode
 
@@ -139,18 +136,18 @@ def test_return_param_from_annotated2():
 # Test EndpointReturn.from_generic method (line 196)
 def test_return_param_from_generic():
     # Test with non-resp mark, non-annotated type (line 196)
-    param = parse_single_return(dict)
+    param = parse_returns(dict)[200]
     assert param.type_ == dict
     assert param.status == 200
 
     # Test with Resp mark
-    param = parse_single_return(Resp[str, 201])
+    param = parse_returns(Resp[str, 201])[201]
     assert param.status == 201
     assert param.type_ == str
 
     # Test with Annotated
     encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
-    param = parse_single_return(Annotated[str, encoder])
+    param = parse_returns(Annotated[str, encoder])[200]
     assert param.type_ == str
 
 
@@ -165,13 +162,13 @@ def test_is_py_singleton():
 
 
 def test_parse_return_with_no_status():
-    res = parse_single_return(Resp[str])
+    res = parse_returns(Resp[str])[200]
     assert res.status == 200
     assert res.type_ == str
 
 
 def test_empty_return():
-    res = parse_single_return(Parameter.empty)
+    res = parse_returns(Parameter.empty)[200]
     assert res is DEFAULT_RETURN
 
 

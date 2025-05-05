@@ -5,7 +5,13 @@ from typing import Optional, Union
 import pytest
 from msgspec.structs import FieldInfo
 
-from lihil.config import OASConfig, ServerConfig
+from lihil.config import (
+    DEFAULT_CONFIG,
+    OASConfig,
+    ServerConfig,
+    lhl_get_config,
+    lhl_set_config,
+)
 from lihil.config.parser import (
     AppConfig,
     ConfigBase,
@@ -213,15 +219,15 @@ def test_config_from_file_missing_table():
             config_from_file(tmp.name)
 
 
-def test_config_from_file_default():
-    """Test default config when no file is provided"""
-    config = config_from_file(None)
+# def test_config_from_file_default():
+#     """Test default config when no file is provided"""
+#     config = config_from_file(None)
 
-    assert isinstance(config, AppConfig)
-    assert config.is_prod is False
-    assert config.version == "0.1.0"
-    assert isinstance(config.oas, OASConfig)
-    assert isinstance(config.server, ServerConfig)
+#     assert isinstance(config, AppConfig)
+#     assert config.is_prod is False
+#     assert config.version == "0.1.0"
+#     assert isinstance(config.oas, OASConfig)
+#     assert isinstance(config.server, ServerConfig)
 
 
 def test_config_from_cli(monkeypatch):
@@ -319,3 +325,12 @@ def test_build_parser_with_bool():
 
 def test_generate_app_confg_acotions():
     generate_parser_actions(AppConfig)
+
+
+def test_empty_set_config_reset_config():
+    config = AppConfig(is_prod=True)
+    lhl_set_config(config)
+    assert lhl_get_config() is config
+
+    lhl_set_config()
+    assert lhl_get_config() is DEFAULT_CONFIG

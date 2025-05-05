@@ -71,7 +71,6 @@ class AppConfig(ConfigBase):
 
     @classmethod
     def _from_toml(cls, file_path: Path) -> StrDict:
-
         with open(file_path, "rb") as fp:
             toml = tomllib.load(fp)
 

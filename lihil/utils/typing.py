@@ -74,8 +74,8 @@ def is_generic_type(type_: Any) -> bool:
     )
 
 
-def contains_generic_type(container: Sequence[Any]) -> bool:
-    return any(is_generic_type(t) for t in container)
+# def contains_generic_type(container: Sequence[Any]) -> bool:
+#     return any(is_generic_type(t) for t in container)
 
 
 def replace_typevars(
@@ -191,7 +191,6 @@ def get_origin_pro[T](
                     for idx, meta in enumerate(demetas):
                         if isinstance(meta, TypeVar):
                             demetas[idx] = nontyvar.pop(0)
-
                 return get_origin_pro(dtype, demetas, type_args)
             else:
                 dtype = repair_type_generic_alias(type_, type_args)

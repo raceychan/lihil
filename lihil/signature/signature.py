@@ -41,7 +41,7 @@ class EndpointSignature[R](Base):
 
     query_params: ParamMap[QueryParam[Any]]
     path_params: ParamMap[PathParam[Any]]
-    header_params: ParamMap[HeaderParam[Any]]
+    header_params: ParamMap[HeaderParam[Any] | CookieParam[Any]]
     body_param: tuple[str, BodyParam[Struct]] | None
 
     dependencies: ParamMap[DependentNode]

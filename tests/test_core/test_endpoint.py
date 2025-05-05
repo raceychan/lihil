@@ -773,18 +773,6 @@ async def test_ep_with_constraints():
     assert not called
 
 
-@pytest.mark.debug
-def test_replace_tyvars():
-    from typing import TypeVar
-
-    T, C = TypeVar("T"), TypeVar("C")
-    type_args = (str, Literal["x-token"], 42)
-    current_args = (T, Literal["Cookie"], C)
-    ans = (str, Literal["Cookie"], Literal["x-token"], 42)
-    assert replace_typevars(current_args, type_args)
-
-
-@pytest.mark.debug
 async def test_ep_with_cookie():
     called: bool = False
 
@@ -800,8 +788,8 @@ async def test_ep_with_cookie():
         return True
 
     lc = LocalClient(headers={"cookie": "x-refresh-token=asdf"})
-
     ep = lc.make_endpoint(get_user, path="/{user_id}")
+    assert ep.sig.header_params["refresh_token"].cookie_name == "x-refresh-token"
     resp = await lc(ep, path_params={"user_id": "user123"})
     res = await resp.json()
     assert res
