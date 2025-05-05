@@ -562,9 +562,7 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
 
     token = await res.json()
 
-    decoder = jwt_decoder_factory(
-        secret="mysecret", algorithms=["HS256"], payload_type=UserProfile
-    )
+    decoder = jwt_decoder_factory(payload_type=UserProfile)
 
     content = f"{token["token_type"].capitalize()} {token["access_token"]}"
 
@@ -604,8 +602,8 @@ async def test_endpoint_with_jwt_fail_without_security_config(
     async def get_me(token: JWTAuth[UserProfile]):
         assert isinstance(token, UserProfile)
 
+    lhl_set_config()
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
-    testroute.app_config = DEFAULT_CONFIG
 
     ep = testroute.get_endpoint(get_me)
 

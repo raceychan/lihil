@@ -115,7 +115,7 @@ class WebSocketRoute(RouteBase):
         app_state: Mapping[str, Any] | None = None,
     ):
         super().setup(graph=graph, busterm=busterm, app_state=app_state)
-        self.endpoint_parser = EndpointParser(self.graph, self.path, self.app_config)
+        self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         if self.endpoint is None:
             raise RuntimeError(f"Empty websocket route")

@@ -25,10 +25,9 @@ from msgspec import Struct, convert
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
-from lihil.config import AppConfig
-from lihil.errors import MissingDependencyError, NotSupportedError
+from lihil.errors import NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
-from lihil.interface import UNSET, CustomDecoder, Maybe, ParamLocation
+from lihil.interface import CustomDecoder, Maybe, ParamLocation
 from lihil.interface.marks import (
     HEADER_REQUEST_MARK,
     JW_TOKEN_RETURN_MARK,
@@ -239,32 +238,32 @@ def req_param_factory[T](
     return req_param
 
 
+def is_lhl_primitive(param_type: Any) -> TypeGuard[type]:
+    "Dependencies that should be injected and managed by lihil"
+    if not isinstance(param_type, type):
+        param_origin = get_origin(param_type)
+        if param_origin is Union:
+            return any(is_lhl_primitive(arg) for arg in get_args(param_type))
+        elif param_origin and is_builtin_type(param_origin):
+            return False
+        else:
+            return is_lhl_primitive(type(param_type))
+    else:
+        return issubclass(param_type, LIHIL_PRIMITIVES)
+
+
 class EndpointParser:
     path_keys: tuple[str, ...]
     seen: set[str]
 
-    def __init__(
-        self, graph: Graph, route_path: str, app_config: AppConfig | None = None
-    ):
+    def __init__(self, graph: Graph, route_path: str):
         self.graph = graph
         self.route_path = route_path
         self.path_keys = find_path_keys(route_path)
         self.seen = set(self.path_keys)
-        self.lhl_primitives = LIHIL_PRIMITIVES
-        self.app_config = app_config
 
-    def is_lhl_primitive(self, param_type: Any) -> TypeGuard[type]:
-        "Dependencies that should be injected and managed by lihil"
-        if not isinstance(param_type, type):
-            param_origin = get_origin(param_type)
-            if param_origin is Union:
-                return any(self.is_lhl_primitive(arg) for arg in get_args(param_type))
-            elif param_origin and is_builtin_type(param_origin):
-                return False
-            else:
-                return self.is_lhl_primitive(type(param_type))
-        else:
-            return issubclass(param_type, self.lhl_primitives)
+    def is_lhl_primitive(self, obj: Any):
+        return is_lhl_primitive(obj)
 
     def _parse_rule_based[T](
         self,
@@ -286,7 +285,7 @@ class EndpointParser:
                 param_metas=param_metas,
                 location="path",
             )
-        elif self.is_lhl_primitive(param_type):
+        elif is_lhl_primitive(param_type):
             states: StateParam = StateParam(
                 type_=param_type, annotation=annotation, name=name, default=default
             )
@@ -355,40 +354,24 @@ class EndpointParser:
         default: Maybe[T],
         param_metas: RequestParamMeta,
     ) -> ParsedParam[T]:
-        if JW_TOKEN_RETURN_MARK not in param_metas.metas:
-            return req_param_factory(
-                name=name,
-                alias=header_key,
-                param_type=type_,
-                annotation=annotation,
-                param_metas=param_metas,
-                location="header",
-                default=default,
-            )
+        if custom_decoder := param_metas.custom_decoder:
+            decoder = custom_decoder
+        elif JW_TOKEN_RETURN_MARK in param_metas.metas:
+            from lihil.auth.jwt import jwt_decoder_factory
+
+            decoder = jwt_decoder_factory(payload_type=type_)
         else:
-            if param_metas.custom_decoder:
-                decoder = param_metas.custom_decoder
-            else:
-                if self.app_config is None or self.app_config.security is UNSET:
-                    raise MissingDependencyError("security config")
-                sec_config = self.app_config.security
-                secret = sec_config.jwt_secret
-                algos = sec_config.jwt_algorithms
-                from lihil.auth.jwt import jwt_decoder_factory
+            decoder = None
 
-                decoder = jwt_decoder_factory(
-                    secret=secret, algorithms=algos, payload_type=type_
-                )
-
-            req_param = req_param_factory(
-                name=name,
-                alias=header_key,
-                param_type=type_,
-                annotation=annotation,
-                decoder=decoder,
-                location="header",
-                default=default,
-            )
+        req_param = req_param_factory(
+            name=name,
+            alias=header_key,
+            param_type=type_,
+            annotation=annotation,
+            decoder=decoder,
+            location="header",
+            default=default,
+        )
 
         return req_param
 
@@ -617,7 +600,7 @@ class EndpointParser:
         func_sig = signature(f)
 
         params = self.parse_params(func_sig.parameters)
-        retns = parse_returns(func_sig.return_annotation, app_config=self.app_config)
+        retns = parse_returns(func_sig.return_annotation)
 
         status, retparam = next(iter(retns.items()))
         scoped = any(

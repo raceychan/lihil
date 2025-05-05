@@ -11,12 +11,10 @@ from typing import (
     get_args,
 )
 
-from lihil.config import AppConfig
 from lihil.constant.status import code as get_status_code
 from lihil.errors import InvalidStatusError, NotSupportedError, StatusConflictError
 from lihil.interface import (
     MISSING,
-    UNSET,
     CustomEncoder,
     IEncoder,
     Maybe,
@@ -90,11 +88,7 @@ DEFAULT_RETURN = EndpointReturn(
 
 
 def parse_return_pro(
-    ret_type: Any,
-    annotation: Any,
-    metas: list[Any] | None,
-    *,
-    app_config: AppConfig | None = None,
+    ret_type: Any, annotation: Any, metas: list[Any] | None
 ) -> EndpointReturn[Any]:
     if metas is None:
         return EndpointReturn(
@@ -119,18 +113,9 @@ def parse_return_pro(
             elif resp_type == "empty":
                 content_type = None
             elif resp_type == "jw_token":
-                if app_config is None or app_config.security is UNSET:
-                    raise NotSupportedError(
-                        "Security config is required to use JWTAuth"
-                    )
-
                 from lihil.auth.jwt import jwt_encoder_factory
 
-                encoder = jwt_encoder_factory(
-                    secret=app_config.security.jwt_secret,
-                    algorithms=app_config.security.jwt_algorithms,
-                    payload_type=ret_type,
-                )
+                encoder = jwt_encoder_factory(payload_type=ret_type)
             else:
                 if resp_type == "stream":
                     ret_type = get_args(annotation)[0]
@@ -160,15 +145,13 @@ def parse_return_pro(
 
 def parse_returns(
     annt: Maybe[type[Any] | UnionType | TypeAliasType | GenericAlias],
-    *,
-    app_config: AppConfig | None = None,
 ) -> dict[int, EndpointReturn[Any]]:
     if not is_annotated(annt):
         return {DEFAULT_RETURN.status: DEFAULT_RETURN}
 
     if not is_union_type(annt):
         rt_type, metas = get_origin_pro(annt)
-        res = parse_return_pro(rt_type, annt, metas, app_config=app_config)
+        res = parse_return_pro(rt_type, annt, metas)
         return {res.status: res}
     else:
         unions = get_args(annt)
@@ -186,13 +169,11 @@ def parse_returns(
 
         if resp_cnt == 0:  # Union[int, str]
             union_origin, union_meta = get_origin_pro(annt)
-            resp = parse_return_pro(
-                union_origin, annt, union_meta, app_config=app_config
-            )
+            resp = parse_return_pro(union_origin, annt, union_meta)
             return {resp.status: resp}
         else:
             resps = [
-                parse_return_pro(uorigin, uorigin, umeta, app_config=app_config)
+                parse_return_pro(uorigin, uorigin, umeta)
                 for uorigin, umeta in temp_union
             ]
             # idea: number of unique status code should match with number of resp marks

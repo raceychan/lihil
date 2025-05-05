@@ -6,7 +6,6 @@ from typing import (
     ClassVar,
     Literal,
     Required,
-    Sequence,
     TypedDict,
     dataclass_transform,
 )
@@ -14,7 +13,8 @@ from uuid import uuid4
 
 from msgspec import convert
 
-from lihil.errors import NotSupportedError
+from lihil.config import AppConfig, lhl_get_config
+from lihil.errors import MissingDependencyError, NotSupportedError
 from lihil.interface import MISSING, UNSET, Base, Unset, field, is_provided
 from lihil.interface.marks import JW_TOKEN_RETURN_MARK, Authorization
 from lihil.problems import InvalidAuthError
@@ -121,12 +121,17 @@ except ImportError:
 else:
 
     def jwt_encoder_factory[T](
-        *,
-        secret: str,
-        algorithms: str | Sequence[str],
-        options: JWTOptions | None = None,
-        payload_type: type[T] | UnionType,
+        *, payload_type: type[T] | UnionType, app_config: AppConfig | None = None
     ):
+        config = app_config or lhl_get_config()
+
+        if config.security is UNSET:
+            raise MissingDependencyError("security config")
+
+        sec_config = config.security
+        secret = sec_config.jwt_secret
+        algorithms = sec_config.jwt_algorithms
+        options = None
 
         if not isinstance(payload_type, type) or not issubclass(
             payload_type, (JWTPayload, str)
@@ -160,12 +165,18 @@ else:
         return encoder
 
     def jwt_decoder_factory[T](
-        *,
-        secret: str,
-        algorithms: str | Sequence[str],
-        options: JWTOptions | None = None,
-        payload_type: type[T] | UnionType,
+        *, payload_type: type[T] | UnionType, app_config: AppConfig | None = None
     ):
+
+        config = app_config or lhl_get_config()
+
+        if config.security is UNSET:
+            raise MissingDependencyError("security config")
+
+        sec_config = config.security
+        secret = sec_config.jwt_secret
+        algorithms = sec_config.jwt_algorithms
+        options = None
 
         jwt = PyJWT(options)  # type: ignore
 

@@ -396,7 +396,7 @@ class Route(RouteBase):
         app_state: Mapping[str, Any] | None = None,
     ):
         super().setup(app_state=app_state, graph=graph, busterm=busterm)
-        self.endpoint_parser = EndpointParser(self.graph, self.path, self.app_config)
+        self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         for method, ep in self.endpoints.items():
             ep.setup()

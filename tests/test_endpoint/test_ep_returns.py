@@ -5,7 +5,7 @@ import pytest
 
 from lihil import Payload
 from lihil.constant.status import OK
-from lihil.errors import InvalidStatusError, NotSupportedError, StatusConflictError
+from lihil.errors import InvalidStatusError, StatusConflictError
 from lihil.interface.marks import HTML, Json, Resp, Stream, Text
 from lihil.signature.returns import (
     DEFAULT_RETURN,
@@ -185,6 +185,12 @@ class PublicUser(Payload):
 
 def test_parse_jwt_return():
     from lihil.auth.jwt import JWTAuth
+    from lihil.config import AppConfig, SecurityConfig, lhl_set_config
+    from lihil.errors import NotSupportedError
+
+    lhl_set_config(
+        AppConfig(security=SecurityConfig(jwt_secret="secret", jwt_algorithms="HS256"))
+    )
 
     with pytest.raises(NotSupportedError):
-        rets = parse_returns(Resp[JWTAuth[Payload], 201])
+        parse_returns(Resp[JWTAuth[Payload], 201])

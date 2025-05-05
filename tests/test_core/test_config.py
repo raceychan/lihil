@@ -27,6 +27,8 @@ from lihil.config.parser import (
     parse_field_type,
 )
 from lihil.errors import AppConfiguringError
+from lihil import Request, EventBus
+from lihil.signature.parser import is_lhl_primitive
 from lihil.interface import MISSING, Maybe
 
 
@@ -87,13 +89,13 @@ def test_store_true_if_provided():
     assert getattr(args, "flag_provided", False) is False
 
 
-# def test_is_lhl_dep():
-#     """Test identification of lihil dependencies"""
-#     assert is_lhl_dep(Request) is True
-#     assert is_lhl_dep(EventBus) is True
-#     assert is_lhl_dep(str) is False
-#     assert is_lhl_dep(int) is False
-#     assert is_lhl_dep(AppConfig) is False
+def test_is_lhl_dep():
+    """Test identification of lihil dependencies"""
+    assert is_lhl_primitive(Request) is True
+    assert is_lhl_primitive(EventBus) is True
+    assert is_lhl_primitive(str) is False
+    assert is_lhl_primitive(int) is False
+    assert is_lhl_primitive(AppConfig) is False
 
 
 def test_parse_field_type():
@@ -217,17 +219,6 @@ def test_config_from_file_missing_table():
 
         with pytest.raises(AppConfiguringError, match="can't find table lihil"):
             config_from_file(tmp.name)
-
-
-# def test_config_from_file_default():
-#     """Test default config when no file is provided"""
-#     config = config_from_file(None)
-
-#     assert isinstance(config, AppConfig)
-#     assert config.is_prod is False
-#     assert config.version == "0.1.0"
-#     assert isinstance(config.oas, OASConfig)
-#     assert isinstance(config.server, ServerConfig)
 
 
 def test_config_from_cli(monkeypatch):
