@@ -16,7 +16,7 @@ from msgspec import convert
 
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, UNSET, Base, Unset, field, is_provided
-from lihil.interface.marks import HEADER_REQUEST_MARK, JW_TOKEN_RETURN_MARK
+from lihil.interface.marks import JW_TOKEN_RETURN_MARK, Authorization
 from lihil.problems import InvalidAuthError
 from lihil.utils.json import encode_json
 
@@ -132,7 +132,7 @@ else:
             payload_type, (JWTPayload, str)
         ):
             raise NotSupportedError(
-                "payload type must be str or subclass of JWTPayload"
+                f"payload type must be str or subclass of JWTPayload, got {payload_type}"
             )
 
         if isinstance(algorithms, str):
@@ -186,14 +186,13 @@ else:
                 )
                 return convert(decoded, payload_type)
             except InvalidTokenError:
-                raise InvalidAuthError("Not able to validate your credential")
+                raise InvalidAuthError("Unable to validate your credential")
 
         return decoder
 
 
-type AuthHeader[T] = Annotated[T, Literal["Authorization"], HEADER_REQUEST_MARK]
 type JWTAuth[T: JWTPayload | str | bytes] = Annotated[
-    AuthHeader[T],
+    Authorization[T],
     JW_TOKEN_RETURN_MARK,
     "application/json",
 ]

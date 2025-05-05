@@ -9,6 +9,7 @@ from types import MappingProxyType
 from typing import (
     Any,
     AsyncContextManager,
+    AsyncGenerator,
     Awaitable,
     Callable,
     Mapping,
@@ -39,13 +40,16 @@ from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 
-type LifeSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
+type LifeSpan[T] = Callable[
+    ["Lihil[Any]"], AsyncContextManager[T] | AsyncGenerator[T, None]
+]
+type WrappedLifSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 
 
 EMPTY_APP_STATE: Mapping[str, Any] = MappingProxyType({})
 
 
-def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
+def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> WrappedLifSpan[T] | None:
     if lifespan is None:
         return None
     if isasyncgenfunction(lifespan):
@@ -53,7 +57,7 @@ def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
     elif (wrapped := getattr(lifespan, "__wrapped__", None)) and isasyncgenfunction(
         wrapped
     ):
-        return lifespan
+        return cast(WrappedLifSpan[T], lifespan)
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
@@ -85,7 +89,7 @@ class StaticRoute:
 
 
 class Lihil[T: Mapping[str, Any] | None](ASGIBase):
-    _userls: LifeSpan[T | None] | None
+    _userls: WrappedLifSpan[T | None] | None
 
     def __init__(
         self,

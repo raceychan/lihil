@@ -958,7 +958,20 @@ But the fundamental flaws of this design is that:
 
 ## Features
 
-- remove `PluginParam`
+- adding `AppState`, `StateParam`
+
+Now user can declare unpacked appstate in endpoint
+
+```python
+from lihil.interface import AppState
+async def lifespan():
+    appstate = {"appname": "lihil"}
+    return appstate
+
+async def f(appname: AppState[str]): # this would read "appname" from appstate
+    assert appname == "lihil
+```
+
 
 ### Improvements
 
@@ -999,3 +1012,19 @@ class InvalidOrderError(HTTPException[AddressOutOfScopeProblem]):
 ### Fxies
 
 - Fix a bug where if an exception happens in user provided lifespan(if there is one) before yield, it would not be raised and the app would continue to run
+
+### Refactor
+
+- remove `PluginParam`
+
+
+```python
+async def authenticator(scheme: str, credentials: str)->Any:
+    ...
+
+
+@post
+async def create_user(cred: Authorization[str, CustomDecoder]):
+    ...
+
+```

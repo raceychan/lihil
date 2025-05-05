@@ -145,7 +145,6 @@ class Endpoint[R]:
 
         self._dep_items = self._sig.dependencies.items()
         self._states_items = self._sig.states.items()
-
         self._static = self._sig.static
 
         self._require_body: bool = self._sig.body_param is not None
@@ -169,7 +168,7 @@ class Endpoint[R]:
                 params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-            else:  # AppState
+            else:
                 if (state := self._app_state) is None:
                     raise ValueError(
                         f"{self} requires state param {name}, but app state is not set"

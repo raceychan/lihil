@@ -12,7 +12,7 @@ fast:
 
 .PHONY: example
 example:
-	uv run uvicorn docs.example:lhl --interface asgi3 --http httptools --no-access-log --log-level "warning" --reload
+	uv run uvicorn docs.demos.auth_example:lhl --interface asgi3 --http httptools --no-access-log --log-level "warning" --reload
 
 .PHONY: test
 test:

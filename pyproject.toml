@@ -50,6 +50,7 @@ dev = [
   "uvloop>=0.21.0",
   "pyjwt>=2.10.1",
   "httpx>=0.28.1",
+  "supabase>=2.15.1",
 ]
 
 [tool.pyright]

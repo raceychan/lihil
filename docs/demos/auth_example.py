@@ -2,11 +2,10 @@ from typing import Annotated, Literal
 
 from msgspec import Meta
 
-from lihil import Header, Lihil, Payload, Route, field
+from lihil import Header, Lihil, Payload, Request, Route, field
 from lihil.auth.jwt import JWTAuth, JWTPayload
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
-
-# from lihil.config import AppConfig, SecurityConfig
+from lihil.config import AppConfig, SecurityConfig
 
 me = Route("me")
 token = Route("token")
@@ -39,30 +38,41 @@ async def get_another_user(token: JWTAuth[UserProfile]) -> User:
     return User(name="user", email="user@email.com")
 
 
-class UserPayload(Payload):
-    user_name: Annotated[str, Meta(min_length=1)]
+# class UserPayload(Payload):
+#     user_name: Annotated[str, Meta(min_length=1)]
 
 
-all_users = Route("/users")
+# all_users = Route("/users")
 
 
-@all_users.sub("{user_id}").post
-async def create_user(
-    user_id: str,  # from URL path
-    auth_token: Header[str, Literal["x-auth-token"]],  # from request headers
-    user_data: UserPayload,  # from request body
-):
-    # All parameters are automatically parsed and validated
-    ...
+# @all_users.sub("{user_id}").post
+# async def create_user(
+#     user_id: str,  # from URL path
+#     auth_token: Header[str, Literal["x-auth-token"]],  # from request headers
+#     user_data: UserPayload,  # from request body
+# ):
+#     # All parameters are automatically parsed and validated
+#     ...
 
 
-@token.post
-async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserProfile]:
-    assert credentials.username == "admin" and credentials.password == "admin"
-    return UserProfile(user_id="user123")
+# @token.post
+# async def create_token(credentials: OAuthLoginForm) -> JWTAuth[UserProfile]:
+#     assert credentials.username == "admin" and credentials.password == "admin"
+#     return UserProfile(user_id="user123")
 
 
-lhl = Lihil[None](routes=[me, token])
+# lhl = Lihil[None](routes=[me, token])
+
+
+async def ls(app: Lihil[dict[str, str]]):
+    md: dict[str, str] = {"name": "lihil"}
+    yield md
+
+
+root = Route()
+
+
+lhl = Lihil(lifespan=ls, routes=[root])
 
 
 if __name__ == "__main__":

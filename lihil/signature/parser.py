@@ -250,8 +250,6 @@ class EndpointParser:
         self.route_path = route_path
         self.path_keys = find_path_keys(route_path)
         self.seen = set(self.path_keys)
-
-        # mark_type or param_type, dict[str | type, PluginProvider]
         self.lhl_primitives = LIHIL_PRIMITIVES
         self.app_config = app_config
 
@@ -357,7 +355,6 @@ class EndpointParser:
         default: Maybe[T],
         param_metas: RequestParamMeta,
     ) -> ParsedParam[T]:
-        # TODO: auth_header_decoder
         if JW_TOKEN_RETURN_MARK not in param_metas.metas:
             return req_param_factory(
                 name=name,
@@ -480,7 +477,7 @@ class EndpointParser:
         if mark_type == "use":
             return self._parse_node(type_)
         elif mark_type == "state":
-            return StateParam(name, type_, annotation,  default=default)
+            return StateParam(name, type_, annotation, default=default)
         else:
             # Easy case, Pure non-deps request params with param marks.
             location: ParamLocation
@@ -520,36 +517,6 @@ class EndpointParser:
                 param_metas=param_metas,
             )
             return req_param
-
-    # def _parse_plugin_from_meta(
-    #     self,
-    #     name: str,
-    #     type_: RegularTypes,
-    #     annotation: type[Any] | UnionType | GenericAlias | TypeAliasType,
-    #     default: Maybe[Any],
-    #     metas: list[Any] | None,
-    # ) -> list[ParsedParam[Any]] | None:
-    #     if not metas:
-    #         return None
-
-    #     plugins: list[ParsedParam[Any]] = []
-    #     for meta in metas:
-    #         if isinstance(meta, PluginBase):
-    #             plugin = meta.parse(name, type_, annotation, default)
-    #             plugins.append(plugin)
-    #         elif isinstance(meta, type) and issubclass(meta, PluginBase):
-    #             raise NotSupportedError(f"Plugin {meta} is not Initialized")
-    #         else:
-    #             mark_type = extract_mark_type(meta)
-    #             if mark_type:
-    #                 if provider := PLUGIN_REGISTRY.get(mark_type):
-    #                     plugin = provider.parse(name, type_, annotation, default)
-    #                     plugins.append(plugin)
-    #                 else:
-    #                     NotSupportedError(
-    #                         "Mixed param mark and plugins is not supported"
-    #                     )
-    #     return plugins if plugins else None
 
     def _parse_meta(
         self, metas: list[Any] | None

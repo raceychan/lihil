@@ -115,8 +115,13 @@ STATE_PARAM_MARK = param_mark("state")
 JW_TOKEN_PARAM_MARK = param_mark("jw_token")
 
 type Query[T] = Annotated[T, QUERY_REQUEST_MARK]
+
 type Header[T, K: LiteralString] = Annotated[T, K, HEADER_REQUEST_MARK]
+# type Authorization[T] = Header[T, Literal["Authorization"]]
+type Authorization[T] = Annotated[T, Literal["Authorization"], HEADER_REQUEST_MARK]
+# type Cookie[T, C: LiteralString] = Annotated[Header[T, Literal["cookie"]], C]
 type Cookie[T, C: LiteralString] = Header[Annotated[T, C], Literal["cookie"]]
+
 type Body[T] = Annotated[T, BODY_REQUEST_MARK]
 type Form[T] = Annotated[T, FORM_REQUEST_MARK]
 type Path[T] = Annotated[T, PATH_REQUEST_MARK]

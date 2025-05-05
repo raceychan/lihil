@@ -57,8 +57,8 @@ class MyState(Payload): ...
 
 
 @asynccontextmanager
-async def lifespan(app: Lihil[MyState]):
-    yield MyState()
+async def lifespan(app: Lihil[dict[str, str]]):
+    yield dict[str, str]()
 
 
 @rusers.post

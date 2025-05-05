@@ -1,4 +1,4 @@
-from typing import Annotated, Union
+from typing import Annotated, Literal, TypeVar, Union
 
 import pytest
 
@@ -10,6 +10,7 @@ from lihil.utils.typing import (
     is_nontextual_sequence,
     is_text_type,
     is_union_type,
+    replace_typevars,
 )
 
 
@@ -153,3 +154,36 @@ def test_get_origin_pro_with_unset():
     ptype, metas = get_origin_pro(Unset[str])
 
     assert ptype.__args__ == (UnsetType, str)
+
+
+def test_get_auth_header():
+    from lihil.interface.marks import HEADER_REQUEST_MARK, Authorization
+
+    ptype, metas = get_origin_pro(Authorization[str])
+    assert ptype is str
+    assert metas
+    assert Literal["Authorization"] in metas
+    assert HEADER_REQUEST_MARK in metas
+
+
+# def test_replace_type_vars():
+#     """
+#     (Pdb) current_type_args
+#     (T, typing.Literal['Cookie'], C)
+
+#     (Pdb) type_args
+#     (<class 'str'>, typing.Literal['Cookie'], typing.Literal['x-refresh-token'])
+
+#     (Pdb) replace_typevars(current_type_args, type_args)
+#     (<class 'str'>, typing.Literal['Cookie'], typing.Literal['Cookie'])
+#     """
+#     T = TypeVar("T")
+#     C = TypeVar("C")
+
+#     current_type_args = (T, Literal["Cookie"], C)
+#     type_args = (str, Literal["Cookie"], Literal["x-refresh-token"])
+
+#     assert replace_typevars(current_type_args, type_args) == (
+#         str,
+#         Literal["Cookie", Literal["x-refresh-token"]],
+#     )

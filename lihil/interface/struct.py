@@ -4,6 +4,7 @@ from typing import (
     Callable,
     ClassVar,
     Literal,
+    Mapping,
     Protocol,
     Self,
     dataclass_transform,
@@ -50,6 +51,12 @@ class Base(Struct):
 
     def keys(self) -> tuple[str, ...]:
         return self.__struct_fields__
+
+    def __iter__(self):
+        return iter(self.__struct_fields__)
+
+    def __len__(self) -> int:
+        return len(self.__struct_fields__)
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)

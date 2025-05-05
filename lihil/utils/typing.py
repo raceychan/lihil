@@ -74,32 +74,28 @@ def is_generic_type(type_: Any) -> bool:
     )
 
 
+def contains_generic_type(container: Sequence[Any]) -> bool:
+    return any(is_generic_type(t) for t in container)
+
+
 def replace_typevars(
-    tyvars: tuple[type | TypeVar, ...], nonvars: tuple[type, ...]
+    tyvars: Sequence[type | TypeVar], nonvars: Sequence[type]
 ) -> tuple[type, ...]:
     typevar_map: dict[TypeVar, None | type] = {
         item: None for item in tyvars if isinstance(item, TypeVar)
     }
 
-    if len(typevar_map) > len(nonvars):
-        raise ValueError(f"Expected {len(typevar_map)} types in t2, got {len(nonvars)}")
+    var_size, nonvar_size = len(typevar_map), len(nonvars)
+    if var_size > nonvar_size:
+        raise ValueError(f"Expected {var_size} types in t2, got {nonvar_size}")
 
     idx = 0
-    for k in typevar_map:
-        typevar_map[k] = nonvars[idx]
-        idx += 1
+    for var in tyvars:
+        if isinstance(var, TypeVar) and typevar_map.get(var) is None:
+            typevar_map[var] = nonvars[idx]
+            idx += 1
 
-    # Replace TypeVars in t1
-    result: list[type] = []
-
-    for item in tyvars:
-        if isinstance(item, TypeVar):
-            mapped = typevar_map[item]
-            assert mapped
-            result.append(mapped)
-        else:
-            result.append(item)
-
+    result = [typevar_map[var] if isinstance(var, TypeVar) else var for var in tyvars]
     return tuple(result)
 
 
@@ -152,11 +148,10 @@ def deannotate[T](
     return (atype, flattened_metadata)
 
 
-# TODO: carry type_args, StriDict[int] -> tyargs = ()
 def get_origin_pro[T](
     type_: type[T] | UnionType | GenericAlias | TypeAliasType | TypeVar,
     metas: list[Any] | None = None,
-    type_args: tuple[type] | None = None,
+    type_args: tuple[type, ...] | None = None,
 ) -> tuple[type | UnionType | GenericAlias, list[Any] | None]:
     """
     type MyTypeAlias = Annotated[Query[int], CustomEncoder]
@@ -222,6 +217,77 @@ def get_origin_pro[T](
         return get_origin_pro(Union[*utypes], metas, type_args)  # type: ignore
     else:
         return (cast(type, type_), cast(None, metas))
+
+
+# TODO: carry type_args, StriDict[int] -> tyargs = ()
+# def get_origin_pro[T](
+#     type_: type[T] | UnionType | GenericAlias | TypeAliasType | TypeVar,
+#     metas: list[Any] | None = None,
+#     type_args: tuple[type, ...] | None = None,
+# ) -> tuple[type | UnionType | GenericAlias, list[Any] | None]:
+#     """
+#     type MyTypeAlias = Annotated[Query[int], CustomEncoder]
+#     type NewAnnotated = Annotated[MyTypeAlias, "aloha"]
+
+#     get_param_origin(Body[SamplePayload | None]) -> (SamplePayload | None, [BODY_REQUEST_MARK])
+#     get_param_origin(MyTypeAlias) -> (int, [QUERY_REQUEST_MARK, CustomEncoder])
+#     get_param_origin(NewAnnotated) -> (int, [QUERY_REQUEST_MARK, CustomEncoder])
+#     """
+
+#     if isinstance(type_, TypeAliasType):
+#         return get_origin_pro(type_.__value__, metas, type_args)
+
+#     if (current_origin := ty_get_origin(type_)) is None:
+#         return (cast(type, type_), cast(None, metas))
+
+#     current_type_args = recursive_get_args(type_)
+#     if current_type_args and current_origin != type_args:
+#         if type_args is None:
+#             type_args = current_type_args
+#         elif contains_generic_type(current_type_args):
+#             type_args = replace_typevars(current_type_args, type_args)
+
+
+#     if current_origin is Annotated:
+#         annt_type, local_metas = deannotate(type_)
+#         if local_metas and metas:
+#             local_metas += metas
+#         return get_origin_pro(annt_type, local_metas, type_args)
+#     elif isinstance(current_origin, TypeAliasType):
+#         dealiased = cast(TypeAliasType, type_).__value__
+#         dtype, demetas = get_origin_pro(dealiased, metas, type_args)
+
+#         if is_generic_type(dtype):  # type: ignore
+#             if demetas:
+#                 assert type_args
+#                 dtype = type_args[0]
+#                 if contains_generic_type(demetas):
+#                     demetas = replace_typevars(demetas, type_args[1:])
+#                 return get_origin_pro(dtype, list(demetas))
+#             else:
+#                 dtype = repair_type_generic_alias(type_, type_args)
+#                 return dtype, None
+#         else:
+#             return get_origin_pro(dealiased, metas, type_args)
+#     elif current_origin is UnionType:
+#         union_args = get_args(type_)
+#         utypes: list[type | UnionType | GenericAlias] = []
+#         new_metas: list[Any] = []
+#         for uarg in union_args:
+#             utype, umeta = get_origin_pro(uarg, None, type_args)
+#             utypes.append(utype)
+#             if umeta:
+#                 new_metas.extend(umeta)
+#         if not new_metas:
+#             return get_origin_pro(Union[*utypes], metas, type_args)  # type: ignore
+
+#         if metas is None:
+#             metas = new_metas
+#         else:
+#             metas.extend(new_metas)
+#         return get_origin_pro(Union[*utypes], metas, type_args)  # type: ignore
+#     else:
+#         return (cast(type, type_), cast(None, metas))
 
 
 def all_subclasses[T](

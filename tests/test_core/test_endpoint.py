@@ -31,7 +31,7 @@ from lihil.errors import MissingDependencyError, NotSupportedError, StatusConfli
 from lihil.plugins.testclient import LocalClient
 from lihil.signature.parser import EndpointParser
 from lihil.utils.threading import async_wrapper
-from lihil.utils.typing import is_nontextual_sequence
+from lihil.utils.typing import is_nontextual_sequence, replace_typevars
 
 
 class User(Payload, kw_only=True):
@@ -213,6 +213,7 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
         return "asdf"
 
     rusers.get(get)
+    rusers.setup()
     ep = rusers.get_endpoint("GET")
 
     res = await lc.call_endpoint(ep)
@@ -772,12 +773,24 @@ async def test_ep_with_constraints():
     assert not called
 
 
+@pytest.mark.debug
+def test_replace_tyvars():
+    from typing import TypeVar
+
+    T, C = TypeVar("T"), TypeVar("C")
+    type_args = (str, Literal["x-token"], 42)
+    current_args = (T, Literal["Cookie"], C)
+    ans = (str, Literal["Cookie"], Literal["x-token"], 42)
+    assert replace_typevars(current_args, type_args)
+
+
+@pytest.mark.debug
 async def test_ep_with_cookie():
     called: bool = False
 
     async def get_user(
         refresh_token: Annotated[
-            Cookie[str, Literal["refresh-token"]], Meta(min_length=1)
+            Cookie[str, Literal["x-refresh-token"]], Meta(min_length=1)
         ],
         user_id: Annotated[str, Meta(min_length=5)],
     ):
@@ -786,7 +799,7 @@ async def test_ep_with_cookie():
         called = True
         return True
 
-    lc = LocalClient(headers={"cookie": "refresh-token=asdf"})
+    lc = LocalClient(headers={"cookie": "x-refresh-token=asdf"})
 
     ep = lc.make_endpoint(get_user, path="/{user_id}")
     resp = await lc(ep, path_params={"user_id": "user123"})

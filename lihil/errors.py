@@ -14,6 +14,7 @@ class DuplicatedRouteError(LihilError):
 
 class InvalidLifeSpanError(LihilError): ...
 
+
 class StatusConflictError(LihilError):
     def __init__(self, status: int, type_: Any):
         msg = f"{status} conflicts with return type {type_}"
@@ -33,8 +34,7 @@ class MiddlewareBuildError(LihilError):
         super().__init__(f"Unable to instantiate middleware from {factory}")
 
 
-class InvalidParamTypeError(LihilError):
-    ...
+class InvalidParamTypeError(LihilError): ...
 
 
 class NotSupportedError(LihilError):
