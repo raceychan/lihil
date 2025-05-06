@@ -47,14 +47,13 @@ async def test_route_match():
 
     # Valid match
     scope = {"path": "/users/123"}
-    matched_scope = route.match(scope)
+    assert route.match(scope)
 
-    assert matched_scope is not None
-    assert matched_scope["path_params"] == {"user_id": "123"}
+    assert scope["path_params"] == {"user_id": "123"}
 
     # No match
     scope = {"path": "/posts/123"}
-    assert route.match(scope) is None
+    assert not route.match(scope)
 
 
 async def test_route_call_with_valid_method():

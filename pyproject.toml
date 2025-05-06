@@ -51,6 +51,7 @@ dev = [
   "pyjwt>=2.10.1",
   "httpx>=0.28.1",
   "supabase>=2.15.1",
+  "sqlalchemy>=2.0.40",
 ]
 
 [tool.pyright]

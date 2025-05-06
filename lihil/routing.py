@@ -28,11 +28,11 @@ from lihil.ds.resp import StaticResponse
 from lihil.interface import (
     HTTP_METHODS,
     ASGIApp,
-    DictLike,
     Func,
     IReceive,
     IScope,
     ISend,
+    MappingLike,
     MiddlewareFactory,
     Record,
 )
@@ -314,12 +314,12 @@ class RouteBase(ASGIBase):
         self.subroutes.append(sub)
         return sub
 
-    def match(self, scope: IScope) -> IScope | None:
+    def match(self, scope: IScope) -> bool:
         path = scope["path"]
         if not self.path_regex or not (m := self.path_regex.match(path)):
-            return None
+            return False
         scope["path_params"] = m.groupdict()
-        return scope
+        return True
 
     def add_nodes[T](
         self, *nodes: Union[IDependent[T], tuple[IDependent[T], INodeConfig]]
@@ -345,7 +345,7 @@ class RouteBase(ASGIBase):
         self,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        app_state: DictLike | None = None,
+        app_state: MappingLike | None = None,
     ):
         self.app_state = app_state
         self.graph = graph or self.graph
@@ -390,7 +390,7 @@ class Route(RouteBase):
         self,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        app_state: DictLike | None = None,
+        app_state: MappingLike | None = None,
     ):
         super().setup(app_state=app_state, graph=graph, busterm=busterm)
         self.endpoint_parser = EndpointParser(self.graph, self.path)

@@ -3,6 +3,7 @@ from typing import TypedDict
 import pytest
 
 from lihil import Graph, Lihil, LocalClient, Route
+from lihil.interface import Record
 from lihil.interface.marks import AppState
 from lihil.signature import EndpointParser
 from lihil.signature.params import StateParam
@@ -56,3 +57,26 @@ async def test_ep_requires_app_state_but_not_set():
     lc = LocalClient()
     with pytest.raises(ValueError):
         await lc.call_app(lhl, "GET", "/test")
+
+
+async def test_ep_with_record_state():
+    route = Route("/test")
+
+    class Engine:
+        def __init__(self, name: str):
+            self.name = name
+
+    class State(Record):
+        engine: Engine
+
+    async def ls(app: Lihil[None]):
+        yield State(engine=Engine("lihil"))
+
+    async def f(engine: AppState[Engine]):
+        assert engine.name == "lihil"
+
+    route.get(f)
+    lhl = Lihil[None](routes=[route], lifespan=ls)
+
+    lc = LocalClient()
+    await lc.call_app(lhl, "GET", "/test")

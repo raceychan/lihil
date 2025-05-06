@@ -4,7 +4,6 @@ from typing import (
     Callable,
     ClassVar,
     Literal,
-    Mapping,
     Protocol,
     Self,
     dataclass_transform,

@@ -50,7 +50,7 @@ type Func[**P, R] = Callable[P, R]
 type Maybe[T] = T | "_Missed"
 
 type StrDict = dict[str, Any]
-type DictLike = Mapping[str, Any] | Base
+type MappingLike = Mapping[str, Any] | Record
 type RegularTypes = type | UnionType | GenericAlias
 
 

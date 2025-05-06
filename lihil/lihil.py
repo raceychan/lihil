@@ -15,6 +15,7 @@ from typing import (
     Mapping,
     Unpack,
     cast,
+    final,
     overload,
 )
 
@@ -26,10 +27,10 @@ from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_stati
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
 from lihil.interface import (
     ASGIApp,
-    DictLike,
     IReceive,
     IScope,
     ISend,
+    MappingLike,
     MiddlewareFactory,
 )
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
@@ -47,7 +48,9 @@ from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 
-type LifeSpan[S: DictLike | None] = Callable[
+type UState = MappingLike | None
+"App state that yield from user lifespan"
+type LifeSpan[S: UState] = Callable[
     ["Lihil[None]"], AsyncContextManager[S] | AsyncGenerator[S, None]
 ]
 type WrappedLifSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
@@ -56,17 +59,13 @@ type WrappedLifSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 EMPTY_APP_STATE: Mapping[str, Any] = MappingProxyType({})
 
 
-def lifespan_wrapper[S: DictLike | None](
-    lifespan: LifeSpan[S] | None,
-) -> WrappedLifSpan[S] | None:
-    if lifespan is None:
+def lifespan_wrapper[S: UState](ls: LifeSpan[S] | None) -> WrappedLifSpan[S] | None:
+    if ls is None:
         return None
-    if isasyncgenfunction(lifespan):
-        return asynccontextmanager(lifespan)
-    elif (wrapped := getattr(lifespan, "__wrapped__", None)) and isasyncgenfunction(
-        wrapped
-    ):
-        return cast(WrappedLifSpan[S], lifespan)
+    if isasyncgenfunction(ls):
+        return asynccontextmanager(ls)
+    elif (wrapped := getattr(ls, "__wrapped__", None)) and isasyncgenfunction(wrapped):
+        return cast(WrappedLifSpan[S], ls)
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
@@ -74,7 +73,7 @@ def lifespan_wrapper[S: DictLike | None](
 StaticCache = dict[str, tuple[dict[str, Any], dict[str, Any]]]
 
 
-class StaticRoute:
+class StaticRoute(RouteBase):
     def __init__(self):
         # TODO: make this a response instead of a route, cancel static route
         # as route gets more complicated this is hard to maintain.
@@ -82,7 +81,7 @@ class StaticRoute:
         self.path = "_static_route_"
         self.config = EndpointProps(in_schema=False)
 
-    def match(self, scope: IScope) -> bool:
+    def match(self, scope: IScope):
         return scope["path"] in self.static_cache
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
@@ -93,12 +92,10 @@ class StaticRoute:
     def add_cache(self, path: str, content: tuple[dict[str, bytes], dict[str, bytes]]):
         self.static_cache[sys.intern(path)] = content
 
-    def setup(self, **deps: Any):
-        pass
 
-
-class Lihil[T: DictLike | None](ASGIBase):
-    _userls: WrappedLifSpan[T | None] | None
+@final
+class Lihil[S: UState](ASGIBase):
+    _userls: WrappedLifSpan[S | None] | None
 
     def __init__(
         self,
@@ -109,7 +106,7 @@ class Lihil[T: DictLike | None](ASGIBase):
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
         config_file: Path | str | None = None,
-        lifespan: LifeSpan[T] | None = None,
+        lifespan: LifeSpan[S] | None = None,
     ):
         super().__init__(middlewares)
         if app_config:
@@ -135,7 +132,7 @@ class Lihil[T: DictLike | None](ASGIBase):
             self.routes.insert(0, self.root)
 
         self._userls = lifespan_wrapper(lifespan)
-        self._state: T | None = None
+        self._state: S | None = None
 
         self.static_route: StaticRoute | None = None
         self.call_stack: ASGIApp
@@ -152,7 +149,7 @@ class Lihil[T: DictLike | None](ASGIBase):
         return lhl_repr + routes_repr + "\n]"
 
     @property
-    def state(self) -> T | None:
+    def state(self) -> S | None:
         return self._state
 
     @asynccontextmanager
@@ -228,12 +225,15 @@ class Lihil[T: DictLike | None](ASGIBase):
     def static(
         self,
         path: str,
-        static_content: str | bytes | Callable[..., str | bytes | dict[str, Any]],
+        static_content: (
+            str | bytes | dict[str, Any] | Callable[..., str | bytes | dict[str, Any]]
+        ),
         content_type: str = "text/plain",
         charset: str = "utf-8",
     ) -> None:
         if not is_plain_path(path):
             raise NotSupportedError("staic resource with dynamic path is not supported")
+
         if isinstance(static_content, Callable):
             static_content = static_content()
         elif isinstance(static_content, str):
