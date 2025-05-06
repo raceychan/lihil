@@ -5,13 +5,8 @@ from typing import Optional, Union
 import pytest
 from msgspec.structs import FieldInfo
 
-from lihil.config import (
-    DEFAULT_CONFIG,
-    OASConfig,
-    ServerConfig,
-    lhl_get_config,
-    lhl_set_config,
-)
+from lihil import EventBus, Request
+from lihil.config import DEFAULT_CONFIG, lhl_get_config, lhl_set_config
 from lihil.config.parser import (
     AppConfig,
     ConfigBase,
@@ -27,9 +22,8 @@ from lihil.config.parser import (
     parse_field_type,
 )
 from lihil.errors import AppConfiguringError
-from lihil import Request, EventBus
-from lihil.signature.parser import is_lhl_primitive
 from lihil.interface import MISSING, Maybe
+from lihil.signature.parser import is_lhl_primitive
 
 
 def test_get_thread_cnt():
@@ -227,7 +221,7 @@ def test_config_from_cli(monkeypatch):
     test_args = ["prog", "--is_prod", "--version", "2.0.0", "--server.port", "8080"]
     monkeypatch.setattr("sys.argv", test_args)
 
-    config_dict = config_from_cli(AppConfig)
+    config_dict = config_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
     assert config_dict["is_prod"] is True
@@ -241,7 +235,7 @@ def test_config_from_cli_empty(monkeypatch):
     test_args = ["prog"]
     monkeypatch.setattr("sys.argv", test_args)
 
-    config_dict = config_from_cli(AppConfig)
+    config_dict = config_from_cli(config_type=AppConfig)
 
     assert config_dict is None
 
@@ -253,7 +247,7 @@ def test_config_from_cli_should_filter_provided_flags(monkeypatch):
     monkeypatch.setattr("sys.argv", test_args)
 
     # Get CLI config
-    cli_config = config_from_cli(AppConfig)
+    cli_config = config_from_cli(config_type=AppConfig)
 
     # The current implementation includes _provided flags, which is problematic
     assert cli_config is not None
@@ -306,12 +300,14 @@ def test_filed_type():
 def test_build_parser_with_bool():
 
     class NestedConfig(ConfigBase):
-        is_prod: bool
+        name: str
 
     class NewConfig(ConfigBase):
         nested: NestedConfig
 
     parser = build_parser(NewConfig)
+    res = parser.parse_args(["--nested.name", "lihil"])
+    assert getattr(res, "nested.name") == "lihil"
 
 
 def test_generate_app_confg_acotions():

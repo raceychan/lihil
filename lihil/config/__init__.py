@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from .app_config import AppConfig as AppConfig
+from .app_config import ConfigBase as ConfigBase
 from .app_config import OASConfig as OASConfig
 from .app_config import SecurityConfig as SecurityConfig
 from .app_config import ServerConfig as ServerConfig
@@ -13,16 +14,16 @@ def config_registry():
     _app_config: AppConfig = DEFAULT_CONFIG
 
     def _set_config(app_config: AppConfig | None = None) -> None:
-        # TODO? if app_config is None then reset to DEFAULT_CONFIG
+        "Set app config, if no config provided, reset to DEFAULT_CONFIG"
         nonlocal _app_config
         if app_config is None:
             _app_config = DEFAULT_CONFIG
         else:
             _app_config = app_config
 
-    def _read_config(
-        config_file: str | Path, config_type: type[AppConfig] = AppConfig
-    ) -> AppConfig:
+    def _read_config[T: AppConfig](
+        config_file: str | Path, config_type: type[T] = AppConfig
+    ) -> T:
         "Read config from config file as well as from command line arguments"
         _app_config = config_from_file(config_file, config_type=config_type)
         return _app_config

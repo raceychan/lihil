@@ -5,8 +5,9 @@ from unittest.mock import patch
 import pytest
 
 from lihil import Lihil
-from lihil.config import AppConfig
+from lihil.config import AppConfig, ConfigBase
 from lihil.config.parser import (
+    convert,
     StoreTrueIfProvided,
     build_parser,
     config_from_cli,
@@ -123,7 +124,22 @@ def test_app_config_from_filepath(tmp_path: Path):
 
     toml_file.touch()
 
-    # data = {"name": "example", "version": "1.0.0"}
-
     with pytest.raises(AppConfiguringError):
         config_from_file(toml_file)
+
+
+def test_enhance_app_config():
+    class SupabaseConfig(ConfigBase):
+        url: str
+        key: str
+
+    class MyConfig(AppConfig, kw_only=True):
+        supabase: SupabaseConfig
+
+    res = config_from_cli(
+        ["prog", "--supabase.url", "myurl", "--supabase.key", "mykey"],
+        config_type=MyConfig,
+    )
+    config = convert(res, MyConfig)
+    assert config.supabase.url=="myurl"
+    assert config.supabase.key=="mykey"

@@ -20,12 +20,10 @@ from ididi import Graph, INodeConfig
 from ididi.graph import Resolver
 from ididi.interfaces import IDependent
 from msgspec import field
-from starlette.requests import Request
-from starlette.responses import Response, StreamingResponse
+from starlette.responses import StreamingResponse
 
 from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
-from lihil.config import AppConfig, lhl_get_config
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.ds.resp import StaticResponse
 from lihil.interface import (
@@ -50,6 +48,7 @@ from lihil.utils.string import (
     trim_path,
 )
 from lihil.utils.threading import async_wrapper
+from lihil.vendors import Request, Response
 
 
 class IEndpointProps(TypedDict, total=False):
@@ -284,7 +283,6 @@ class RouteBase(ASGIBase):
         if listeners:
             self.registry.register(*listeners)
         self.busterm = BusTerminal(self.registry, graph=graph)
-        self.app_config: AppConfig | None = None
         self.subroutes: list[Self] = []
 
     def __truediv__(self, path: str) -> "Self":
@@ -352,7 +350,6 @@ class RouteBase(ASGIBase):
         self.app_state = app_state
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm
-        self.app_config = self.app_config or lhl_get_config()
 
 
 class Route(RouteBase):

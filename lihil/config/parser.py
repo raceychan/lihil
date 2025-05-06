@@ -174,13 +174,16 @@ def build_parser(config_type: type[ConfigBase]) -> argparse.ArgumentParser:
     return parser
 
 
-def config_from_cli(config_type: type[AppConfig]) -> StrDict | None:
+def config_from_cli(
+    args: Sequence[str] | None = None, *, config_type: type[AppConfig]
+) -> StrDict | None:
     parser = build_parser(config_type)
-    known_args = parser.parse_known_args()[0]
-    args = known_args.__dict__
+
+    known_args, _ = parser.parse_known_args(args)  # _ is unkown args
+    parsed_args = known_args.__dict__
 
     # Filter out _provided flags and keep only provided values
-    cli_args: StrDict = {k: v for k, v in args.items() if is_provided(v)}
+    cli_args: StrDict = {k: v for k, v in parsed_args.items() if is_provided(v)}
 
     if not cli_args:
         return None
@@ -189,12 +192,12 @@ def config_from_cli(config_type: type[AppConfig]) -> StrDict | None:
     return config_dict
 
 
-def config_from_file(
-    config_file: Path | str, *, config_type: type[AppConfig] = AppConfig
-) -> AppConfig:
+def config_from_file[T: AppConfig](
+    config_file: Path | str, *, config_type: type[T] = AppConfig
+) -> T:
     file_path = Path(config_file) if isinstance(config_file, str) else config_file
     config_dict = config_type.from_file(file_path)
-    cli_config = config_from_cli(config_type)
+    cli_config = config_from_cli(config_type=config_type)
     if cli_config:
         deep_update(config_dict, cli_config)
     config = convert(config_dict, config_type)
