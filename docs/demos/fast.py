@@ -34,7 +34,6 @@ async def get_engine() -> Engine:
     return Engine()
 
 
-
 @rprofile.post("/profile/{pid}")
 async def profile(
     pid: str,
@@ -42,7 +41,6 @@ async def profile(
     user: User,
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> User | Order:
-
     return User(id=user.id, name=user.name, email=user.email)
 
 
@@ -50,14 +48,29 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(rprofile)
 
 
-@app.get("/")
-async def ping():
-    return "pong"
+def sencond_q(q: str):
+    return q
 
 
-@app.get("/items/")
-async def read_items(token: Annotated[str, Depends(oauth2_scheme)]):
-    return {"token": token}
+def require_q(q: str):
+    return q
+
+
+@app.get("/aloha")
+async def only_in_dep(
+    name: Annotated[str, Depends(require_q)], n2: Annotated[str, Depends(sencond_q)]
+):
+    print(f"got {name=}, {n2=}")
+
+
+# @app.get("/")
+# async def ping():
+#     return "pong"
+
+
+# @app.get("/items/")
+# async def read_items(token: Annotated[str, Depends(oauth2_scheme)]):
+#     return {"token": token}
 
 
 if __name__ == "__main__":

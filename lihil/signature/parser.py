@@ -44,6 +44,7 @@ from lihil.vendors import Request, UploadFile, WebSocket
 from .params import (
     BodyParam,
     CookieParam,
+    Decodable,
     EndpointParams,
     HeaderParam,
     NodeParamMeta,
@@ -254,13 +255,14 @@ def is_lhl_primitive(param_type: Any) -> TypeGuard[type]:
 
 class EndpointParser:
     path_keys: tuple[str, ...]
-    seen: set[str]
+    seen_path: set[str]
 
     def __init__(self, graph: Graph, route_path: str):
         self.graph = graph
         self.route_path = route_path
         self.path_keys = find_path_keys(route_path)
-        self.seen = set(self.path_keys)
+        self.seen_path = set(self.path_keys)
+        self.node_derived = set[str]()
 
     def is_lhl_primitive(self, obj: Any):
         return is_lhl_primitive(obj)
@@ -274,7 +276,7 @@ class EndpointParser:
         param_metas: RequestParamMeta | None = None,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
         if name in self.path_keys:  # simplest case
-            self.seen.discard(name)
+            self.seen_path.discard(name)
             assert not isinstance(param_metas, NodeParamMeta)
             req_param = req_param_factory(
                 name=name,
@@ -311,7 +313,8 @@ class EndpointParser:
                     decoder=decoder,
                 )
         elif param_type in self.graph.nodes:
-            return self._parse_node(param_type)
+            nodes = self._parse_node(param_type)
+            return nodes
         else:  # default case
             req_param = req_param_factory(
                 name=name,
@@ -335,13 +338,12 @@ class EndpointParser:
         params: list[Any | DependentNode] = [node]
         for dep_name, dep in node.dependencies.items():
             ptype, default = dep.param_type, dep.default_
-            if default is IDIDI_MISSING:
-                default = LIHIL_MISSING
-            if ptype in self.graph.nodes:
-                # only add top level dependency, leave subs to ididi
-                continue
-            ptype = cast(type, ptype)
-            sub_params = self.parse_param(dep_name, ptype, default)
+            # TODO?: if param is Ignored then skip it for param analysis
+            default = LIHIL_MISSING if default is IDIDI_MISSING else default
+            sub_params = self.parse_param(dep_name, cast(type, ptype), default)
+            for sp in sub_params:
+                if isinstance(sp, Decodable):
+                    self.node_derived.add(sp.name)
             params.extend(sub_params)
         return params
 
@@ -562,7 +564,6 @@ class EndpointParser:
         func_params: Mapping[str, Parameter],
         path_keys: tuple[str, ...] | None = None,
     ) -> EndpointParams:
-
         if path_keys:
             self.path_keys += path_keys
 
@@ -580,8 +581,9 @@ class EndpointParser:
             parsed_params = self.parse_param(name, annotation, default)
             for req_param in parsed_params:
                 if isinstance(req_param, DependentNode):
+                    if name in nodes:  # only keep the top dependency as param
+                        continue
                     nodes[name] = req_param
-
                 elif isinstance(req_param, BodyParam):
                     bodies[req_param.name] = req_param
                 elif isinstance(req_param, StateParam):
@@ -589,8 +591,9 @@ class EndpointParser:
                 else:
                     params[req_param.name] = req_param
 
-        if self.seen:
-            warn(f"Unused path keys {self.seen}")
+        if self.seen_path:
+            warn(f"Unused path keys {self.seen_path}")
+
         ep_params = EndpointParams(
             params=params, bodies=bodies, nodes=nodes, states=states
         )
@@ -609,6 +612,9 @@ class EndpointParser:
         )
         body_param = params.get_body()
         is_form_body: bool = _is_form_body(body_param)
+        intermediate_params: set[str] = {
+            p for p in self.node_derived if p not in func_sig.parameters
+        }
 
         ep_sig = EndpointSignature(
             route_path=self.route_path,
@@ -618,6 +624,7 @@ class EndpointParser:
             body_param=body_param,
             states=params.states,
             dependencies=params.nodes,
+            intermediate_params=intermediate_params,
             return_params=retns,
             status_code=status,
             return_encoder=retparam.encoder,

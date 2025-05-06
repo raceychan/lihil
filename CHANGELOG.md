@@ -1013,6 +1013,8 @@ class InvalidOrderError(HTTPException[AddressOutOfScopeProblem]):
 
 - Fix a bug where if an exception happens in user provided lifespan(if there is one) before yield, it would not be raised and the app would continue to run
 
+- Fix a bug where if a param is declared in dependency but not in endpoint function, request will fail.
+
 ### Refactor
 
 - remove `PluginParam`

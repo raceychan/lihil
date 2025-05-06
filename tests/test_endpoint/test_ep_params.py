@@ -107,6 +107,7 @@ def param_parser() -> EndpointParser:
     return EndpointParser(Graph(), "test")
 
 
+@pytest.mark.debug
 def test_parsed_params(param_parser: EndpointParser):
     param_parser.graph.analyze(DependentService)
 

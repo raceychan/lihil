@@ -136,23 +136,24 @@ class Endpoint[R]:
     def unwrapped_func(self) -> Callable[..., R]:
         return self._unwrapped_func
 
-    def setup(self) -> None:
+    def setup(self, sig: EndpointSignature[R]) -> None:
         self._graph = self._route.graph
         self._busterm = self._route.busterm
         self._app_state = self._route.app_state
-        self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
 
-        self._dep_items = self._sig.dependencies.items()
-        self._states_items = self._sig.states.items()
-        self._static = self._sig.static
+        self._sig = sig
 
-        self._require_body: bool = self._sig.body_param is not None
-        self._status_code = self._sig.status_code
-        self._scoped: bool = self._sig.scoped or self._props.scoped is True
-        self._encoder = self._sig.return_encoder
+        self._dep_items = sig.dependencies.items()
+        self._states_items = sig.states.items()
+        self._static = sig.static
+        self._interm_params = sig.intermediate_params
+
+        self._require_body: bool = sig.body_param is not None
+        self._status_code = sig.status_code
+        self._scoped: bool = sig.scoped or self._props.scoped is True
+        self._encoder = sig.return_encoder
         self._media_type = (
-            next(iter(self._sig.return_params.values())).content_type
-            or "application/json"
+            next(iter(sig.return_params.values())).content_type or "application/json"
         )
 
     def inject_states(
@@ -207,6 +208,9 @@ class Endpoint[R]:
 
             for name, dep in self._dep_items:
                 params[name] = await resolver.aresolve(dep.dependent, **params)
+
+            for p in self._interm_params:
+                params.pop(p)
 
             raw_return = await self._func(**params)
             return raw_return
@@ -396,8 +400,12 @@ class Route(RouteBase):
         self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         for method, ep in self.endpoints.items():
-            ep.setup()
+            ep_sig = self.endpoint_parser.parse(ep.unwrapped_func)
+            ep.setup(ep_sig)
             self.call_stacks[method] = self.chainup_middlewares(ep)
+
+    def parse_endpoint[R](self, func: Callable[..., R]) -> EndpointSignature[R]:
+        return self.endpoint_parser.parse(func)
 
     def get_endpoint(
         self, method_func: HTTP_METHODS | Callable[..., Any]

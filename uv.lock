@@ -746,14 +746,14 @@ wheels = [
 
 [[package]]
 name = "ididi"
-version = "1.6.0"
+version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/73/ba/f601acc0740a62d280da1914f41c0c0484fb1f0a1555e52ca01596e716cb/ididi-1.6.0.tar.gz", hash = "sha256:9b70e066290aa0cdc356ba89b8b4fdb4c8cf5b89d3e40ccc0b34bf99c7fb47c5", size = 262279 }
+sdist = { url = "https://files.pythonhosted.org/packages/66/92/ad6b6eae6b41df2874c185c66b03e8e32e51320c88bb2f5fb27839452a79/ididi-1.6.1.tar.gz", hash = "sha256:a74b29257034d8a1acfc6afa3838771878f5da1bc67240a99469eba83d560b5d", size = 262414 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/a2/91d300cd9a54ee42a1ff2b8314c2f8be957b1e855cd38904c5132cb02ae7/ididi-1.6.0-py3-none-any.whl", hash = "sha256:d197ce39e7704f35a4d6fd612ae0f720070cfb5785f40dd568de11ed9d97d974", size = 33776 },
+    { url = "https://files.pythonhosted.org/packages/b3/80/af01ba09105ba6eaf9b65450036c3ac6e2858defb37d33a3c190a2fb7713/ididi-1.6.1-py3-none-any.whl", hash = "sha256:eaa486534daa5c80914369b6daf91272498693f9379516a94a3eece899cf29dc", size = 33804 },
 ]
 
 [[package]]
@@ -947,7 +947,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ididi", specifier = ">=1.6.0" },
+    { name = "ididi", specifier = ">=1.6.1" },
     { name = "msgspec", specifier = ">=0.19.0" },
     { name = "pyjwt", marker = "extra == 'standard'", specifier = ">=2.10.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },

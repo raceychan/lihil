@@ -70,7 +70,7 @@ def test_get_hello_return(user_route: Route):
     ) -> Resp[Text, status.OK]: ...
 
     current_ep = user_route.get_endpoint(get_hello)
-    current_ep.setup()
+    user_route.setup()
     ep_rt = current_ep.sig.return_params[200]
     assert ep_rt.type_ == bytes
 

@@ -80,3 +80,55 @@ async def test_ep_with_record_state():
 
     lc = LocalClient()
     await lc.call_app(lhl, "GET", "/test")
+
+
+async def test_ep_ls_resolver():
+    from lihil import AppState, Ignore, Use
+
+    route = Route("/test")
+
+    class Engine:
+        def __init__(self, name: str):
+            self.name = name
+
+    class State(Record):
+        engine: Engine
+
+    async def ls(app: Lihil[None]):
+        engine = app.graph.resolve(Engine, name="resolved")
+        yield State(engine=engine)
+
+    async def f(engine: AppState[Engine]):
+        assert engine.name == "resolved"
+
+    route.get(f)
+
+    lhl = Lihil[None](routes=[route], lifespan=ls)
+    lc = LocalClient()
+    await lc.send_app_lifespan(lhl)
+    # ep = route.get_endpoint(f)
+    # assert "engine" in ep.sig.dependencies
+
+    resp = await lc.call_app(lhl, "GET", "/test")
+    assert resp.status_code == 200
+
+
+async def test_ep_skip_intermediate_params():
+    from lihil import Use
+
+    route = Route("/test")
+
+    class Engine:
+        def __init__(self, name: str):
+            self.name = name
+
+    @route.get
+    async def f(engine: Use[Engine]):
+        assert engine.name == "resolved"
+
+    route.setup()
+    ep = route.get_endpoint(f)
+
+    lc = LocalClient()
+    resp = await lc.call_endpoint(ep, query_params={"name": "resolved"})
+    assert resp.status_code == 200
