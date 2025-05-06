@@ -6,11 +6,9 @@ import pytest
 from lihil.config import AppConfig, ServerConfig, lhl_get_config
 from lihil.constant.resp import ServiceUnavailableResp, lhlserver_static_resp
 from lihil.errors import (
-    AppConfiguringError,
     DuplicatedRouteError,
     InvalidLifeSpanError,
     LihilError,
-    MiddlewareBuildError,
     NotSupportedError,
 )
 from lihil.interface import ASGIApp, Base
@@ -365,15 +363,16 @@ async def test_lihil_middleware_sequence():
 
 async def test_lihil_lifespan():
     # Define a lifespan function
-    @asynccontextmanager
-    async def lifespan(app):
+    from typing import AsyncGenerator
+
+    async def csls(app: Lihil[None]) -> AsyncGenerator[CustomAppState, None]:
         state = CustomAppState()
         state.counter = 1
         yield state
         state.counter = 0
 
     # Create app with lifespan
-    app = Lihil(lifespan=lifespan)
+    app = Lihil[CustomAppState](lifespan=csls)
 
     # Simulate lifespan events
     scope = {"type": "lifespan"}
@@ -402,8 +401,8 @@ async def test_lihil_lifespan():
     assert any(msg["type"] == "lifespan.shutdown.complete" for msg in send_messages)
 
     # Check that app state was set
-    assert app.app_state is not None
-    assert app.app_state.counter == 0  # Should be reset after shutdown
+    assert app.state is not None
+    assert app.state.counter == 0  # Should be reset after shutdown
 
 
 async def test_lihil_lifespan_startup_error():
@@ -918,7 +917,7 @@ async def test_lhl_add_sub_route_before_route():
 
     sub_route = parent_route / "sub"
 
-    lhl = Lihil()
+    lhl = Lihil[None]()
 
     lhl.include_routes(sub_route, parent_route)
 

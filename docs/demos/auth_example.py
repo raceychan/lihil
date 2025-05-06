@@ -64,7 +64,7 @@ async def get_another_user(token: JWTAuth[UserProfile]) -> User:
 # lhl = Lihil[None](routes=[me, token])
 
 
-async def ls(app: Lihil[dict[str, str]]):
+async def ls(app: Lihil[None]):
     md: dict[str, str] = {"name": "lihil"}
     yield md
 
@@ -73,7 +73,7 @@ root = Route()
 
 
 lhl = Lihil(lifespan=ls, routes=[root])
-
+lhl.app_state
 
 if __name__ == "__main__":
     lhl.run(__file__)

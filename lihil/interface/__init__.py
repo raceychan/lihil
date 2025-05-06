@@ -1,7 +1,7 @@
 # from types import GenericAlias, UnionType
 from dataclasses import dataclass
 from types import GenericAlias, UnionType
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, Mapping
 from typing import Protocol as Protocol
 from typing import TypeGuard, Union, get_args
 
@@ -50,7 +50,7 @@ type Func[**P, R] = Callable[P, R]
 type Maybe[T] = T | "_Missed"
 
 type StrDict = dict[str, Any]
-
+type DictLike = Mapping[str, Any] | Base
 type RegularTypes = type | UnionType | GenericAlias
 
 

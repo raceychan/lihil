@@ -5,7 +5,6 @@ from typing import (
     Any,
     Callable,
     Literal,
-    Mapping,
     Pattern,
     Self,
     Sequence,
@@ -29,6 +28,7 @@ from lihil.ds.resp import StaticResponse
 from lihil.interface import (
     HTTP_METHODS,
     ASGIApp,
+    DictLike,
     Func,
     IReceive,
     IScope,
@@ -345,7 +345,7 @@ class RouteBase(ASGIBase):
         self,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        app_state: Mapping[str, Any] | None = None,
+        app_state: DictLike | None = None,
     ):
         self.app_state = app_state
         self.graph = graph or self.graph
@@ -390,7 +390,7 @@ class Route(RouteBase):
         self,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        app_state: Mapping[str, Any] | None = None,
+        app_state: DictLike | None = None,
     ):
         super().setup(app_state=app_state, graph=graph, busterm=busterm)
         self.endpoint_parser = EndpointParser(self.graph, self.path)

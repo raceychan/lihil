@@ -24,7 +24,14 @@ from uvicorn import run as uvi_run
 from lihil.config import AppConfig, lhl_get_config, lhl_read_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
-from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
+from lihil.interface import (
+    ASGIApp,
+    DictLike,
+    IReceive,
+    IScope,
+    ISend,
+    MiddlewareFactory,
+)
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
@@ -40,8 +47,8 @@ from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 
-type LifeSpan[T] = Callable[
-    ["Lihil[Any]"], AsyncContextManager[T] | AsyncGenerator[T, None]
+type LifeSpan[S: DictLike | None] = Callable[
+    ["Lihil[None]"], AsyncContextManager[S] | AsyncGenerator[S, None]
 ]
 type WrappedLifSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 
@@ -49,7 +56,9 @@ type WrappedLifSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 EMPTY_APP_STATE: Mapping[str, Any] = MappingProxyType({})
 
 
-def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> WrappedLifSpan[T] | None:
+def lifespan_wrapper[S: DictLike | None](
+    lifespan: LifeSpan[S] | None,
+) -> WrappedLifSpan[S] | None:
     if lifespan is None:
         return None
     if isasyncgenfunction(lifespan):
@@ -57,7 +66,7 @@ def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> WrappedLifSpan[T] | Non
     elif (wrapped := getattr(lifespan, "__wrapped__", None)) and isasyncgenfunction(
         wrapped
     ):
-        return cast(WrappedLifSpan[T], lifespan)
+        return cast(WrappedLifSpan[S], lifespan)
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
@@ -88,7 +97,7 @@ class StaticRoute:
         pass
 
 
-class Lihil[T: Mapping[str, Any] | None](ASGIBase):
+class Lihil[T: DictLike | None](ASGIBase):
     _userls: WrappedLifSpan[T | None] | None
 
     def __init__(
@@ -107,11 +116,8 @@ class Lihil[T: Mapping[str, Any] | None](ASGIBase):
             lhl_set_config(app_config)
         elif config_file:
             app_config = lhl_read_config(config_file)
-        self.app_config = lhl_get_config()
-
-        self.workers = ThreadPoolExecutor(
-            max_workers=self.app_config.max_thread_workers
-        )
+        self.config = lhl_get_config()
+        self.workers = ThreadPoolExecutor(max_workers=self.config.max_thread_workers)
         self.graph = graph or Graph(
             self_inject=True, workers=self.workers, ignore=LIHIL_PRIMITIVES
         )
@@ -129,7 +135,7 @@ class Lihil[T: Mapping[str, Any] | None](ASGIBase):
             self.routes.insert(0, self.root)
 
         self._userls = lifespan_wrapper(lifespan)
-        self._app_state: T | None = None
+        self._state: T | None = None
 
         self.static_route: StaticRoute | None = None
         self.call_stack: ASGIApp
@@ -138,7 +144,7 @@ class Lihil[T: Mapping[str, Any] | None](ASGIBase):
 
     def __repr__(self) -> str:
         conn_info = ""
-        host, port = self.app_config.server.host, self.app_config.server.port
+        host, port = self.config.server.host, self.config.server.port
         if host and port:
             conn_info += f"({host}:{port})"
         lhl_repr = f"{self.__class__.__name__}{conn_info}[\n  "
@@ -146,8 +152,8 @@ class Lihil[T: Mapping[str, Any] | None](ASGIBase):
         return lhl_repr + routes_repr + "\n]"
 
     @property
-    def app_state(self) -> T | None:
-        return self._app_state
+    def state(self) -> T | None:
+        return self._state
 
     @asynccontextmanager
     async def _lifespan(self):
@@ -157,7 +163,7 @@ class Lihil[T: Mapping[str, Any] | None](ASGIBase):
         else:
             user_ls = self._userls(self)
             async with user_ls as app_state:
-                self._app_state = app_state
+                self._state = app_state
                 self._setup()
                 yield
 
@@ -173,6 +179,7 @@ class Lihil[T: Mapping[str, Any] | None](ASGIBase):
                 await send({"type": f"lifespan.{event}.complete"})
 
         ls = self._lifespan()
+
         await receive()  # receive {'type': 'lifespan.startup'}
         await event_handler(ls.__aenter__(), "startup")
         await receive()  # receive {'type': 'lifespan.shutdown'}
@@ -182,15 +189,11 @@ class Lihil[T: Mapping[str, Any] | None](ASGIBase):
         self.call_stack = self.chainup_middlewares(self.call_route)
 
         for route in self.routes:
-            route.setup(
-                app_state=self._app_state, graph=self.graph, busterm=self.busterm
-            )
+            route.setup(app_state=self._state, graph=self.graph, busterm=self.busterm)
 
     def _generate_builtin_routes(self):
-        oas_config = self.app_config.oas
-        openapi_route = get_openapi_route(
-            oas_config, self.routes, self.app_config.version
-        )
+        oas_config = self.config.oas
+        openapi_route = get_openapi_route(oas_config, self.routes, self.config.version)
         doc_route = get_doc_route(oas_config)
         problems = collect_problems()
         problem_route = get_problem_route(oas_config, problems)
@@ -295,7 +298,7 @@ class Lihil[T: Mapping[str, Any] | None](ASGIBase):
         ```
         """
 
-        server_config = self.app_config.server
+        server_config = self.config.server
         set_values = {k: v for k, v in server_config.asdict().items() if v is not None}
 
         worker_num = server_config.workers

@@ -22,7 +22,7 @@ from lihil.interface import MISSING
 
 def test_app_read_config():
     lhl = Lihil[None](config_file="pyproject.toml")
-    assert lhl.app_config.oas.doc_path == "/docs"
+    assert lhl.config.oas.doc_path == "/docs"
 
 
 def test_format_nested_dict():

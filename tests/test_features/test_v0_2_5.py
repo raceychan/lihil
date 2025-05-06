@@ -33,11 +33,10 @@ async def test_ep_with_app_state():
 
     route.get(f)
 
-    mystate = MyState(name="lihil")
-    lhl = Lihil[MyState](routes=[route])
+    async def ls(app: Lihil[None]):
+        yield MyState(name="lihil")
 
-    lhl._app_state = mystate  # type: ignore
-
+    lhl = Lihil[MyState](routes=[route], lifespan=ls)
     lc = LocalClient()
     res = await lc.call_app(lhl, "GET", "/test")
     assert res.status_code == 200
