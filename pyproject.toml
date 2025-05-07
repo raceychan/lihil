@@ -23,11 +23,6 @@ requires = ["hatchling"]
 [tool.hatch.version]
 path = "lihil/__init__.py"
 
-[tool.lihil]
-is_prod = true
-
-[tool.lihil.oas]
-doc_path = "/docs"
 
 [dependency-groups]
 dev = [

@@ -146,7 +146,7 @@ class Endpoint[R]:
         self._dep_items = sig.dependencies.items()
         self._states_items = sig.states.items()
         self._static = sig.static
-        self._interm_params = sig.intermediate_params
+        self._transitive_params = sig.transitive_params
 
         self._require_body: bool = sig.body_param is not None
         self._status_code = sig.status_code
@@ -209,7 +209,7 @@ class Endpoint[R]:
             for name, dep in self._dep_items:
                 params[name] = await resolver.aresolve(dep.dependent, **params)
 
-            for p in self._interm_params:
+            for p in self._transitive_params:
                 params.pop(p)
 
             raw_return = await self._func(**params)

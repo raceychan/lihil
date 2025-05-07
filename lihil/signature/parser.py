@@ -44,7 +44,6 @@ from lihil.vendors import Request, UploadFile, WebSocket
 from .params import (
     BodyParam,
     CookieParam,
-    Decodable,
     EndpointParams,
     HeaderParam,
     NodeParamMeta,
@@ -267,6 +266,26 @@ class EndpointParser:
     def is_lhl_primitive(self, obj: Any):
         return is_lhl_primitive(obj)
 
+    def _parse_node(
+        self, node_type: INode[..., Any], node_config: NodeConfig | None = None
+    ) -> list[ParsedParam[Any]]:
+        if node_config:
+            node = self.graph.analyze(node_type, config=node_config)
+        else:
+            node = self.graph.analyze(node_type)
+
+        params: list[Any | DependentNode] = [node]
+        for dep_name, dep in node.dependencies.items():
+            ptype, default = dep.param_type, dep.default_
+            # TODO?: if param is Ignored then skip it for param analysis
+            default = LIHIL_MISSING if default is IDIDI_MISSING else default
+            sub_params = self.parse_param(dep_name, cast(type, ptype), default)
+            for sp in sub_params:
+                if not isinstance(sp, DependentNode):
+                    self.node_derived.add(sp.name)
+            params.extend(sub_params)
+        return params
+
     def _parse_rule_based[T](
         self,
         name: str,
@@ -326,26 +345,6 @@ class EndpointParser:
                 default=default,
             )
         return req_param
-
-    def _parse_node(
-        self, node_type: INode[..., Any], node_config: NodeConfig | None = None
-    ) -> list[ParsedParam[Any]]:
-        if node_config:
-            node = self.graph.analyze(node_type, config=node_config)
-        else:
-            node = self.graph.analyze(node_type)
-
-        params: list[Any | DependentNode] = [node]
-        for dep_name, dep in node.dependencies.items():
-            ptype, default = dep.param_type, dep.default_
-            # TODO?: if param is Ignored then skip it for param analysis
-            default = LIHIL_MISSING if default is IDIDI_MISSING else default
-            sub_params = self.parse_param(dep_name, cast(type, ptype), default)
-            for sp in sub_params:
-                if isinstance(sp, Decodable):
-                    self.node_derived.add(sp.name)
-            params.extend(sub_params)
-        return params
 
     def _parse_auth_header[T](
         self,
@@ -612,7 +611,7 @@ class EndpointParser:
         )
         body_param = params.get_body()
         is_form_body: bool = _is_form_body(body_param)
-        intermediate_params: set[str] = {
+        transitive_params: set[str] = {
             p for p in self.node_derived if p not in func_sig.parameters
         }
 
@@ -624,7 +623,7 @@ class EndpointParser:
             body_param=body_param,
             states=params.states,
             dependencies=params.nodes,
-            intermediate_params=intermediate_params,
+            transitive_params=transitive_params,
             return_params=retns,
             status_code=status,
             return_encoder=retparam.encoder,

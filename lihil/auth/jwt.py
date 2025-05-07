@@ -7,13 +7,15 @@ from typing import (
     Literal,
     Required,
     TypedDict,
+    cast,
     dataclass_transform,
 )
 from uuid import uuid4
 
 from msgspec import convert
 
-from lihil.config import AppConfig, lhl_get_config
+from lihil.config import lhl_get_config
+from lihil.config.app_config import IAppConfig, IJWTConfig
 from lihil.errors import MissingDependencyError, NotSupportedError
 from lihil.interface import MISSING, UNSET, Base, Unset, field, is_provided
 from lihil.interface.marks import JW_TOKEN_RETURN_MARK, Authorization
@@ -121,16 +123,18 @@ except ImportError:
 else:
 
     def jwt_encoder_factory[T](
-        *, payload_type: type[T] | UnionType, app_config: AppConfig | None = None
+        *, payload_type: type[T] | UnionType, app_config: IAppConfig | None = None
     ):
-        config = app_config or lhl_get_config()
+        app_config = app_config or lhl_get_config()
 
-        if config.security is UNSET:
-            raise MissingDependencyError("security config")
+        if not hasattr(app_config, "jwt_secret") or not hasattr(
+            app_config, "jwt_algorithms"
+        ):
+            raise MissingDependencyError("JWTConfig")
 
-        sec_config = config.security
-        secret = sec_config.jwt_secret
-        algorithms = sec_config.jwt_algorithms
+        config = cast(IJWTConfig, app_config)
+        secret = config.jwt_secret
+        algorithms = config.jwt_algorithms
         options = None
 
         if not isinstance(payload_type, type) or not issubclass(
@@ -165,17 +169,18 @@ else:
         return encoder
 
     def jwt_decoder_factory[T](
-        *, payload_type: type[T] | UnionType, app_config: AppConfig | None = None
+        *, payload_type: type[T] | UnionType, app_config: IAppConfig | None = None
     ):
 
-        config = app_config or lhl_get_config()
+        app_config = app_config or lhl_get_config()
+        if not hasattr(app_config, "jwt_secret") or not hasattr(
+            app_config, "jwt_algorithms"
+        ):
+            raise MissingDependencyError("JWTConfig")
+        config = cast(IJWTConfig, app_config)
 
-        if config.security is UNSET:
-            raise MissingDependencyError("security config")
-
-        sec_config = config.security
-        secret = sec_config.jwt_secret
-        algorithms = sec_config.jwt_algorithms
+        secret = config.jwt_secret
+        algorithms = config.jwt_algorithms
         options = None
 
         jwt = PyJWT(options)  # type: ignore

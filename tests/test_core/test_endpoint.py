@@ -26,12 +26,12 @@ from lihil import (
 )
 from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
-from lihil.config import DEFAULT_CONFIG, AppConfig, SecurityConfig, lhl_set_config
+from lihil.config import DEFAULT_CONFIG, AppConfig, JWTConfig, lhl_set_config
 from lihil.errors import MissingDependencyError, NotSupportedError, StatusConflictError
 from lihil.plugins.testclient import LocalClient
 from lihil.signature.parser import EndpointParser
 from lihil.utils.threading import async_wrapper
-from lihil.utils.typing import is_nontextual_sequence, replace_typevars
+from lihil.utils.typing import is_nontextual_sequence
 
 
 class User(Payload, kw_only=True):
@@ -50,9 +50,7 @@ def rusers() -> Route:
 
 @pytest.fixture
 def testroute() -> Route:
-    app_config = AppConfig(
-        security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-    )
+    app_config = JWTConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
     lhl_set_config(app_config)
     route = Route("test")
     route.endpoint_parser = EndpointParser(route.graph, route.path)
@@ -550,9 +548,7 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
 
     ep = testroute.get_endpoint(get_token)
 
-    app_config = AppConfig(
-        security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-    )
+    app_config = JWTConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
     lhl_set_config(app_config)
     testroute.setup()
 
@@ -625,9 +621,7 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
     testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
     testroute.post(login_get_token)
     lhl_set_config(
-        app_config=AppConfig(
-            security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-        )
+        app_config=JWTConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
     )
     testroute.setup()
 

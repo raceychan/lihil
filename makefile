@@ -4,7 +4,7 @@ run:
 
 .PHONY: dev
 dev:
-	uv run uvicorn docs.demos.app:lhl --interface asgi3 --http httptools --no-access-log --log-level "warning" --reload
+	uv run uvicorn dev:lhl --interface asgi3 --http httptools --no-access-log --log-level "warning" --reload
 
 .PHONY: fast
 fast:

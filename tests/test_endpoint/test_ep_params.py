@@ -21,7 +21,7 @@ from lihil import (
     Resolver,
     Use,
 )
-from lihil.config import AppConfig, SecurityConfig, lhl_set_config
+from lihil.config import JWTConfig, lhl_set_config
 from lihil.errors import InvalidMarkTypeError, NotSupportedError
 from lihil.interface.marks import HEADER_REQUEST_MARK, Cookie, param_mark
 from lihil.signature.parser import (
@@ -457,9 +457,7 @@ def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
 
     def ep_expects_jwt(user_id: JWTAuth[str]): ...
 
-    app_config = AppConfig(
-        security=SecurityConfig(jwt_secret="test", jwt_algorithms=["HS256"])
-    )
+    app_config = JWTConfig(jwt_secret="test", jwt_algorithms=["HS256"])
     lhl_set_config(app_config)
 
     param_parser.parse(ep_expects_jwt)

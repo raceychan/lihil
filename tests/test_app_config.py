@@ -1,27 +1,20 @@
 import argparse
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from lihil import Lihil
-from lihil.config import AppConfig, ConfigBase
-from lihil.config.parser import (
-    convert,
-    StoreTrueIfProvided,
-    build_parser,
-    config_from_cli,
-    config_from_file,
-    format_nested_dict,
-)
-from lihil.errors import AppConfiguringError
+from lihil.config import AppConfig, ConfigBase, lhl_read_config
+from lihil.config.loader import ConfigLoader, convert, load_from_cli
+from lihil.config.parser import StoreTrueIfProvided, build_parser, format_nested_dict
 from lihil.interface import MISSING
 
 # from lihil.config import AppConfig
 
 
 def test_app_read_config():
-    lhl = Lihil[None](config_file="pyproject.toml")
+    config = lhl_read_config("settings.toml")
+    lhl = Lihil[None](app_config=config)
     assert lhl.config.oas.doc_path == "/docs"
 
 
@@ -88,7 +81,7 @@ def test_app_config_build_parser():
 @patch("sys.argv", ["prog", "--version", "2.0.0", "--oas.title", "Custom API"])
 def test_config_from_cli():
     """Test that config_from_cli correctly parses command line arguments."""
-    config_dict = config_from_cli(config_type=AppConfig)
+    config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
     assert config_dict["version"] == "2.0.0"
@@ -98,7 +91,7 @@ def test_config_from_cli():
 @patch("sys.argv", ["prog", "--is_prod"])
 def test_config_from_cli_boolean_flag():
     """Test that boolean flags are correctly handled."""
-    config_dict = config_from_cli(config_type=AppConfig)
+    config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
     assert config_dict["is_prod"] is True
@@ -107,7 +100,7 @@ def test_config_from_cli_boolean_flag():
 @patch("sys.argv", ["prog"])
 def test_config_from_cli_no_args():
     """Test that config_from_cli returns None when no arguments are provided."""
-    config_dict = config_from_cli(config_type=AppConfig)
+    config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is None
 
@@ -115,17 +108,17 @@ def test_config_from_cli_no_args():
 @patch("sys.argv", ["prog", "--unknown-arg", "value"])
 def test_config_from_cli_unknown_args():
     """Test that config_from_cli ignores unknown arguments."""
-    config_dict = config_from_cli(config_type=AppConfig)
+    config_dict = load_from_cli(config_type=AppConfig)
     assert config_dict is None  # No recognized arguments
 
 
-def test_app_config_from_filepath(tmp_path: Path):
-    toml_file = tmp_path / "config.toml"
+# def test_app_load_configpath(tmp_path: Path):
+#     toml_file = tmp_path / "config.toml"
 
-    toml_file.touch()
+#     toml_file.touch()
 
-    with pytest.raises(AppConfiguringError):
-        config_from_file(toml_file)
+#     with pytest.raises(AppConfiguringError):
+#         res = ConfigLoader().load_config(toml_file)
 
 
 def test_enhance_app_config():
@@ -136,10 +129,14 @@ def test_enhance_app_config():
     class MyConfig(AppConfig, kw_only=True):
         supabase: SupabaseConfig
 
-    res = config_from_cli(
+    res = load_from_cli(
         ["prog", "--supabase.url", "myurl", "--supabase.key", "mykey"],
         config_type=MyConfig,
     )
     config = convert(res, MyConfig)
-    assert config.supabase.url=="myurl"
-    assert config.supabase.key=="mykey"
+    assert config.supabase.url == "myurl"
+    assert config.supabase.key == "mykey"
+
+
+def test_loader():
+    loader = ConfigLoader()

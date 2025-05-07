@@ -185,12 +185,10 @@ class PublicUser(Payload):
 
 def test_parse_jwt_return():
     from lihil.auth.jwt import JWTAuth
-    from lihil.config import AppConfig, SecurityConfig, lhl_set_config
+    from lihil.config import JWTConfig, lhl_set_config
     from lihil.errors import NotSupportedError
 
-    lhl_set_config(
-        AppConfig(security=SecurityConfig(jwt_secret="secret", jwt_algorithms="HS256"))
-    )
+    lhl_set_config(JWTConfig(jwt_secret="secret", jwt_algorithms="HS256"))
 
     with pytest.raises(NotSupportedError):
         parse_returns(Resp[JWTAuth[Payload], 201])

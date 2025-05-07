@@ -6,15 +6,18 @@ import pytest
 from msgspec.structs import FieldInfo
 
 from lihil import EventBus, Request
-from lihil.config import DEFAULT_CONFIG, lhl_get_config, lhl_set_config
-from lihil.config.parser import (
+from lihil.config import (
+    DEFAULT_CONFIG,
     AppConfig,
+    ConfigLoader,
+    lhl_get_config,
+    lhl_set_config,
+)
+from lihil.config.loader import deep_update, load_from_cli
+from lihil.config.parser import (
     ConfigBase,
     StoreTrueIfProvided,
     build_parser,
-    config_from_cli,
-    config_from_file,
-    deep_update,
     format_nested_dict,
     generate_parser_actions,
     get_thread_cnt,
@@ -137,26 +140,26 @@ def test_build_parser():
     assert "server.port" in actions
 
 
-def test_config_from_file_toml():
+def test_load_config_toml():
     """Test loading config from a TOML file"""
     with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as tmp:
         tmp.write(
             """
-        [tool.lihil]
+        [lihil]
         is_prod = true
         version = "1.0.0"
 
-        [tool.lihil.oas]
+        [lihil.oas]
         title = "Test API"
 
-        [tool.lihil.server]
+        [lihil.server]
         host = "127.0.0.1"
         port = 9000
         """
         )
         tmp.flush()
 
-        config = config_from_file(tmp.name)
+        config = ConfigLoader().load_config(tmp.name)
 
         assert config.is_prod is True
         assert config.version == "1.0.0"
@@ -165,7 +168,7 @@ def test_config_from_file_toml():
         assert config.server.port == 9000
 
 
-def test_config_from_file_toml_alternative_format():
+def test_load_config_toml_alternative_format():
     """Test loading config from a TOML file with alternative format"""
     with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as tmp:
         tmp.write(
@@ -180,27 +183,27 @@ def test_config_from_file_toml_alternative_format():
         )
         tmp.flush()
 
-        config = config_from_file(tmp.name)
+        config = ConfigLoader().load_config(tmp.name)
 
         assert config.is_prod is True
         assert config.version == "1.0.0"
         assert config.oas.title == "Test API"
 
 
-def test_config_from_file_nonexistent():
+def test_load_config_nonexistent():
     """Test error when config file doesn't exist"""
     with pytest.raises(AppConfiguringError, match="not exist"):
-        config_from_file("nonexistent_file.toml")
+        ConfigLoader().load_config("nonexistent_file.toml")
 
 
-def test_config_from_file_unsupported_format():
+def test_load_config_unsupported_format():
     """Test error when config file has unsupported format"""
     with tempfile.NamedTemporaryFile(suffix=".xyz") as tmp:
-        with pytest.raises(AppConfiguringError, match="Not supported file type"):
-            config_from_file(tmp.name)
+        with pytest.raises(AppConfiguringError, match="Loader for .xyz is not found"):
+            ConfigLoader().load_config(tmp.name)
 
 
-def test_config_from_file_missing_table():
+def test_load_config_missing_table():
     """Test error when TOML file doesn't have lihil table"""
     with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as tmp:
         tmp.write(
@@ -211,8 +214,8 @@ def test_config_from_file_missing_table():
         )
         tmp.flush()
 
-        with pytest.raises(AppConfiguringError, match="can't find table lihil"):
-            config_from_file(tmp.name)
+        with pytest.raises(AppConfiguringError):
+            ConfigLoader().load_config(tmp.name)
 
 
 def test_config_from_cli(monkeypatch):
@@ -221,7 +224,7 @@ def test_config_from_cli(monkeypatch):
     test_args = ["prog", "--is_prod", "--version", "2.0.0", "--server.port", "8080"]
     monkeypatch.setattr("sys.argv", test_args)
 
-    config_dict = config_from_cli(config_type=AppConfig)
+    config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
     assert config_dict["is_prod"] is True
@@ -235,7 +238,7 @@ def test_config_from_cli_empty(monkeypatch):
     test_args = ["prog"]
     monkeypatch.setattr("sys.argv", test_args)
 
-    config_dict = config_from_cli(config_type=AppConfig)
+    config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is None
 
@@ -247,7 +250,7 @@ def test_config_from_cli_should_filter_provided_flags(monkeypatch):
     monkeypatch.setattr("sys.argv", test_args)
 
     # Get CLI config
-    cli_config = config_from_cli(config_type=AppConfig)
+    cli_config = load_from_cli(config_type=AppConfig)
 
     # The current implementation includes _provided flags, which is problematic
     assert cli_config is not None

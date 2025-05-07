@@ -72,12 +72,10 @@ def test_jwt_missing():
 
 def test_invalid_payload_type():
     from lihil.auth.jwt import jwt_encoder_factory
-    from lihil.config import AppConfig, SecurityConfig, lhl_set_config
+    from lihil.config import JWTConfig, lhl_set_config
     from lihil.errors import NotSupportedError
 
-    lhl_set_config(
-        AppConfig(security=SecurityConfig(jwt_secret="secret", jwt_algorithms="HS256"))
-    )
+    lhl_set_config(JWTConfig(jwt_secret="secret", jwt_algorithms="HS256"))
 
     with pytest.raises(NotSupportedError):
         jwt_encoder_factory(payload_type=list[int])
@@ -90,17 +88,14 @@ def test_invalid_payload_type():
 
 def test_decode_jwtoken_fail():
     from lihil.auth.jwt import jwt_decoder_factory
-    from lihil.config import AppConfig, SecurityConfig, lhl_set_config
+    from lihil.config import JWTConfig, lhl_set_config
 
     class UserProfile(JWTPayload):
         __jwt_claims__ = {"aud": "client", "iss": "test", "expires_in": 5}
 
         user_id: str = field(name="sub")
 
-    app_config = AppConfig(
-        security=SecurityConfig(jwt_secret="secret", jwt_algorithms="HS256")
-    )
-    lhl_set_config(app_config)
+    lhl_set_config(JWTConfig(jwt_secret="secret", jwt_algorithms="HS256"))
 
     decoder = jwt_decoder_factory(payload_type=UserProfile)
 

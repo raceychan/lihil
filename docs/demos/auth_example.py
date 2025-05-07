@@ -73,7 +73,7 @@ root = Route()
 
 
 lhl = Lihil(lifespan=ls, routes=[root])
-lhl.app_state
+lhl.state
 
 if __name__ == "__main__":
     lhl.run(__file__)

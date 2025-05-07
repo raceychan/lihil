@@ -1028,5 +1028,4 @@ async def authenticator(scheme: str, credentials: str)->Any:
 @post
 async def create_user(cred: Authorization[str, CustomDecoder]):
     ...
-
 ```

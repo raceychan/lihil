@@ -1,12 +1,9 @@
-import tomllib
-from pathlib import Path
-from typing import Annotated, Sequence
+from typing import Annotated, Any, Protocol, Sequence
 
 from msgspec import field
 from typing_extensions import Doc
 
-from lihil.errors import AppConfiguringError
-from lihil.interface import UNSET, Record, StrDict, Unset
+from lihil.interface import Record
 
 
 def get_thread_cnt() -> int:
@@ -34,7 +31,7 @@ class ServerConfig(ConfigBase):
     host: Annotated[str | None, Doc("Host address to bind to (e.g., '127.0.0.1')")] = (
         None
     )
-    port: Annotated[int | None, Doc("Port number to listen on")] = None
+    port: Annotated[int | None, Doc("Port number to listen on e.g., 8000")] = None
     workers: Annotated[int | None, Doc("Number of worker processes")] = None
     reload: Annotated[bool | None, Doc("Enable auto-reloading during development")] = (
         None
@@ -44,11 +41,34 @@ class ServerConfig(ConfigBase):
     ] = None
 
 
-class SecurityConfig(ConfigBase):
-    jwt_secret: Annotated[str, Doc("Secret key for encoding and decoding JWTs")]
-    jwt_algorithms: Annotated[
-        str | Sequence[str], Doc("List of accepted JWT algorithms")
-    ]
+class IOASConfig(Protocol):
+    oas_path: str
+    doc_path: str
+    title: str
+    problem_path: str
+    problem_title: str
+    version: str
+
+
+class IServerConfig(Protocol):
+    host: str
+    port: int
+    workers: int
+    reload: bool
+
+    def asdict(self) -> dict[str, Any]: ...
+
+
+class IAppConfig(Protocol):
+    max_thread_workers: int
+    version: str
+    server: IServerConfig
+    oas: IOASConfig
+
+
+class IJWTConfig(IAppConfig):
+    jwt_secret: str
+    jwt_algorithms: str | Sequence[str]
 
 
 class AppConfig(ConfigBase):
@@ -65,32 +85,10 @@ class AppConfig(ConfigBase):
     server: Annotated[ServerConfig, Doc("Server runtime configuration")] = field(
         default_factory=ServerConfig
     )
-    security: Annotated[
-        Unset[SecurityConfig], Doc("Security-related configuration, e.g., JWT settings")
-    ] = UNSET
 
-    @classmethod
-    def _from_toml(cls, file_path: Path) -> StrDict:
-        with open(file_path, "rb") as fp:
-            toml = tomllib.load(fp)
 
-        try:
-            lihil_config: StrDict = toml["tool"]["lihil"]
-        except KeyError:
-            try:
-                lihil_config: StrDict = toml["lihil"]
-            except KeyError:
-                raise AppConfiguringError(f"can't find table lihil from {file_path}")
-        return lihil_config
-
-    # _from_env
-
-    @classmethod
-    def from_file(cls, file_path: Path) -> StrDict:
-        if not file_path.exists():
-            raise AppConfiguringError(f"path {file_path} not exist")
-
-        file_ext = file_path.suffix[1:]
-        if file_ext != "toml":
-            raise AppConfiguringError(f"Not supported file type {file_ext}")
-        return cls._from_toml(file_path)
+class JWTConfig(AppConfig, kw_only=True):
+    jwt_secret: Annotated[str, Doc("Secret key for encoding and decoding JWTs")]
+    jwt_algorithms: Annotated[
+        str | Sequence[str], Doc("List of accepted JWT algorithms")
+    ]

@@ -45,10 +45,9 @@ class EndpointSignature[R](Base):
     body_param: tuple[str, BodyParam[Struct]] | None
 
     dependencies: ParamMap[DependentNode]
-    intermediate_params: set[str]
+    transitive_params: set[str]
     """
-    Intermediate params are params that are required from
-    dependencies, but not required for endpoint function
+    Transitive params are parameters required by dependencies, but not directly required by the endpoint function.
     """
     states: ParamMap[StateParam]
 

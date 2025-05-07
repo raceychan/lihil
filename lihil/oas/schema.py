@@ -4,7 +4,7 @@ from typing import Any, Sequence, cast, get_args
 from msgspec import Struct
 from msgspec.json import schema_components
 
-from lihil.config import OASConfig
+from lihil.config.app_config import IOASConfig
 from lihil.constant.status import phrase
 from lihil.interface import RegularTypes, is_provided, is_set
 from lihil.oas import model as oasmodel
@@ -420,7 +420,7 @@ class ValidationErrors(Struct):
 
 def generate_oas(
     routes: Sequence[RouteBase],
-    oas_config: OASConfig,
+    oas_config: IOASConfig,
     app_version: str,
 ) -> oasmodel.OpenAPI:
     "Return application/json response"

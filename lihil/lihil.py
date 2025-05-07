@@ -22,7 +22,7 @@ from typing import (
 from ididi import Graph
 from uvicorn import run as uvi_run
 
-from lihil.config import AppConfig, lhl_get_config, lhl_read_config, lhl_set_config
+from lihil.config import IAppConfig, lhl_get_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
 from lihil.interface import (
@@ -102,17 +102,15 @@ class Lihil[S: UState](ASGIBase):
         *,
         routes: list[RouteBase] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
-        app_config: AppConfig | None = None,
+        app_config: IAppConfig | None = None,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        config_file: Path | str | None = None,
         lifespan: LifeSpan[S] | None = None,
     ):
         super().__init__(middlewares)
-        if app_config:
+        if app_config is not None:
             lhl_set_config(app_config)
-        elif config_file:
-            app_config = lhl_read_config(config_file)
+
         self.config = lhl_get_config()
         self.workers = ThreadPoolExecutor(max_workers=self.config.max_thread_workers)
         self.graph = graph or Graph(
