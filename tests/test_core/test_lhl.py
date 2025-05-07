@@ -826,7 +826,7 @@ async def test_a_problem_endpoint():
 async def test_lihil_run():
     lhl = Lihil[str]()
 
-    def mock_run(server_str: str):
+    def mock_run(server_str: str, **others):
         assert server_str == lhl
 
     lhl.run(__file__, runner=mock_run)
@@ -838,7 +838,7 @@ async def test_lihil_run_with_workers():
 
     lhl = Lihil[str](app_config=config)
 
-    def mock_run(str_app: str, workers: int):
+    def mock_run(str_app: str, workers: int, **others):
         assert workers == 2
         assert str_app == "test_lhl:lhl"
 

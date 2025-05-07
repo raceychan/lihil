@@ -1,4 +1,8 @@
-from lihil import HTML, Lihil
+from lihil import HTML, AppConfig, ConfigBase, Lihil
+
+
+class SBConfig(ConfigBase): ...
+
 
 lhl = Lihil[None]()
 

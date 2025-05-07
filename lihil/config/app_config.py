@@ -13,6 +13,52 @@ def get_thread_cnt() -> int:
     return default_max
 
 
+class IOASConfig(Protocol):
+    @property
+    def oas_path(self) -> str: ...
+    @property
+    def doc_path(self) -> str: ...
+    @property
+    def title(self) -> str: ...
+    @property
+    def problem_path(self) -> str: ...
+    @property
+    def problem_title(self) -> str: ...
+    @property
+    def version(self) -> str: ...
+
+
+class IServerConfig(Protocol):
+    @property
+    def host(self) -> str: ...
+    @property
+    def port(self) -> int: ...
+    @property
+    def workers(self) -> int: ...
+    @property
+    def reload(self) -> bool: ...
+
+    def asdict(self) -> dict[str, Any]: ...
+
+
+class IAppConfig(Protocol):
+    @property
+    def max_thread_workers(self) -> int: ...
+    @property
+    def version(self) -> str: ...
+    @property
+    def server(self) -> IServerConfig: ...
+    @property
+    def oas(self) -> IOASConfig: ...
+
+
+class IJWTConfig(IAppConfig):
+    @property
+    def jwt_secret(self) -> str: ...
+    @property
+    def jwt_algorithms(self) -> str | Sequence[str]: ...
+
+
 class ConfigBase(Record, forbid_unknown_fields=True, frozen=True): ...
 
 
@@ -28,47 +74,15 @@ class OASConfig(ConfigBase):
 
 
 class ServerConfig(ConfigBase):
-    host: Annotated[str | None, Doc("Host address to bind to (e.g., '127.0.0.1')")] = (
-        None
+    host: Annotated[str, Doc("Host address to bind to (e.g., '127.0.0.1')")] = (
+        "127.0.0.1"
     )
-    port: Annotated[int | None, Doc("Port number to listen on e.g., 8000")] = None
-    workers: Annotated[int | None, Doc("Number of worker processes")] = None
-    reload: Annotated[bool | None, Doc("Enable auto-reloading during development")] = (
-        None
-    )
+    port: Annotated[int, Doc("Port number to listen on e.g., 8000")] = 8000
+    workers: Annotated[int, Doc("Number of worker processes")] = 1
+    reload: Annotated[bool, Doc("Enable auto-reloading during development")] = False
     root_path: Annotated[
-        str | None, Doc("Root path to mount the app under (if behind a proxy)")
-    ] = None
-
-
-class IOASConfig(Protocol):
-    oas_path: str
-    doc_path: str
-    title: str
-    problem_path: str
-    problem_title: str
-    version: str
-
-
-class IServerConfig(Protocol):
-    host: str
-    port: int
-    workers: int
-    reload: bool
-
-    def asdict(self) -> dict[str, Any]: ...
-
-
-class IAppConfig(Protocol):
-    max_thread_workers: int
-    version: str
-    server: IServerConfig
-    oas: IOASConfig
-
-
-class IJWTConfig(IAppConfig):
-    jwt_secret: str
-    jwt_algorithms: str | Sequence[str]
+        str, Doc("Root path to mount the app under (if behind a proxy)")
+    ] = ""
 
 
 class AppConfig(ConfigBase):

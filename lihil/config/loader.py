@@ -214,7 +214,6 @@ class ConfigLoader:
         self, *config_files: Path | str, config_type: type[T] = AppConfig
     ) -> T:
         config_dict = self.load_files(*config_files)
-        # TODO: load_from_env()
         cli_config = load_from_cli(config_type=config_type)
         if cli_config:
             deep_update(config_dict, cli_config)
