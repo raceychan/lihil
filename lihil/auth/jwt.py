@@ -19,7 +19,7 @@ from lihil.config.app_config import IAppConfig, IJWTConfig
 from lihil.errors import MissingDependencyError, NotSupportedError
 from lihil.interface import MISSING, UNSET, Base, Unset, field, is_provided
 from lihil.problems import InvalidAuthError
-from lihil.signature.params import param
+from lihil.signature.params import Param
 from lihil.utils.json import encode_json
 
 
@@ -199,6 +199,6 @@ else:
 
 type JWTAuth[T: JWTPayload | str | bytes] = Annotated[
     T,
-    param("header", alias="Authorization", jwt=True),
+    Param("header", alias="Authorization", jwt=True),
     "application/json",
 ]

@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 import pytest
 
-from lihil import Graph, Text, param, status
+from lihil import Graph, Text, Param, status
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend
@@ -333,7 +333,7 @@ async def test_route_listen():
     # Verify the listener was registered
 
 
-async def test_route_with_listeners_param():
+async def test_route_with_listeners_Param():
     # Create a simple listener
     def test_listener(event: Event):
         pass
@@ -706,7 +706,7 @@ async def test_parse_header_with_key():
     parser = EndpointParser(Graph(), "test")
 
     res = parser.parse_param(
-        "token", Annotated[str, param("header", alias="Authorization")]
+        "token", Annotated[str, Param("header", alias="Authorization")]
     )
     p = res[0]
 

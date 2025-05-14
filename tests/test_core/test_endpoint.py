@@ -16,7 +16,7 @@ from lihil import (
     UploadFile,
     field,
     form,
-    param,
+    Param,
     status,
 )
 from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
@@ -255,7 +255,7 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
     assert res
 
 
-async def test_ep_requiring_missing_param(rusers: Route, lc: LocalClient):
+async def test_ep_requiring_missing_Param(rusers: Route, lc: LocalClient):
 
     class UserInfo(Payload):
         username: str
@@ -392,7 +392,7 @@ async def test_ep_requiring_form_sequence_type(rusers: Route, lc: LocalClient):
         phones: list[str]
 
     async def get(
-        by_form: Annotated[UserInfo, param()],
+        by_form: Annotated[UserInfo, Param()],
     ) -> Annotated[Text, status.OK]:
         assert isinstance(by_form, UserInfo)
         return "ok"
@@ -406,7 +406,7 @@ async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
         phones: list[str]
 
     async def get(
-        user_id: Annotated[UserInfo, param("query")],
+        user_id: Annotated[UserInfo, Param("query")],
     ) -> Annotated[Text, status.OK]:
         return "ok"
 
@@ -573,7 +573,7 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
 async def test_oauth2_not_plugin():
 
     async def get_user(
-        token: Annotated[str, param("header", alias="Authorization")],
+        token: Annotated[str, Param("header", alias="Authorization")],
     ): ...
 
     route = Route("me")
@@ -758,7 +758,7 @@ async def test_ep_with_constraints():
     called: bool = False
 
     async def get_user(
-        n: Annotated[int, param(gt=0)], user_id: Annotated[str, param(min_length=5)]
+        n: Annotated[int, Param(gt=0)], user_id: Annotated[str, Param(min_length=5)]
     ):
         nonlocal called
         called = True
@@ -776,9 +776,9 @@ async def test_ep_with_cookie():
 
     async def get_user(
         refresh_token: Annotated[
-            str, param("cookie", alias="x-refresh-token", min_length=1)
+            str, Param("cookie", alias="x-refresh-token", min_length=1)
         ],
-        user_id: Annotated[str, param(min_length=5)],
+        user_id: Annotated[str, Param(min_length=5)],
     ):
         nonlocal called
         assert len(user_id) >= 5
@@ -798,8 +798,8 @@ async def test_ep_with_cookie2():
     called: bool = False
 
     async def get_user(
-        refresh_token: Annotated[str, param("cookie", min_length=1)],
-        user_id: Annotated[str, param(min_length=5)],
+        refresh_token: Annotated[str, Param("cookie", min_length=1)],
+        user_id: Annotated[str, Param(min_length=5)],
     ):
         nonlocal called
         called = True

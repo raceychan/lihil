@@ -68,7 +68,7 @@ def form(
     )
 
 
-def param(
+def Param(
     source: Union[ParamSource, None] = None,
     *,
     alias: Union[str, None] = None,

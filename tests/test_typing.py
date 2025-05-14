@@ -2,7 +2,7 @@ from typing import Annotated, Literal, TypeVar, Union
 
 import pytest
 
-from lihil import param
+from lihil import Param
 from lihil.interface import CustomEncoder
 from lihil.utils.typing import (
     deannotate,
@@ -78,7 +78,7 @@ def test_get_origin_pro_annotated():
 def test_get_origin_pro_type_alias():
     assert get_origin_pro(MyType[str]) == (str, ["mymark"])
     assert get_origin_pro(MyType[str | int]) == (Union[str | int], ["mymark"])
-    assert get_origin_pro(Annotated[str | None, param("body")])[0] == (Union[str, None])
+    assert get_origin_pro(Annotated[str | None, Param("body")])[0] == (Union[str, None])
     # assert get_origin_pro(MyTypeAlias) == (int, [QUERY_REQUEST_MARK, CustomEncoder])
     # assert get_origin_pro(NewAnnotated) == (
     #     int,
@@ -158,7 +158,7 @@ def test_get_origin_pro_with_unset():
 
 def test_get_auth_header():
 
-    ptype, metas = get_origin_pro(Annotated[str, param("header", alias="Authorization")])
+    ptype, metas = get_origin_pro(Annotated[str, Param("header", alias="Authorization")])
     assert ptype is str
     assert metas
     assert metas[0].alias == "Authorization"

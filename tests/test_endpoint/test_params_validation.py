@@ -5,7 +5,7 @@ from ididi import Graph
 
 from lihil.interface import Payload
 from lihil.interface.marks import Annotated
-from lihil.signature import EndpointParser, EndpointSignature, param
+from lihil.signature import EndpointParser, EndpointSignature, Param
 from lihil.utils.json import encode_json
 
 
@@ -13,7 +13,7 @@ async def get_order(
     user_id: str,
     order_id: str,
     limit: int,
-    x_token: Annotated[str, param("header", alias="x-token")],
+    x_token: Annotated[str, Param("header", alias="x-token")],
 ) -> dict[str, str]: ...
 
 
@@ -63,7 +63,7 @@ def test_prepare_params(get_order_dep: EndpointSignature[Any]):
     assert parsed["x_token"] == token
 
 
-def test_missing_param(get_order_dep: EndpointSignature[Any]):
+def test_missing_Param(get_order_dep: EndpointSignature[Any]):
     user_id = "u11b22"
     token = "token"
 
