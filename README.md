@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/raceychan-lihil-badge.png)](https://mseep.ai/app/raceychan-lihil)
+
 ![Lihil](docs/images/lihil_logo_transparent.png)
 
 # Lihil
