@@ -5,16 +5,17 @@ from typing import (
     Iterable,
     Literal,
     MutableMapping,
-    NotRequired,
     TypedDict,
+    TypeVar,
 )
 
 from starlette.types import Receive as IReceive
 from starlette.types import Scope as IScope
 from starlette.types import Send as ISend
+from typing_extensions import NotRequired
 
 # from msgspec.toml import decode
-type HTTP_METHODS = Literal[
+HTTP_METHODS = Literal[
     "GET", "POST", "HEAD", "OPTIONS", "TRACE", "PUT", "DELETE", "PATCH", "CONNECT"
 ]
 
@@ -48,7 +49,7 @@ class LifespanScope(TypedDict):
 
 
 # type IScope = Union[HTTPScope, LifespanScope]
-type Message = MutableMapping[str, Any]
+Message = MutableMapping[str, Any]
 
 
 class LihilInterface:
@@ -66,4 +67,6 @@ ASGIApp = Callable[
     Awaitable[None],
 ]
 
-type MiddlewareFactory[T: ASGIApp] = Callable[[T], ASGIApp]
+TApp = TypeVar("TApp", bound=ASGIApp)
+
+MiddlewareFactory = Callable[[TApp], ASGIApp]

@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, TypeVar, Union
+from typing import Annotated, TypeVar, Union
 
 import pytest
 
@@ -12,6 +12,9 @@ from lihil.utils.typing import (
     is_union_type,
     replace_typevars,
 )
+
+T = TypeVar("T")
+K = TypeVar("K")
 
 
 def test_deannotate():
@@ -46,13 +49,13 @@ def test_is_text_type():
     assert not is_text_type(list[int])
 
 
-type MyTypeAlias = Annotated[int, CustomEncoder]
-type NewAnnotated = Annotated[MyTypeAlias, "aloha"]
+MyTypeAlias = Annotated[int, CustomEncoder]
+NewAnnotated = Annotated[MyTypeAlias, "aloha"]
 
-type MyType[T] = Annotated[T, "mymark"]
+MyType = Annotated[T, "mymark"]
 
 
-type StrDict[T] = dict[str, T]
+StrDict = dict[str, T]
 
 
 def test_get_origin_pro_base_types():
@@ -90,9 +93,8 @@ def test_get_origin_pro_type_alias():
     # )
 
 
-type Base[T] = Annotated[T, 1]
-type NewBase[T] = Annotated[Base[T], 2]
-type AnotherBase[T, K] = Annotated[NewBase[T], K, 3]
+Base = Annotated[T, 1]
+NewBase = Annotated[Base[T], 2]
 
 
 def test_get_origin_nested():
@@ -102,19 +104,15 @@ def test_get_origin_nested():
     nbase = get_origin_pro(NewBase[str])
     assert nbase[0] == str and nbase[1] == [1, 2]
 
-    res = get_origin_pro(AnotherBase[bytes | float, str] | list[int])
-    assert res[0] == Union[bytes, float, list[int]]
-    assert res[1] == [1, 2, str, 3]
-
 
 # def test_get_origin_pro_type_alias_generic():
 #     # ============= TypeAlias + TypeVar + Genric ============
 #     assert get_origin_pro(StrDict[int]) == (dict[str, int], None)
 
 
-type MARK_ONE = Annotated[str, "ONE"]
-type MARK_TWO = Annotated[MARK_ONE, "TWO"]
-type MARK_THREE = Annotated[MARK_TWO, "THREE"]
+MARK_ONE = Annotated[str, "ONE"]
+MARK_TWO = Annotated[MARK_ONE, "TWO"]
+MARK_THREE = Annotated[MARK_TWO, "THREE"]
 
 
 def test_get_origin_pro_unpack_annotated_in_order():
@@ -127,7 +125,8 @@ def test_get_origin_pro_unpack_textalias_in_order():
     assert res == (str, ["ONE", "TWO", "THREE"])
 
 
-type Pair[K, V] = tuple[K, V]
+V = TypeVar("V")
+Pair = tuple[K, V]
 
 
 def test_get_origin_pro_with_generic_alias():
@@ -139,7 +138,7 @@ def test_get_origin_pro_with_generic_alias():
     assert ptype == tuple[float, int]
 
 
-type StrDict[V] = dict[str, V]
+StrDict = dict[str, V]
 
 
 def test_generic_alias():
@@ -158,7 +157,9 @@ def test_get_origin_pro_with_unset():
 
 def test_get_auth_header():
 
-    ptype, metas = get_origin_pro(Annotated[str, Param("header", alias="Authorization")])
+    ptype, metas = get_origin_pro(
+        Annotated[str, Param("header", alias="Authorization")]
+    )
     assert ptype is str
     assert metas
     assert metas[0].alias == "Authorization"

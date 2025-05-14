@@ -520,7 +520,7 @@ async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
     assert text == "ok"
 
 
-type GET_RESP = Annotated[Text, status.OK]
+GET_RESP = Annotated[Text, status.OK]
 
 
 async def test_endpoint_with_resp_alias(rusers: Route, lc: LocalClient):
@@ -564,7 +564,8 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
     token = await res.json()
 
     decoder = jwt_decoder_factory(payload_type=UserProfile)
-    content = f"{token["token_type"].capitalize()} {token["access_token"]}"
+    token_type, token = token["token_type"], token["access_token"]
+    content = f"{token_type.capitalize()} {token}"
 
     payload = decoder(content)
     assert isinstance(payload, UserProfile)

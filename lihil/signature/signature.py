@@ -1,9 +1,9 @@
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Generic
 
 from ididi import DependentNode
 from msgspec import Struct, field
 
-from lihil.interface import Base, IEncoder, Record
+from lihil.interface import Base, IEncoder, Record, R
 from lihil.problems import ValidationProblem
 from lihil.vendors import (
     FormData,
@@ -36,7 +36,7 @@ class ParseResult(Record):
         return self.params[key]
 
 
-class EndpointSignature[R](Base):
+class EndpointSignature(Base, Generic[R]):
     route_path: str
 
     query_params: ParamMap[QueryParam[Any]]

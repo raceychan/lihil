@@ -1,17 +1,11 @@
 from collections.abc import Mapping
 from types import GenericAlias, UnionType
-from typing import (
-    Annotated,
-    Any,
-    Literal,
-    Sequence,
-    TypeAliasType,
-    TypeVar,
-    Union,
-    cast,
-    get_args,
-)
+from typing import Annotated, Any, Literal, Sequence, TypeVar, Union, cast, get_args
 from typing import get_origin as ty_get_origin
+
+from typing_extensions import TypeAliasType
+
+T = TypeVar("T")
 
 
 def union_types(subs: Sequence[type[Any]]) -> type | UnionType | GenericAlias | None:
@@ -23,7 +17,7 @@ def union_types(subs: Sequence[type[Any]]) -> type | UnionType | GenericAlias | 
         return None
     elif len(subs) == 1:
         return next(iter(subs))
-    return Union[*subs]  # type: ignore
+    return Union[tuple(subs)]  # type: ignore
 
 
 def is_py_singleton(t: Any) -> Literal[None, True, False]:
@@ -126,7 +120,7 @@ def recursive_get_args(type_: Any) -> tuple[Any, ...]:
     return type_args
 
 
-def deannotate[T](
+def deannotate(
     annt: Annotated[type[T], "Annotated"] | UnionType | GenericAlias,
 ) -> tuple[type[T], list[Any]] | tuple[type[T], None]:
     type_args = get_args(annt)
@@ -148,7 +142,7 @@ def deannotate[T](
     return (atype, flattened_metadata)
 
 
-def get_origin_pro[T](
+def get_origin_pro(
     type_: type[T] | UnionType | GenericAlias | TypeAliasType | TypeVar,
     metas: list[Any] | None = None,
     type_args: tuple[type, ...] | None = None,
@@ -207,20 +201,18 @@ def get_origin_pro[T](
             if umeta:
                 new_metas.extend(umeta)
         if not new_metas:
-            return get_origin_pro(Union[*utypes], metas, type_args)  # type: ignore
+            return get_origin_pro(Union[tuple(utypes)], metas, type_args)  # type: ignore
 
         if metas is None:
             metas = new_metas
         else:
             metas.extend(new_metas)
-        return get_origin_pro(Union[*utypes], metas, type_args)  # type: ignore
+        return get_origin_pro(Union[tuple(utypes)], metas, type_args)  # type: ignore
     else:
         return (cast(type, type_), cast(None, metas))
 
 
-def all_subclasses[T](
-    cls: type[T], ignore: set[type[Any]] | None = None
-) -> set[type[T]]:
+def all_subclasses(cls: type[T], ignore: set[type[Any]] | None = None) -> set[type[T]]:
     """
     Get all subclasses of a class recursively, avoiding repetition.
 

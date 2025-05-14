@@ -8,8 +8,8 @@ from typing import (
     MutableMapping,
     Optional,
     Union,
-    Unpack,
 )
+from typing_extensions import Unpack
 from urllib.parse import urlencode
 from uuid import uuid4
 
@@ -17,7 +17,7 @@ from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
 
 from lihil.errors import LihilError
-from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload
+from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload, R
 from lihil.routing import Endpoint, IEndpointProps, Route
 
 
@@ -495,7 +495,7 @@ class LocalClient:
         else:
             raise TypeError(f"Not supported type {app}")
 
-    def make_endpoint[R](
+    def make_endpoint(
         self,
         f: Callable[..., R],
         method: HTTP_METHODS = "GET",

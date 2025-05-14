@@ -6,11 +6,14 @@ from typing import (
     AsyncContextManager,
     AsyncGenerator,
     Callable,
+    Generic,
     Iterator,
     Literal,
     Mapping,
+    ParamSpec,
     Protocol,
     TypeGuard,
+    TypeVar,
     Union,
     get_args,
 )
@@ -26,8 +29,9 @@ from lihil.interface.asgi import IReceive as IReceive
 from lihil.interface.asgi import IScope as IScope
 from lihil.interface.asgi import ISend as ISend
 from lihil.interface.asgi import MiddlewareFactory as MiddlewareFactory
-from lihil.interface.marks import HTML as HTML
+
 # from lihil.interface.marks import AppState as AppState
+from lihil.interface.marks import HTML as HTML
 from lihil.interface.marks import Json as Json
 from lihil.interface.marks import Stream as Stream
 from lihil.interface.marks import Text as Text
@@ -39,24 +43,30 @@ from lihil.interface.struct import IEncoder as IEncoder
 from lihil.interface.struct import Payload as Payload
 from lihil.interface.struct import Record as Record
 
-type ParamSource = Literal["path", "query", "header", "cookie", "body"]
-type BodyContentType = Literal[
+T = TypeVar("T")
+P = ParamSpec("P")
+R = TypeVar("R")
+
+ParamSource = Literal["path", "query", "header", "cookie", "body"]
+BodyContentType = Literal[
     "application/json", "multipart/form-data", "application/x-www-form-urlencoded"
 ]
-type Func[**P, R] = Callable[P, R]
-
-type Maybe[T] = T | "_Missed"
-
-type StrDict = dict[str, Any]
-type MappingLike = Mapping[str, Any] | Record
-type RegularTypes = type | UnionType | GenericAlias
+Func = Callable[P, R]
 
 
-def get_maybe_vars[T](m: Maybe[T]) -> T | None:
-    return get_args(m)[0]
+StrDict = dict[str, Any]
+MappingLike = Mapping[str, Any] | Record
+RegularTypes = type | UnionType | GenericAlias
 
 
-def is_provided[T](t: Maybe[T]) -> TypeGuard[T]:
+def get_maybe_vars(m: T | "_Missed") -> T | None:
+    exclude_maybe = tuple(m for m in get_args(m) if m is not _Missed)
+    if exclude_maybe:
+        return Union[exclude_maybe]
+    return None
+
+
+def is_provided(t: T | "_Missed") -> TypeGuard[T]:
     return t is not MISSING
 
 
@@ -76,20 +86,20 @@ class _Missed:
 
 MISSING = _Missed()
 
+Maybe = _Missed | T
+Unset = UnsetType | T
 
-type Unset[T] = UnsetType | T
 
-
-def is_set[T](val: Unset[T]) -> TypeGuard[T]:
+def is_set(val: UnsetType | T) -> TypeGuard[T]:
     return val is not UNSET
 
 
-class ParamBase[T](Base):
+class ParamBase(Base, Generic[T]):
     name: str
     type_: type[T] | UnionType
     annotation: Any
     alias: str = ""
-    default: Maybe[T] = MISSING
+    default: T | _Missed = MISSING
     required: bool = False
 
     @property

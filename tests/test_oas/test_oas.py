@@ -163,7 +163,7 @@ async def test_ep_with_empty_resp():
     assert schema["200"].description == "No Content"
 
 
-type MyAlias = Annotated[Annotated[str, "hha"], "aloha"]
+MyAlias = Annotated[Annotated[str, "hha"], "aloha"]
 
 
 async def test_ep_with_annotated_resp():

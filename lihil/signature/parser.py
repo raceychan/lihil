@@ -6,7 +6,6 @@ from typing import (
     Any,
     Callable,
     Mapping,
-    TypeAliasType,
     TypeGuard,
     Union,
     cast,
@@ -22,10 +21,11 @@ from ididi.utils.typing_utils import is_builtin_type
 from msgspec import Struct, convert
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
+from typing_extensions import TypeAliasType
 
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
-from lihil.interface import IRequest, Maybe, ParamSource
+from lihil.interface import IRequest, ParamSource, R, T, _Missed
 from lihil.interface.marks import Struct
 from lihil.interface.struct import IDecoder
 from lihil.plugins.bus import EventBus
@@ -73,7 +73,7 @@ def is_body_param(annt: Any) -> bool:
         return issubclass(annt, Struct) or is_file_body(annt)
 
 
-def textdecoder_factory[T](
+def textdecoder_factory(
     param_type: type[T] | UnionType | GenericAlias,
 ) -> IDecoder[str | list[str], T]:
     if is_union_type(param_type):
@@ -129,7 +129,7 @@ def _is_form_body(param_pair: tuple[str, BodyParam[Any]] | None):
     return param.content_type == "multipart/form-data" and param.type_ is not bytes
 
 
-def formdecoder_factory[T](
+def formdecoder_factory(
     ptype: type[T] | UnionType,
 ) -> IDecoder[FormData, T] | IDecoder[bytes, T]:
 
@@ -166,16 +166,16 @@ def formdecoder_factory[T](
     return form_decoder
 
 
-def req_param_factory[T](
+def req_param_factory(
     name: str,
     alias: str,
     param_type: type[T] | UnionType,
     annotation: Any,
-    default: Maybe[T],
+    default: T | _Missed,
     decoder: IDecoder[str | list[str], T] | None = None,
     param_meta: ParamMeta | None = None,
     source: ParamSource = "query",
-) -> RequestParam[T]:
+) -> "RequestParam[T]":
 
     if isinstance(param_meta, ParamMeta) and param_meta.constraint:
         param_type = cast(type[T], Annotated[param_type, param_meta.constraint])
@@ -242,8 +242,8 @@ def is_lhl_primitive(param_type: Any) -> TypeGuard[type]:
         else:
             return is_lhl_primitive(type(param_type))
     else:
-
-        return param_type is IRequest or issubclass(param_type, LIHIL_PRIMITIVES)
+        type_origin = get_origin(param_type) or param_type
+        return param_type is IRequest or issubclass(type_origin, LIHIL_PRIMITIVES)
 
 
 class EndpointParser:
@@ -262,7 +262,7 @@ class EndpointParser:
 
     def _parse_node(
         self, node_type: INode[..., Any], node_config: NodeConfig | None = None
-    ) -> list[ParsedParam[Any]]:
+    ) -> list["ParsedParam[Any]"]:
         if node_config:
             node = self.graph.analyze(node_type, config=node_config)
         else:
@@ -280,14 +280,14 @@ class EndpointParser:
             params.extend(sub_params)
         return params
 
-    def _parse_rule_based[T](
+    def _parse_rule_based(
         self,
         name: str,
         param_type: type[T] | UnionType,
         annotation: Any,
-        default: Maybe[T],
+        default: _Missed | T,
         param_meta: ParamMeta | None = None,
-    ) -> ParsedParam[T] | list[ParsedParam[T]]:
+    ) -> "ParsedParam[T] | list[ParsedParam[T]]":
         if name in self.path_keys:  # simplest case
             self.seen_path.discard(name)
             req_param = req_param_factory(
@@ -311,7 +311,7 @@ class EndpointParser:
                 req_param = file_body_param(
                     name, param_type, annotation=annotation, default=default
                 )
-                req_param = cast(RequestParam[T], req_param)  # where T is UploadFile
+                req_param = cast("RequestParam[T]", req_param)  # where T is UploadFile
             else:
                 if param_meta and param_meta.decoder:
                     decoder = param_meta.decoder
@@ -341,15 +341,15 @@ class EndpointParser:
             )
         return req_param
 
-    def _parse_auth_header[T](
+    def _parse_auth_header(
         self,
         name: str,
         header_key: str,
         type_: type[T] | UnionType,
         annotation: Any,
-        default: Maybe[T],
+        default: _Missed | T,
         param_meta: ParamMeta,
-    ) -> ParsedParam[T]:
+    ) -> "ParsedParam[T]":
         if custom_decoder := param_meta.decoder:
             decoder = custom_decoder
         elif param_meta.extra and param_meta.extra.use_jwt:
@@ -371,14 +371,14 @@ class EndpointParser:
 
         return req_param
 
-    def _parse_header[T](
+    def _parse_header(
         self,
         name: str,
         type_: type[T] | UnionType,
         annotation: Any,
-        default: Maybe[T],
+        default: _Missed | T,
         param_meta: ParamMeta,
-    ) -> ParsedParam[T]:
+    ) -> "ParsedParam[T]":
         location = "header"
         header_key = param_meta.alias or to_kebab_case(name)
 
@@ -402,13 +402,13 @@ class EndpointParser:
             param_meta=param_meta,
         )
 
-    def _parse_body[T](
+    def _parse_body(
         self,
         name: str,
         param_alias: str,
         type_: type[T] | UnionType,
         annotation: Any,
-        default: Maybe[T],
+        default: _Missed | T,
         param_meta: ParamMeta,
     ) -> BodyParam[T]:
         if isinstance(param_meta, BodyMeta) and param_meta.form:
@@ -435,14 +435,14 @@ class EndpointParser:
             )
         return body_param
 
-    def _parse_declared[T](
+    def _parse_declared(
         self,
         name: str,
         type_: type[T] | UnionType,
         annotation: Any,
-        default: Maybe[T],
+        default: _Missed | T,
         param_meta: ParamMeta,
-    ) -> ParsedParam[T] | list[ParsedParam[T]]:
+    ) -> "ParsedParam[T] | list[ParsedParam[T]]":
         assert param_meta.source
         param_source = param_meta.source
         param_alias = param_meta.alias or name
@@ -476,12 +476,12 @@ class EndpointParser:
         )
         return req_param
 
-    def parse_param[T](
+    def parse_param(
         self,
         name: str,
         annotation: type[T] | UnionType | GenericAlias | TypeAliasType,
-        default: Maybe[T] = LIHIL_MISSING,
-    ) -> list[ParsedParam[T]]:
+        default: _Missed | T = LIHIL_MISSING,
+    ) -> list["ParsedParam[T]"]:
         parsed_type, pmetas = get_origin_pro(annotation)
         parsed_type = cast(type[T], parsed_type)
         param_meta: ParamMeta | None = None
@@ -551,7 +551,7 @@ class EndpointParser:
         )
         return ep_params
 
-    def parse[R](self, f: Callable[..., R]) -> EndpointSignature[R]:
+    def parse(self, f: Callable[..., R]) -> EndpointSignature[R]:
         func_sig = signature(f)
 
         params = self.parse_params(func_sig.parameters)

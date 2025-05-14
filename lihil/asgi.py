@@ -1,7 +1,7 @@
 from typing import Any, Sequence
 
 from lihil.errors import MiddlewareBuildError
-from lihil.interface.asgi import ASGIApp, MiddlewareFactory
+from lihil.interface.asgi import ASGIApp, MiddlewareFactory, TApp
 
 
 class ASGIBase:
@@ -9,9 +9,11 @@ class ASGIBase:
     def __init__(self, middlewares: list[MiddlewareFactory[Any]] | None):
         self.middle_factories: list[MiddlewareFactory[Any]] = middlewares or []
 
-    def add_middleware[M: ASGIApp](
+    def add_middleware(
         self,
-        middleware_factories: MiddlewareFactory[M] | Sequence[MiddlewareFactory[M]],
+        middleware_factories: (
+            MiddlewareFactory[TApp] | Sequence[MiddlewareFactory[TApp]]
+        ),
     ) -> None:
         """
         Accept one or more factories for ASGI middlewares

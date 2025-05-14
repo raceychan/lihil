@@ -6,15 +6,18 @@ from typing import (
     AsyncGenerator,
     Generator,
     Literal,
-    TypeAliasType,
     TypeGuard,
+    TypeVar,
     get_args,
 )
 from typing import get_origin as ty_get_origin
 
 from msgspec import Struct as Struct
+from typing_extensions import TypeAliasType
 
 from lihil.constant.status import Status
+
+T = TypeVar("T")
 
 LIHIL_RESPONSE_MARK = "__LIHIL_RESPONSE_MARK"
 LIHIL_PARAM_MARK = "__LIHIL_PARAM_MARK"
@@ -72,19 +75,18 @@ TEXT_RETURN_MARK = resp_mark("text")
 HTML_RETURN_MARK = resp_mark("html")
 STREAM_RETURN_MARK = resp_mark("stream")
 JSON_RETURN_MARK = resp_mark("json")
-RESP_RETURN_MARK = resp_mark("resp")
 EMPTY_RETURN_MARK = resp_mark("empty")
 JW_TOKEN_RETURN_MARK = resp_mark("jw_token")
 
 
-type Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
-type HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
-type Stream[T] = Annotated[
+Text = Annotated[str | bytes, TEXT_RETURN_MARK, "text/plain"]
+HTML = Annotated[str | bytes, HTML_RETURN_MARK, "text/html"]
+Stream = Annotated[
     AsyncGenerator[T, None] | Generator[T, None, None],
     STREAM_RETURN_MARK,
     "text/event-stream",
 ]
-type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
+Json = Annotated[T, JSON_RETURN_MARK, "application/json"]
 
 
 class Resp:
@@ -96,4 +98,4 @@ class Resp:
         self.code = code
 
 
-type ResponseMark = Literal["text", "html", "stream", "json", "empty", "jw_token"]
+ResponseMark = Literal["text", "html", "stream", "json", "empty", "jw_token"]

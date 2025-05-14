@@ -1,14 +1,8 @@
 from inspect import Parameter
 from types import GenericAlias, UnionType
-from typing import (
-    Any,
-    AsyncGenerator,
-    Generator,
-    Literal,
-    TypeAliasType,
-    TypeGuard,
-    get_args,
-)
+from typing import Any, AsyncGenerator, Generator, Generic, Literal, TypeGuard, get_args
+
+from typing_extensions import TypeAliasType
 
 from lihil.constant.status import code as get_status_code
 from lihil.constant.status import is_status
@@ -17,12 +11,13 @@ from lihil.interface import (
     MISSING,
     CustomEncoder,
     IEncoder,
-    Maybe,
     Record,
     RegularTypes,
+    T,
+    _Missed,
     is_provided,
 )
-from lihil.interface.marks import RESP_RETURN_MARK, ResponseMark, extract_resp_type
+from lihil.interface.marks import ResponseMark, extract_resp_type
 from lihil.signature.params import ParamMeta
 from lihil.utils.json import encode_json, encode_text
 from lihil.utils.typing import get_origin_pro, is_union_type
@@ -42,14 +37,14 @@ def parse_status(status: Any) -> int:
         raise InvalidStatusError(status)
 
 
-async def agen_encode_wrapper[T](
+async def agen_encode_wrapper(
     async_gen: AsyncGenerator[T, None], encoder: IEncoder[T]
 ) -> AsyncGenerator[bytes, None]:
     async for res in async_gen:
         yield encoder(res)
 
 
-def syncgen_encode_wrapper[T](
+def syncgen_encode_wrapper(
     sync_gen: Generator[T, None, None], encoder: IEncoder[T]
 ) -> Generator[bytes, None, None]:
     for res in sync_gen:
@@ -66,8 +61,8 @@ def is_annotated(annt: Any) -> TypeGuard[RegularTypes]:
     return is_provided(annt) and annt is not Parameter.empty
 
 
-class EndpointReturn[T](Record):
-    type_: Maybe[type[T]] | UnionType | GenericAlias | TypeAliasType | None
+class EndpointReturn(Record, Generic[T]):
+    type_: type[T] | UnionType | GenericAlias | TypeAliasType | _Missed | None
     status: int
     encoder: IEncoder[T]
     mark_type: ResponseMark = "json"
@@ -98,7 +93,7 @@ def parse_return_pro(
 
     encoder = None
     status = 200
-    mark_type = "resp"
+    mark_type = "json"
     content_type = "application/json"
     for idx, meta in enumerate(metas):
         if isinstance(meta, CustomEncoder):
@@ -111,7 +106,7 @@ def parse_return_pro(
                 if resp_type == "stream":
                     ret_type = get_args(annotation)[0]
                 content_type = metas[idx + 1]
-        elif isinstance(meta, TypeAliasType):
+        elif is_status(meta):
             status = get_status_code(meta)
         elif isinstance(meta, ParamMeta) and meta.extra and meta.extra.use_jwt:
             from lihil.auth.jwt import jwt_encoder_factory
@@ -141,7 +136,7 @@ def parse_return_pro(
 
 
 def parse_returns(
-    annt: Maybe[type[Any] | UnionType | TypeAliasType | GenericAlias],
+    annt: _Missed | type[Any] | UnionType | TypeAliasType | GenericAlias,
 ) -> dict[int, EndpointReturn[Any]]:
     if not is_annotated(annt):
         return {DEFAULT_RETURN.status: DEFAULT_RETURN}

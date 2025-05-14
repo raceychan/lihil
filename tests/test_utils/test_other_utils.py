@@ -4,7 +4,7 @@ from typing import Union
 
 import pytest
 
-from lihil.interface import MISSING, Base, Maybe, get_maybe_vars
+from lihil.interface import MISSING, Base, _Missed, get_maybe_vars
 from lihil.lihil import ThreadPoolExecutor
 from lihil.utils.json import encode_text
 from lihil.utils.string import to_kebab_case
@@ -56,10 +56,9 @@ def test_union_types():
 
 
 def test_interface_utils():
-    res = get_maybe_vars(Maybe[str | int])
+    res = get_maybe_vars(_Missed | str | int)
     assert res == str | int
-    with pytest.raises(IndexError):
-        assert get_maybe_vars(int) is None
+    assert get_maybe_vars(int) is None
     repr(MISSING)
 
     class MyBase(Base):

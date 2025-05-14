@@ -3,18 +3,20 @@ from inspect import Parameter, signature
 from types import MappingProxyType
 from typing import (
     Any,
+    Generic,
     Callable,
     ClassVar,
     Literal,
     Mapping,
-    TypeAliasType,
     cast,
     get_args,
     get_origin,
+    TypeVar,
 )
+from typing_extensions import TypeAliasType
 
 from lihil.constant import status as http_status
-from lihil.interface import ParamSource, Record
+from lihil.interface import ParamSource, Record, T
 from lihil.interface.problem import DetailBase, ProblemDetail
 from lihil.utils.json import encode_json
 from lihil.utils.string import to_kebab_case, trimdoc
@@ -27,9 +29,10 @@ user should just return response, we don't put it in threadpool as well.
 
 If they want to do other things, do it with message bus
 """
+Exc = TypeVar("Exc")
 
-type ExceptionHandler[Exc] = Callable[[Request, Exc], Response]
-type ErrorRegistry = MappingProxyType[
+ExceptionHandler = Callable[[Request, Exc], Response]
+ErrorRegistry = MappingProxyType[
     "type[DetailBase[Any]] | http_status.Status", ExceptionHandler[Any]
 ]
 
@@ -67,14 +70,15 @@ def parse_exception(
             return cast(type["DetailBase[Any]"], exc_origin)
         raise TypeError(f"Invalid exception type {exc}")
 
+DExc = TypeVar("DExc", bound=DetailBase[Any] | http_status.Status)
 
 def __erresp_factory_registry():
     # TODO: handler can annoate return with Resp[Response, 404]
     exc_handlers: dict[type[DetailBase[Any]], ExceptionHandler[Any]] = {}
     status_handlers: dict[int, ExceptionHandler[Any]] = {}
 
-    def _extract_exception[Exc: DetailBase[Any] | http_status.Status](
-        handler: ExceptionHandler[Exc],
+    def _extract_exception(
+        handler: ExceptionHandler[DExc],
     ) -> type[DetailBase[Any]] | int | list[type[DetailBase[Any]] | int]:
         sig = signature(handler)
         _, exc = sig.parameters.values()
@@ -85,9 +89,9 @@ def __erresp_factory_registry():
 
         return parse_exception(exc_annt)
 
-    def _solver[Exc: DetailBase[Any] | http_status.Status](
-        handler: ExceptionHandler[Exc],
-    ) -> ExceptionHandler[Exc]:
+    def _solver(
+        handler: ExceptionHandler[DExc],
+    ) -> ExceptionHandler[DExc]:
         """\
         >>>
         @solver
@@ -149,7 +153,7 @@ def __erresp_factory_registry():
     return MappingProxyType(exc_handlers), _solver, get_solver
 
 
-class HTTPException[T](Exception, DetailBase[T]):
+class HTTPException(Exception, DetailBase[T]):
     """
     Something Wrong with the client client.
     """
@@ -211,7 +215,7 @@ class HTTPException[T](Exception, DetailBase[T]):
         )
 
 
-class ErrorResponse[T](Response):
+class ErrorResponse(Response, Generic[T]):
     def __init__(
         self,
         detail: ProblemDetail[T],
@@ -229,7 +233,7 @@ LIHIL_ERRESP_REGISTRY, problem_solver, get_solver = __erresp_factory_registry()
 del __erresp_factory_registry
 
 
-class CustomValidationError[T](HTTPException[T]):
+class CustomValidationError(HTTPException[T]):
     detail: str = "custom decoding errro"
 
 

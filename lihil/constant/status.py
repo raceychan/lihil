@@ -1,142 +1,144 @@
 from http import HTTPStatus
-from typing import Any, Literal, TypeAliasType
+from typing import Any, Literal, get_args
 
-type CONTINUE = Literal[100]
+from typing_extensions import TypeAliasType
+
+CONTINUE = Literal[100]
 """#### This interim response indicates that the client should continue the request or ignore the response if the request is already finished."""
 
-type SWITCHING_PROTOCOLS = Literal[101]
+SWITCHING_PROTOCOLS = Literal[101]
 """This response indicates that the server is switching protocols as requested by the client."""
 
-type PROCESSING = Literal[102]
+PROCESSING = Literal[102]
 """#### Indicates that the server has received and is processing the request, but no response is available yet."""
 
-type EARLY_HINTS = Literal[103]
+EARLY_HINTS = Literal[103]
 """#### Used to return some response headers before the final HTTP message."""
 
-type OK = Literal[200]
+OK = Literal[200]
 """#### The request has succeeded."""
 
-type CREATED = Literal[201]
+CREATED = Literal[201]
 """#### The request has succeeded, and a new resource has been created as a result."""
 
-type ACCEPTED = Literal[202]
+ACCEPTED = Literal[202]
 """#### The request has been received but not yet acted upon."""
 
-type NON_AUTHORITATIVE_INFORMATION = Literal[203]
+NON_AUTHORITATIVE_INFORMATION = Literal[203]
 """#### The request was successful, but the returned meta-information is not from the origin server."""
 
-type NO_CONTENT = Literal[204]
+NO_CONTENT = Literal[204]
 """#### The server successfully processed the request and is not returning any content."""
-type RESET_CONTENT = Literal[205]
+RESET_CONTENT = Literal[205]
 """#### The server successfully processed the request, but instructs the client to reset the document view."""
-type PARTIAL_CONTENT = Literal[206]
+PARTIAL_CONTENT = Literal[206]
 """#### The server is delivering only part of the resource due to a range header sent by the client."""
-type MULTI_STATUS = Literal[207]
+MULTI_STATUS = Literal[207]
 """#### Provides status for multiple independent operations."""
-type ALREADY_REPORTED = Literal[208]
+ALREADY_REPORTED = Literal[208]
 """#### The members of a DAV binding have already been enumerated in a previous part of the response."""
-type IM_USED = Literal[226]
+IM_USED = Literal[226]
 """#### The server has fulfilled a request for the resource, and the response is a representation of the result of one or more instance-manipulations applied to the current instance."""
-type MULTIPLE_CHOICES = Literal[300]
+MULTIPLE_CHOICES = Literal[300]
 """#### Indicates multiple options for the resource from which the client may choose."""
-type MOVED_PERMANENTLY = Literal[301]
+MOVED_PERMANENTLY = Literal[301]
 """#### This response code means that the requested resource has been permanently moved to a new URL."""
-type FOUND = Literal[302]
+FOUND = Literal[302]
 """#### The requested resource has been temporarily moved to a different URI."""
-type SEE_OTHER = Literal[303]
+SEE_OTHER = Literal[303]
 """#### The response to the request can be found under a different URI using a GET method."""
-type NOT_MODIFIED = Literal[304]
+NOT_MODIFIED = Literal[304]
 """#### Indicates that the resource has not been modified since the last request."""
-type USE_PROXY = Literal[305]
+USE_PROXY = Literal[305]
 """#### The requested resource must be accessed through the proxy given by the `Location` field."""
-type RESERVED = Literal[306]
+RESERVED = Literal[306]
 """#### This response code is no longer used and reserved for future use."""
-type TEMPORARY_REDIRECT = Literal[307]
+TEMPORARY_REDIRECT = Literal[307]
 """#### The requested resource is temporarily available at a different URI, and the client should use the same method for the request."""
-type PERMANENT_REDIRECT = Literal[308]
+PERMANENT_REDIRECT = Literal[308]
 """#### The requested resource is permanently available at a different URI, and the client should use the same method for future requests."""
-type BAD_REQUEST = Literal[400]
+BAD_REQUEST = Literal[400]
 """#### The server cannot process the request due to client error (e.g., malformed request syntax)."""
-type UNAUTHORIZED = Literal[401]
+UNAUTHORIZED = Literal[401]
 """#### Authentication is required and has failed or has not yet been provided."""
-type PAYMENT_REQUIRED = Literal[402]
+PAYMENT_REQUIRED = Literal[402]
 """#### Reserved for future use; initially intended for digital payment systems."""
-type FORBIDDEN = Literal[403]
+FORBIDDEN = Literal[403]
 """#### The client does not have access rights to the content."""
-type NOT_FOUND = Literal[404]
+NOT_FOUND = Literal[404]
 """#### The server cannot find the requested resource."""
-type METHOD_NOT_ALLOWED = Literal[405]
+METHOD_NOT_ALLOWED = Literal[405]
 """#### The request method is known by the server but is not supported for the target resource."""
-type NOT_ACCEPTABLE = Literal[406]
+NOT_ACCEPTABLE = Literal[406]
 """#### The requested resource is only capable of generating content not acceptable according to the Accept headers sent in the request."""
-type PROXY_AUTHENTICATION_REQUIRED = Literal[407]
+PROXY_AUTHENTICATION_REQUIRED = Literal[407]
 """#### The client must first authenticate with the proxy."""
-type REQUEST_TIMEOUT = Literal[408]
+REQUEST_TIMEOUT = Literal[408]
 """#### The server timed out waiting for the request."""
-type CONFLICT = Literal[409]
+CONFLICT = Literal[409]
 """#### Indicates a conflict with the current state of the resource."""
-type GONE = Literal[410]
+GONE = Literal[410]
 """#### Indicates that the resource is no longer available and will not be available again."""
-type LENGTH_REQUIRED = Literal[411]
+LENGTH_REQUIRED = Literal[411]
 """#### The request did not specify the length of its content, which is required by the resource."""
-type PRECONDITION_FAILED = Literal[412]
+PRECONDITION_FAILED = Literal[412]
 """#### The server does not meet one of the preconditions specified by the client."""
-type REQUEST_ENTITY_TOO_LARGE = Literal[413]
+REQUEST_ENTITY_TOO_LARGE = Literal[413]
 """#### The request entity is larger than the server is willing or able to process."""
-type REQUEST_URI_TOO_LONG = Literal[414]
+REQUEST_URI_TOO_LONG = Literal[414]
 """#### The URI provided was too long for the server to process."""
-type UNSUPPORTED_MEDIA_TYPE = Literal[415]
-"""#### The request entity has a media type that the server or resource does not support."""
-type REQUESTED_RANGE_NOT_SATISFIABLE = Literal[416]
+UNSUPPORTED_MEDIA_TYPE = Literal[415]
+"""#### The request entity has a media that the server or resource does not support."""
+REQUESTED_RANGE_NOT_SATISFIABLE = Literal[416]
 """#### The client has asked for a portion of the file, but the server cannot supply that portion."""
-type EXPECTATION_FAILED = Literal[417]
+EXPECTATION_FAILED = Literal[417]
 """#### The server cannot meet the requirements of the Expect request-header field."""
-type IM_A_TEAPOT = Literal[418]
+IM_A_TEAPOT = Literal[418]
 """#### A humorous response indicating that the server refuses to brew coffee because it is a teapot."""
-type MISDIRECTED_REQUEST = Literal[421]
+MISDIRECTED_REQUEST = Literal[421]
 """#### The request was directed at a server that is not able to produce a response."""
-type UNPROCESSABLE_ENTITY = Literal[422]
+UNPROCESSABLE_ENTITY = Literal[422]
 """#### The request was well-formed but could not be processed due to semantic errors."""
-type LOCKED = Literal[423]
+LOCKED = Literal[423]
 """#### The resource that is being accessed is locked."""
-type FAILED_DEPENDENCY = Literal[424]
+FAILED_DEPENDENCY = Literal[424]
 """#### The request failed due to failure of a previous request."""
-type TOO_EARLY = Literal[425]
+TOO_EARLY = Literal[425]
 """#### Indicates that the server is unwilling to risk processing a request that might be replayed."""
-type UPGRADE_REQUIRED = Literal[426]
+UPGRADE_REQUIRED = Literal[426]
 """#### The client should switch to a different protocol as indicated in the `Upgrade` header field."""
-type PRECONDITION_REQUIRED = Literal[428]
+PRECONDITION_REQUIRED = Literal[428]
 """#### The server requires the request to be conditional to prevent conflicts."""
-type TOO_MANY_REQUESTS = Literal[429]
+TOO_MANY_REQUESTS = Literal[429]
 """#### The user has sent too many requests in a given amount of time (rate limiting)."""
-type REQUEST_HEADER_FIELDS_TOO_LARGE = Literal[431]
+REQUEST_HEADER_FIELDS_TOO_LARGE = Literal[431]
 """#### The server refuses to process the request because its header fields are too large."""
-type UNAVAILABLE_FOR_LEGAL_REASONS = Literal[451]
+UNAVAILABLE_FOR_LEGAL_REASONS = Literal[451]
 """#### The client has requested a resource that is unavailable due to legal reasons, such as censorship or government-mandated blocking."""
-type INTERNAL_SERVER_ERROR = Literal[500]
+INTERNAL_SERVER_ERROR = Literal[500]
 """#### A generic error message indicating that the server encountered an unexpected condition that prevented it from fulfilling the request."""
-type NOT_IMPLEMENTED = Literal[501]
+NOT_IMPLEMENTED = Literal[501]
 """#### The server does not recognize the request method or lacks the ability to fulfill it."""
-type BAD_GATEWAY = Literal[502]
+BAD_GATEWAY = Literal[502]
 """#### The server received an invalid response from the upstream server while acting as a gateway or proxy."""
-type SERVICE_UNAVAILABLE = Literal[503]
+SERVICE_UNAVAILABLE = Literal[503]
 """#### The server is currently unavailable due to overload or maintenance."""
-type GATEWAY_TIMEOUT = Literal[504]
+GATEWAY_TIMEOUT = Literal[504]
 """#### The gateway or proxy server did not receive a timely response from the upstream server."""
-type HTTP_VERSION_NOT_SUPPORTED = Literal[505]
+HTTP_VERSION_NOT_SUPPORTED = Literal[505]
 """#### The HTTP version used in the request is not supported by the server."""
-type VARIANT_ALSO_NEGOTIATES = Literal[506]
+VARIANT_ALSO_NEGOTIATES = Literal[506]
 """#### The server has an internal configuration error: during content negotiation, the chosen variant is configured to engage in content negotiation itself, which results in circular references when creating responses."""
-type INSUFFICIENT_STORAGE = Literal[507]
+INSUFFICIENT_STORAGE = Literal[507]
 """#### The method could not be performed on the resource because the server is unable to store the representation needed to successfully complete the request."""
-type LOOP_DETECTED = Literal[508]
+LOOP_DETECTED = Literal[508]
 """#### The server detected an infinite loop while processing the request."""
-type NOT_EXTENDED = Literal[510]
+NOT_EXTENDED = Literal[510]
 """#### The client request declares an HTTP Extension (RFC 2774) that should be used to process the request, but the extension is not supported."""
-type NETWORK_AUTHENTICATION_REQUIRED = Literal[511]
+NETWORK_AUTHENTICATION_REQUIRED = Literal[511]
 """#### Indicates that the client needs to authenticate to gain network access."""
 
-type Status = Literal[
+Status = Literal[
     CONTINUE,
     SWITCHING_PROTOCOLS,
     PROCESSING,
@@ -205,7 +207,11 @@ type Status = Literal[
 
 
 def is_status(status: Any) -> bool:
-    return status in Status.__value__.__args__
+    if not (args := get_args(status)):
+        return False
+    if not args:
+        return False
+    return args[0] in Status.__args__
 
 
 STATUS_CODE: dict[TypeAliasType, Status] = {

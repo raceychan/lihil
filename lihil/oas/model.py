@@ -8,7 +8,7 @@ from lihil.interface import UNSET, Base, Unset
 GEZero = Annotated[int, Meta(ge=0)]
 
 
-type SecuritySchemeTypes = Literal["apiKey", "http", "oauth2", "openIdConnect"]
+SecuritySchemeTypes = Literal["apiKey", "http", "oauth2", "openIdConnect"]
 
 
 class OASB(Base):

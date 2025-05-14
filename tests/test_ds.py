@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Annotated
 
 from msgspec.json import encode
@@ -19,7 +19,7 @@ def test_uuid_factory():
 
 def test_ts_factory():
     assert isinstance(utc_now(), datetime)
-    assert utc_now().tzinfo is UTC
+    assert utc_now().tzinfo is timezone.utc
 
 
 def test_evenlop_build_encoder():

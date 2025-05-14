@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Literal, Mapping, Union, overload
+from typing import Any, ClassVar, Literal, Mapping, Union, overload, Generic, TypeVar
 
 from ididi import DependentNode
 from msgspec import DecodeError
@@ -7,7 +7,7 @@ from msgspec import Struct, ValidationError, field
 from starlette.datastructures import FormData
 
 from lihil.errors import NotSupportedError
-from lihil.interface import BodyContentType, ParamBase, ParamSource, is_provided
+from lihil.interface import BodyContentType, ParamBase, ParamSource, is_provided, T
 from lihil.interface.struct import Base, IDecoder
 from lihil.problems import (
     CustomDecodeErrorMessage,
@@ -20,10 +20,12 @@ from lihil.problems import (
 from lihil.utils.typing import is_mapping_type, is_nontextual_sequence
 from lihil.vendors import FormData, Headers, QueryParams
 
-type RequestParam[T] = PathParam[T] | QueryParam[T] | HeaderParam[T] | CookieParam[T]
-type ParsedParam[T] = RequestParam[T] | BodyParam[T] | DependentNode | StateParam
-type ParamResult[T] = tuple[T, None] | tuple[None, ValidationProblem]
-type ParamMap[T] = dict[str, T]
+D = TypeVar("D")
+
+RequestParam = "PathParam[T] | QueryParam[T] | HeaderParam[T] | CookieParam[T]"
+ParsedParam = "RequestParam[T] | BodyParam[T] | DependentNode | StateParam"
+ParamResult = tuple[T, None] | tuple[None, ValidationProblem]
+ParamMap = dict[str, T]
 
 
 class StateParam(ParamBase[Any]): ...
@@ -89,7 +91,7 @@ def Param(
     extra_json_schema: Union[dict[str, Any], None] = None,
     extra: Union[dict[str, Any], None] = None,
 ) -> ParamMeta:
-    param_sources: tuple[str, ...] = ParamSource.__value__.__args__
+    param_sources: tuple[str, ...] = ParamSource.__args__
     if source is not None and source not in param_sources:
         raise RuntimeError(f"Invalid source {source}, expected one of {param_sources}")
     if any(
@@ -144,7 +146,7 @@ def Param(
     return meta
 
 
-class Decodable[D, T](ParamBase[T], kw_only=True):
+class Decodable(ParamBase[T], Generic[D,T], kw_only=True):
     source: ClassVar[ParamSource]
     decoder: IDecoder[Any, T] = None  # type: ignore
 
@@ -179,7 +181,7 @@ class Decodable[D, T](ParamBase[T], kw_only=True):
         return None, error
 
 
-class PathParam[T](Decodable[str, T], kw_only=True):
+class PathParam(Decodable[str, T], Generic[T], kw_only=True):
     source: ClassVar[ParamSource] = "path"
 
     def __post_init__(self):
@@ -198,7 +200,7 @@ class PathParam[T](Decodable[str, T], kw_only=True):
         return self.validate(raw)
 
 
-class QueryParam[T](Decodable[str | list[str], T]):
+class QueryParam(Decodable[str | list[str], Generic[T]]):
     source: ClassVar[ParamSource] = "query"
     decoder: IDecoder[str | list[str], T] = None  # type: ignore
     multivals: bool = False
@@ -228,16 +230,16 @@ class QueryParam[T](Decodable[str | list[str], T]):
         return self.validate(raw)
 
 
-class HeaderParam[T](QueryParam[T]):
+class HeaderParam(QueryParam[T]):
     source: ClassVar[ParamSource] = "header"
 
 
-class CookieParam[T](HeaderParam[T], kw_only=True):
+class CookieParam(HeaderParam[T], kw_only=True):
     alias = "cookie"
     cookie_name: str
 
 
-class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
+class BodyParam(Decodable[bytes | FormData, T], kw_only=True):
     source: ClassVar[ParamSource] = "body"
     content_type: BodyContentType = "application/json"
 
@@ -257,7 +259,7 @@ class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
 
 
 class EndpointParams(Base, kw_only=True):
-    params: ParamMap[RequestParam[Any]] = field(default_factory=dict)
+    params: ParamMap["RequestParam[Any]"] = field(default_factory=dict)
     bodies: ParamMap[BodyParam[Any]] = field(default_factory=dict)
     nodes: ParamMap[DependentNode] = field(default_factory=dict)
     states: ParamMap[StateParam] = field(default_factory=dict)
@@ -271,7 +273,7 @@ class EndpointParams(Base, kw_only=True):
     @overload
     def get_source(self, source: Literal["path"]) -> ParamMap[PathParam[Any]]: ...
 
-    def get_source(self, source: ParamSource) -> Mapping[str, RequestParam[Any]]:
+    def get_source(self, source: ParamSource) -> Mapping[str, "RequestParam[Any]"]:
         return {n: p for n, p in self.params.items() if p.source == source}
 
     def get_body(self) -> tuple[str, BodyParam[Any]] | None:

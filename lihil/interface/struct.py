@@ -3,25 +3,29 @@ from typing import (
     Any,
     Callable,
     ClassVar,
+    Generic,
     Literal,
     Protocol,
-    Self,
-    dataclass_transform,
+    TypeVar,
 )
 
 from msgspec import Struct
 from msgspec.structs import asdict as struct_asdict
 from msgspec.structs import replace as struct_replace
+from typing_extensions import Self, dataclass_transform
 
 from lihil.interface import UNSET
 from lihil.interface.marks import EMPTY_RETURN_MARK
 
+I = TypeVar("I")
+T = TypeVar("T")
 
-class IDecoder[I, T](Protocol):
+
+class IDecoder(Protocol, Generic[I, T]):
     def __call__(self, content: I, /) -> T: ...
 
 
-class IEncoder[T](Protocol):
+class IEncoder(Protocol, Generic[T]):
     def __call__(self, content: T, /) -> bytes: ...
 
 
@@ -111,4 +115,4 @@ def empty_encoder(param: Any) -> bytes:
     return b""
 
 
-type Empty = Annotated[Literal[None], CustomEncoder(empty_encoder), EMPTY_RETURN_MARK]
+Empty = Annotated[Literal[None], CustomEncoder(empty_encoder), EMPTY_RETURN_MARK]

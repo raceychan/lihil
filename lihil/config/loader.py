@@ -1,6 +1,6 @@
 import abc
 from pathlib import Path
-from typing import Any, ClassVar, Sequence, cast
+from typing import Any, ClassVar, Sequence, TypeVar, cast
 
 from msgspec import convert
 
@@ -8,6 +8,8 @@ from lihil.config.app_config import AppConfig
 from lihil.config.parser import build_parser, format_nested_dict
 from lihil.errors import AppConfiguringError
 from lihil.interface import StrDict, is_provided
+
+TConfig = TypeVar("TConfig", bound=AppConfig)
 
 
 def deep_update(original: StrDict, update_data: StrDict) -> StrDict:
@@ -145,7 +147,10 @@ class TOMLFileLoader(LoaderBase):
     supported_formats = ".toml"
 
     def loads(self, file: Path) -> StrDict:
-        import tomllib as tomli  # tomllib available ^3.11
+        try:
+            import tomllib as tomli  # tomllib available ^3.11
+        except ImportError:
+            import tomli
 
         try:
             config = tomli.loads(file.read_text())["lihil"]
@@ -212,9 +217,9 @@ class ConfigLoader:
             deep_update(result, data)
         return result
 
-    def load_config[T: AppConfig](
-        self, *config_files: Path | str, config_type: type[T] = AppConfig
-    ) -> T:
+    def load_config(
+        self, *config_files: Path | str, config_type: type[TConfig] = AppConfig
+    ) -> TConfig:
         config_dict = self.load_files(*config_files)
         cli_config = load_from_cli(config_type=config_type)
         if cli_config:

@@ -12,14 +12,16 @@ from typing import (
     AsyncGenerator,
     Awaitable,
     Callable,
+    Generic,
     Mapping,
-    Unpack,
+    TypeVar,
     cast,
     final,
     overload,
 )
 
 from ididi import Graph
+from typing_extensions import Unpack
 from uvicorn import run as uvi_run
 
 from lihil.config import IAppConfig, lhl_get_config, lhl_set_config
@@ -32,6 +34,9 @@ from lihil.interface import (
     ISend,
     MappingLike,
     MiddlewareFactory,
+    P,
+    R,
+    T,
 )
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
@@ -48,24 +53,26 @@ from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 
-type UState = MappingLike | None
+UState = MappingLike | None
 "App state that yield from user lifespan"
-type LifeSpan[S: UState] = Callable[
-    ["Lihil[None]"], AsyncContextManager[S] | AsyncGenerator[S, None]
+
+TState = TypeVar("TS", bound=UState)
+LifeSpan = Callable[
+    ["Lihil[None]"], AsyncContextManager[TState] | AsyncGenerator[TState, None]
 ]
-type WrappedLifSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
+WrappedLifSpan = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 
 
 EMPTY_APP_STATE: Mapping[str, Any] = MappingProxyType({})
 
 
-def lifespan_wrapper[S: UState](ls: LifeSpan[S] | None) -> WrappedLifSpan[S] | None:
+def lifespan_wrapper(ls: LifeSpan[TState] | None) -> WrappedLifSpan[TState] | None:
     if ls is None:
         return None
     if isasyncgenfunction(ls):
         return asynccontextmanager(ls)
     elif (wrapped := getattr(ls, "__wrapped__", None)) and isasyncgenfunction(wrapped):
-        return cast(WrappedLifSpan[S], ls)
+        return cast(WrappedLifSpan[TState], ls)
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
@@ -94,8 +101,8 @@ class StaticRoute(RouteBase):
 
 
 @final
-class Lihil[S: UState](ASGIBase):
-    _userls: WrappedLifSpan[S | None] | None
+class Lihil(ASGIBase, Generic[TState]):
+    _userls: WrappedLifSpan[TState | None] | None
 
     def __init__(
         self,
@@ -106,7 +113,7 @@ class Lihil[S: UState](ASGIBase):
         max_thread_workers: int | None = None,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        lifespan: LifeSpan[S] | None = None,
+        lifespan: LifeSpan[TState] | None = None,
     ):
         super().__init__(middlewares)
         if app_config is not None:
@@ -145,7 +152,7 @@ class Lihil[S: UState](ASGIBase):
         return lhl_repr + routes_repr + "\n]"
 
     @property
-    def state(self) -> S | None:
+    def state(self) -> TState | None:
         return self._state
 
     @asynccontextmanager
@@ -324,120 +331,120 @@ class Lihil[S: UState](ASGIBase):
     # ============ Http Methods ================
 
     @overload
-    def get[**P, R](
+    def get(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def get[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def get(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def get[**P, R](
+    def get(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
         assert isinstance(self.root, Route)
         return self.root.get(func, **epconfig)
 
     @overload
-    def put[**P, R](
+    def put(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def put[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def put(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def put[**P, R](
+    def put(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         assert isinstance(self.root, Route)
         return self.root.put(func, **epconfig)
 
     @overload
-    def post[**P, R](
+    def post(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def post[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def post(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def post[**P, R](
+    def post(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).post(func, **epconfig)
 
     @overload
-    def delete[**P, R](
+    def delete(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def delete[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def delete(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def delete[**P, R](
+    def delete(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).delete(func, **epconfig)
 
     @overload
-    def patch[**P, R](
+    def patch(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def patch[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def patch(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def patch[**P, R](
+    def patch(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).patch(func, **epconfig)
 
     @overload
-    def head[**P, R](
+    def head(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def head[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def head(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def head[**P, R](
+    def head(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).head(func, **epconfig)
 
     @overload
-    def options[**P, R](
+    def options(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def options[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def options(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def options[**P, R](
+    def options(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).options(func, **epconfig)
 
     @overload
-    def trace[**P, R](
+    def trace(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def trace[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def trace(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def trace[**P, R](
+    def trace(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).trace(func, **epconfig)
 
     @overload
-    def connect[**P, R](
+    def connect(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def connect[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def connect(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def connect[**P, R](
+    def connect(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).connect(func, **epconfig)

@@ -1,23 +1,15 @@
 from time import time
 from types import UnionType
-from typing import (
-    Annotated,
-    Any,
-    ClassVar,
-    Literal,
-    Required,
-    TypedDict,
-    cast,
-    dataclass_transform,
-)
+from typing import Annotated, Any, ClassVar, Literal, TypedDict, TypeVar, cast
 from uuid import uuid4
 
 from msgspec import convert
+from typing_extensions import Required, dataclass_transform
 
 from lihil.config import lhl_get_config
 from lihil.config.app_config import IAppConfig, IJWTConfig
 from lihil.errors import MissingDependencyError, NotSupportedError
-from lihil.interface import MISSING, UNSET, Base, Unset, field, is_provided
+from lihil.interface import MISSING, UNSET, Base, T, Unset, field, is_provided
 from lihil.problems import InvalidAuthError
 from lihil.signature.params import Param
 from lihil.utils.json import encode_json
@@ -118,7 +110,7 @@ except ImportError:
     pass
 else:
 
-    def jwt_encoder_factory[T](
+    def jwt_encoder_factory(
         *, payload_type: type[T] | UnionType, app_config: IAppConfig | None = None
     ):
         app_config = app_config or lhl_get_config()
@@ -164,7 +156,7 @@ else:
 
         return encoder
 
-    def jwt_decoder_factory[T](
+    def jwt_decoder_factory(
         *, payload_type: type[T] | UnionType, app_config: IAppConfig | None = None
     ):
 
@@ -197,8 +189,10 @@ else:
         return decoder
 
 
-type JWTAuth[T: JWTPayload | str | bytes] = Annotated[
-    T,
+TPayload = TypeVar("TPayload", bound=JWTPayload | str | bytes)
+
+JWTAuth = Annotated[
+    TPayload,
     Param("header", alias="Authorization", jwt=True),
     "application/json",
 ]

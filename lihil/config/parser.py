@@ -5,7 +5,7 @@ from msgspec.structs import FieldInfo, fields
 from typing_extensions import Doc
 
 from lihil.config.app_config import ConfigBase
-from lihil.interface import MISSING, UNSET, Record, StrDict, is_provided
+from lihil.interface import MISSING, P, Record, StrDict, UnsetType, _Missed, is_provided
 from lihil.utils.typing import get_origin_pro, is_union_type
 
 
@@ -51,7 +51,7 @@ class StoreTrueIfProvided(argparse.Action):
         # Set a flag to indicate this argument was provided
         setattr(namespace, f"{self.dest}_provided", True)
 
-    def __init__[**P](self, *args: P.args, **kwargs: P.kwargs):
+    def __init__(self, *args: P.args, **kwargs: P.kwargs):
         # Set nargs to 0 for store_true action
         kwargs["nargs"] = 0
         kwargs["default"] = MISSING
@@ -80,7 +80,7 @@ def parse_field_type(field: FieldInfo) -> ConfigField:
 
     if is_union_type(ftype):
         unions = get_args(ftype)
-        ftype = next(filter(lambda x: x not in (None, UNSET, MISSING), unions))
+        ftype = next(filter(lambda x: x not in (None, UnsetType, _Missed), unions))
 
     return ConfigField(cast(type, ftype), doc)
 

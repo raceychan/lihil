@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import cast, overload
+from typing import TypeVar, cast, overload
 
 from .app_config import AppConfig as AppConfig
 from .app_config import ConfigBase as ConfigBase
@@ -10,6 +10,9 @@ from .app_config import ServerConfig as ServerConfig
 from .loader import ConfigLoader as ConfigLoader
 
 DEFAULT_CONFIG: IAppConfig = AppConfig()
+
+
+TConfig = TypeVar("TConfig", bound=AppConfig)
 
 
 def config_registry():
@@ -23,9 +26,9 @@ def config_registry():
         else:
             _app_config = app_config
 
-    def _read_config[T: AppConfig](
-        *config_files: str | Path, config_type: type[T] = AppConfig
-    ) -> T:
+    def _read_config(
+        *config_files: str | Path, config_type: type[TConfig] = AppConfig
+    ) -> TConfig:
         """Read config from config file as well as from command line arguments
         Read Order
         files -> env vars -> cli args"""
@@ -34,13 +37,13 @@ def config_registry():
         return _app_config
 
     @overload
-    def _get_config[T](config_type: type[T]) -> T: ...
+    def _get_config(config_type: type[TConfig]) -> TConfig: ...
     @overload
     def _get_config(config_type: None = None) -> IAppConfig: ...
 
-    def _get_config[T](config_type: type[T] | None = None) -> T:
+    def _get_config(config_type: type[TConfig] | None = None) -> TConfig | IAppConfig:
         "Get current config, low overhead"
-        return cast(T, _app_config)
+        return cast(TConfig, _app_config)
 
     return _set_config, _read_config, _get_config
 

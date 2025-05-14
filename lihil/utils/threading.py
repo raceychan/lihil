@@ -4,11 +4,13 @@ from contextlib import asynccontextmanager
 from contextvars import copy_context
 from functools import partial, wraps
 from inspect import iscoroutinefunction
-from typing import Any, AsyncIterator, Awaitable, Callable, ContextManager, cast
+from typing import Any, AsyncIterator, Awaitable, Callable, ContextManager, cast, TypeVar
 
+
+T = TypeVar("T")
 
 @asynccontextmanager
-async def sync_ctx_to_thread[T](
+async def sync_ctx_to_thread(
     loop: AbstractEventLoop, workers: ThreadPoolExecutor, cm: ContextManager[T]
 ) -> AsyncIterator[T]:
     exc_type, exc, tb = None, None, None
@@ -26,12 +28,12 @@ async def sync_ctx_to_thread[T](
         await loop.run_in_executor(workers, cm_exit, exc_type, exc, tb)
 
 
-def async_wrapper[R](
-    func: Callable[..., R],
+def async_wrapper(
+    func: Callable[..., T],
     *,
     threaded: bool = True,
     workers: ThreadPoolExecutor | None = None,
-) -> Callable[..., Awaitable[R]]:
+) -> Callable[..., Awaitable[T]]:
     # TODO: use our own Threading workers
     if iscoroutinefunction(func):
         return func
@@ -39,17 +41,17 @@ def async_wrapper[R](
     loop = get_running_loop()
 
     @wraps(func)
-    async def inner(**params: Any) -> R:
+    async def inner(**params: Any) -> T:
         ctx = copy_context()
         func_call = partial(ctx.run, func, **params)
         res = await loop.run_in_executor(workers, func_call)
-        return cast(R, res)
+        return cast(T, res)
 
     if threaded:
         return inner
 
     @wraps(func)
-    async def dummy(**params: Any) -> R:
+    async def dummy(**params: Any) -> T:
         return func(**params)
 
     return dummy

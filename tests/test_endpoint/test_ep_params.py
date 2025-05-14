@@ -464,8 +464,8 @@ def decoder1(c: str) -> str: ...
 def decoder2(c: str) -> str: ...
 
 
-type ParamP1 = Annotated[str, Param("query", decoder=decoder1)]
-type ParamP2 = Annotated[ParamP1, Param(decoder=decoder2)]
+ParamP1 = Annotated[str, Param("query", decoder=decoder1)]
+ParamP2 = Annotated[ParamP1, Param(decoder=decoder2)]
 
 
 def test_param_decoder_override(param_parser: EndpointParser):
@@ -512,7 +512,7 @@ def test_constraint_posint(param_parser: EndpointParser):
 
 from datetime import datetime
 
-type TZDATE = Annotated[datetime, Param(tz=True)]
+TZDATE = Annotated[datetime, Param(tz=True)]
 
 
 def test_constraint_dt(param_parser: EndpointParser):
