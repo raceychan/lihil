@@ -5,14 +5,14 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
 from types import MethodType, UnionType
-from typing import Annotated, Any, Protocol, Union, cast, get_args
+from typing import Annotated, Any, Protocol, Union, cast, get_args, get_origin as ty_get_origin
 from weakref import ref
 
 from ididi import Graph, Resolver
 from ididi.interfaces import GraphIgnore
 
 from lihil.ds.event import Envelope, Event
-from lihil.interface import MISSING, Record, lhl_get_origin
+from lihil.interface import MISSING, Record
 from lihil.utils.typing import all_subclasses
 
 UNION_META = (UnionType, Union)
@@ -175,7 +175,7 @@ def gather_types(annotation: Any) -> set[Any]:
         # raise Exception?
         return types
 
-    origin = lhl_get_origin(annotation)
+    origin = ty_get_origin(annotation)
     if not origin:
         types.add(annotation)
         types |= all_subclasses(annotation)

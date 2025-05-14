@@ -3,7 +3,7 @@ from typing import Annotated, Union
 import pytest
 from msgspec import Struct
 
-from lihil import Empty, HTTPException, Payload, Resp, Route, Text, status
+from lihil import Empty, HTTPException, Payload, Route, Text, status
 from lihil.auth.oauth import OAuth2PasswordFlow
 from lihil.config import OASConfig
 from lihil.interface import is_set
@@ -34,7 +34,7 @@ class Order(Payload, tag=True):
 
 @pytest.fixture
 def user_route():
-    route= Route("/user/{user_id}/order/{order_id}")
+    route = Route("/user/{user_id}/order/{order_id}")
     route.setup()
     return route
 
@@ -67,7 +67,7 @@ def test_get_hello_return(user_route: Route):
     @user_route.get
     async def get_hello(
         user_id: str, order_id: str, q: int, l: str, u: User
-    ) -> Resp[Text, status.OK]: ...
+    ) -> Annotated[Text, status.OK]: ...
 
     current_ep = user_route.get_endpoint(get_hello)
     user_route.setup()
@@ -107,7 +107,7 @@ def test_complex_route(complex_route: Route):
 
         __status__ = 404
 
-    async def get_user(user_id: str | int) -> Resp[Text, status.OK]:
+    async def get_user(user_id: str | int) -> Annotated[Text, status.OK]:
         if user_id != "5":
             raise UserNotFoundError("You can't see me!")
 
@@ -209,7 +209,7 @@ def test_detail_base_to_content():
 
 def test_ep_with_status_larger_than_300():
     async def create_user() -> (
-        Resp[str, status.NOT_FOUND] | Resp[int, status.INTERNAL_SERVER_ERROR]
+        Annotated[str, status.NOT_FOUND] | Annotated[int, status.INTERNAL_SERVER_ERROR]
     ): ...
 
     route = Route()
@@ -247,7 +247,7 @@ def test_ep_with_auth():
 
 
 def test_ep_with_mutliple_ret():
-    async def f() -> Resp[str, status.OK] | Resp[int | list[int], status.CREATED]: ...
+    async def f() -> Annotated[str, status.OK] | Annotated[int | list[int], status.CREATED]: ...
 
     lc = LocalClient()
 
@@ -257,7 +257,7 @@ def test_ep_with_mutliple_ret():
 
 
 def test_ep_with_auth_scheme():
-    async def f() -> Resp[str, status.OK] | Resp[int | list[int], status.CREATED]: ...
+    async def f() -> Annotated[str, status.OK] | Annotated[int | list[int], status.CREATED]: ...
 
     lc = LocalClient()
 

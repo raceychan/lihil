@@ -1,7 +1,8 @@
 from typing import Any
+
 import pytest
 
-from lihil import Resp, Route, status
+from lihil import Route, status, Annotated
 from lihil.plugins.bus import Event, EventBus
 from lihil.plugins.testclient import LocalClient
 
@@ -24,7 +25,7 @@ async def listen_twice(created: TodoCreated, _: Any):
 
 @pytest.fixture
 def bus_route():
-    route= Route("/bus", listeners=[listen_create, listen_twice])
+    route = Route("/bus", listeners=[listen_create, listen_twice])
     route.setup()
     return route
 
@@ -32,7 +33,7 @@ def bus_route():
 async def test_bus_is_singleton(bus_route: Route):
     async def create_todo(
         name: str, content: str, bus: EventBus
-    ) -> Resp[None, status.OK]:
+    ) -> Annotated[None, status.OK]:
         await bus.publish(TodoCreated(name, content))
 
     bus_route.post(create_todo)
@@ -46,7 +47,7 @@ async def test_bus_is_singleton(bus_route: Route):
 async def test_call_ep_invoke_bus(bus_route: Route):
     async def create_todo(
         name: str, content: str, bus: EventBus
-    ) -> Resp[None, status.OK]:
+    ) -> Annotated[None, status.OK]:
         await bus.publish(TodoCreated(name, content))
 
     bus_route.post(create_todo)

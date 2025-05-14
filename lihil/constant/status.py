@@ -1,23 +1,30 @@
 from http import HTTPStatus
-from typing import Literal, TypeAliasType
+from typing import Any, Literal, TypeAliasType
 
 type CONTINUE = Literal[100]
 """#### This interim response indicates that the client should continue the request or ignore the response if the request is already finished."""
-type SWITCHING_PROTOCOLS = Literal[101]
 
+type SWITCHING_PROTOCOLS = Literal[101]
 """This response indicates that the server is switching protocols as requested by the client."""
+
 type PROCESSING = Literal[102]
 """#### Indicates that the server has received and is processing the request, but no response is available yet."""
+
 type EARLY_HINTS = Literal[103]
 """#### Used to return some response headers before the final HTTP message."""
+
 type OK = Literal[200]
 """#### The request has succeeded."""
+
 type CREATED = Literal[201]
 """#### The request has succeeded, and a new resource has been created as a result."""
+
 type ACCEPTED = Literal[202]
 """#### The request has been received but not yet acted upon."""
+
 type NON_AUTHORITATIVE_INFORMATION = Literal[203]
 """#### The request was successful, but the returned meta-information is not from the origin server."""
+
 type NO_CONTENT = Literal[204]
 """#### The server successfully processed the request and is not returning any content."""
 type RESET_CONTENT = Literal[205]
@@ -195,6 +202,10 @@ type Status = Literal[
     NETWORK_AUTHENTICATION_REQUIRED,
 ]
 """ ### HTTP status code (https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml)"""
+
+
+def is_status(status: Any) -> bool:
+    return status in Status.__value__.__args__
 
 
 STATUS_CODE: dict[TypeAliasType, Status] = {

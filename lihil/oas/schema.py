@@ -145,7 +145,7 @@ def _single_field_schema(
     output = json_schema(param.type_)
     param_schema: dict[str, Any] = {
         "name": param.alias,
-        "in_": param.location,
+        "in_": param.source,
         "required": True,
     }
     if output.component:  # reference

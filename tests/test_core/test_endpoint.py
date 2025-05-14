@@ -1,27 +1,22 @@
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated
 
 import pytest
 from ididi import AsyncScope, Graph, Ignore, use
 from starlette.requests import Request
 
 from lihil import (
-    Cookie,
     Empty,
-    Form,
-    Header,
     Json,
-    Meta,
     Payload,
-    Query,
     Request,
-    Resp,
     Route,
     Stream,
     Text,
     UploadFile,
-    Use,
     field,
+    form,
+    param,
     status,
 )
 from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
@@ -67,16 +62,15 @@ def add_q(q: str, user_id: str) -> Ignore[str]:
     return q
 
 
-async def create_user(
-    user: User,
-    req: Request,
-    user_id: str,
-    func_dep: Annotated[str, use(add_q)],
-) -> Resp[Json[User], status.CREATED]:
-    return User(id=user.id, name=user.name, email=user.email)
-
-
 def test_return_status(rusers: Route):
+    async def create_user(
+        user: User,
+        req: Request,
+        user_id: str,
+        func_dep: Annotated[str, use(add_q)],
+    ) -> Annotated[Json[User], status.CREATED]:
+        return User(id=user.id, name=user.name, email=user.email)
+
     rusers.post(create_user)
     rusers.setup()
     ep = rusers.get_endpoint(create_user)
@@ -92,7 +86,7 @@ def test_status_conflict(rusers: Route):
 
     async def get_user(
         user_id: str,
-    ) -> Annotated[Resp[str, status.NO_CONTENT], "hello"]:
+    ) -> Annotated[Annotated[str, status.NO_CONTENT], "hello"]:
         return "hello"
 
     rusers.get(get_user)
@@ -207,7 +201,7 @@ async def test_scoped_endpoint(rusers: Route, lc: LocalClient):
 
 async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
-    async def get() -> Resp[Empty, 400]:
+    async def get() -> Annotated[Empty, status.BAD_REQUEST]:
         return "asdf"
 
     rusers.get(get)
@@ -226,7 +220,9 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
         username: str
         email: str
 
-    async def get(req: Request, fm: Form[UserInfo]) -> Resp[str, status.OK]:
+    async def get(
+        req: Request, fm: Annotated[UserInfo, form()]
+    ) -> Annotated[str, status.OK]:
         return fm
 
     rusers.get(get)
@@ -265,7 +261,9 @@ async def test_ep_requiring_missing_param(rusers: Route, lc: LocalClient):
         username: str
         email: str
 
-    async def get(req: Request, fm: Form[UserInfo]) -> Resp[str, 200]:
+    async def get(
+        req: Request, fm: Annotated[UserInfo, form()]
+    ) -> Annotated[str, status.OK]:
         return fm
 
     rusers.get(get)
@@ -302,7 +300,7 @@ async def test_ep_requiring_upload_file(rusers: Route, lc: LocalClient):
         username: str
         email: str
 
-    async def get(req: Request, myfile: UploadFile) -> Resp[str, 200]:
+    async def get(req: Request, myfile: UploadFile) -> Annotated[str, status.OK]:
         assert isinstance(myfile, UploadFile)
         return None
 
@@ -329,7 +327,7 @@ async def test_ep_requiring_upload_file(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_requiring_upload_file_fail(rusers: Route, lc: LocalClient):
-    async def get(req: Request, myfile: UploadFile) -> Resp[str, 200]:
+    async def get(req: Request, myfile: UploadFile) -> Annotated[str, status.OK]:
         return None
 
     rusers.get(get)
@@ -340,7 +338,9 @@ async def test_ep_requiring_upload_file_fail(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
-    async def get(by_form: Form[bytes]) -> Resp[Text, 200]:
+    async def get(
+        by_form: Annotated[bytes, form()],
+    ) -> Annotated[Text, status.OK]:
         assert isinstance(by_form, bytes)
         return "ok"
 
@@ -375,14 +375,15 @@ async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
-    async def get(by_form: Form[list[int]]) -> Resp[Text, 200]:
+    async def get(
+        by_form: Annotated[list[int], form()],
+    ) -> Annotated[Text, status.OK]:
         assert isinstance(by_form, bytes)
         return "ok"
 
     rusers.get(get)
     with pytest.raises(NotSupportedError):
         rusers.setup()
-        rusers.get_endpoint("GET").setup()
 
 
 async def test_ep_requiring_form_sequence_type(rusers: Route, lc: LocalClient):
@@ -390,7 +391,9 @@ async def test_ep_requiring_form_sequence_type(rusers: Route, lc: LocalClient):
         name: str
         phones: list[str]
 
-    async def get(by_form: Form[UserInfo]) -> Resp[Text, status.OK]:
+    async def get(
+        by_form: Annotated[UserInfo, param()],
+    ) -> Annotated[Text, status.OK]:
         assert isinstance(by_form, UserInfo)
         return "ok"
 
@@ -402,7 +405,9 @@ async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
         name: str
         phones: list[str]
 
-    async def get(user_id: Query[UserInfo]) -> Resp[Text, status.OK]:
+    async def get(
+        user_id: Annotated[UserInfo, param("query")],
+    ) -> Annotated[Text, status.OK]:
         return "ok"
 
     rusers.get(get)
@@ -415,7 +420,7 @@ async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
 
 async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
 
-    async def get(aloha: Annotated[int, "aloha"]) -> Resp[Text, status.OK]:
+    async def get(aloha: Annotated[int, "aloha"]) -> Annotated[Text, status.OK]:
         return "ok"
 
     rusers.get(get)
@@ -429,7 +434,7 @@ async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
 
 async def test_ep_with_random_annoated_path1(rusers: Route, lc: LocalClient):
 
-    async def get(user_id: Annotated[int, "aloha"]) -> Resp[Text, status.OK]:
+    async def get(user_id: Annotated[int, "aloha"]) -> Annotated[Text, status.OK]:
         return "ok"
 
     rusers.get(get)
@@ -446,7 +451,7 @@ async def test_ep_with_random_annoated_path2(rusers: Route, lc: LocalClient):
         name: str
         phones: list[str]
 
-    async def get(user: Annotated[UserInfo, "aloha"]) -> Resp[Text, status.OK]:
+    async def get(user: Annotated[UserInfo, "aloha"]) -> Annotated[Text, status.OK]:
         return "ok"
 
     rusers.get(get)
@@ -469,7 +474,7 @@ async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
 
     async def get(
         user_id: str, engine: Engine, resolver: Graph
-    ) -> Resp[Text, status.OK]:
+    ) -> Annotated[Text, status.OK]:
         await resolver.aresolve(call_back)
         return "ok"
 
@@ -486,8 +491,8 @@ async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
     class Engine: ...
 
     async def get(
-        user_id: str, engine: Use[Engine], resolver: AsyncScope
-    ) -> Resp[Text, status.OK]:
+        user_id: str, engine: Annotated[Engine, use(Engine)], resolver: AsyncScope
+    ) -> Annotated[Text, status.OK]:
         with pytest.raises(AssertionError):
             assert isinstance(resolver, AsyncScope)
         return "ok"
@@ -501,8 +506,8 @@ async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
     assert text == "ok"
 
     async def post(
-        user_id: str, engine: Use[Engine], resolver: AsyncScope
-    ) -> Resp[Text, status.OK]:
+        user_id: str, engine: Annotated[Engine, use(Engine)], resolver: AsyncScope
+    ) -> Annotated[Text, status.OK]:
         assert isinstance(resolver, AsyncScope)
         return "ok"
 
@@ -515,7 +520,7 @@ async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
     assert text == "ok"
 
 
-type GET_RESP = Resp[Text, status.OK]
+type GET_RESP = Annotated[Text, status.OK]
 
 
 async def test_endpoint_with_resp_alias(rusers: Route, lc: LocalClient):
@@ -541,8 +546,8 @@ class UserProfile(JWTPayload):
 
 async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
 
-    async def get_token(form: OAuthLoginForm) -> JWTAuth[UserProfile]:
-        return UserProfile(user_id="1", user_name=form.username)
+    async def get_token(data: OAuthLoginForm) -> JWTAuth[UserProfile]:
+        return UserProfile(user_id="1", user_name=data.username)
 
     testroute.post(get_token)
 
@@ -559,7 +564,6 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
     token = await res.json()
 
     decoder = jwt_decoder_factory(payload_type=UserProfile)
-
     content = f"{token["token_type"].capitalize()} {token["access_token"]}"
 
     payload = decoder(content)
@@ -568,7 +572,9 @@ async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
 
 async def test_oauth2_not_plugin():
 
-    async def get_user(token: Header[str, Literal["Authorization"]]): ...
+    async def get_user(
+        token: Annotated[str, param("header", alias="Authorization")],
+    ): ...
 
     route = Route("me")
     route.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_user)
@@ -611,7 +617,7 @@ async def test_endpoint_with_jwt_fail_without_security_config(
 async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
     from lihil.config import lhl_set_config
 
-    async def get_me(token: JWTAuth[UserProfile]) -> Resp[Text, status.OK]:
+    async def get_me(token: JWTAuth[UserProfile]) -> Annotated[Text, status.OK]:
         assert token.user_id == "1" and token.user_name == "2"
         return "ok"
 
@@ -650,7 +656,7 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
 async def test_endpoint_login_and_validate_with_str_resp(
     testroute: Route, lc: LocalClient
 ):
-    async def get_me(token: JWTAuth[str]) -> Resp[Text, status.OK]:
+    async def get_me(token: JWTAuth[str]) -> Annotated[Text, status.OK]:
         assert token == "user_id"
         return "ok"
 
@@ -752,7 +758,7 @@ async def test_ep_with_constraints():
     called: bool = False
 
     async def get_user(
-        n: Annotated[int, Meta(gt=0)], user_id: Annotated[str, Meta(min_length=5)]
+        n: Annotated[int, param(gt=0)], user_id: Annotated[str, param(min_length=5)]
     ):
         nonlocal called
         called = True
@@ -770,9 +776,9 @@ async def test_ep_with_cookie():
 
     async def get_user(
         refresh_token: Annotated[
-            Cookie[str, Literal["x-refresh-token"]], Meta(min_length=1)
+            str, param("cookie", alias="x-refresh-token", min_length=1)
         ],
-        user_id: Annotated[str, Meta(min_length=5)],
+        user_id: Annotated[str, param(min_length=5)],
     ):
         nonlocal called
         assert len(user_id) >= 5
@@ -792,8 +798,8 @@ async def test_ep_with_cookie2():
     called: bool = False
 
     async def get_user(
-        refresh_token: Annotated[Cookie[str], Meta(min_length=1)],
-        user_id: Annotated[str, Meta(min_length=5)],
+        refresh_token: Annotated[str, param("cookie", min_length=1)],
+        user_id: Annotated[str, param(min_length=5)],
     ):
         nonlocal called
         called = True

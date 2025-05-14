@@ -6,7 +6,6 @@ from typing import (
     AsyncGenerator,
     Generator,
     Literal,
-    LiteralString,
     TypeAliasType,
     TypeGuard,
     get_args,
@@ -23,28 +22,10 @@ LIHIL_PARAM_PATTERN = re.compile(r"__LIHIL_PARAM_MARK_(.*?)__")
 LIHIL_RETURN_PATTERN = re.compile(r"__LIHIL_RESPONSE_MARK_(.*?)__")
 
 
-# TODO: prefer get_origin_pro over this
-def lhl_get_origin(annt: Any) -> Any:
-    "a extended get origin that handles TypeAliasType"
-
-    if is_marked_param(annt):
-        return ty_get_origin(annt)
-
-    while isinstance(annt, TypeAliasType):
-        annt = annt.__value__
-    return ty_get_origin(annt)
-
-
 def resp_mark(name: str) -> str:
     if name.startswith(LIHIL_RESPONSE_MARK):
         return name
     return f"{LIHIL_RESPONSE_MARK}_{name.upper()}__"
-
-
-def param_mark(name: str) -> str:
-    if name.startswith(LIHIL_PARAM_MARK):
-        return name
-    return f"{LIHIL_PARAM_MARK}_{name.upper()}__"
 
 
 def is_lihil_marked(m: Any, mark_prefix: str) -> bool:
@@ -58,18 +39,6 @@ def is_lihil_marked(m: Any, mark_prefix: str) -> bool:
         return is_lihil_marked(value, mark_prefix) if value else False
     else:
         return False
-
-
-def extract_mark_type(mark: Any) -> "ParamMarkType | None":
-    if not isinstance(mark, str):
-        return None
-
-    match = LIHIL_PARAM_PATTERN.search(mark)
-
-    if match:
-        res = match.group(1)
-        return res.lower()  # type: ignore
-    return None
 
 
 def extract_resp_type(mark: Any) -> "ResponseMark | None":
@@ -91,46 +60,11 @@ def is_resp_mark(m: Any) -> TypeGuard[TypeAliasType]:
     return is_lihil_marked(m, LIHIL_RESPONSE_MARK)
 
 
-def is_param_mark(m: Any) -> bool:
-    """
-    marks that usually show up in endpoint signature and sub-deps
-    """
-    return is_lihil_marked(m, LIHIL_PARAM_MARK)
-
-
-def is_marked_param(m: Any) -> bool:
-    return is_param_mark(m) or is_resp_mark(m)
-
-
 # ================ Request ================
 
 
-QUERY_REQUEST_MARK = param_mark("query")
-HEADER_REQUEST_MARK = param_mark("header")
-BODY_REQUEST_MARK = param_mark("body")
-FORM_REQUEST_MARK = param_mark("form")
-PATH_REQUEST_MARK = param_mark("path")
-USE_DEPENDENCY_MARK = param_mark("use")
-STATE_PARAM_MARK = param_mark("state")
-JW_TOKEN_PARAM_MARK = param_mark("jw_token")
+# type AppState[T] = Annotated[T, "lihil_app_state"]
 
-type Query[T] = Annotated[T, QUERY_REQUEST_MARK]
-
-type Header[T, K: LiteralString] = Annotated[T, K, HEADER_REQUEST_MARK]
-# type Authorization[T] = Header[T, Literal["Authorization"]]
-type Authorization[T] = Annotated[T, Literal["Authorization"], HEADER_REQUEST_MARK]
-# type Cookie[T, C: LiteralString] = Annotated[Header[T, Literal["cookie"]], C]
-type Cookie[T, C: LiteralString] = Header[Annotated[T, C], Literal["cookie"]]
-
-type Body[T] = Annotated[T, BODY_REQUEST_MARK]
-type Form[T] = Annotated[T, FORM_REQUEST_MARK]
-type Path[T] = Annotated[T, PATH_REQUEST_MARK]
-type Use[T] = Annotated[T, USE_DEPENDENCY_MARK]
-type AppState[T] = Annotated[T, STATE_PARAM_MARK]
-
-type ParamMarkType = Literal[
-    "query", "header", "body", "form", "path", "use", "state", "jw_token"
-]
 
 # ================ Response ================
 
@@ -151,8 +85,15 @@ type Stream[T] = Annotated[
     "text/event-stream",
 ]
 type Json[T] = Annotated[T, JSON_RETURN_MARK, "application/json"]
-type Resp[T, S: Status | int] = Annotated[T, S, RESP_RETURN_MARK]
 
-type ResponseMark = Literal[
-    "text", "html", "stream", "json", "resp", "empty", "jw_token"
-]
+
+class Resp:
+    """
+    async def create_user() -> Annotated[Json[str], Resp(200)]
+    """
+
+    def __init__(self, code: Status):
+        self.code = code
+
+
+type ResponseMark = Literal["text", "html", "stream", "json", "empty", "jw_token"]

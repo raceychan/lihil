@@ -132,7 +132,6 @@ def test_build_parser():
 
     assert "is_prod" in actions
     assert "version" in actions
-    assert "max_thread_workers" in actions
 
     # Check nested config arguments
     assert "oas.title" in actions

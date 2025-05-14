@@ -18,8 +18,8 @@ from lihil.config import lhl_get_config
 from lihil.config.app_config import IAppConfig, IJWTConfig
 from lihil.errors import MissingDependencyError, NotSupportedError
 from lihil.interface import MISSING, UNSET, Base, Unset, field, is_provided
-from lihil.interface.marks import JW_TOKEN_RETURN_MARK, Authorization
 from lihil.problems import InvalidAuthError
+from lihil.signature.params import param
 from lihil.utils.json import encode_json
 
 
@@ -98,10 +98,6 @@ class JWTPayload(Base, kw_only=True):
         self.nbf = self.iat = now_
 
     def validate_claims(self) -> None: ...
-
-
-# from starlette.responses import Response
-# class TokenResponse(Response): ...
 
 
 class OAuth2Token(Base):
@@ -202,7 +198,7 @@ else:
 
 
 type JWTAuth[T: JWTPayload | str | bytes] = Annotated[
-    Authorization[T],
-    JW_TOKEN_RETURN_MARK,
+    T,
+    param("header", alias="Authorization", jwt=True),
     "application/json",
 ]

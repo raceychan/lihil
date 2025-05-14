@@ -1,11 +1,11 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 import pytest
 
-from lihil import Graph, Text, status
+from lihil import Graph, Text, param, status
 
 # from lihil.errors import InvalidParamTypeError
-from lihil.interface import ASGIApp, Empty, Header, IReceive, IScope, ISend, Resp
+from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend
 from lihil.plugins.bus import Event
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
@@ -689,7 +689,7 @@ async def test_route_with_literal_resp():
 async def test_route_with_nested_empty_response():
     route = Route("empty")
 
-    async def post_empty() -> Resp[Empty, status.NO_CONTENT]: ...
+    async def post_empty() -> Annotated[Empty, status.NO_CONTENT]: ...
 
     route.post(post_empty)
 
@@ -705,7 +705,9 @@ async def test_route_with_nested_empty_response():
 async def test_parse_header_with_key():
     parser = EndpointParser(Graph(), "test")
 
-    res = parser.parse_param("token", Header[str, Literal["Authorization"]])
-    param = res[0]
+    res = parser.parse_param(
+        "token", Annotated[str, param("header", alias="Authorization")]
+    )
+    p = res[0]
 
-    assert param.alias == "authorization"
+    assert p.alias == "Authorization"

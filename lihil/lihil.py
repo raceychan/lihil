@@ -103,6 +103,7 @@ class Lihil[S: UState](ASGIBase):
         routes: list[RouteBase] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
         app_config: IAppConfig | None = None,
+        max_thread_workers: int | None = None,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
         lifespan: LifeSpan[S] | None = None,
@@ -111,8 +112,7 @@ class Lihil[S: UState](ASGIBase):
         if app_config is not None:
             lhl_set_config(app_config)
 
-        self.config = lhl_get_config()
-        self.workers = ThreadPoolExecutor(max_workers=self.config.max_thread_workers)
+        self.workers = ThreadPoolExecutor(max_workers=max_thread_workers)
         self.graph = graph or Graph(
             self_inject=True, workers=self.workers, ignore=LIHIL_PRIMITIVES
         )
@@ -138,10 +138,8 @@ class Lihil[S: UState](ASGIBase):
         self._generate_builtin_routes()
 
     def __repr__(self) -> str:
-        conn_info = ""
-        host, port = self.config.server.host, self.config.server.port
-        if host and port:
-            conn_info += f"({host}:{port})"
+        config = lhl_get_config()
+        conn_info = f"({config.server.host}:{config.server.port})"
         lhl_repr = f"{self.__class__.__name__}{conn_info}[\n  "
         routes_repr = "\n  ".join(r.__repr__() for r in self.routes)
         return lhl_repr + routes_repr + "\n]"
@@ -187,8 +185,9 @@ class Lihil[S: UState](ASGIBase):
             route.setup(app_state=self._state, graph=self.graph, busterm=self.busterm)
 
     def _generate_builtin_routes(self):
-        oas_config = self.config.oas
-        openapi_route = get_openapi_route(oas_config, self.routes, self.config.version)
+        config = lhl_get_config()
+        oas_config = config.oas
+        openapi_route = get_openapi_route(oas_config, self.routes, config.version)
         doc_route = get_doc_route(oas_config)
         problems = collect_problems()
         problem_route = get_problem_route(oas_config, problems)
@@ -296,7 +295,8 @@ class Lihil[S: UState](ASGIBase):
         ```
         """
 
-        server_config = self.config.server
+        config = lhl_get_config()
+        server_config = config.server
         set_values = {k: v for k, v in server_config.asdict().items() if v is not None}
 
         worker_num = server_config.workers

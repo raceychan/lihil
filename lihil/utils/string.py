@@ -1,10 +1,9 @@
 import re
 from re import Pattern
-from typing import Any, Literal, TypeVar, get_args, get_origin
 
+# from typing import Any, Literal, TypeVar, get_args, get_origin
+# from lihil.errors import NotSupportedError
 from starlette.routing import compile_path
-
-from lihil.errors import NotSupportedError
 
 RE_PATH_KEYS = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 "Must be a valid python variable name?"
@@ -19,7 +18,7 @@ def to_kebab_case(string: str) -> str:
     Examples:
         HTTPException -> http-exception
         UserAPI -> user-api
-        OAuth2PasswordBearer -> oauth2-password-bearer
+        OAuth2PasswordBearer -> o-auth2-password-bearer
     """
     if not string:
         return string
@@ -128,22 +127,6 @@ def build_path_regex(path: str, path_params: None = None) -> Pattern[str]:
     # TODO: write our own compile function to support more complex type in path
     path_regex, _, _ = compile_path(path)
     return path_regex
-
-
-def parse_header_key(name: str, key: Any) -> str:
-    if key is None or isinstance(key, TypeVar): # default case
-        return to_kebab_case(name)
-
-    if isinstance(key, str):
-        return key
-    elif get_origin(key) is Literal:
-        key = get_args(key)[0]
-    else:
-        raise NotSupportedError(f"Invalid header key {key}")
-
-    if not isinstance(key, str):
-        raise NotSupportedError(f"Invalid header key {key}")
-    return key
 
 
 def trimdoc(doc: str | None):

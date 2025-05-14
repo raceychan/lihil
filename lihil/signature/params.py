@@ -1,20 +1,13 @@
-from typing import Any, ClassVar, Literal, Mapping, overload
+from typing import Any, ClassVar, Literal, Mapping, Union, overload
 
-from ididi import DependentNode, INode, NodeConfig
+from ididi import DependentNode
 from msgspec import DecodeError
-from msgspec import Meta as ParamConstraint
-from msgspec import ValidationError, field
+from msgspec import Meta as Constraint
+from msgspec import Struct, ValidationError, field
 from starlette.datastructures import FormData
 
 from lihil.errors import NotSupportedError
-from lihil.interface import (
-    BodyContentType,
-    Maybe,
-    ParamBase,
-    ParamLocation,
-    is_provided,
-)
-from lihil.interface.marks import ParamMarkType
+from lihil.interface import BodyContentType, ParamBase, ParamSource, is_provided
 from lihil.interface.struct import Base, IDecoder
 from lihil.problems import (
     CustomDecodeErrorMessage,
@@ -30,15 +23,129 @@ from lihil.vendors import FormData, Headers, QueryParams
 type RequestParam[T] = PathParam[T] | QueryParam[T] | HeaderParam[T] | CookieParam[T]
 type ParsedParam[T] = RequestParam[T] | BodyParam[T] | DependentNode | StateParam
 type ParamResult[T] = tuple[T, None] | tuple[None, ValidationProblem]
-
 type ParamMap[T] = dict[str, T]
 
 
 class StateParam(ParamBase[Any]): ...
 
 
+class ParamExtra(Struct):
+    use_jwt: bool = False
+
+
+class ParamMeta(Struct):
+    source: Union[ParamSource, None] = None
+    alias: Union[str, None] = None
+    decoder: Any = None
+    constraint: Constraint | None = None
+    extra: ParamExtra | None = None
+
+
+class BodyMeta(ParamMeta):
+    source: ParamSource | None = "body"
+    decoder: Any = None
+    form: bool = False
+    content_type: BodyContentType | None = None
+    max_files: int | float | None = None
+    max_fields: int | float | None = None
+    max_part_size: int | None = None
+
+
+def form(
+    decoder: Union[Any, None] = None,
+    content_type: BodyContentType | None = None,
+    max_files: int | float = 1000,
+    max_fields: int | float = 1000,
+    max_part_size: int = 1024**2,
+) -> BodyMeta:
+    return BodyMeta(
+        content_type=content_type,
+        form=True,
+        decoder=decoder,
+        max_files=max_files,
+        max_fields=max_fields,
+        max_part_size=max_part_size,
+    )
+
+
+def param(
+    source: Union[ParamSource, None] = None,
+    *,
+    alias: Union[str, None] = None,
+    decoder: Union[Any, None] = None,
+    jwt: bool = False,
+    gt: Union[int, float, None] = None,
+    ge: Union[int, float, None] = None,
+    lt: Union[int, float, None] = None,
+    le: Union[int, float, None] = None,
+    multiple_of: Union[int, float, None] = None,
+    pattern: Union[str, None] = None,
+    min_length: Union[int, None] = None,
+    max_length: Union[int, None] = None,
+    tz: Union[bool, None] = None,
+    title: Union[str, None] = None,
+    description: Union[str, None] = None,
+    examples: Union[list[Any], None] = None,
+    extra_json_schema: Union[dict[str, Any], None] = None,
+    extra: Union[dict[str, Any], None] = None,
+) -> ParamMeta:
+    param_sources: tuple[str, ...] = ParamSource.__value__.__args__
+    if source is not None and source not in param_sources:
+        raise RuntimeError(f"Invalid source {source}, expected one of {param_sources}")
+    if any(
+        x is not None
+        for x in (
+            gt,
+            ge,
+            lt,
+            le,
+            multiple_of,
+            pattern,
+            min_length,
+            max_length,
+            tz,
+            title,
+            description,
+            examples,
+            extra_json_schema,
+            extra,
+        )
+    ):
+        constraint = Constraint(
+            gt=gt,
+            ge=ge,
+            lt=lt,
+            le=le,
+            multiple_of=multiple_of,
+            pattern=pattern,
+            min_length=min_length,
+            max_length=max_length,
+            tz=tz,
+            title=title,
+            description=description,
+            examples=examples,
+            extra_json_schema=extra_json_schema,
+            extra=extra,
+        )
+    else:
+        constraint = None
+
+    if jwt:
+        param_extra = ParamExtra(use_jwt=True)
+    else:
+        param_extra = None
+    meta = ParamMeta(
+        source=source,
+        alias=alias,
+        decoder=decoder,
+        extra=param_extra,
+        constraint=constraint,
+    )
+    return meta
+
+
 class Decodable[D, T](ParamBase[T], kw_only=True):
-    location: ClassVar[ParamLocation]
+    source: ClassVar[ParamSource]
     decoder: IDecoder[Any, T] = None  # type: ignore
 
     def __post_init__(self):
@@ -48,12 +155,14 @@ class Decodable[D, T](ParamBase[T], kw_only=True):
         name_repr = (
             self.name if self.alias == self.name else f"{self.name!r}, {self.alias!r}"
         )
-        return f"{self.__class__.__name__}<{self.location}> ({name_repr}: {self.type_repr})"
+        return (
+            f"{self.__class__.__name__}<{self.source}> ({name_repr}: {self.type_repr})"
+        )
 
     def decode(self, content: D) -> T:
         """
         for decoder in self.decoders:
-            contennt = decoder(content)
+            content = decoder(content)
         """
         return self.decoder(content)
 
@@ -62,16 +171,16 @@ class Decodable[D, T](ParamBase[T], kw_only=True):
             value = self.decode(raw)
             return value, None
         except ValidationError as mve:
-            error = InvalidDataType(self.location, self.name, str(mve))
+            error = InvalidDataType(self.source, self.name, str(mve))
         except DecodeError:
-            error = InvalidJsonReceived(self.location, self.name)
+            error = InvalidJsonReceived(self.source, self.name)
         except CustomValidationError as cve:  # type: ignore
-            error = CustomDecodeErrorMessage(self.location, self.name, cve.detail)
+            error = CustomDecodeErrorMessage(self.source, self.name, cve.detail)
         return None, error
 
 
-class PathParam[T](Decodable[str | list[str], T], kw_only=True):
-    location: ClassVar[ParamLocation] = "path"
+class PathParam[T](Decodable[str, T], kw_only=True):
+    source: ClassVar[ParamSource] = "path"
 
     def __post_init__(self):
         super().__post_init__()
@@ -80,17 +189,17 @@ class PathParam[T](Decodable[str | list[str], T], kw_only=True):
                 f"Path param {self} with default value is not supported"
             )
 
-    def extract(self, params: dict[str, str]) -> ParamResult[T]:
+    def extract(self, params: Mapping[str, str]) -> ParamResult[T]:
         try:
             raw = params[self.alias]
         except KeyError:
-            return (None, MissingRequestParam(self.location, self.alias))
+            return (None, MissingRequestParam(self.source, self.alias))
 
         return self.validate(raw)
 
 
 class QueryParam[T](Decodable[str | list[str], T]):
-    location: ClassVar[ParamLocation] = "query"
+    source: ClassVar[ParamSource] = "query"
     decoder: IDecoder[str | list[str], T] = None  # type: ignore
     multivals: bool = False
 
@@ -115,12 +224,12 @@ class QueryParam[T](Decodable[str | list[str], T]):
             if is_provided(default := self.default):
                 return (default, None)
             else:
-                return (None, MissingRequestParam(self.location, alias))
+                return (None, MissingRequestParam(self.source, alias))
         return self.validate(raw)
 
 
 class HeaderParam[T](QueryParam[T]):
-    location: ClassVar[ParamLocation] = "header"
+    source: ClassVar[ParamSource] = "header"
 
 
 class CookieParam[T](HeaderParam[T], kw_only=True):
@@ -129,7 +238,7 @@ class CookieParam[T](HeaderParam[T], kw_only=True):
 
 
 class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
-    location: ClassVar[ParamLocation] = "body"
+    source: ClassVar[ParamSource] = "body"
     content_type: BodyContentType = "application/json"
 
     def __repr__(self) -> str:
@@ -141,25 +250,10 @@ class BodyParam[T](Decodable[bytes | FormData, T], kw_only=True):
                 val = default
                 return (val, None)
             else:
-                error = MissingRequestParam(self.location, self.alias)
+                error = MissingRequestParam(self.source, self.alias)
                 return (None, error)
 
         return self.validate(body)
-
-
-class ParamMetasBase(Base):
-    metas: list[Any]
-
-
-class RequestParamMeta(ParamMetasBase):
-    mark_type: ParamMarkType | None = None
-    custom_decoder: IDecoder[Any, Any] | None = None
-    constraint: ParamConstraint | None = None
-
-
-class NodeParamMeta(ParamMetasBase, kw_only=True):
-    factory: Maybe[INode[..., Any]]
-    node_config: NodeConfig
 
 
 class EndpointParams(Base, kw_only=True):
@@ -169,18 +263,16 @@ class EndpointParams(Base, kw_only=True):
     states: ParamMap[StateParam] = field(default_factory=dict)
 
     @overload
-    def get_location(
-        self, location: Literal["header"]
-    ) -> ParamMap[HeaderParam[Any]]: ...
+    def get_source(self, source: Literal["header"]) -> ParamMap[HeaderParam[Any]]: ...
 
     @overload
-    def get_location(self, location: Literal["query"]) -> ParamMap[QueryParam[Any]]: ...
+    def get_source(self, source: Literal["query"]) -> ParamMap[QueryParam[Any]]: ...
 
     @overload
-    def get_location(self, location: Literal["path"]) -> ParamMap[PathParam[Any]]: ...
+    def get_source(self, source: Literal["path"]) -> ParamMap[PathParam[Any]]: ...
 
-    def get_location(self, location: ParamLocation) -> Mapping[str, RequestParam[Any]]:
-        return {n: p for n, p in self.params.items() if p.location == location}
+    def get_source(self, source: ParamSource) -> Mapping[str, RequestParam[Any]]:
+        return {n: p for n, p in self.params.items() if p.source == source}
 
     def get_body(self) -> tuple[str, BodyParam[Any]] | None:
         if not self.bodies:

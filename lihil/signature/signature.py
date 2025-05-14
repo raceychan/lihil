@@ -90,17 +90,17 @@ class EndpointSignature[R](Base):
                 else:
                     verrors.append(error)
 
-        zipped = (
-            (req_path, self.path_params),
-            (req_query, self.query_params),
-        )
+        if req_path is not None:
+            for name, param in self.path_params.items():
+                val, error = param.extract(req_path)
+                if val:
+                    params[name] = val
+                else:
+                    verrors.append(error)
 
-        for received, required in zipped:
-            if received is None:
-                continue
-            received: Any
-            for name, param in required.items():
-                val, error = param.extract(received)
+        if req_query is not None:
+            for name, param in self.query_params.items():
+                val, error = param.extract(req_query)
                 if val:
                     params[name] = val
                 else:

@@ -10,10 +10,11 @@ from typing import (
     TypeAliasType,
     cast,
     get_args,
+    get_origin,
 )
 
 from lihil.constant import status as http_status
-from lihil.interface import ParamLocation, Record, lhl_get_origin
+from lihil.interface import ParamSource, Record
 from lihil.interface.problem import DetailBase, ProblemDetail
 from lihil.utils.json import encode_json
 from lihil.utils.string import to_kebab_case, trimdoc
@@ -36,12 +37,13 @@ type ErrorRegistry = MappingProxyType[
 def parse_exception(
     exc: type["DetailBase[Any]"] | TypeAliasType,
 ) -> type["DetailBase[Any]"] | int | list[type["DetailBase[Any]"] | int]:
-    exc_origin = lhl_get_origin(exc)
+    exc_origin = get_origin(exc)
 
     if exc_origin is None:
-
         if isinstance(exc, type) and issubclass(exc, HTTPException):
             return exc
+        elif http_status.is_status(exc):
+            return http_status.code(exc)
         raise TypeError(f"Invalid exception type {exc}")
     elif exc_origin is Literal:
         while isinstance(exc, TypeAliasType):
@@ -118,7 +120,7 @@ def __erresp_factory_registry():
             return status_handlers.get(exc)
         elif isinstance(exc, TypeAliasType):
             return status_handlers.get(http_status.code(exc))
-        elif lhl_get_origin(exc) is Literal:
+        elif get_origin(exc) is Literal:
             scode: int = get_args(exc)[0]
             return status_handlers.get(scode)
 
@@ -233,7 +235,7 @@ class CustomValidationError[T](HTTPException[T]):
 
 # ================== Data Validtion ================
 class ValidationProblem(Record):
-    location: ParamLocation | Literal["body"]
+    location: ParamSource
     param: str
     message: str
 
@@ -255,9 +257,7 @@ class CustomDecodeErrorMessage(ValidationProblem, tag=True):
 
 
 class InvalidRequestErrors(HTTPException[list[ValidationProblem]]):
-    title: str = "Check Your Params"
-    instance: str = "URI of the entity"
-    detail: list[ValidationProblem]
+    "Check Your Params"
 
 
 # ================== Data Validtion ================

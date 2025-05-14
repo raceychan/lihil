@@ -7,11 +7,11 @@ from typing import (
     Literal,
     TypeAliasType,
     TypeGuard,
-    TypeVar,
     get_args,
 )
 
 from lihil.constant.status import code as get_status_code
+from lihil.constant.status import is_status
 from lihil.errors import InvalidStatusError, NotSupportedError, StatusConflictError
 from lihil.interface import (
     MISSING,
@@ -23,6 +23,7 @@ from lihil.interface import (
     is_provided,
 )
 from lihil.interface.marks import RESP_RETURN_MARK, ResponseMark, extract_resp_type
+from lihil.signature.params import ParamMeta
 from lihil.utils.json import encode_json, encode_text
 from lihil.utils.typing import get_origin_pro, is_union_type
 
@@ -69,7 +70,7 @@ class EndpointReturn[T](Record):
     type_: Maybe[type[T]] | UnionType | GenericAlias | TypeAliasType | None
     status: int
     encoder: IEncoder[T]
-    mark_type: ResponseMark = "resp"
+    mark_type: ResponseMark = "json"
     annotation: Any = MISSING
     content_type: str | None = "application/json"
 
@@ -104,22 +105,18 @@ def parse_return_pro(
             encoder = meta.encode
         elif resp_type := extract_resp_type(meta):
             mark_type = resp_type
-            if resp_type == "resp":
-                status_var = metas[idx - 1]
-                if isinstance(status_var, TypeVar):
-                    status = 200
-                else:
-                    status = parse_status(metas[idx - 1])
-            elif resp_type == "empty":
+            if resp_type == "empty":
                 content_type = None
-            elif resp_type == "jw_token":
-                from lihil.auth.jwt import jwt_encoder_factory
-
-                encoder = jwt_encoder_factory(payload_type=ret_type)
             else:
                 if resp_type == "stream":
                     ret_type = get_args(annotation)[0]
                 content_type = metas[idx + 1]
+        elif isinstance(meta, TypeAliasType):
+            status = get_status_code(meta)
+        elif isinstance(meta, ParamMeta) and meta.extra and meta.extra.use_jwt:
+            from lihil.auth.jwt import jwt_encoder_factory
+
+            encoder = jwt_encoder_factory(payload_type=ret_type)
         else:
             continue
 
@@ -159,13 +156,14 @@ def parse_returns(
 
         resp_cnt = 0
         for _, ret_meta in temp_union:
+
             if not ret_meta:
                 continue
-            if RESP_RETURN_MARK in ret_meta:
+            if any(is_status(meta) for meta in ret_meta):
                 resp_cnt += 1
 
         if resp_cnt and resp_cnt != len(unions):
-            raise NotSupportedError("union size and resp mark dismatched")
+            raise NotSupportedError("union size and status dismatched")
 
         if resp_cnt == 0:  # Union[int, str]
             union_origin, union_meta = get_origin_pro(annt)

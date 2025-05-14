@@ -60,9 +60,11 @@ async def test_lifespan_wrapper_with_invalid():
 
 async def test_read_config_with_app_config():
     # Test read_config with app_config
-    app_config = AppConfig(max_thread_workers=8)
-    result = lhl_set_config(app_config)
-    assert lhl_get_config() is app_config
+    app_config = AppConfig(version="0.2.0")
+    lhl_set_config(app_config)
+    config = lhl_get_config()
+    assert config is app_config
+    assert config.version == "0.2.0"
 
 
 async def test_lihil_basic_routing():

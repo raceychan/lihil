@@ -1,16 +1,13 @@
 from asyncio import get_running_loop
 from contextlib import contextmanager
-from typing import Literal, Union
+from typing import Union
 
 import pytest
 
-from lihil import Graph, Header
-from lihil.errors import NotSupportedError
 from lihil.interface import MISSING, Base, Maybe, get_maybe_vars
 from lihil.lihil import ThreadPoolExecutor
-from lihil.signature import EndpointParser
 from lihil.utils.json import encode_text
-from lihil.utils.string import parse_header_key
+from lihil.utils.string import to_kebab_case
 from lihil.utils.threading import sync_ctx_to_thread
 from lihil.utils.typing import union_types
 
@@ -80,18 +77,6 @@ def test_encode_test():
     assert encode_text("123") == b"123"
 
 
-def test_parse_header_key():
-    assert parse_header_key("AuthToken", None) == "auth-token"
-
-    parser = EndpointParser(graph=Graph(), route_path="test")
-
-    with pytest.raises(NotSupportedError):
-        parser.parse_param("test", Header[str, 5])
-
-    with pytest.raises(NotSupportedError):
-        parser.parse_param("test", Header[str, Literal[5]])
-
-
 def test_payload_replace():
     class User(Base):
         user_name: str
@@ -106,3 +91,15 @@ def test_payload_skip_none():
         age: int | None = None
 
     assert "age" not in User("user").asdict(skip_none=True)
+
+
+def test_to_kebab_case():
+    assert to_kebab_case("test") == "test"
+    assert to_kebab_case("Test") == "test"
+    assert to_kebab_case("TestTest") == "test-test"
+    assert to_kebab_case("TestTestTest") == "test-test-test"
+    assert to_kebab_case("TestTestTestTest") == "test-test-test-test"
+
+    assert to_kebab_case("HTTPException") == "http-exception"
+    assert to_kebab_case("UserAPI") == "user-api"
+    assert to_kebab_case("OAuth2PasswordBearer") == "o-auth2-password-bearer"

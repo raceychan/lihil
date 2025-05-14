@@ -38,6 +38,7 @@ def test_problem_solver_with_literal():
     assert get_solver(Literal[404]) is handle_404
     assert get_solver(404) is handle_404
 
+
 def test_problem_solver_with_status():
 
     @problem_solver

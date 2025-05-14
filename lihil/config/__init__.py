@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import cast, overload
 
 from .app_config import AppConfig as AppConfig
 from .app_config import ConfigBase as ConfigBase
@@ -32,9 +33,14 @@ def config_registry():
         _app_config = loader.load_config(*config_files, config_type=config_type)
         return _app_config
 
-    def _get_config() -> IAppConfig:
+    @overload
+    def _get_config[T](config_type: type[T]) -> T: ...
+    @overload
+    def _get_config(config_type: None = None) -> IAppConfig: ...
+
+    def _get_config[T](config_type: type[T] | None = None) -> T:
         "Get current config, low overhead"
-        return _app_config
+        return cast(T, _app_config)
 
     return _set_config, _read_config, _get_config
 

@@ -4,7 +4,7 @@ from lihil import Lihil, Payload, Route, field, Header
 from msgspec import Meta
 from lihil.auth.jwt import JWTAuth, JWTPayload
 from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
-# from lihil.config import AppConfig, SecurityConfig
+
 
 me = Route("me")
 token = Route("token")

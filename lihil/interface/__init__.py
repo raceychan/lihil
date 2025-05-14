@@ -1,9 +1,19 @@
 # from types import GenericAlias, UnionType
 from dataclasses import dataclass
 from types import GenericAlias, UnionType
-from typing import Any, Callable, Literal, Mapping
-from typing import Protocol as Protocol
-from typing import TypeGuard, Union, get_args
+from typing import (
+    Any,
+    AsyncContextManager,
+    AsyncGenerator,
+    Callable,
+    Iterator,
+    Literal,
+    Mapping,
+    Protocol,
+    TypeGuard,
+    Union,
+    get_args,
+)
 
 from msgspec import UNSET
 from msgspec import Struct as Struct
@@ -17,31 +27,19 @@ from lihil.interface.asgi import IScope as IScope
 from lihil.interface.asgi import ISend as ISend
 from lihil.interface.asgi import MiddlewareFactory as MiddlewareFactory
 from lihil.interface.marks import HTML as HTML
-from lihil.interface.marks import AppState as AppState
-from lihil.interface.marks import Body as Body
-from lihil.interface.marks import Cookie as Cookie
-from lihil.interface.marks import Form as Form
-from lihil.interface.marks import Header as Header
+# from lihil.interface.marks import AppState as AppState
 from lihil.interface.marks import Json as Json
-from lihil.interface.marks import Path as Path
-from lihil.interface.marks import Query as Query
-from lihil.interface.marks import Resp as Resp
 from lihil.interface.marks import Stream as Stream
 from lihil.interface.marks import Text as Text
-from lihil.interface.marks import Use as Use
-from lihil.interface.marks import lhl_get_origin as lhl_get_origin
 from lihil.interface.struct import Base as Base
-from lihil.interface.struct import CustomDecoder as CustomDecoder
 from lihil.interface.struct import CustomEncoder as CustomEncoder
 from lihil.interface.struct import Empty as Empty
-from lihil.interface.struct import IBodyDecoder as IBodyDecoder
 from lihil.interface.struct import IDecoder as IDecoder
 from lihil.interface.struct import IEncoder as IEncoder
-from lihil.interface.struct import ITextDecoder as ITextDecoder
 from lihil.interface.struct import Payload as Payload
 from lihil.interface.struct import Record as Record
 
-type ParamLocation = Literal["path", "query", "header", "body"]
+type ParamSource = Literal["path", "query", "header", "cookie", "body"]
 type BodyContentType = Literal[
     "application/json", "multipart/form-data", "application/x-www-form-urlencoded"
 ]
@@ -108,3 +106,51 @@ class ParamBase[T](Base):
         if not self.alias:
             self.alias = self.name
         self.required = self.default is MISSING
+
+
+from starlette.datastructures import URL, FormData
+
+
+class IAddress(Protocol):
+    host: str
+    port: int
+
+
+class IRequest(Protocol):
+    def __init__(self, scope: IScope, receive: IReceive | None = None) -> None: ...
+    def __getitem__(self, key: str) -> Any: ...
+    def __iter__(self) -> Iterator[str]: ...
+    def __len__(self) -> int: ...
+    def __eq__(self, value: object) -> bool: ...
+    def __hash__(self) -> int: ...
+    @property
+    def url(self) -> URL: ...
+    @property
+    def headers(self) -> Mapping[str, str]: ...
+    @property
+    def query_params(self) -> Mapping[str, str]: ...
+    @property
+    def path_params(self) -> Mapping[str, Any]: ...
+    @property
+    def cookies(self) -> Mapping[str, str]: ...
+    @property
+    def client(self) -> IAddress | None: ...
+    @property
+    def state(self) -> dict[str, Any]: ...
+    @property
+    def method(self): ...
+    @property
+    def receive(self) -> IReceive: ...
+    async def stream(self) -> AsyncGenerator[bytes, None]: ...
+    async def body(self) -> bytes: ...
+    async def json(self) -> Any: ...
+    def form(
+        self,
+        *,
+        max_files: int | float = 1000,
+        max_fields: int | float = 1000,
+        max_part_size: int = 1024 * 1024,
+    ) -> AsyncContextManager[FormData]: ...
+    async def close(self) -> None: ...
+    async def is_disconnected(self) -> bool: ...
+    async def send_push_promise(self, path: str) -> None: ...

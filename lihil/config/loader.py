@@ -154,7 +154,7 @@ class TOMLFileLoader(LoaderBase):
         return config
 
 
-# class YAMLFileLoader(FileLoader):
+# class YAMLFileLoader(LoaderBase):
 #     supported_formats = {".yml", ".yaml"}
 
 #     def loads(self, file: Path) -> StrDict:
@@ -163,11 +163,12 @@ class TOMLFileLoader(LoaderBase):
 #         return config
 
 
-# class JsonFileLoader(FileLoader):
+# class JsonFileLoader(LoaderBase):
 #     supported_formats = ".json"
 
 #     def loads(self, file: Path) -> StrDict:
 #         import json
+
 #         config: StrDict = json.loads(file.read_bytes())
 #         return config
 
@@ -204,8 +205,9 @@ class ConfigLoader:
         for f in files:
             f = Path(f) if isinstance(f, str) else f
             if not f.exists():
-                raise AppConfiguringError(f"path {f} not exist")
-
+                raise AppConfiguringError(
+                    f"path {f} not exist in current dir {self.work_dir}"
+                )
             data = self.loader.handle(f)
             deep_update(result, data)
         return result

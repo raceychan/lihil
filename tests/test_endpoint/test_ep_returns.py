@@ -3,10 +3,9 @@ from typing import Annotated
 
 import pytest
 
-from lihil import Payload
-from lihil.constant.status import OK
+from lihil import Payload, status
 from lihil.errors import InvalidStatusError, StatusConflictError
-from lihil.interface.marks import HTML, Json, Resp, Stream, Text
+from lihil.interface.marks import HTML, Json, Stream, Text
 from lihil.signature.returns import (
     DEFAULT_RETURN,
     CustomEncoder,
@@ -28,7 +27,7 @@ def test_parse_status():
     assert parse_status("201") == 201
 
     # Test with status code from constant module (lines 33-35)
-    assert parse_status(OK) == 200
+    assert parse_status(status.OK) == 200
 
     # Test invalid type (line 37)
     with pytest.raises(InvalidStatusError, match="Invalid status code"):
@@ -112,7 +111,7 @@ def test_return_param_from_mark():
     assert "application/json" == param.content_type
 
     # Test with Resp mark
-    param = parse_returns(Resp[str, 201])
+    param = parse_returns(Annotated[str, status.CREATED])
     assert param[201].type_ == str
 
 
@@ -128,7 +127,7 @@ def test_return_param_from_annotated2():
     encoder = CustomEncoder(lambda x: f"custom:{x}".encode())
 
     # Test with Annotated and Resp
-    param = parse_returns(Annotated[Resp[str, 201], encoder])[201]
+    param = parse_returns(Annotated[Annotated[str, status.CREATED], encoder])[201]
     assert param.type_ == str
     assert param.encoder == encoder.encode
 
@@ -141,7 +140,7 @@ def test_return_param_from_generic():
     assert param.status == 200
 
     # Test with Resp mark
-    param = parse_returns(Resp[str, 201])[201]
+    param = parse_returns(Annotated[str, status.CREATED])[201]
     assert param.status == 201
     assert param.type_ == str
 
@@ -162,7 +161,7 @@ def test_is_py_singleton():
 
 
 def test_parse_return_with_no_status():
-    res = parse_returns(Resp[str])[200]
+    res = parse_returns(str)[200]
     assert res.status == 200
     assert res.type_ == str
 
@@ -173,7 +172,7 @@ def test_empty_return():
 
 
 def test_parse_returns():
-    rets = parse_returns(Resp[str, 200] | Resp[int, 201])
+    rets = parse_returns(Annotated[str, status.OK] | Annotated[int, status.CREATED])
     assert rets[200].type_ == str
     assert rets[201].type_ == int
 
@@ -191,4 +190,4 @@ def test_parse_jwt_return():
     lhl_set_config(JWTConfig(jwt_secret="secret", jwt_algorithms="HS256"))
 
     with pytest.raises(NotSupportedError):
-        parse_returns(Resp[JWTAuth[Payload], 201])
+        parse_returns(Annotated[JWTAuth[Payload], status.CREATED])

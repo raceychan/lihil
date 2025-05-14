@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from lihil import Lihil
-from lihil.config import AppConfig, ConfigBase, lhl_read_config
+from lihil.config import AppConfig, ConfigBase, lhl_get_config, lhl_read_config
 from lihil.config.loader import ConfigLoader, convert, load_from_cli
 from lihil.config.parser import StoreTrueIfProvided, build_parser, format_nested_dict
 from lihil.interface import MISSING
@@ -14,8 +14,9 @@ from lihil.interface import MISSING
 
 def test_app_read_config():
     config = lhl_read_config("settings.toml")
-    lhl = Lihil[None](app_config=config)
-    assert lhl.config.oas.doc_path == "/docs"
+    Lihil[None](app_config=config)
+    config = lhl_get_config()
+    assert config.oas.doc_path == "/docs"
 
 
 def test_format_nested_dict():

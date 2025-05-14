@@ -5,7 +5,6 @@ from typing import (
     Annotated,
     Any,
     Callable,
-    Literal,
     Mapping,
     TypeAliasType,
     TypeGuard,
@@ -20,39 +19,33 @@ from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from ididi.utils.typing_utils import is_builtin_type
-from msgspec import Meta as ParamConstraint
 from msgspec import Struct, convert
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
-from lihil.interface import CustomDecoder, Maybe, ParamLocation
-from lihil.interface.marks import (
-    HEADER_REQUEST_MARK,
-    JW_TOKEN_RETURN_MARK,
-    Struct,
-    extract_mark_type,
-)
-from lihil.interface.struct import IDecoder, IFormDecoder
+from lihil.interface import IRequest, Maybe, ParamSource
+from lihil.interface.marks import Struct
+from lihil.interface.struct import IDecoder
 from lihil.plugins.bus import EventBus
 from lihil.utils.json import decoder_factory
-from lihil.utils.string import find_path_keys, parse_header_key
+from lihil.utils.string import find_path_keys, to_kebab_case
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
 from lihil.vendors import Request, UploadFile, WebSocket
 
 from .params import (
+    BodyMeta,
     BodyParam,
     CookieParam,
     EndpointParams,
     HeaderParam,
-    NodeParamMeta,
     ParamMap,
+    ParamMeta,
     ParsedParam,
     PathParam,
     QueryParam,
     RequestParam,
-    RequestParamMeta,
     StateParam,
 )
 from .returns import parse_returns
@@ -138,7 +131,7 @@ def _is_form_body(param_pair: tuple[str, BodyParam[Any]] | None):
 
 def formdecoder_factory[T](
     ptype: type[T] | UnionType,
-) -> IFormDecoder[T] | IDecoder[bytes, T]:
+) -> IDecoder[FormData, T] | IDecoder[bytes, T]:
 
     def dummy_decoder(content: bytes) -> bytes:
         return content
@@ -180,20 +173,20 @@ def req_param_factory[T](
     annotation: Any,
     default: Maybe[T],
     decoder: IDecoder[str | list[str], T] | None = None,
-    param_metas: RequestParamMeta | None = None,
-    location: ParamLocation = "query",
+    param_meta: ParamMeta | None = None,
+    source: ParamSource = "query",
 ) -> RequestParam[T]:
 
-    if isinstance(param_metas, RequestParamMeta) and param_metas.constraint:
-        param_type = cast(type[T], Annotated[param_type, param_metas.constraint])
+    if isinstance(param_meta, ParamMeta) and param_meta.constraint:
+        param_type = cast(type[T], Annotated[param_type, param_meta.constraint])
 
     if decoder is None:
-        if param_metas and param_metas.custom_decoder:
-            decoder = param_metas.custom_decoder
+        if param_meta and param_meta.decoder:
+            decoder = param_meta.decoder
         else:
             decoder = textdecoder_factory(param_type=param_type)
 
-    if location == "path":
+    if source == "path":
         req_param = PathParam(
             name=name,
             alias=alias,
@@ -202,20 +195,7 @@ def req_param_factory[T](
             decoder=decoder,
             default=default,
         )
-    elif location == "header":
-        if alias == "cookie":
-            assert param_metas
-            cookie_name = param_metas.metas[0]
-            cookie_name = parse_header_key(name, cookie_name)
-            return CookieParam(
-                name=name,
-                cookie_name=cookie_name,
-                alias=alias,
-                type_=param_type,
-                annotation=annotation,
-                decoder=decoder,
-                default=default,
-            )
+    elif source == "header":
         return HeaderParam(
             name=name,
             alias=alias,
@@ -224,6 +204,19 @@ def req_param_factory[T](
             decoder=decoder,
             default=default,
         )
+    elif source == "cookie":
+        assert param_meta
+        cookie_name = param_meta.alias or to_kebab_case(name)
+        return CookieParam(
+            name=name,
+            cookie_name=cookie_name,
+            alias=alias,
+            type_=param_type,
+            annotation=annotation,
+            decoder=decoder,
+            default=default,
+        )
+
     else:
         # elif location == "query":
         req_param = QueryParam(
@@ -249,7 +242,8 @@ def is_lhl_primitive(param_type: Any) -> TypeGuard[type]:
         else:
             return is_lhl_primitive(type(param_type))
     else:
-        return issubclass(param_type, LIHIL_PRIMITIVES)
+
+        return param_type is IRequest or issubclass(param_type, LIHIL_PRIMITIVES)
 
 
 class EndpointParser:
@@ -292,21 +286,22 @@ class EndpointParser:
         param_type: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_metas: RequestParamMeta | None = None,
+        param_meta: ParamMeta | None = None,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
         if name in self.path_keys:  # simplest case
             self.seen_path.discard(name)
-            assert not isinstance(param_metas, NodeParamMeta)
             req_param = req_param_factory(
                 name=name,
                 alias=name,
                 param_type=param_type,
                 annotation=annotation,
                 default=default,
-                param_metas=param_metas,
-                location="path",
+                param_meta=param_meta,
+                source="path",
             )
         elif is_lhl_primitive(param_type):
+            if param_type is IRequest:
+                param_type = Request
             states: StateParam = StateParam(
                 type_=param_type, annotation=annotation, name=name, default=default
             )
@@ -318,8 +313,8 @@ class EndpointParser:
                 )
                 req_param = cast(RequestParam[T], req_param)  # where T is UploadFile
             else:
-                if param_metas and param_metas.custom_decoder:
-                    decoder = param_metas.custom_decoder
+                if param_meta and param_meta.decoder:
+                    decoder = param_meta.decoder
                 else:
                     decoder = decoder_factory(param_type)
 
@@ -340,8 +335,8 @@ class EndpointParser:
                 alias=name,
                 param_type=param_type,
                 annotation=annotation,
-                param_metas=param_metas,
-                location="query",
+                param_meta=param_meta,
+                source="query",
                 default=default,
             )
         return req_param
@@ -353,11 +348,11 @@ class EndpointParser:
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_metas: RequestParamMeta,
+        param_meta: ParamMeta,
     ) -> ParsedParam[T]:
-        if custom_decoder := param_metas.custom_decoder:
+        if custom_decoder := param_meta.decoder:
             decoder = custom_decoder
-        elif JW_TOKEN_RETURN_MARK in param_metas.metas:
+        elif param_meta.extra and param_meta.extra.use_jwt:
             from lihil.auth.jwt import jwt_decoder_factory
 
             decoder = jwt_decoder_factory(payload_type=type_)
@@ -370,7 +365,7 @@ class EndpointParser:
             param_type=type_,
             annotation=annotation,
             decoder=decoder,
-            location="header",
+            source="header",
             default=default,
         )
 
@@ -382,34 +377,29 @@ class EndpointParser:
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_metas: RequestParamMeta,
+        param_meta: ParamMeta,
     ) -> ParsedParam[T]:
         location = "header"
-        pmetas = param_metas.metas
-        mark_idx = pmetas.index(HEADER_REQUEST_MARK)
-        key_meta = pmetas[mark_idx - 1]
-        header_key = parse_header_key(name, key_meta).lower()
+        header_key = param_meta.alias or to_kebab_case(name)
 
-        if header_key == "authorization":
+        if header_key.lower() == "authorization":
             return self._parse_auth_header(
                 name=name,
                 header_key=header_key,
                 type_=type_,
                 annotation=annotation,
                 default=default,
-                param_metas=param_metas,
+                param_meta=param_meta,
             )
-        else:
-            param_alias = header_key
 
         return req_param_factory(
             name=name,
-            alias=param_alias,
+            alias=header_key,
             param_type=type_,
             annotation=annotation,
-            location=location,
+            source=location,
             default=default,
-            param_metas=param_metas,
+            param_meta=param_meta,
         )
 
     def _parse_body[T](
@@ -419,12 +409,11 @@ class EndpointParser:
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        mark_type: Literal["form", "body"],
-        custom_decoder: IDecoder[Any, Any] | None,
+        param_meta: ParamMeta,
     ) -> BodyParam[T]:
-        if mark_type == "form":
-            content_type = "multipart/form-data"
-            decoder = custom_decoder or formdecoder_factory(type_)
+        if isinstance(param_meta, BodyMeta) and param_meta.form:
+            content_type = param_meta.content_type or "multipart/form-data"
+            decoder = param_meta.decoder or formdecoder_factory(type_)
             body_param = BodyParam(
                 name=name,
                 alias=param_alias,
@@ -435,7 +424,7 @@ class EndpointParser:
                 content_type=content_type,
             )
         else:
-            decoder = custom_decoder or decoder_factory(type_)
+            decoder = param_meta.decoder or decoder_factory(type_)
             body_param = BodyParam(
                 name=name,
                 alias=param_alias,
@@ -446,87 +435,46 @@ class EndpointParser:
             )
         return body_param
 
-    def _parse_marked[T](
+    def _parse_declared[T](
         self,
         name: str,
         type_: type[T] | UnionType,
         annotation: Any,
         default: Maybe[T],
-        param_metas: RequestParamMeta,
+        param_meta: ParamMeta,
     ) -> ParsedParam[T] | list[ParsedParam[T]]:
-        custom_decoder = param_metas.custom_decoder
-        mark_type = param_metas.mark_type
-        assert mark_type
+        assert param_meta.source
+        param_source = param_meta.source
+        param_alias = param_meta.alias or name
 
-        if mark_type == "use":
-            return self._parse_node(type_)
-        elif mark_type == "state":
-            return StateParam(name, type_, annotation, default=default)
-        else:
-            # Easy case, Pure non-deps request params with param marks.
-            location: ParamLocation
-            param_alias = name
-
-            if mark_type == "header":
-                return self._parse_header(
-                    name=name,
-                    type_=type_,
-                    annotation=annotation,
-                    default=default,
-                    param_metas=param_metas,
-                )
-            elif mark_type in ("body", "form"):
-                return self._parse_body(
-                    name,
-                    param_alias=param_alias,
-                    type_=type_,
-                    annotation=annotation,
-                    default=default,
-                    mark_type=mark_type,
-                    custom_decoder=custom_decoder,
-                )
-
-            elif mark_type == "path":
-                location = "path"
-            else:
-                location = "query"
-
-            req_param = req_param_factory(
+        if param_source == "header":
+            return self._parse_header(
                 name=name,
-                alias=param_alias,
-                param_type=type_,
+                type_=type_,
                 annotation=annotation,
-                location=location,
                 default=default,
-                param_metas=param_metas,
+                param_meta=param_meta,
             )
-            return req_param
+        elif param_source == "body":
+            return self._parse_body(
+                name,
+                param_alias=param_alias,
+                type_=type_,
+                annotation=annotation,
+                default=default,
+                param_meta=param_meta,
+            )
 
-    def _parse_meta(
-        self, metas: list[Any] | None
-    ) -> RequestParamMeta | NodeParamMeta | None:
-        if not metas:
-            return None
-        request_meta = RequestParamMeta(metas)
-        for idx, meta in enumerate(metas):
-            if isinstance(meta, CustomDecoder):
-                request_meta.custom_decoder = meta.decode
-            elif mark_type := extract_mark_type(meta):
-                if request_meta.mark_type and request_meta.mark_type != mark_type:
-                    raise NotSupportedError("can't use more than one param mark")
-                request_meta.mark_type = mark_type
-            elif meta == USE_FACTORY_MARK:
-                factory, config = metas[idx + 1], metas[idx + 2]
-                return NodeParamMeta(
-                    metas=metas,
-                    factory=factory,
-                    node_config=config,
-                )
-            elif isinstance(meta, ParamConstraint):
-                request_meta.constraint = meta
-            else:
-                continue
-        return request_meta
+        req_param = req_param_factory(
+            name=name,
+            alias=param_alias,
+            param_type=type_,
+            annotation=annotation,
+            source=param_source,
+            default=default,
+            param_meta=param_meta,
+        )
+        return req_param
 
     def parse_param[T](
         self,
@@ -536,25 +484,30 @@ class EndpointParser:
     ) -> list[ParsedParam[T]]:
         parsed_type, pmetas = get_origin_pro(annotation)
         parsed_type = cast(type[T], parsed_type)
-        param_metas = self._parse_meta(pmetas)
-        if isinstance(param_metas, NodeParamMeta):
-            return self._parse_node(param_metas.factory, param_metas.node_config)
+        param_meta: ParamMeta | None = None
+        if pmetas:
+            for idx, meta in enumerate(pmetas):
+                if isinstance(meta, (ParamMeta, BodyMeta)):
+                    param_meta = meta
+                elif meta == USE_FACTORY_MARK:
+                    factory, config = pmetas[idx + 1], pmetas[idx + 2]
+                    return self._parse_node(factory, config)
 
-        if param_metas is None or not param_metas.mark_type:
+        if param_meta is None or not param_meta.source:
             res = self._parse_rule_based(
                 name=name,
                 param_type=parsed_type,
                 annotation=annotation,
                 default=default,
-                param_metas=param_metas,
+                param_meta=param_meta,
             )
         else:
-            res = self._parse_marked(
+            res = self._parse_declared(
                 name=name,
                 type_=parsed_type,
                 annotation=annotation,
                 default=default,
-                param_metas=param_metas,
+                param_meta=param_meta,
             )
         return res if isinstance(res, list) else [res]
 
@@ -617,9 +570,9 @@ class EndpointParser:
 
         ep_sig = EndpointSignature(
             route_path=self.route_path,
-            header_params=params.get_location("header"),
-            query_params=params.get_location("query"),
-            path_params=params.get_location("path"),
+            header_params=params.get_source("header"),
+            query_params=params.get_source("query"),
+            path_params=params.get_source("path"),
             body_param=body_param,
             states=params.states,
             dependencies=params.nodes,

@@ -1,15 +1,19 @@
-from typing import Any, Literal
+from typing import Any
 
 import pytest
 from ididi import Graph
 
-from lihil.interface import Header, Payload
-from lihil.signature import EndpointParser, EndpointSignature
+from lihil.interface import Payload
+from lihil.interface.marks import Annotated
+from lihil.signature import EndpointParser, EndpointSignature, param
 from lihil.utils.json import encode_json
 
 
 async def get_order(
-    user_id: str, order_id: str, limit: int, x_token: Header[str, Literal["x-token"]]
+    user_id: str,
+    order_id: str,
+    limit: int,
+    x_token: Annotated[str, param("header", alias="x-token")],
 ) -> dict[str, str]: ...
 
 

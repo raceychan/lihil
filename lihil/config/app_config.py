@@ -6,13 +6,6 @@ from typing_extensions import Doc
 from lihil.interface import Record
 
 
-def get_thread_cnt() -> int:
-    import os
-
-    default_max = os.cpu_count() or 1
-    return default_max
-
-
 class IOASConfig(Protocol):
     @property
     def oas_path(self) -> str: ...
@@ -37,13 +30,10 @@ class IServerConfig(Protocol):
     def workers(self) -> int: ...
     @property
     def reload(self) -> bool: ...
-
     def asdict(self) -> dict[str, Any]: ...
 
 
 class IAppConfig(Protocol):
-    @property
-    def max_thread_workers(self) -> int: ...
     @property
     def version(self) -> str: ...
     @property
@@ -90,9 +80,6 @@ class AppConfig(ConfigBase):
         False
     )
     version: Annotated[str, Doc("Application version")] = "0.1.0"
-    max_thread_workers: Annotated[int, Doc("Maximum number of thread workers")] = field(
-        default_factory=get_thread_cnt
-    )
     oas: Annotated[OASConfig, Doc("OpenAPI and Swagger UI configuration")] = field(
         default_factory=OASConfig
     )

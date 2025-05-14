@@ -15,22 +15,10 @@ from msgspec.structs import replace as struct_replace
 
 from lihil.interface import UNSET
 from lihil.interface.marks import EMPTY_RETURN_MARK
-from lihil.vendors import FormData
 
 
 class IDecoder[I, T](Protocol):
     def __call__(self, content: I, /) -> T: ...
-
-
-class IFormDecoder[T](Protocol):
-    def __call__(self, content: FormData, /) -> T: ...
-
-
-class IBodyDecoder[T](IDecoder[bytes, T]): ...
-
-
-class ITextDecoder[T](IDecoder[str, T]):
-    "for non-body params"
 
 
 class IEncoder[T](Protocol):
@@ -106,17 +94,17 @@ class CustomEncoder(Base):
     encode: Callable[[Any], bytes]
 
 
-class CustomDecoder(Base):
-    """
-    class IType: ...
+# class CustomDecoder(Base):  # deprecated, just use decoder
+#     """
+#     class IType: ...
 
-    def decode_itype()
+#     def decode_itype()
 
 
-    async def create_user(i: Annotated[IType, CustomDecoder(decode_itype)])
-    """
+#     async def create_user(i: Annotated[IType, CustomDecoder(decode_itype)])
+#     """
 
-    decode: ITextDecoder[Any] | IDecoder[Any, Any] | IFormDecoder[Any]
+#     decode: ITextDecoder[Any] | IDecoder[Any, Any] | IFormDecoder[Any]
 
 
 def empty_encoder(param: Any) -> bytes:
