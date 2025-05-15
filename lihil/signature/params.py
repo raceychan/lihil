@@ -47,10 +47,10 @@ class BodyMeta(ParamMeta):
 class FormMeta(BodyMeta, kw_only=True):
     max_files: int | float = 1000
     max_fields: int | float = 1000
-    max_part_size: int = 1024**2j
+    max_part_size: int = 1024**2
 
 
-def form(
+def Form(
     decoder: Union[Any, None] = None,
     content_type: BodyContentType | None = None,
     max_files: int | float = 1000,

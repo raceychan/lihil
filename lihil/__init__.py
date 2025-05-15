@@ -25,7 +25,7 @@ from .plugins.bus import EventBus as EventBus
 from .plugins.testclient import LocalClient as LocalClient
 from .problems import HTTPException as HTTPException
 from .routing import Route as Route
-from .signature.params import form as form
+from .signature.params import Form as Form
 from .signature.params import Param as Param
 from .vendors import Request as Request
 from .vendors import Response as Response

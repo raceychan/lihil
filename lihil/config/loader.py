@@ -33,9 +33,9 @@ def deep_update(original: StrDict, update_data: StrDict) -> StrDict:
 
 
 class UnsupportedFileFormatError(AppConfiguringError):
-    def __init__(self, file: Path):
+    def __init__(self, file: Path, message: str):
         super().__init__(
-            f"File of format {file.suffix} is not supported, as required dependency is not installed"
+            f"File {file} can't be loaded, as required dependency is not installed, {message}"
         )
 
 
@@ -90,7 +90,7 @@ class LoaderBase(LoaderNode):
             try:
                 return self.loads(file)
             except ImportError as ie:
-                raise UnsupportedFileFormatError(file) from ie
+                raise UnsupportedFileFormatError(file, str(ie)) from ie
         else:
             if self._next is None:
                 raise MissingLoaderError(file.suffix)

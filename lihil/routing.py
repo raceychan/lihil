@@ -25,14 +25,13 @@ from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.ds.resp import StaticResponse
-from lihil.interface import (
+from lihil.interface import (  # MappingLike,
     HTTP_METHODS,
     ASGIApp,
     Func,
     IReceive,
     IScope,
     ISend,
-    # MappingLike,
     MiddlewareFactory,
     P,
     R,
@@ -349,6 +348,7 @@ class RouteBase(ASGIBase):
         self,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
+        # TODO: workers
     ):
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm

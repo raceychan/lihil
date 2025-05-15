@@ -4,7 +4,7 @@ from msgspec import field
 
 from lihil.interface import UNSET, Payload, UnsetType
 from lihil.oas.model import AuthModel, OAuth2, OAuthFlowPassword, OAuthFlows
-from lihil.signature.params import form
+from lihil.signature.params import Form
 
 
 class OAuthLogin(Payload):
@@ -27,7 +27,7 @@ class OAuthLogin(Payload):
 
 
 # refference: https://datatracker.ietf.org/doc/html/rfc6749
-OAuthLoginForm = Annotated[OAuthLogin, form()]
+OAuthLoginForm = Annotated[OAuthLogin, Form()]
 
 
 class AuthBase:

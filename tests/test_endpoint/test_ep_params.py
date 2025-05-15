@@ -6,7 +6,7 @@ import msgspec
 import pytest
 from starlette.requests import Request
 
-from lihil import MISSING, DependentNode, Graph, Param, Payload, Request, form, use
+from lihil import MISSING, DependentNode, Graph, Param, Payload, Request, Form, use
 from lihil.config import JWTConfig, lhl_set_config
 from lihil.errors import NotSupportedError
 from lihil.signature.parser import (
@@ -330,7 +330,7 @@ def test_form_with_sequence_field(param_parser: EndpointParser):
     class SequenceForm(Payload):
         nums: list[int]
 
-    res = param_parser.parse_param("form", Annotated[SequenceForm, form()])[0]
+    res = param_parser.parse_param("form", Annotated[SequenceForm, Form()])[0]
     assert isinstance(res, BodyParam)
     assert res.type_ is SequenceForm
 
@@ -357,7 +357,7 @@ def test_form_body_with_default_val(param_parser: EndpointParser):
             return None
 
     infn = LoginInfo("user", 20)
-    param = param_parser.parse_param("data", Annotated[LoginInfo, form()], infn)[0]
+    param = param_parser.parse_param("data", Annotated[LoginInfo, Form()], infn)[0]
     res = param.decode(FakeForm())
     assert res.name == "name"
     assert res.age == 15
@@ -370,13 +370,13 @@ def test_param_repr_with_union_args(param_parser: EndpointParser):
 
 def test_body_param_repr(param_parser: EndpointParser):
     with pytest.raises(NotSupportedError):
-        param = param_parser.parse_param("data", Annotated[bytes, form()])[0]
+        param = param_parser.parse_param("data", Annotated[bytes, Form()])[0]
 
     class UserData(Payload):
         user_name: str
         user_age: int
 
-    param = param_parser.parse_param("data", Annotated[UserData, form()])[0]
+    param = param_parser.parse_param("data", Annotated[UserData, Form()])[0]
 
 
 def test_param_provider_with_invalid_plugin(param_parser: EndpointParser):

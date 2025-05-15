@@ -16,7 +16,7 @@ from lihil import (
     Text,
     UploadFile,
     field,
-    form,
+    Form,
     status,
 )
 from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
@@ -222,7 +222,7 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
         email: str
 
     async def get(
-        req: Request, fm: Annotated[UserInfo, form()]
+        req: Request, fm: Annotated[UserInfo, Form()]
     ) -> Annotated[str, status.OK]:
         return fm
 
@@ -263,7 +263,7 @@ async def test_ep_requiring_missing_Param(rusers: Route, lc: LocalClient):
         email: str
 
     async def get(
-        req: Request, fm: Annotated[UserInfo, form()]
+        req: Request, fm: Annotated[UserInfo, Form()]
     ) -> Annotated[str, status.OK]:
         return fm
 
@@ -340,7 +340,7 @@ async def test_ep_requiring_upload_file_fail(rusers: Route, lc: LocalClient):
 
 async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
     async def get(
-        by_form: Annotated[list[int], form()],
+        by_form: Annotated[list[int], Form()],
     ) -> Annotated[Text, status.OK]:
         breakpoint()
         assert isinstance(by_form, bytes)
@@ -377,7 +377,7 @@ async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
 
 async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
     async def get(
-        by_form: Annotated[list[int], form()],
+        by_form: Annotated[list[int], Form()],
     ) -> Annotated[Text, status.OK]:
         assert isinstance(by_form, bytes)
         return "ok"

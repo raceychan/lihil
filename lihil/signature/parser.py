@@ -138,7 +138,6 @@ def file_body_param(
 def formdecoder_factory(
     ptype: type[T] | UnionType,
 ) -> IDecoder[FormData, T] | IDecoder[bytes, T]:
-
     if not isinstance(ptype, type) or not issubclass(ptype, Struct):
         raise NotSupportedError(
             f"Only subclass of Struct is supported for `Form`, received {ptype}"
