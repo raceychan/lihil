@@ -311,13 +311,14 @@ class EndpointParser:
                 decoder = None
 
             if is_file_body(param_type):
-                return file_body_param(
+                body_param = file_body_param(
                     name,
                     param_type,
                     annotation=annotation,
                     default=default,
                     meta=None,
-                )  # type: ignore
+                )
+                return cast(FormParam[T], body_param)
 
             if decoder is None:
                 decoder = decoder_factory(param_type)
@@ -415,6 +416,16 @@ class EndpointParser:
         param_meta: ParamMeta,
     ) -> BodyParam[bytes, T] | FormParam[T]:
         if isinstance(param_meta, FormMeta):
+            if type_ is UploadFile:
+                body_param = file_body_param(
+                    name=name,
+                    type_=type_,
+                    annotation=annotation,
+                    default=default,
+                    meta=param_meta,
+                )
+                return cast(FormParam[T], body_param)
+
             content_type = param_meta.content_type or "multipart/form-data"
             decoder = param_meta.decoder or formdecoder_factory(type_)
             body_param = FormParam(

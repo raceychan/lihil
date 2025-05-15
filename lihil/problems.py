@@ -3,16 +3,17 @@ from inspect import Parameter, signature
 from types import MappingProxyType
 from typing import (
     Any,
-    Generic,
     Callable,
     ClassVar,
+    Generic,
     Literal,
     Mapping,
+    TypeVar,
     cast,
     get_args,
     get_origin,
-    TypeVar,
 )
+
 from typing_extensions import TypeAliasType
 
 from lihil.constant import status as http_status
@@ -70,7 +71,9 @@ def parse_exception(
             return cast(type["DetailBase[Any]"], exc_origin)
         raise TypeError(f"Invalid exception type {exc}")
 
+
 DExc = TypeVar("DExc", bound=DetailBase[Any] | http_status.Status)
+
 
 def __erresp_factory_registry():
     # TODO: handler can annoate return with Resp[Response, 404]
@@ -254,6 +257,10 @@ class InvalidJsonReceived(ValidationProblem, tag=True):
 
 class InvalidDataType(ValidationProblem, tag=True):
     message: str = "Param is not of right type"
+
+
+class InvalidFormError(ValidationProblem, tag=True):
+    message: str = "Form is not valid"
 
 
 class CustomDecodeErrorMessage(ValidationProblem, tag=True):

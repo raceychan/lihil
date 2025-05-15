@@ -9,12 +9,12 @@ from typing import (
     Optional,
     Union,
 )
-from typing_extensions import Unpack
 from urllib.parse import urlencode
 from uuid import uuid4
 
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
+from typing_extensions import Unpack
 
 from lihil.errors import LihilError
 from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload, R
@@ -248,6 +248,7 @@ class LocalClient:
         query_string: bytes | None = None,
         query_params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        multi_headers: list[tuple[str, str]] | None = None,
         body: Union[bytes, str, dict[str, Any], Payload] | None = None,
         stream: bool = False,
     ) -> RequestResult:
@@ -272,6 +273,9 @@ class LocalClient:
 
         # Convert headers to ASGI format
         asgi_headers = self._encode_header(request_headers)
+        if multi_headers:
+            for name, value in multi_headers:
+                asgi_headers.append((name.encode("utf-8"), value.encode("utf-8")))
 
         # Prepare body
         body_bytes = self._encode_body(body)

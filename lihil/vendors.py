@@ -1,5 +1,6 @@
 from typing import ParamSpec, TypeVar
 
+from starlette.formparsers import MultiPartException as MultiPartException
 from starlette.datastructures import URL as URL
 from starlette.datastructures import Address as Address
 from starlette.datastructures import FormData as FormData

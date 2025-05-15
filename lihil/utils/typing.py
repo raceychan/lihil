@@ -33,6 +33,9 @@ def is_union_type(
 def is_nontextual_sequence(type_: Any, strict: bool = False):
     type_origin = ty_get_origin(type_) or type_
 
+    if type_origin is Union:
+        return any(is_nontextual_sequence(arg, strict) for arg in get_args(type_))
+
     if not isinstance(type_origin, type):
         return False
 

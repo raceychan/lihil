@@ -4,7 +4,7 @@ import pytest
 from starlette.datastructures import QueryParams
 from starlette.requests import Request
 
-from lihil import Empty, Graph, Payload, Route, Text, Param, use
+from lihil import Empty, Graph, Param, Payload, Route, Text, use
 from lihil.plugins.testclient import LocalClient
 from lihil.problems import CustomValidationError
 from lihil.signature import EndpointParser
@@ -222,7 +222,7 @@ async def test_path_keys_not_consumed():
     assert result == b"user: user123"
 
 
-def test_prepare_params_with_custom_validation_error():
+async def test_prepare_params_with_custom_validation_error():
 
     def decoder_with_error(content: str):
         raise CustomValidationError("aloha")
@@ -232,8 +232,10 @@ def test_prepare_params_with_custom_validation_error():
         user_data: Annotated[str, Param("body", decoder=decoder_with_error)],
     ): ...
 
-    sig = EndpointParser(graph=Graph(), route_path="/route").parse(func)
-    sig.prepare_params(req_query=QueryParams({"user_id": "adsf"}), body=b"asdf")
+    lc = LocalClient()
+    ep = lc.make_endpoint(func)
+
+    await lc(ep, query_params={"user_id": "adsf"}, body="aloha")
 
 
 async def test_query_with_default():

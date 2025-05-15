@@ -1000,3 +1000,27 @@ async def create_user(
 ) -> Resp[str, 201]:
     ...
 ```
+
+
+## version 0.2.6
+
+- [x] fix a bug where if a header param is declared as a union of types, it would not be treated as a sequence type even if the union contains a sequence type.
+
+```python
+async def test_ep_with_multiple_value_header():
+    lc = LocalClient()
+
+    async def read_items(x_token: Annotated[list[str] | None, Param("header")] = None):
+        return {"X-Token values": x_token}
+
+    ep = lc.make_endpoint(read_items)
+    resp = await lc.request(
+        ep,
+        method="GET",
+        path="",
+        multi_headers=[("x-token", "value1"), ("x-token", "value2")],
+    )
+    assert resp.status_code == 200
+```
+
+The above test would fail before this fix, as `x-token` is a union of list[str] and None, it would be treated as a str instead of list[str].

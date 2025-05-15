@@ -7,6 +7,7 @@ from starlette.requests import Request
 
 from lihil import (
     Empty,
+    Form,
     Json,
     Param,
     Payload,
@@ -16,7 +17,6 @@ from lihil import (
     Text,
     UploadFile,
     field,
-    Form,
     status,
 )
 from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
@@ -214,7 +214,6 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
     assert await res.body() == b""
 
 
-@pytest.mark.debug
 async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
 
     class UserInfo(Payload):
@@ -297,11 +296,9 @@ async def test_ep_requiring_missing_Param(rusers: Route, lc: LocalClient):
 
 async def test_ep_requiring_upload_file(rusers: Route, lc: LocalClient):
 
-    class UserInfo(Payload):
-        username: str
-        email: str
-
-    async def get(req: Request, myfile: UploadFile) -> Annotated[str, status.OK]:
+    async def get(
+        req: Request, myfile: Annotated[UploadFile, Form()]
+    ) -> Annotated[str, status.OK]:
         assert isinstance(myfile, UploadFile)
         return None
 
@@ -325,6 +322,40 @@ async def test_ep_requiring_upload_file(rusers: Route, lc: LocalClient):
 
     result = await lc.call_endpoint(ep, body=multipart_body, headers=headers)
     assert result.status_code == 200
+
+
+async def test_ep_requiring_upload_file_exceed_max_files(
+    rusers: Route, lc: LocalClient
+):
+
+    async def get(
+        req: Request, myfile: Annotated[UploadFile, Form(max_files=0)]
+    ) -> Annotated[str, status.OK]:
+        assert isinstance(myfile, UploadFile)
+        return None
+
+    boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+
+    file_content = b"Hello, this is test content!"  # Example file content
+    filename = "test_file.txt"
+
+    multipart_body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="myfile"; filename="{filename}"\r\n'
+        f"Content-Type: text/plain\r\n\r\n"
+        + file_content.decode()  # File content as string
+        + f"\r\n--{boundary}--\r\n"
+    ).encode("utf-8")
+
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    result = await lc.call_endpoint(ep, body=multipart_body, headers=headers)
+    assert result.status_code == 422
+    data = await result.json()
+    assert data["detail"][0]["type"] == "InvalidFormError"
 
 
 async def test_ep_requiring_upload_file_fail(rusers: Route, lc: LocalClient):
@@ -823,3 +854,19 @@ async def tests_calling_ep_query_without_default():
 
     resp = await lc(lc.make_endpoint(get_user))
     assert resp.status_code == 422
+
+
+async def test_ep_with_multiple_value_header():
+    lc = LocalClient()
+
+    async def read_items(x_token: Annotated[list[str] | None, Param("header")] = None):
+        return {"X-Token values": x_token}
+
+    ep = lc.make_endpoint(read_items)
+    resp = await lc.request(
+        ep,
+        method="GET",
+        path="",
+        multi_headers=[("x-token", "value1"), ("x-token", "value2")],
+    )
+    assert resp.status_code == 200

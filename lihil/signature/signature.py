@@ -4,10 +4,11 @@ from ididi import DependentNode
 from msgspec import Struct, field
 
 from lihil.interface import Base, IEncoder, R, Record
-from lihil.problems import ValidationProblem
+from lihil.problems import InvalidFormError, ValidationProblem
 from lihil.vendors import (
     FormData,
     Headers,
+    MultiPartException,
     QueryParams,
     Request,
     WebSocket,
@@ -64,7 +65,6 @@ class EndpointSignature(Base, Generic[R]):
         req_path: dict[str, str] | None = None,
         req_query: QueryParams | None = None,
         req_header: Headers | None = None,
-        body: bytes | FormData | None = None,
     ) -> ParseResult:
         verrors: list[Any] = []
         params: dict[str, Any] = {}
@@ -107,41 +107,49 @@ class EndpointSignature(Base, Generic[R]):
                 else:
                     verrors.append(error)
 
-        if self.body_param and body is not None:
-            name, param = self.body_param
-            val, error = param.extract(body)
-            if val:
-                params[name] = val
-            else:
-                verrors.append(error)
-
         parsed_result = ParseResult(params, verrors)
         return parsed_result
+
+    async def prepare_body(self, request: Request, parsed: ParseResult) -> ParseResult:
+        assert self.body_param
+        name, param = self.body_param
+
+        if self.form_meta:
+            try:
+                body = await request.form(
+                    max_files=self.form_meta.max_files,
+                    max_fields=self.form_meta.max_fields,
+                    max_part_size=self.form_meta.max_part_size,
+                )
+            except MultiPartException:
+                parsed.errors.append(InvalidFormError("body", name))
+                return parsed
+            else:
+                parsed.callbacks.append(body.close)
+        else:
+            body = await request.body()
+
+        val, error = param.extract(body)
+        if val:
+            parsed.params[name] = val
+        else:
+            parsed.errors.append(error)
+
+        return parsed
 
     def parse_query(self, req: Request | WebSocket) -> ParseResult:
         req_path = req.path_params if self.path_params else None
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
-        params = self.prepare_params(req_path, req_query, req_header, None)
+        params = self.prepare_params(req_path, req_query, req_header)
         return params
 
     async def parse_command(self, req: Request) -> ParseResult:
         req_path = req.path_params if self.path_params else None
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
-
-        if self.form_meta:
-            body = await req.form(
-                max_files=self.form_meta.max_files,
-                max_fields=self.form_meta.max_fields,
-                max_part_size=self.form_meta.max_part_size,
-            )
-            params = self.prepare_params(req_path, req_query, req_header, body)
-            params.callbacks.append(body.close)
-        else:
-            body = await req.body()
-            params = self.prepare_params(req_path, req_query, req_header, body)
-        return params
+        parsed = self.prepare_params(req_path, req_query, req_header)
+        return await self.prepare_body(req, parsed)
 
     @property
     def static(self) -> bool:
