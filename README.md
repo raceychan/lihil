@@ -39,11 +39,11 @@ see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
 - Custom Decoders: Apply custom decoders to have the maximum control of how your param should be parsed & validated.
 
 ```python
-from lihil import Payload, Header, Route, Meta
+from lihil import Payload, Param, Route, Meta
 from .service import get_user_service, UserService
 
 class UserPayload(Payload): # memory optimized data structure that does not involve in gc.
-    user_name: Annotated[str, Meta(min_length=1)] # non-empty string with length >= 1
+    user_name: Annotated[str, Param(min_length=1)] # non-empty string with length >= 1
 
 all_users = Route("users")
 all_users.factory(get_user_service)
@@ -52,7 +52,7 @@ all_users.factory(get_user_service)
 @all_users.sub("{user_id}").post # POST /users/{user_id}
 async def create_user(
     user_id: str,                                           # from URL path
-    auth_token: Header[str, Literal["x-auth-token"]],       # from request headers
+    auth_token: Annotated[str, Param(alias="x-auth-token")],       # from request headers
     user_data: UserPayload,                                 # from request body
     service: UserService
 ) -> Resp[str, 201]: ...
@@ -64,14 +64,14 @@ async def create_user(
 - **Inject factories, functions, sync/async, scoped/singletons based on type hints, blazingly fast.**
 
 ```python
-from lihil import Route, Ignore
+from lihil import Route, Ignore, Param
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection
 
 async def get_conn(engine: AsyncEngine) -> AsyncConnection:
     async with engine.connect() as conn:
         yield conn
 
-async def get_users(conn: AsyncConnection, nums: Annotated[int, Meta(lt=100)]) -> Ignore[list[User]]:
+async def get_users(conn: AsyncConnection, nums: Annotated[int, Param(lt=100)]) -> Ignore[list[User]]:
     return await conn.execute(text(f"SELECT * FROM users limit {nums}"))
 
 all_users = Route("users")
@@ -240,8 +240,7 @@ async def hello():
 ```
 
 ```python
-from lihil import Lihil, Route, use, EventBus
-from msgspec import Meta
+from lihil import Lihil, Route, use, EventBus, Param
 
 chat_route = Route("/chats/{chat_id}")
 message_route = chat_route / "messages"
@@ -261,7 +260,7 @@ async def stream(
    service: ChatService,  # get_chat_service gets called and inject instance of ChatService here.
    profile: JWTAuth[UserProfile], # Auth Bearer: {jwt_token}` Header gets validated into UserProfile.
    bus: EventBus,
-   chat_id: Annotated[str, Meta[min_length=1]], # validates the path param `chat_id` has to be a string with length > 1.
+   chat_id: Annotated[str, Param[min_length=1]], # validates the path param `chat_id` has to be a string with length > 1.
    data: CreateMessage # request body
 ) -> Annotated[Stream[GPTMessage], CustomEncoder(gpt_encoder)]: # returns server side events
     chat = service.get_user_chat(profile.user_id)
@@ -276,7 +275,7 @@ async def stream(
 
 ## Install
 
-lihil(currently) requires python>=3.12
+lihil(currently) requires python>=3.10
 
 ### pip
 
