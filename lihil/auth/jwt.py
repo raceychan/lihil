@@ -173,7 +173,10 @@ else:
 
         jwt = PyJWT(options)  # type: ignore
 
-        def decoder(content: str) -> T:
+        def decoder(content: str | list[str]) -> T:
+            if isinstance(content, list):
+                raise InvalidAuthError("Multiple authorization headers are not allowed")
+
             try:
                 scheme, _, token = content.partition(" ")
                 if scheme.lower() != "bearer":

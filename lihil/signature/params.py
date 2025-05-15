@@ -8,7 +8,7 @@ from starlette.datastructures import FormData
 
 from lihil.errors import NotSupportedError
 from lihil.interface import BodyContentType, ParamBase, ParamSource, T, is_provided
-from lihil.interface.struct import Base, IDecoder
+from lihil.interface.struct import Base, IBodyDecoder, IDecoder, ITextualDecoder
 from lihil.problems import (
     CustomDecodeErrorMessage,
     CustomValidationError,
@@ -20,7 +20,7 @@ from lihil.problems import (
 from lihil.utils.typing import is_mapping_type, is_nontextual_sequence
 from lihil.vendors import FormData, Headers, QueryParams
 
-D = TypeVar("D")
+D = TypeVar("D", bound=bytes | FormData | str | list[str])
 
 
 class StateParam(ParamBase[Any]): ...
@@ -33,7 +33,7 @@ class ParamExtra(Struct):
 class ParamMeta(Struct):
     source: Union[ParamSource, None] = None
     alias: Union[str, None] = None
-    decoder: Any = None
+    decoder: IBodyDecoder[Any] | ITextualDecoder[Any] | None = None
     constraint: Constraint | None = None
     extra: ParamExtra | None = None
 
@@ -143,7 +143,7 @@ def Param(
 
 class Decodable(ParamBase[T], Generic[D, T], kw_only=True):
     source: ClassVar[ParamSource]
-    decoder: IDecoder[Any, T] = None  # type: ignore
+    decoder: IDecoder[D, T]
 
     def __post_init__(self):
         super().__post_init__()
@@ -195,9 +195,9 @@ class PathParam(Decodable[str, T], Generic[T], kw_only=True):
         return self.validate(raw)
 
 
-class QueryParam(Decodable[str | list[str], T]):
+class QueryParam(Decodable[str | list[str], T], kw_only=True):
     source: ClassVar[ParamSource] = "query"
-    decoder: IDecoder[str | list[str], T] = None  # type: ignore
+    decoder: IDecoder[str | list[str], T]
     multivals: bool = False
 
     def __post_init__(self):
@@ -236,6 +236,7 @@ class CookieParam(HeaderParam[T], kw_only=True):
 
 class BodyParam(Decodable[bytes | FormData, T], kw_only=True):
     source: ClassVar[ParamSource] = "body"
+    decoder: IDecoder[bytes, T] | IDecoder[FormData, T]
     content_type: BodyContentType = "application/json"
 
     def __repr__(self) -> str:

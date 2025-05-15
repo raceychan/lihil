@@ -27,7 +27,7 @@ from lihil.errors import NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, ParamSource, R, T
 from lihil.interface.marks import Struct
-from lihil.interface.struct import IDecoder
+from lihil.interface.struct import IDecoder, ITextualDecoder
 from lihil.plugins.bus import EventBus
 from lihil.utils.json import decoder_factory
 from lihil.utils.string import find_path_keys, to_kebab_case
@@ -110,7 +110,7 @@ def file_body_param(
 ) -> "BodyParam[UploadFile | None]":
     decoder = filedeocder_factory(name)
     content_type = "multipart/form-data"
-    req_param = BodyParam(
+    req_param = BodyParam[UploadFile | None](
         name=name,
         alias=name,
         type_=type_,
@@ -172,7 +172,7 @@ def req_param_factory(
     param_type: type[T] | UnionType,
     annotation: Any,
     default: Maybe[T],
-    decoder: IDecoder[str | list[str], T] | None = None,
+    decoder: ITextualDecoder[T] | None = None,
     param_meta: ParamMeta | None = None,
     source: ParamSource = "query",
 ) -> "RequestParam[T]":
@@ -180,11 +180,12 @@ def req_param_factory(
     if isinstance(param_meta, ParamMeta) and param_meta.constraint:
         param_type = cast(type[T], Annotated[param_type, param_meta.constraint])
 
-    if decoder is None:
-        if param_meta and param_meta.decoder:
-            decoder = param_meta.decoder
-        else:
-            decoder = textdecoder_factory(param_type=param_type)
+    if decoder:
+        decoder_ = decoder
+    elif param_meta and param_meta.decoder is not None:
+        decoder_ = cast(ITextualDecoder[T], param_meta.decoder)
+    else:
+        decoder_ = textdecoder_factory(param_type=param_type)
 
     if source == "path":
         req_param = PathParam(
@@ -192,7 +193,7 @@ def req_param_factory(
             alias=alias,
             type_=param_type,
             annotation=annotation,
-            decoder=decoder,
+            decoder=cast(IDecoder[str, T], decoder_),
             default=default,
         )
     elif source == "header":
@@ -201,7 +202,7 @@ def req_param_factory(
             alias=alias,
             type_=param_type,
             annotation=annotation,
-            decoder=decoder,
+            decoder=decoder_,
             default=default,
         )
     elif source == "cookie":
@@ -213,18 +214,17 @@ def req_param_factory(
             alias=alias,
             type_=param_type,
             annotation=annotation,
-            decoder=decoder,
+            decoder=decoder_,
             default=default,
         )
 
     else:
-        # elif location == "query":
         req_param = QueryParam(
             name=name,
             alias=alias,
             type_=param_type,
             annotation=annotation,
-            decoder=decoder,
+            decoder=decoder_,
             default=default,
         )
 
@@ -300,10 +300,9 @@ class EndpointParser:
                 source="path",
             )
         elif is_lhl_primitive(param_type):
-            if param_type is IRequest:
-                param_type = Request
+            type_ = Request if param_type is IRequest else param_type
             states: StateParam = StateParam(
-                type_=param_type, annotation=annotation, name=name, default=default
+                type_=type_, annotation=annotation, name=name, default=default
             )
             return states
         elif is_body_param(param_type):
@@ -350,9 +349,8 @@ class EndpointParser:
         default: Maybe[T],
         param_meta: ParamMeta,
     ) -> "ParsedParam[T]":
-        if custom_decoder := param_meta.decoder:
-            decoder = custom_decoder
-        elif param_meta.extra and param_meta.extra.use_jwt:
+
+        if param_meta.extra and param_meta.extra.use_jwt:
             from lihil.auth.jwt import jwt_decoder_factory
 
             decoder = jwt_decoder_factory(payload_type=type_)

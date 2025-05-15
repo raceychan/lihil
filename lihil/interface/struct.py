@@ -16,6 +16,7 @@ from typing_extensions import Self, dataclass_transform
 
 from lihil.interface import UNSET
 from lihil.interface.marks import EMPTY_RETURN_MARK
+from lihil.vendors import FormData
 
 I = TypeVar("I")
 T = TypeVar("T")
@@ -33,6 +34,10 @@ def exclude_value(data: Struct, value: Any) -> dict[str, Any]:
     return {
         f: val for f in data.__struct_fields__ if (val := getattr(data, f)) != value
     }
+
+
+ITextualDecoder = IDecoder[str | list[str], T]
+IBodyDecoder = IDecoder[bytes, T] | IDecoder[FormData, T]
 
 
 class Base(Struct):
@@ -96,19 +101,6 @@ class Payload(Record, frozen=True, gc=False):
 
 class CustomEncoder(Base):
     encode: Callable[[Any], bytes]
-
-
-# class CustomDecoder(Base):  # deprecated, just use decoder
-#     """
-#     class IType: ...
-
-#     def decode_itype()
-
-
-#     async def create_user(i: Annotated[IType, CustomDecoder(decode_itype)])
-#     """
-
-#     decode: ITextDecoder[Any] | IDecoder[Any, Any] | IFormDecoder[Any]
 
 
 def empty_encoder(param: Any) -> bytes:
