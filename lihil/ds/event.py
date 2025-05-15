@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
-from typing import ClassVar, dataclass_transform
+from typing import ClassVar, Generic, TypeVar
 from uuid import uuid4
 
 from msgspec.json import Decoder
+from typing_extensions import dataclass_transform
 
 from lihil.interface import Record, field
 from lihil.utils.typing import all_subclasses, union_types
@@ -27,7 +28,10 @@ class Event(Record, tag_field="typeid", omit_defaults=True):
     version: ClassVar[str] = "1"
 
 
-class Envelope[Body: Event](Record, omit_defaults=True):
+TBody = TypeVar("TBody", bound=Event)
+
+
+class Envelope(Record, Generic[TBody], omit_defaults=True):
     """
     a lihil-managed event meta class
 
@@ -37,7 +41,7 @@ class Envelope[Body: Event](Record, omit_defaults=True):
     A container for event, can be used to deliver to kafka, save to pg, etc.
     """
 
-    data: Body
+    data: TBody
 
     sub: str = field(default="", name="entity_id")
     source: str = ""

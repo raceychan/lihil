@@ -3,37 +3,29 @@ from typing import (
     Any,
     Callable,
     ClassVar,
+    Generic,
     Literal,
     Protocol,
-    Self,
-    dataclass_transform,
+    TypeVar,
 )
 
 from msgspec import Struct
 from msgspec.structs import asdict as struct_asdict
 from msgspec.structs import replace as struct_replace
+from typing_extensions import Self, dataclass_transform
 
 from lihil.interface import UNSET
 from lihil.interface.marks import EMPTY_RETURN_MARK
-from lihil.vendors import FormData
+
+I = TypeVar("I")
+T = TypeVar("T")
 
 
-class IDecoder[I, T](Protocol):
+class IDecoder(Protocol, Generic[I, T]):
     def __call__(self, content: I, /) -> T: ...
 
 
-class IFormDecoder[T](Protocol):
-    def __call__(self, content: FormData, /) -> T: ...
-
-
-class IBodyDecoder[T](IDecoder[bytes, T]): ...
-
-
-class ITextDecoder[T](IDecoder[str, T]):
-    "for non-body params"
-
-
-class IEncoder[T](Protocol):
+class IEncoder(Protocol, Generic[T]):
     def __call__(self, content: T, /) -> bytes: ...
 
 
@@ -50,6 +42,12 @@ class Base(Struct):
 
     def keys(self) -> tuple[str, ...]:
         return self.__struct_fields__
+
+    def __iter__(self):
+        return iter(self.__struct_fields__)
+
+    def __len__(self) -> int:
+        return len(self.__struct_fields__)
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
@@ -85,11 +83,6 @@ class Base(Struct):
         return self.__class__(**merged)
 
 
-# class ParamBase[T](Base):
-#     type_: type
-#     decoder: IDecoder[T]
-
-
 @dataclass_transform(frozen_default=True)
 class Record(Base, frozen=True, gc=False, cache_hash=True): ...  # type: ignore
 
@@ -105,21 +98,21 @@ class CustomEncoder(Base):
     encode: Callable[[Any], bytes]
 
 
-class CustomDecoder(Base):
-    """
-    class IType: ...
+# class CustomDecoder(Base):  # deprecated, just use decoder
+#     """
+#     class IType: ...
 
-    def decode_itype()
+#     def decode_itype()
 
 
-    async def create_user(i: Annotated[IType, CustomDecoder(decode_itype)])
-    """
+#     async def create_user(i: Annotated[IType, CustomDecoder(decode_itype)])
+#     """
 
-    decode: ITextDecoder[Any] | IDecoder[Any, Any] | IFormDecoder[Any]
+#     decode: ITextDecoder[Any] | IDecoder[Any, Any] | IFormDecoder[Any]
 
 
 def empty_encoder(param: Any) -> bytes:
     return b""
 
 
-type Empty = Annotated[Literal[None], CustomEncoder(empty_encoder), EMPTY_RETURN_MARK]
+Empty = Annotated[Literal[None], CustomEncoder(empty_encoder), EMPTY_RETURN_MARK]

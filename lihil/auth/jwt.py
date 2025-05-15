@@ -1,23 +1,17 @@
 from time import time
 from types import UnionType
-from typing import (
-    Annotated,
-    Any,
-    ClassVar,
-    Literal,
-    Required,
-    Sequence,
-    TypedDict,
-    dataclass_transform,
-)
+from typing import Annotated, Any, ClassVar, Literal, TypedDict, TypeVar, cast
 from uuid import uuid4
 
 from msgspec import convert
+from typing_extensions import Required, dataclass_transform
 
-from lihil.errors import NotSupportedError
-from lihil.interface import MISSING, UNSET, Base, Unset, field, is_provided
-from lihil.interface.marks import HEADER_REQUEST_MARK, JW_TOKEN_RETURN_MARK
+from lihil.config import lhl_get_config
+from lihil.config.app_config import IAppConfig, IJWTConfig
+from lihil.errors import MissingDependencyError, NotSupportedError
+from lihil.interface import MISSING, UNSET, Base, T, Unset, field, is_provided
 from lihil.problems import InvalidAuthError
+from lihil.signature.params import Param
 from lihil.utils.json import encode_json
 
 
@@ -98,10 +92,6 @@ class JWTPayload(Base, kw_only=True):
     def validate_claims(self) -> None: ...
 
 
-# from starlette.responses import Response
-# class TokenResponse(Response): ...
-
-
 class OAuth2Token(Base):
     "https://www.oauth.com/oauth2-servers/access-tokens/access-token-response/"
 
@@ -120,19 +110,26 @@ except ImportError:
     pass
 else:
 
-    def jwt_encoder_factory[T](
-        *,
-        secret: str,
-        algorithms: str | Sequence[str],
-        options: JWTOptions | None = None,
-        payload_type: type[T] | UnionType,
+    def jwt_encoder_factory(
+        *, payload_type: type[T] | UnionType, app_config: IAppConfig | None = None
     ):
+        app_config = app_config or lhl_get_config()
+
+        if not hasattr(app_config, "jwt_secret") or not hasattr(
+            app_config, "jwt_algorithms"
+        ):
+            raise MissingDependencyError("JWTConfig")
+
+        config = cast(IJWTConfig, app_config)
+        secret = config.jwt_secret
+        algorithms = config.jwt_algorithms
+        options = None
 
         if not isinstance(payload_type, type) or not issubclass(
             payload_type, (JWTPayload, str)
         ):
             raise NotSupportedError(
-                "payload type must be str or subclass of JWTPayload"
+                f"payload type must be str or subclass of JWTPayload, got {payload_type}"
             )
 
         if isinstance(algorithms, str):
@@ -159,13 +156,20 @@ else:
 
         return encoder
 
-    def jwt_decoder_factory[T](
-        *,
-        secret: str,
-        algorithms: str | Sequence[str],
-        options: JWTOptions | None = None,
-        payload_type: type[T] | UnionType,
+    def jwt_decoder_factory(
+        *, payload_type: type[T] | UnionType, app_config: IAppConfig | None = None
     ):
+
+        app_config = app_config or lhl_get_config()
+        if not hasattr(app_config, "jwt_secret") or not hasattr(
+            app_config, "jwt_algorithms"
+        ):
+            raise MissingDependencyError("JWTConfig")
+        config = cast(IJWTConfig, app_config)
+
+        secret = config.jwt_secret
+        algorithms = config.jwt_algorithms
+        options = None
 
         jwt = PyJWT(options)  # type: ignore
 
@@ -174,26 +178,21 @@ else:
                 scheme, _, token = content.partition(" ")
                 if scheme.lower() != "bearer":
                     raise InvalidAuthError(f"Invalid authorization scheme {scheme}")
-                # TODO: rewrite jwt.decode_complete
-                # payload = decode(deocded)
-                # payload.validate_claims()
-                # return payload
-
                 algos = [algorithms] if isinstance(algorithms, str) else algorithms
-
                 decoded: dict[str, Any] = jwt.decode(
                     token, key=secret, algorithms=algos
                 )
                 return convert(decoded, payload_type)
             except InvalidTokenError:
-                raise InvalidAuthError("Not able to validate your credential")
+                raise InvalidAuthError("Unable to validate your credential")
 
         return decoder
 
 
-type AuthHeader[T] = Annotated[T, Literal["Authorization"], HEADER_REQUEST_MARK]
-type JWTAuth[T: JWTPayload | str | bytes] = Annotated[
-    AuthHeader[T],
-    JW_TOKEN_RETURN_MARK,
+TPayload = TypeVar("TPayload", bound=JWTPayload | str | bytes)
+
+JWTAuth = Annotated[
+    TPayload,
+    Param("header", alias="Authorization", jwt=True),
     "application/json",
 ]

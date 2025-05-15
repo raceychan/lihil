@@ -1,15 +1,19 @@
-from typing import Any, Literal
+from typing import Any
 
 import pytest
 from ididi import Graph
 
-from lihil.interface import Header, Payload
-from lihil.signature import EndpointSignature
+from lihil.interface import Payload
+from lihil.interface.marks import Annotated
+from lihil.signature import EndpointParser, EndpointSignature, Param
 from lihil.utils.json import encode_json
 
 
 async def get_order(
-    user_id: str, order_id: str, limit: int, x_token: Header[str, Literal["x-token"]]
+    user_id: str,
+    order_id: str,
+    limit: int,
+    x_token: Annotated[str, Param("header", alias="x-token")],
 ) -> dict[str, str]: ...
 
 
@@ -26,7 +30,7 @@ async def create_user(user: User) -> User: ...
 def get_order_dep() -> EndpointSignature[Any]:
     dg = Graph()
     path = "/users/{user_id}/orders/{order_id}"
-    dep = EndpointSignature.from_function(dg, path, get_order)
+    dep = EndpointParser(dg, path).parse(get_order)
     return dep
 
 
@@ -34,7 +38,7 @@ def get_order_dep() -> EndpointSignature[Any]:
 def create_user_dep() -> EndpointSignature[Any]:
     dg = Graph()
     path = "/user"
-    dep = EndpointSignature.from_function(dg, path, create_user)
+    dep = EndpointParser(dg, path).parse(create_user)
     return dep
 
 
@@ -59,7 +63,7 @@ def test_prepare_params(get_order_dep: EndpointSignature[Any]):
     assert parsed["x_token"] == token
 
 
-def test_missing_param(get_order_dep: EndpointSignature[Any]):
+def test_missing_Param(get_order_dep: EndpointSignature[Any]):
     user_id = "u11b22"
     token = "token"
 

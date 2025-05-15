@@ -8,15 +8,16 @@ from typing import (
     MutableMapping,
     Optional,
     Union,
-    Unpack,
 )
+from typing_extensions import Unpack
 from urllib.parse import urlencode
 from uuid import uuid4
 
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
 
-from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload
+from lihil.errors import LihilError
+from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload, R
 from lihil.routing import Endpoint, IEndpointProps, Route
 
 
@@ -358,7 +359,7 @@ class LocalClient:
         3. set ep.graph = new graph
         4. reset ep.graph to old graph
         """
-        ep.setup()
+        ep._route.setup()
 
         resp = await self.request(
             app=ep,
@@ -443,6 +444,9 @@ class LocalClient:
         sent_messages: list[dict[str, str]] = []
 
         async def send(message: dict[str, str]) -> None:
+            prefix, type_, result = message["type"].split(".")
+            if result == "failed":
+                raise LihilError(message["message"])
             sent_messages.append(message)
 
         await app(scope, receive, send)
@@ -491,7 +495,7 @@ class LocalClient:
         else:
             raise TypeError(f"Not supported type {app}")
 
-    def make_endpoint[R](
+    def make_endpoint(
         self,
         f: Callable[..., R],
         method: HTTP_METHODS = "GET",
@@ -502,5 +506,5 @@ class LocalClient:
 
         route.add_endpoint(method, func=f, **props)
         ep = route.get_endpoint(method)
-        ep.setup()
+        route.setup()
         return ep

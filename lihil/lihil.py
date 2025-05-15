@@ -5,15 +5,39 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
 from pathlib import Path
-from typing import Any, AsyncContextManager, Callable, Unpack, cast, overload
+from types import MappingProxyType
+from typing import (
+    Any,
+    AsyncContextManager,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Generic,
+    Mapping,
+    TypeVar,
+    cast,
+    final,
+    overload,
+)
 
 from ididi import Graph
+from typing_extensions import Unpack
 from uvicorn import run as uvi_run
 
-from lihil.config import AppConfig, lhl_get_config, lhl_set_config
+from lihil.config import IAppConfig, lhl_get_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
-from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory
+from lihil.interface import (
+    ASGIApp,
+    IReceive,
+    IScope,
+    ISend,
+    MappingLike,
+    MiddlewareFactory,
+    P,
+    R,
+    T,
+)
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
@@ -25,23 +49,30 @@ from lihil.routing import (
     Route,
     RouteBase,
 )
-from lihil.signature.params import LIHIL_PRIMITIVES
+from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
-from lihil.websocket import WebSocketRoute
 
-type LifeSpan[T] = Callable[["Lihil[Any]"], AsyncContextManager[T]]
+UState = MappingLike | None
+"App state that yield from user lifespan"
+
+TState = TypeVar("TS", bound=UState)
+LifeSpan = Callable[
+    ["Lihil[None]"], AsyncContextManager[TState] | AsyncGenerator[TState, None]
+]
+WrappedLifSpan = Callable[["Lihil[Any]"], AsyncContextManager[T]]
 
 
-def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
-    if lifespan is None:
+EMPTY_APP_STATE: Mapping[str, Any] = MappingProxyType({})
+
+
+def lifespan_wrapper(ls: LifeSpan[TState] | None) -> WrappedLifSpan[TState] | None:
+    if ls is None:
         return None
-    if isasyncgenfunction(lifespan):
-        return asynccontextmanager(lifespan)
-    elif (wrapped := getattr(lifespan, "__wrapped__", None)) and isasyncgenfunction(
-        wrapped
-    ):
-        return lifespan
+    if isasyncgenfunction(ls):
+        return asynccontextmanager(ls)
+    elif (wrapped := getattr(ls, "__wrapped__", None)) and isasyncgenfunction(wrapped):
+        return cast(WrappedLifSpan[TState], ls)
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
@@ -49,7 +80,7 @@ def lifespan_wrapper[T](lifespan: LifeSpan[T] | None) -> LifeSpan[T] | None:
 StaticCache = dict[str, tuple[dict[str, Any], dict[str, Any]]]
 
 
-class StaticRoute:
+class StaticRoute(RouteBase):
     def __init__(self):
         # TODO: make this a response instead of a route, cancel static route
         # as route gets more complicated this is hard to maintain.
@@ -57,7 +88,7 @@ class StaticRoute:
         self.path = "_static_route_"
         self.config = EndpointProps(in_schema=False)
 
-    def match(self, scope: IScope) -> bool:
+    def match(self, scope: IScope):
         return scope["path"] in self.static_cache
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend):
@@ -68,31 +99,27 @@ class StaticRoute:
     def add_cache(self, path: str, content: tuple[dict[str, bytes], dict[str, bytes]]):
         self.static_cache[sys.intern(path)] = content
 
-    def setup(self, **deps: Any):
-        pass
 
-
-class Lihil[T](ASGIBase):
-    _userls: LifeSpan[T] | None
+@final
+class Lihil(ASGIBase, Generic[TState]):
+    _userls: WrappedLifSpan[TState | None] | None
 
     def __init__(
         self,
         *,
         routes: list[RouteBase] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
-        app_config: AppConfig | None = None,
+        app_config: IAppConfig | None = None,
+        max_thread_workers: int | None = None,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        config_file: Path | str | None = None,
-        lifespan: LifeSpan[T] | None = None,
+        lifespan: LifeSpan[TState] | None = None,
     ):
         super().__init__(middlewares)
-        lhl_set_config(config_file, app_config)
-        self.app_config = lhl_get_config()
+        if app_config is not None:
+            lhl_set_config(app_config)
 
-        self.workers = ThreadPoolExecutor(
-            max_workers=self.app_config.max_thread_workers
-        )
+        self.workers = ThreadPoolExecutor(max_workers=max_thread_workers)
         self.graph = graph or Graph(
             self_inject=True, workers=self.workers, ignore=LIHIL_PRIMITIVES
         )
@@ -110,74 +137,64 @@ class Lihil[T](ASGIBase):
             self.routes.insert(0, self.root)
 
         self._userls = lifespan_wrapper(lifespan)
+        self._state: S | None = None
+
         self.static_route: StaticRoute | None = None
-        self._app_state: T | None = None
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
         self._generate_builtin_routes()
 
     def __repr__(self) -> str:
-        conn_info = ""
-        host, port = self.app_config.server.host, self.app_config.server.port
-        if host and port:
-            conn_info += f"({host}:{port})"
+        config = lhl_get_config()
+        conn_info = f"({config.server.host}:{config.server.port})"
         lhl_repr = f"{self.__class__.__name__}{conn_info}[\n  "
         routes_repr = "\n  ".join(r.__repr__() for r in self.routes)
         return lhl_repr + routes_repr + "\n]"
 
     @property
-    def app_state(self) -> T | None:
-        return self._app_state
+    def state(self) -> TState | None:
+        return self._state
 
-    async def _on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
-        await receive()
-
+    @asynccontextmanager
+    async def _lifespan(self):
         if self._userls is None:
-            try:
-                self._setup()
-            except BaseException:
-                exc_text = traceback.format_exc()
-                await send({"type": "lifespan.startup.failed", "message": exc_text})
-                raise
-            else:
-                await send({"type": "lifespan.startup.complete"})
-
-            await receive()
-            await send({"type": "lifespan.shutdown.complete"})
-
+            self._setup()
+            yield
         else:
             user_ls = self._userls(self)
-            try:
-                self._app_state = await user_ls.__aenter__()
+            async with user_ls as app_state:
+                self._state = app_state
                 self._setup()
-            except BaseException:
-                exc_text = traceback.format_exc()
-                await send({"type": "lifespan.startup.failed", "message": exc_text})
-            else:
-                await send({"type": "lifespan.startup.complete"})
+                yield
 
-            await receive()
-
+    async def _on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
+        async def event_handler(event_coro: Awaitable[None | bool], event: str):
             try:
-                await user_ls.__aexit__(None, None, None)
+                await event_coro
             except BaseException:
                 exc_text = traceback.format_exc()
-                await send({"type": "lifespan.shutdown.failed", "message": exc_text})
+                await send({"type": f"lifespan.{event}.failed", "message": exc_text})
                 raise
             else:
-                await send({"type": "lifespan.shutdown.complete"})
+                await send({"type": f"lifespan.{event}.complete"})
+
+        ls = self._lifespan()
+
+        await receive()  # receive {'type': 'lifespan.startup'}
+        await event_handler(ls.__aenter__(), "startup")
+        await receive()  # receive {'type': 'lifespan.shutdown'}
+        await event_handler(ls.__aexit__(None, None, None), "shutdown")
 
     def _setup(self) -> None:
         self.call_stack = self.chainup_middlewares(self.call_route)
 
         for route in self.routes:
-            route.setup(graph=self.graph, busterm=self.busterm)
+            route.setup(app_state=self._state, graph=self.graph, busterm=self.busterm)
 
     def _generate_builtin_routes(self):
-        oas_config = self.app_config.oas
-        openapi_route = get_openapi_route(
-            oas_config, self.routes, self.app_config.version
-        )
+        config = lhl_get_config()
+        oas_config = config.oas
+        openapi_route = get_openapi_route(oas_config, self.routes, config.version)
         doc_route = get_doc_route(oas_config)
         problems = collect_problems()
         problem_route = get_problem_route(oas_config, problems)
@@ -212,12 +229,15 @@ class Lihil[T](ASGIBase):
     def static(
         self,
         path: str,
-        static_content: str | bytes | Callable[..., str | bytes | dict[str, Any]],
+        static_content: (
+            str | bytes | dict[str, Any] | Callable[..., str | bytes | dict[str, Any]]
+        ),
         content_type: str = "text/plain",
         charset: str = "utf-8",
     ) -> None:
         if not is_plain_path(path):
             raise NotSupportedError("staic resource with dynamic path is not supported")
+
         if isinstance(static_content, Callable):
             static_content = static_content()
         elif isinstance(static_content, str):
@@ -276,11 +296,14 @@ class Lihil[T](ASGIBase):
 
     def run(self, file_path: str, runner: Callable[..., None] = uvi_run):
         """
+        ```python
         app = Lihil()
         app.run(__file__)
+        ```
         """
 
-        server_config = self.app_config.server
+        config = lhl_get_config()
+        server_config = config.server
         set_values = {k: v for k, v in server_config.asdict().items() if v is not None}
 
         worker_num = server_config.workers
@@ -308,120 +331,120 @@ class Lihil[T](ASGIBase):
     # ============ Http Methods ================
 
     @overload
-    def get[**P, R](
+    def get(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def get[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def get(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def get[**P, R](
+    def get(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
         assert isinstance(self.root, Route)
         return self.root.get(func, **epconfig)
 
     @overload
-    def put[**P, R](
+    def put(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def put[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def put(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def put[**P, R](
+    def put(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         assert isinstance(self.root, Route)
         return self.root.put(func, **epconfig)
 
     @overload
-    def post[**P, R](
+    def post(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def post[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def post(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def post[**P, R](
+    def post(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).post(func, **epconfig)
 
     @overload
-    def delete[**P, R](
+    def delete(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def delete[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def delete(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def delete[**P, R](
+    def delete(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).delete(func, **epconfig)
 
     @overload
-    def patch[**P, R](
+    def patch(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def patch[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def patch(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def patch[**P, R](
+    def patch(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).patch(func, **epconfig)
 
     @overload
-    def head[**P, R](
+    def head(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def head[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def head(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def head[**P, R](
+    def head(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).head(func, **epconfig)
 
     @overload
-    def options[**P, R](
+    def options(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def options[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def options(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def options[**P, R](
+    def options(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).options(func, **epconfig)
 
     @overload
-    def trace[**P, R](
+    def trace(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def trace[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def trace(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def trace[**P, R](
+    def trace(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).trace(func, **epconfig)
 
     @overload
-    def connect[**P, R](
+    def connect(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def connect[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def connect(self, func: Func[P, R]) -> Func[P, R]: ...
 
-    def connect[**P, R](
+    def connect(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         return cast(Route, self.root).connect(func, **epconfig)

@@ -1,9 +1,10 @@
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from msgspec import field
 
-from lihil.interface import UNSET, Form, Payload, Unset
+from lihil.interface import UNSET, Payload, UnsetType
 from lihil.oas.model import AuthModel, OAuth2, OAuthFlowPassword, OAuthFlows
+from lihil.signature.params import form
 
 
 class OAuthLogin(Payload):
@@ -26,7 +27,7 @@ class OAuthLogin(Payload):
 
 
 # refference: https://datatracker.ietf.org/doc/html/rfc6749
-type OAuthLoginForm = Form[OAuthLogin]
+OAuthLoginForm = Annotated[OAuthLogin, form()]
 
 
 class AuthBase:
@@ -42,7 +43,7 @@ class OAuth2Base(AuthBase):
 
     def __init__(
         self,
-        description: Unset[str] = UNSET,
+        description: UnsetType | str = UNSET,
         auto_error: bool = True,
         flows: OAuthFlows | None = None,
         scheme_name: str | None = None,
@@ -65,7 +66,7 @@ class OAuth2PasswordFlow(OAuth2Base):
         self,
         *,
         token_url: str,
-        description: Unset[str] = UNSET,
+        description: UnsetType | str = UNSET,
         auto_error: bool = True,
         flows: OAuthFlows | None = None,
         scheme_name: str | None = None,

@@ -1,17 +1,17 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 import pytest
 
-from lihil import Graph, Text, status
+from lihil import Graph, Text, Param, status
 
 # from lihil.errors import InvalidParamTypeError
-from lihil.interface import ASGIApp, Empty, Header, IReceive, IScope, ISend, Resp
+from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend
 from lihil.plugins.bus import Event
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
 
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
-from lihil.signature.params import ParamParser
+from lihil.signature import EndpointParser
 
 
 async def test_route_truediv_operator():
@@ -47,14 +47,13 @@ async def test_route_match():
 
     # Valid match
     scope = {"path": "/users/123"}
-    matched_scope = route.match(scope)
+    assert route.match(scope)
 
-    assert matched_scope is not None
-    assert matched_scope["path_params"] == {"user_id": "123"}
+    assert scope["path_params"] == {"user_id": "123"}
 
     # No match
     scope = {"path": "/posts/123"}
-    assert route.match(scope) is None
+    assert not route.match(scope)
 
 
 async def test_route_call_with_valid_method():
@@ -334,7 +333,7 @@ async def test_route_listen():
     # Verify the listener was registered
 
 
-async def test_route_with_listeners_param():
+async def test_route_with_listeners_Param():
     # Create a simple listener
     def test_listener(event: Event):
         pass
@@ -690,7 +689,7 @@ async def test_route_with_literal_resp():
 async def test_route_with_nested_empty_response():
     route = Route("empty")
 
-    async def post_empty() -> Resp[Empty, status.NO_CONTENT]: ...
+    async def post_empty() -> Annotated[Empty, status.NO_CONTENT]: ...
 
     route.post(post_empty)
 
@@ -704,9 +703,11 @@ async def test_route_with_nested_empty_response():
 
 
 async def test_parse_header_with_key():
-    parser = ParamParser(Graph())
+    parser = EndpointParser(Graph(), "test")
 
-    res = parser.parse_param("token", Header[str, Literal["Authorization"]])
-    param = res[0]
+    res = parser.parse_param(
+        "token", Annotated[str, Param("header", alias="Authorization")]
+    )
+    p = res[0]
 
-    assert param.alias == "authorization"
+    assert p.alias == "Authorization"

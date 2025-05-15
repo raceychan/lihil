@@ -3,44 +3,46 @@ from inspect import isasyncgen, isgenerator
 from types import MethodType
 from typing import (
     Any,
+    Generic,
     Callable,
     Literal,
     Pattern,
-    Self,
     Sequence,
     TypedDict,
     Union,
-    Unpack,
     cast,
     overload,
 )
+from typing_extensions import Unpack, Self
 
 from ididi import Graph, INodeConfig
 from ididi.graph import Resolver
 from ididi.interfaces import IDependent
 from msgspec import field
-from starlette.requests import Request
-from starlette.responses import Response, StreamingResponse
+from starlette.responses import StreamingResponse
 
 from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
-from lihil.config import AppConfig, lhl_get_config
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.ds.resp import StaticResponse
-from lihil.errors import InvalidParamTypeError
 from lihil.interface import (
+    P,
+    R,
+    T,
     HTTP_METHODS,
     ASGIApp,
     Func,
     IReceive,
     IScope,
     ISend,
+    MappingLike,
     MiddlewareFactory,
     Record,
 )
 from lihil.plugins.bus import BusTerminal, Event, EventBus, MessageRegistry
 from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
 from lihil.signature import EndpointSignature, ParseResult
+from lihil.signature.parser import EndpointParser
 from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.utils.string import (
     build_path_regex,
@@ -49,6 +51,7 @@ from lihil.utils.string import (
     trim_path,
 )
 from lihil.utils.threading import async_wrapper
+from lihil.vendors import Request, Response
 
 
 class IEndpointProps(TypedDict, total=False):
@@ -86,7 +89,7 @@ class EndpointProps(Record, kw_only=True):
         return cls(**iconfig)  # type: ignore
 
 
-class Endpoint[R]:
+class Endpoint(Generic[R]):
     def __init__(
         self,
         route: "Route",
@@ -136,43 +139,31 @@ class Endpoint[R]:
     def unwrapped_func(self) -> Callable[..., R]:
         return self._unwrapped_func
 
-    def setup(self) -> None:
+    def setup(self, sig: EndpointSignature[R]) -> None:
         self._graph = self._route.graph
         self._busterm = self._route.busterm
+        self._app_state = self._route.app_state
 
-        self._sig = EndpointSignature.from_function(
-            graph=self._route.graph,
-            route_path=self._route.path,
-            f=self._unwrapped_func,
-            app_config=self._route.app_config,
-        )
+        self._sig = sig
 
-        self._dep_items = self._sig.dependencies.items()
-        if self._sig.plugins:
-            self._plugin_items = self._sig.plugins.items()
-        else:
-            self._plugin_items = ()
+        self._dep_items = sig.dependencies.items()
+        self._states_items = sig.states.items()
+        self._static = sig.static
+        self._transitive_params = sig.transitive_params
 
-        self._static = self._sig.static
-
-        scoped_by_config = bool(self._props and self._props.scoped is True)
-
-        self._require_body: bool = self._sig.body_param is not None
-        self._status_code = self._sig.default_status
-        self._scoped: bool = self._sig.scoped or scoped_by_config
-        self._encoder = self._sig.return_encoder
+        self._require_body: bool = sig.body_param is not None
+        self._status_code = sig.status_code
+        self._scoped: bool = sig.scoped or self._props.scoped is True
+        self._encoder = sig.return_encoder
         self._media_type = (
-            next(iter(self._sig.return_params.values())).content_type
-            or "application/json"
+            next(iter(sig.return_params.values())).content_type or "application/json"
         )
 
-    async def inject_plugins(
+    def inject_states(
         self, params: dict[str, Any], request: Request, resolver: Resolver
     ):
-        for name, p in self._plugin_items:
-            ptype = p.type_
-            assert isinstance(ptype, type)
-
+        for name, p in self._states_items:
+            ptype = cast(type, p.type_)
             if issubclass(ptype, Request):
                 params[name] = request
             elif issubclass(ptype, EventBus):
@@ -180,13 +171,12 @@ class Endpoint[R]:
                 params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-            elif p.processor:
-                await p.processor(params, request, resolver)
             else:
-                raise InvalidParamTypeError(
-                    f"Plugin {p.plugin} has no processor defined"
-                )
-        return params
+                if (state := self._app_state) is None:
+                    raise ValueError(
+                        f"{self} requires state param {name}, but app state is not set"
+                    )
+                params[name] = state[name]
 
     async def make_static_call(
         self, scope: IScope, receive: IReceive, send: ISend
@@ -214,15 +204,16 @@ class Endpoint[R]:
             if errors := parsed_result.errors:
                 raise InvalidRequestErrors(detail=errors)
 
-            if self._plugin_items:
-                params = await self.inject_plugins(
-                    parsed_result.params, request, resolver
-                )
-            else:
-                params = parsed_result.params
+            params = parsed_result.params
+
+            if self._states_items:
+                self.inject_states(params, request, resolver)
 
             for name, dep in self._dep_items:
                 params[name] = await resolver.aresolve(dep.dependent, **params)
+
+            for p in self._transitive_params:
+                params.pop(p)
 
             raw_return = await self._func(**params)
             return raw_return
@@ -299,7 +290,6 @@ class RouteBase(ASGIBase):
         if listeners:
             self.registry.register(*listeners)
         self.busterm = BusTerminal(self.registry, graph=graph)
-        self.app_config: AppConfig | None = None
         self.subroutes: list[Self] = []
 
     def __truediv__(self, path: str) -> "Self":
@@ -331,19 +321,19 @@ class RouteBase(ASGIBase):
         self.subroutes.append(sub)
         return sub
 
-    def match(self, scope: IScope) -> IScope | None:
+    def match(self, scope: IScope) -> bool:
         path = scope["path"]
         if not self.path_regex or not (m := self.path_regex.match(path)):
-            return None
+            return False
         scope["path_params"] = m.groupdict()
-        return scope
+        return True
 
-    def add_nodes[T](
+    def add_nodes(
         self, *nodes: Union[IDependent[T], tuple[IDependent[T], INodeConfig]]
     ) -> None:
         self.graph.add_nodes(*nodes)
 
-    def factory[R](self, node: Callable[..., R], **node_config: Unpack[INodeConfig]):
+    def factory(self, node: Callable[..., R], **node_config: Unpack[INodeConfig]):
         return self.graph.node(node, **node_config)
 
     def listen(self, listener: Callable[[Event, Any], None]) -> None:
@@ -358,14 +348,15 @@ class RouteBase(ASGIBase):
                     return True
         return False
 
-    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
+    def setup(
+        self,
+        graph: Graph | None = None,
+        busterm: BusTerminal | None = None,
+        app_state: MappingLike | None = None,
+    ):
+        self.app_state = app_state
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm
-        self.app_config = lhl_get_config()
-
-    # @classmethod
-    # def reset_route_cache(cls):
-    #     cls._flyweights = {}
 
 
 class Route(RouteBase):
@@ -402,12 +393,22 @@ class Route(RouteBase):
         endpoint = self.call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
         await endpoint(scope, receive, send)
 
-    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
-        super().setup(graph, busterm)
+    def setup(
+        self,
+        graph: Graph | None = None,
+        busterm: BusTerminal | None = None,
+        app_state: MappingLike | None = None,
+    ):
+        super().setup(app_state=app_state, graph=graph, busterm=busterm)
+        self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         for method, ep in self.endpoints.items():
-            ep.setup()
+            ep_sig = self.endpoint_parser.parse(ep.unwrapped_func)
+            ep.setup(ep_sig)
             self.call_stacks[method] = self.chainup_middlewares(ep)
+
+    def parse_endpoint(self, func: Callable[..., R]) -> EndpointSignature[R]:
+        return self.endpoint_parser.parse(func)
 
     def get_endpoint(
         self, method_func: HTTP_METHODS | Callable[..., Any]
@@ -426,7 +427,7 @@ class Route(RouteBase):
         # owner = method.__self__
         raise NotImplementedError
 
-    def add_endpoint[**P, R](
+    def add_endpoint(
         self,
         *methods: HTTP_METHODS,
         func: Func[P, R],
@@ -454,19 +455,19 @@ class Route(RouteBase):
     # ============ Http Methods ================
 
     @overload
-    def get[**P, R](
+    def get(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def get[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def get(self, func: Func[P, R]) -> Func[P, R]: ...
 
     @overload
-    def get[**P, R](
+    def get(
         self, func: Func[P, R] | None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]: ...
 
-    def get[**P, R](
+    def get(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
         if func is None:
@@ -474,19 +475,19 @@ class Route(RouteBase):
         return self.add_endpoint("GET", func=func, **epconfig)
 
     @overload
-    def put[**P, R](
+    def put(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def put[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def put(self, func: Func[P, R]) -> Func[P, R]: ...
 
     @overload
-    def put[**P, R](
+    def put(
         self, func: Func[P, R] | None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]: ...
 
-    def put[**P, R](
+    def put(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         if func is None:
@@ -494,19 +495,19 @@ class Route(RouteBase):
         return self.add_endpoint("PUT", func=func, **epconfig)
 
     @overload
-    def post[**P, R](
+    def post(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def post[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def post(self, func: Func[P, R]) -> Func[P, R]: ...
 
     @overload
-    def post[**P, R](
+    def post(
         self, func: Func[P, R] | None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]: ...
 
-    def post[**P, R](
+    def post(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         if func is None:
@@ -514,19 +515,19 @@ class Route(RouteBase):
         return self.add_endpoint("POST", func=func, **epconfig)
 
     @overload
-    def delete[**P, R](
+    def delete(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def delete[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def delete(self, func: Func[P, R]) -> Func[P, R]: ...
 
     @overload
-    def delete[**P, R](
+    def delete(
         self, func: Func[P, R] | None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]: ...
 
-    def delete[**P, R](
+    def delete(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         if func is None:
@@ -534,19 +535,19 @@ class Route(RouteBase):
         return self.add_endpoint("DELETE", func=func, **epconfig)
 
     @overload
-    def patch[**P, R](
+    def patch(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def patch[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def patch(self, func: Func[P, R]) -> Func[P, R]: ...
 
     @overload
-    def patch[**P, R](
+    def patch(
         self, func: Func[P, R] | None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]: ...
 
-    def patch[**P, R](
+    def patch(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         if func is None:
@@ -554,19 +555,19 @@ class Route(RouteBase):
         return self.add_endpoint("PATCH", func=func, **epconfig)
 
     @overload
-    def head[**P, R](
+    def head(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def head[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def head(self, func: Func[P, R]) -> Func[P, R]: ...
 
     @overload
-    def head[**P, R](
+    def head(
         self, func: Func[P, R] | None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]: ...
 
-    def head[**P, R](
+    def head(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         if func is None:
@@ -574,19 +575,19 @@ class Route(RouteBase):
         return self.add_endpoint("HEAD", func=func, **epconfig)
 
     @overload
-    def options[**P, R](
+    def options(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def options[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def options(self, func: Func[P, R]) -> Func[P, R]: ...
 
     @overload
-    def options[**P, R](
+    def options(
         self, func: Func[P, R] | None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]: ...
 
-    def options[**P, R](
+    def options(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         if func is None:
@@ -594,19 +595,19 @@ class Route(RouteBase):
         return self.add_endpoint("OPTIONS", func=func, **epconfig)
 
     @overload
-    def trace[**P, R](
+    def trace(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def trace[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def trace(self, func: Func[P, R]) -> Func[P, R]: ...
 
     @overload
-    def trace[**P, R](
+    def trace(
         self, func: Func[P, R] | None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]: ...
 
-    def trace[**P, R](
+    def trace(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         if func is None:
@@ -614,19 +615,19 @@ class Route(RouteBase):
         return self.add_endpoint("TRACE", func=func, **epconfig)
 
     @overload
-    def connect[**P, R](
+    def connect(
         self, **epconfig: Unpack[IEndpointProps]
     ) -> Callable[[Func[P, R]], Func[P, R]]: ...
 
     @overload
-    def connect[**P, R](self, func: Func[P, R]) -> Func[P, R]: ...
+    def connect(self, func: Func[P, R]) -> Func[P, R]: ...
 
     @overload
-    def connect[**P, R](
+    def connect(
         self, func: Func[P, R] | None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]: ...
 
-    def connect[**P, R](
+    def connect(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
         if func is None:

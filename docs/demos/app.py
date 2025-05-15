@@ -13,8 +13,6 @@ from lihil import (
     status,
 )
 
-# from lihil.auth.oauth import OAuth2PasswordPlugin, OAuthLoginForm
-
 
 class Unhappiness(Payload):
     scale: int
@@ -57,8 +55,8 @@ class MyState(Payload): ...
 
 
 @asynccontextmanager
-async def lifespan(app: Lihil[MyState]):
-    yield MyState()
+async def lifespan(app: Lihil[None]):
+    yield dict[str, str]()
 
 
 @rusers.post
@@ -124,14 +122,9 @@ async def roses_are_red():
     raise VioletsAreBlue("I am a pythonista")
 
 
-lhl = Lihil(
-    routes=[root, rusers, rprofile, rstream, rempty],
-    lifespan=lifespan,
-    config_file="pyproject.toml",
-)
+lhl = Lihil(routes=[root, rusers, rprofile, rstream, rempty], lifespan=lifespan)
 lhl.static("/ping", "pong")
 
 
-breakpoint()
 # if __name__ == "__main__":
 #     lhl.run(__file__)

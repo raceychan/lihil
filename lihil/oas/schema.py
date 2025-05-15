@@ -4,7 +4,7 @@ from typing import Any, Sequence, cast, get_args
 from msgspec import Struct
 from msgspec.json import schema_components
 
-from lihil.config import OASConfig
+from lihil.config.app_config import IOASConfig
 from lihil.constant.status import phrase
 from lihil.interface import RegularTypes, is_provided, is_set
 from lihil.oas import model as oasmodel
@@ -20,9 +20,9 @@ from lihil.utils.string import to_kebab_case, trimdoc
 
 # from lihil.utils.json import encode_json
 
-type SchemasDict = dict[str, oasmodel.LenientSchema]
-type SecurityDict = dict[str, oasmodel.SecurityScheme | oasmodel.Reference]
-type ComponentsDict = dict[str, Any]
+SchemasDict = dict[str, oasmodel.LenientSchema]
+SecurityDict = dict[str, oasmodel.SecurityScheme | oasmodel.Reference]
+ComponentsDict = dict[str, Any]
 
 
 class DefinitionOutput(Struct):
@@ -35,7 +35,7 @@ class ReferenceOutput(Struct):
     component: SchemasDict
 
 
-type SchemaOutput = DefinitionOutput | ReferenceOutput
+SchemaOutput = DefinitionOutput | ReferenceOutput
 """When component is not None result contains reference"""
 
 PROBLEM_CONTENTTYPE = "application/problem+json"
@@ -120,7 +120,8 @@ def detail_base_to_content(
 
     example = err_type.__json_example__()
     # Add a link to the problems page for this error type
-    problem_link = f"/problems?search={example["type_"]}"
+    problem_type = example["type_"]
+    problem_link = f"/problems?search={problem_type}"
     schemas[err_name] = oasmodel.Schema(
         type="object",
         properties=properties,
@@ -140,12 +141,12 @@ def detail_base_to_content(
 
 
 def _single_field_schema(
-    param: RequestParam[Any], schemas: SchemasDict
+    param: "RequestParam[Any]", schemas: SchemasDict
 ) -> oasmodel.Parameter:
     output = json_schema(param.type_)
     param_schema: dict[str, Any] = {
         "name": param.alias,
-        "in_": param.location,
+        "in_": param.source,
         "required": True,
     }
     if output.component:  # reference
@@ -174,7 +175,8 @@ def example_from_detail_base(
     err_name = err_type.__name__
 
     # Create a schema for this specific error type
-    problem_url = f"{problem_path}/search?{example["type_"]}"
+    problem_type = example["type_"]
+    problem_url = f"{problem_path}/search?{problem_type}"
     error_schema = oasmodel.Schema(
         type="object",
         title=err_name,  # Add title to make it show up in Swagger UI
@@ -420,7 +422,7 @@ class ValidationErrors(Struct):
 
 def generate_oas(
     routes: Sequence[RouteBase],
-    oas_config: OASConfig,
+    oas_config: IOASConfig,
     app_version: str,
 ) -> oasmodel.OpenAPI:
     "Return application/json response"

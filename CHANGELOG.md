@@ -949,3 +949,83 @@ But the fundamental flaws of this design is that:
 
 
 - [x] specialized param meta
+
+
+## version 0.2.5
+
+- refactor signature attributes
+
+
+## Features
+
+- adding `AppState`, `StateParam`
+
+Now user can declare unpacked appstate in endpoint
+
+```python
+from lihil.interface import AppState
+async def lifespan():
+    appstate = {"appname": "lihil"}
+    return appstate
+
+async def f(appname: AppState[str]): # this would read "appname" from appstate
+    assert appname == "lihil
+```
+
+
+### Improvements
+
+
+1. separate `read_config` from `set_config`
+
+<!-- #### `HTTPException.__json_example__`
+
+1. no longer required `type_`, `title`, expects return value of a Typedict with total=False
+
+__json_example__ can be either a callable, or a dict.
+
+
+2. support `Annotated[T, Meta(examples=[value])]`
+
+```python
+class AddressOutOfScopeProblem(Base):
+    current_address: Annotated[str, Meta(examples=["home"])]
+    service_radius: Annotated[float, Meta(examples=[3.5])]
+    distance: Annotated[float, Meta(examples=4)]
+
+    message: str = ""
+
+    def __post_init__(self):
+        self.message = f"Your current address {self.current_address} is {self.distance} miles away and our service radius is {self.service_radius}"
+
+class InvalidOrderError(HTTPException[AddressOutOfScopeProblem]):
+    "Address out of service zone"
+    __status__ = 422
+
+    instance: Annotated[str, Meta(examples=["2cd20e0c-9ddc-4fdc-8f61-b32f62ac784d"])]
+    detail: AddressOutOfScopeProblem
+```
+
+3. collect __json_example__ recursively. -->
+
+
+### Fxies
+
+- Fix a bug where if an exception happens in user provided lifespan(if there is one) before yield, it would not be raised and the app would continue to run
+
+- Fix a bug where if a param is declared in dependency but not in endpoint function, request will fail.
+
+### Refactor
+
+- remove `PluginParam`
+
+
+```python
+async def authenticator(scheme: str, credentials: str)->Any:
+    ...
+
+
+@post
+async def create_user(cred: Authorization[str, CustomDecoder]):
+    ...
+```

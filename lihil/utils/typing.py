@@ -1,17 +1,11 @@
 from collections.abc import Mapping
 from types import GenericAlias, UnionType
-from typing import (
-    Annotated,
-    Any,
-    Literal,
-    Sequence,
-    TypeAliasType,
-    TypeVar,
-    Union,
-    cast,
-    get_args,
-)
+from typing import Annotated, Any, Literal, Sequence, TypeVar, Union, cast, get_args
 from typing import get_origin as ty_get_origin
+
+from typing_extensions import TypeAliasType
+
+T = TypeVar("T")
 
 
 def union_types(subs: Sequence[type[Any]]) -> type | UnionType | GenericAlias | None:
@@ -23,7 +17,7 @@ def union_types(subs: Sequence[type[Any]]) -> type | UnionType | GenericAlias | 
         return None
     elif len(subs) == 1:
         return next(iter(subs))
-    return Union[*subs]  # type: ignore
+    return Union[tuple(subs)]  # type: ignore
 
 
 def is_py_singleton(t: Any) -> Literal[None, True, False]:
@@ -74,32 +68,28 @@ def is_generic_type(type_: Any) -> bool:
     )
 
 
+# def contains_generic_type(container: Sequence[Any]) -> bool:
+#     return any(is_generic_type(t) for t in container)
+
+
 def replace_typevars(
-    tyvars: tuple[type | TypeVar, ...], nonvars: tuple[type, ...]
+    tyvars: Sequence[type | TypeVar], nonvars: Sequence[type]
 ) -> tuple[type, ...]:
     typevar_map: dict[TypeVar, None | type] = {
         item: None for item in tyvars if isinstance(item, TypeVar)
     }
 
-    if len(typevar_map) > len(nonvars):
-        raise ValueError(f"Expected {len(typevar_map)} types in t2, got {len(nonvars)}")
+    var_size, nonvar_size = len(typevar_map), len(nonvars)
+    if var_size > nonvar_size:
+        raise ValueError(f"Expected {var_size} types in t2, got {nonvar_size}")
 
     idx = 0
-    for k in typevar_map:
-        typevar_map[k] = nonvars[idx]
-        idx += 1
+    for var in tyvars:
+        if isinstance(var, TypeVar) and typevar_map.get(var) is None:
+            typevar_map[var] = nonvars[idx]
+            idx += 1
 
-    # Replace TypeVars in t1
-    result: list[type] = []
-
-    for item in tyvars:
-        if isinstance(item, TypeVar):
-            mapped = typevar_map[item]
-            assert mapped
-            result.append(mapped)
-        else:
-            result.append(item)
-
+    result = [typevar_map[var] if isinstance(var, TypeVar) else var for var in tyvars]
     return tuple(result)
 
 
@@ -130,7 +120,7 @@ def recursive_get_args(type_: Any) -> tuple[Any, ...]:
     return type_args
 
 
-def deannotate[T](
+def deannotate(
     annt: Annotated[type[T], "Annotated"] | UnionType | GenericAlias,
 ) -> tuple[type[T], list[Any]] | tuple[type[T], None]:
     type_args = get_args(annt)
@@ -149,22 +139,13 @@ def deannotate[T](
                 flattened_metadata.extend(metas)
         else:
             flattened_metadata.append(item)
-    # if isinstance(ty_get_origin(atype), TypeAliasType):
-    #     new_type, new_metas = deannotate(atype.__value__)
-    #     new_type: type[T]
-    #     if new_metas:
-    #         merged: list[Any] = new_metas + flattened_metadata
-    #     else:
-    #         merged = flattened_metadata
-    #     return (new_type, merged)
     return (atype, flattened_metadata)
 
 
-# TODO: carry type_args, StriDict[int] -> tyargs = ()
-def get_origin_pro[T](
+def get_origin_pro(
     type_: type[T] | UnionType | GenericAlias | TypeAliasType | TypeVar,
     metas: list[Any] | None = None,
-    type_args: tuple[type] | None = None,
+    type_args: tuple[type, ...] | None = None,
 ) -> tuple[type | UnionType | GenericAlias, list[Any] | None]:
     """
     type MyTypeAlias = Annotated[Query[int], CustomEncoder]
@@ -204,7 +185,6 @@ def get_origin_pro[T](
                     for idx, meta in enumerate(demetas):
                         if isinstance(meta, TypeVar):
                             demetas[idx] = nontyvar.pop(0)
-
                 return get_origin_pro(dtype, demetas, type_args)
             else:
                 dtype = repair_type_generic_alias(type_, type_args)
@@ -221,20 +201,18 @@ def get_origin_pro[T](
             if umeta:
                 new_metas.extend(umeta)
         if not new_metas:
-            return get_origin_pro(Union[*utypes], metas, type_args)  # type: ignore
+            return get_origin_pro(Union[tuple(utypes)], metas, type_args)  # type: ignore
 
         if metas is None:
             metas = new_metas
         else:
             metas.extend(new_metas)
-        return get_origin_pro(Union[*utypes], metas, type_args)  # type: ignore
+        return get_origin_pro(Union[tuple(utypes)], metas, type_args)  # type: ignore
     else:
         return (cast(type, type_), cast(None, metas))
 
 
-def all_subclasses[T](
-    cls: type[T], ignore: set[type[Any]] | None = None
-) -> set[type[T]]:
+def all_subclasses(cls: type[T], ignore: set[type[Any]] | None = None) -> set[type[T]]:
     """
     Get all subclasses of a class recursively, avoiding repetition.
 

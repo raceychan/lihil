@@ -1,17 +1,18 @@
 [project]
 authors = [{ name = "raceychan", email = "raceychan@gmail.com" }]
 dependencies = [
-  "ididi>=1.6.0",
+  "ididi>=1.6.1",
   "msgspec>=0.19.0",
   "python-multipart>=0.0.20",
   "starlette>=0.45.3",
+  "tomli>=2.2.1",
   "typing-extensions>=4.12.2",
 ]
 description = "async python framework offering high level development, low level performance."
 dynamic = ["version"]
 name = "lihil"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 
 [project.optional-dependencies]
 standard = ["pyjwt>=2.10.1", "uvicorn[standard]>=0.34.0"]
@@ -23,11 +24,6 @@ requires = ["hatchling"]
 [tool.hatch.version]
 path = "lihil/__init__.py"
 
-[tool.lihil]
-is_prod = true
-
-[tool.lihil.oas]
-doc_path = "/docs"
 
 [dependency-groups]
 dev = [
@@ -37,7 +33,7 @@ dev = [
   "pyinstrument>=5.0.1",
   "py-spy>=0.4.0",
   "pytest-asyncio>=0.25.3",
-  "ipython>=9.0.2",
+  # "ipython>=9.0.2",
   "hatch>=1.14.0",
   "pytest-cov>=6.0.0",
   "twine>=6.1.0",
@@ -50,6 +46,8 @@ dev = [
   "uvloop>=0.21.0",
   "pyjwt>=2.10.1",
   "httpx>=0.28.1",
+  "supabase>=2.15.1",
+  "sqlalchemy>=2.0.40",
 ]
 
 [tool.pyright]
@@ -63,7 +61,7 @@ addopts = "--strict-markers --capture=no"
 asyncio_mode = "auto"
 filterwarnings = [
   "ignore::DeprecationWarning",
-  "ignore::UserWarning:lihil.signature.params",
+  "ignore::UserWarning:lihil.signature.parser",
 ]
 markers = [
   "integration_test: marks tests as slow integration tests (deselect with '-m \"not integration_test\"')",

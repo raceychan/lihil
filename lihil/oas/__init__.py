@@ -6,7 +6,7 @@ https://swagger.io/docs/specification/v3_0/about/
 
 from typing import Any
 
-from lihil.config import OASConfig
+from lihil.config.app_config import IOASConfig
 from lihil.interface.problem import DetailBase
 from lihil.routing import EndpointProps, Route, RouteBase
 from lihil.utils.json import encode_json
@@ -17,7 +17,7 @@ from .schema import generate_oas
 
 
 def get_openapi_route(
-    oas_config: OASConfig, routes: list[RouteBase], app_version: str
+    oas_config: IOASConfig, routes: list[RouteBase], app_version: str
 ) -> Route:
     oas_path = oas_config.oas_path
 
@@ -30,7 +30,7 @@ def get_openapi_route(
     return openapi_route
 
 
-def get_doc_route(oas_config: OASConfig) -> Route:
+def get_doc_route(oas_config: IOASConfig) -> Route:
     oas_path = oas_config.oas_path
     docs_path = oas_config.doc_path
 
@@ -43,7 +43,7 @@ def get_doc_route(oas_config: OASConfig) -> Route:
 
 
 def get_problem_route(
-    oas_config: OASConfig, problems: list[type[DetailBase[Any]]]
+    oas_config: IOASConfig, problems: list[type[DetailBase[Any]]]
 ) -> Route:
     problem_path = oas_config.problem_path
 

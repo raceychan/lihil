@@ -1,16 +1,14 @@
 import json
 from contextlib import asynccontextmanager
-from typing import Any
 
 import pytest
 
 from lihil.config import AppConfig, ServerConfig, lhl_get_config
 from lihil.constant.resp import ServiceUnavailableResp, lhlserver_static_resp
 from lihil.errors import (
-    AppConfiguringError,
     DuplicatedRouteError,
     InvalidLifeSpanError,
-    MiddlewareBuildError,
+    LihilError,
     NotSupportedError,
 )
 from lihil.interface import ASGIApp, Base
@@ -21,38 +19,6 @@ from lihil.routing import Route
 
 class CustomAppState(Base):
     counter: int = 0
-
-
-async def initialize_app_lifespan(app: Lihil[Any]) -> None:
-    """
-    Helper function to initialize a Lihil app by sending lifespan events.
-    This ensures the app's call_stack is properly set up before testing routes.
-    """
-    # Create lifespan scope
-    scope = {"type": "lifespan"}
-
-    # Define receive function that sends startup event
-    receive_messages = [{"type": "lifespan.startup"}]
-    receive_index = 0
-
-    async def receive():
-        nonlocal receive_index
-        if receive_index < len(receive_messages):
-            message = receive_messages[receive_index]
-            receive_index += 1
-            return message
-        return {"type": "lifespan.shutdown"}
-
-    # Define send function that captures responses
-    sent_messages = []
-
-    async def send(message):
-        sent_messages.append(message)
-
-    # Send lifespan event to initialize the app
-    await app(scope, receive, send)
-
-    return sent_messages
 
 
 async def test_lifespan_wrapper_with_none():
@@ -94,16 +60,11 @@ async def test_lifespan_wrapper_with_invalid():
 
 async def test_read_config_with_app_config():
     # Test read_config with app_config
-    app_config = AppConfig(max_thread_workers=8)
-    result = lhl_set_config(None, app_config)
-    assert lhl_get_config() is app_config
-
-
-async def test_read_config_with_both():
-    # Test read_config with both config_file and app_config
-    app_config = AppConfig()
-    with pytest.raises(AppConfiguringError):
-        lhl_set_config("config.json", app_config)
+    app_config = AppConfig(version="0.2.0")
+    lhl_set_config(app_config)
+    config = lhl_get_config()
+    assert config is app_config
+    assert config.version == "0.2.0"
 
 
 async def test_lihil_basic_routing():
@@ -124,21 +85,20 @@ async def test_lihil_basic_routing():
     users_route.get(get_users)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test root route
-    root_response = await client.request(app, "GET", "/")
+    root_response = await client.call_app(app, "GET", "/")
     assert (await root_response.json())["message"] == "Root route"
 
     # Test users route
-    users_response = await client.request(app, "GET", "/users")
+    users_response = await client.call_app(app, "GET", "/users")
     assert (await users_response.json())["message"] == "Users route"
 
     # Test non-existent route
-    not_found_response = await client.request(app, "GET", "/nonexistent")
+    not_found_response = await client.call_app(app, "GET", "/nonexistent")
     assert not_found_response.status_code == 404
 
 
@@ -164,17 +124,16 @@ async def test_lihil_include_routes():
     app.include_routes(users_route, posts_route)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test users route
-    users_response = await client.request(app, "GET", "/users")
+    users_response = await client.call_app(app, "GET", "/users")
     assert (await users_response.json())["message"] == "Users route"
 
     # Test posts route
-    posts_response = await client.request(app, "GET", "/posts")
+    posts_response = await client.call_app(app, "GET", "/posts")
     assert (await posts_response.json())["message"] == "Posts route"
 
 
@@ -200,17 +159,16 @@ async def test_lihil_include_routes_with_subroutes():
     app.include_routes(api_route)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test parent route
-    api_response = await client.request(app, "GET", "/api")
+    api_response = await client.call_app(app, "GET", "/api")
     assert (await api_response.json())["message"] == "API route"
 
     # Test subroute
-    users_response = await client.request(app, "GET", "/api/users")
+    users_response = await client.call_app(app, "GET", "/api/users")
     assert (await users_response.json())["message"] == "Users route"
 
 
@@ -243,13 +201,12 @@ async def test_lihil_static_route():
     app.static("/static", "Static content")
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test static route
-    static_response = await client.request(app, "GET", "/static")
+    static_response = await client.call_app(app, "GET", "/static")
     assert await static_response.text() == "Static content"
     content_type = static_response.headers["content-type"]
     assert content_type == "text/plain; charset=utf-8"
@@ -265,13 +222,12 @@ async def test_lihil_static_route_with_callable():
     app.static("/generated", get_content)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test static route
-    response = await client.request(app, "GET", "/generated")
+    response = await client.call_app(app, "GET", "/generated")
 
     text = await response.text()
     assert text == "Generated content"
@@ -285,13 +241,12 @@ async def test_lihil_static_route_with_json():
     app.static("/json", data, content_type="application/json")
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test static route
-    response = await client.request(app, "GET", "/json")
+    response = await client.call_app(app, "GET", "/json")
     assert (await response.json())["message"] == "JSON data"
     assert "application/json" in response.headers.get("content-type", "")
 
@@ -336,11 +291,10 @@ async def test_lihil_middleware():
     app.add_middleware(middleware_factory)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
-    response = await client.request(app, "GET", "/")
+    response = await client.call_app(app, "GET", "/")
 
     result = await response.json()
     assert result["message"] == "Hello"
@@ -398,11 +352,10 @@ async def test_lihil_middleware_sequence():
     app.add_middleware([middleware1, middleware2])
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
-    response = await client.request(app, "GET", "/")
+    response = await client.call_app(app, "GET", "/")
 
     result = await response.json()
     assert result["message"] == "Hello"
@@ -412,15 +365,16 @@ async def test_lihil_middleware_sequence():
 
 async def test_lihil_lifespan():
     # Define a lifespan function
-    @asynccontextmanager
-    async def lifespan(app):
+    from typing import AsyncGenerator
+
+    async def csls(app: Lihil[None]) -> AsyncGenerator[CustomAppState, None]:
         state = CustomAppState()
         state.counter = 1
         yield state
         state.counter = 0
 
     # Create app with lifespan
-    app = Lihil(lifespan=lifespan)
+    app = Lihil[CustomAppState](lifespan=csls)
 
     # Simulate lifespan events
     scope = {"type": "lifespan"}
@@ -449,8 +403,8 @@ async def test_lihil_lifespan():
     assert any(msg["type"] == "lifespan.shutdown.complete" for msg in send_messages)
 
     # Check that app state was set
-    assert app.app_state is not None
-    assert app.app_state.counter == 0  # Should be reset after shutdown
+    assert app.state is not None
+    assert app.state.counter == 0  # Should be reset after shutdown
 
 
 async def test_lihil_lifespan_startup_error():
@@ -474,8 +428,9 @@ async def test_lihil_lifespan_startup_error():
     async def send(message):
         send_messages.append(message)
 
-    # Start lifespan
-    await app(scope, receive, send)
+    with pytest.raises(ValueError):
+        # Start lifespan
+        await app(scope, receive, send)
 
     # Check that startup failed
     assert any(msg["type"] == "lifespan.startup.failed" for msg in send_messages)
@@ -561,17 +516,16 @@ async def test_init_app_with_routes():
     app = Lihil(routes=[users_route, posts_route])
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test users route
-    users_response = await client.request(app, "GET", "/users")
+    users_response = await client.call_app(app, "GET", "/users")
     assert (await users_response.json())["message"] == "Users route"
 
     # Test posts route
-    posts_response = await client.request(app, "GET", "/posts")
+    posts_response = await client.call_app(app, "GET", "/posts")
     assert (await posts_response.json())["message"] == "Posts route"
 
     # Verify routes are in app.routes
@@ -612,13 +566,12 @@ async def test_include_root_route_fail():
         app.include_routes(root_route)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test root route
-    response = await client.request(app, "GET", "/")
+    response = await client.call_app(app, "GET", "/")
     assert (await response.json())["message"] == "Root route"
 
 
@@ -637,13 +590,12 @@ async def test_include_root_route_ok():
     root_route.get(root_handler)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test root route
-    response = await client.request(app, "GET", "/")
+    response = await client.call_app(app, "GET", "/")
     assert (await response.json())["message"] == "Root route"
 
 
@@ -658,8 +610,14 @@ async def test_include_middleware_fail():
     # Adding the failing middleware should propagate the exception
     app.add_middleware(failing_middleware_factory)
 
-    with pytest.raises(MiddlewareBuildError):
-        await initialize_app_lifespan(app)
+    lc = LocalClient()
+
+    with pytest.raises(LihilError):
+        await lc.call_app(app, "GET", "test")
+
+    # with pytest.raises(MiddlewareBuildError):
+    #     async with app._on_lifespan(1,2,3):
+    #         ...
 
     print(app)
 
@@ -684,12 +642,11 @@ async def test_a_fail_middleware():
     app.add_middleware(error_middleware)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client - should propagate the error
     client = LocalClient()
     with pytest.raises(ValueError):
-        await client.request(app, "GET", "/")
+        await client.call_app(app, "GET", "/")
 
 
 async def test_root_put():
@@ -703,13 +660,12 @@ async def test_root_put():
     app.put(put_handler)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test PUT endpoint
-    response = await client.request(app, "PUT", "/")
+    response = await client.call_app(app, "PUT", "/")
     assert (await response.json())["method"] == "PUT"
 
 
@@ -724,13 +680,12 @@ async def test_root_post():
     app.post(post_handler)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test POST endpoint
-    response = await client.request(app, "POST", "/")
+    response = await client.call_app(app, "POST", "/")
     assert (await response.json())["method"] == "POST"
 
 
@@ -745,13 +700,12 @@ async def test_root_delete():
     app.delete(delete_handler)
 
     # Initialize app lifespan
-    await initialize_app_lifespan(app)
 
     # Test with client
     client = LocalClient()
 
     # Test DELETE endpoint
-    response = await client.request(app, "DELETE", "/")
+    response = await client.call_app(app, "DELETE", "/")
     assert (await response.json())["method"] == "DELETE"
 
 
@@ -855,10 +809,9 @@ async def test_a_problem_endpoint():
     problem_solver(custom_error_handler)
 
     client = LocalClient()
-    await initialize_app_lifespan(app)
 
     # Test the error endpoint
-    response = await client.request(app, method="GET", path="/error")
+    response = await client.call_app(app, method="GET", path="/error")
 
     # Verify response status code
     assert response.status_code == 404
@@ -875,7 +828,7 @@ async def test_a_problem_endpoint():
 async def test_lihil_run():
     lhl = Lihil[str]()
 
-    def mock_run(server_str: str):
+    def mock_run(server_str: str, **others):
         assert server_str == lhl
 
     lhl.run(__file__, runner=mock_run)
@@ -887,7 +840,7 @@ async def test_lihil_run_with_workers():
 
     lhl = Lihil[str](app_config=config)
 
-    def mock_run(str_app: str, workers: int):
+    def mock_run(str_app: str, workers: int, **others):
         assert workers == 2
         assert str_app == "test_lhl:lhl"
 
@@ -921,7 +874,7 @@ async def test_init_lihil_add_middleware_error():
     lhl = Lihil(middlewares=[m1])
 
     lc = LocalClient()
-    with pytest.raises(MiddlewareBuildError):
+    with pytest.raises(LihilError):
         await lc.call_app(lhl, "GET", "/")
 
 
@@ -966,7 +919,7 @@ async def test_lhl_add_sub_route_before_route():
 
     sub_route = parent_route / "sub"
 
-    lhl = Lihil()
+    lhl = Lihil[None]()
 
     lhl.include_routes(sub_route, parent_route)
 
@@ -987,7 +940,7 @@ async def test_lhl_add_seen_subroute():
     lhl = Lihil[None]()
 
     # sub route should not raise error when seen
-    lhl.include_routes(sub_route, parent_route , __seen__={"/second"})
+    lhl.include_routes(sub_route, parent_route, __seen__={"/second"})
 
     with pytest.raises(DuplicatedRouteError):
         lhl.include_routes(ssub, __seen__={"/second"})

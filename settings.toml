@@ -1,0 +1,5 @@
+[lihil]
+is_prod = true
+
+[lihil.oas]
+doc_path = "/docs"

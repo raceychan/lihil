@@ -5,15 +5,19 @@ from typing import Optional, Union
 import pytest
 from msgspec.structs import FieldInfo
 
-from lihil.config import OASConfig, ServerConfig
-from lihil.config.parser import (
+from lihil import EventBus, Request
+from lihil.config import (
+    DEFAULT_CONFIG,
     AppConfig,
+    ConfigLoader,
+    lhl_get_config,
+    lhl_set_config,
+)
+from lihil.config.loader import deep_update, load_from_cli
+from lihil.config.parser import (
     ConfigBase,
     StoreTrueIfProvided,
     build_parser,
-    config_from_cli,
-    config_from_file,
-    deep_update,
     format_nested_dict,
     generate_parser_actions,
     get_thread_cnt,
@@ -22,6 +26,7 @@ from lihil.config.parser import (
 )
 from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, Maybe
+from lihil.signature.parser import is_lhl_primitive
 
 
 def test_get_thread_cnt():
@@ -81,13 +86,13 @@ def test_store_true_if_provided():
     assert getattr(args, "flag_provided", False) is False
 
 
-# def test_is_lhl_dep():
-#     """Test identification of lihil dependencies"""
-#     assert is_lhl_dep(Request) is True
-#     assert is_lhl_dep(EventBus) is True
-#     assert is_lhl_dep(str) is False
-#     assert is_lhl_dep(int) is False
-#     assert is_lhl_dep(AppConfig) is False
+def test_is_lhl_dep():
+    """Test identification of lihil dependencies"""
+    assert is_lhl_primitive(Request) is True
+    assert is_lhl_primitive(EventBus) is True
+    assert is_lhl_primitive(str) is False
+    assert is_lhl_primitive(int) is False
+    assert is_lhl_primitive(AppConfig) is False
 
 
 def test_parse_field_type():
@@ -127,7 +132,6 @@ def test_build_parser():
 
     assert "is_prod" in actions
     assert "version" in actions
-    assert "max_thread_workers" in actions
 
     # Check nested config arguments
     assert "oas.title" in actions
@@ -135,26 +139,26 @@ def test_build_parser():
     assert "server.port" in actions
 
 
-def test_config_from_file_toml():
+def test_load_config_toml():
     """Test loading config from a TOML file"""
     with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as tmp:
         tmp.write(
             """
-        [tool.lihil]
+        [lihil]
         is_prod = true
         version = "1.0.0"
 
-        [tool.lihil.oas]
+        [lihil.oas]
         title = "Test API"
 
-        [tool.lihil.server]
+        [lihil.server]
         host = "127.0.0.1"
         port = 9000
         """
         )
         tmp.flush()
 
-        config = config_from_file(tmp.name)
+        config = ConfigLoader().load_config(tmp.name)
 
         assert config.is_prod is True
         assert config.version == "1.0.0"
@@ -163,7 +167,7 @@ def test_config_from_file_toml():
         assert config.server.port == 9000
 
 
-def test_config_from_file_toml_alternative_format():
+def test_load_config_toml_alternative_format():
     """Test loading config from a TOML file with alternative format"""
     with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as tmp:
         tmp.write(
@@ -178,27 +182,27 @@ def test_config_from_file_toml_alternative_format():
         )
         tmp.flush()
 
-        config = config_from_file(tmp.name)
+        config = ConfigLoader().load_config(tmp.name)
 
         assert config.is_prod is True
         assert config.version == "1.0.0"
         assert config.oas.title == "Test API"
 
 
-def test_config_from_file_nonexistent():
+def test_load_config_nonexistent():
     """Test error when config file doesn't exist"""
     with pytest.raises(AppConfiguringError, match="not exist"):
-        config_from_file("nonexistent_file.toml")
+        ConfigLoader().load_config("nonexistent_file.toml")
 
 
-def test_config_from_file_unsupported_format():
+def test_load_config_unsupported_format():
     """Test error when config file has unsupported format"""
     with tempfile.NamedTemporaryFile(suffix=".xyz") as tmp:
-        with pytest.raises(AppConfiguringError, match="Not supported file type"):
-            config_from_file(tmp.name)
+        with pytest.raises(AppConfiguringError, match="Loader for .xyz is not found"):
+            ConfigLoader().load_config(tmp.name)
 
 
-def test_config_from_file_missing_table():
+def test_load_config_missing_table():
     """Test error when TOML file doesn't have lihil table"""
     with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as tmp:
         tmp.write(
@@ -209,19 +213,8 @@ def test_config_from_file_missing_table():
         )
         tmp.flush()
 
-        with pytest.raises(AppConfiguringError, match="can't find table lihil"):
-            config_from_file(tmp.name)
-
-
-def test_config_from_file_default():
-    """Test default config when no file is provided"""
-    config = config_from_file(None)
-
-    assert isinstance(config, AppConfig)
-    assert config.is_prod is False
-    assert config.version == "0.1.0"
-    assert isinstance(config.oas, OASConfig)
-    assert isinstance(config.server, ServerConfig)
+        with pytest.raises(AppConfiguringError):
+            ConfigLoader().load_config(tmp.name)
 
 
 def test_config_from_cli(monkeypatch):
@@ -230,7 +223,7 @@ def test_config_from_cli(monkeypatch):
     test_args = ["prog", "--is_prod", "--version", "2.0.0", "--server.port", "8080"]
     monkeypatch.setattr("sys.argv", test_args)
 
-    config_dict = config_from_cli(AppConfig)
+    config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
     assert config_dict["is_prod"] is True
@@ -244,7 +237,7 @@ def test_config_from_cli_empty(monkeypatch):
     test_args = ["prog"]
     monkeypatch.setattr("sys.argv", test_args)
 
-    config_dict = config_from_cli(AppConfig)
+    config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is None
 
@@ -256,7 +249,7 @@ def test_config_from_cli_should_filter_provided_flags(monkeypatch):
     monkeypatch.setattr("sys.argv", test_args)
 
     # Get CLI config
-    cli_config = config_from_cli(AppConfig)
+    cli_config = load_from_cli(config_type=AppConfig)
 
     # The current implementation includes _provided flags, which is problematic
     assert cli_config is not None
@@ -309,13 +302,24 @@ def test_filed_type():
 def test_build_parser_with_bool():
 
     class NestedConfig(ConfigBase):
-        is_prod: bool
+        name: str
 
     class NewConfig(ConfigBase):
         nested: NestedConfig
 
     parser = build_parser(NewConfig)
+    res = parser.parse_args(["--nested.name", "lihil"])
+    assert getattr(res, "nested.name") == "lihil"
 
 
 def test_generate_app_confg_acotions():
     generate_parser_actions(AppConfig)
+
+
+def test_empty_set_config_reset_config():
+    config = AppConfig(is_prod=True)
+    lhl_set_config(config)
+    assert lhl_get_config() is config
+
+    lhl_set_config()
+    assert lhl_get_config() is DEFAULT_CONFIG

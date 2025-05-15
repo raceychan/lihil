@@ -1,16 +1,20 @@
-from typing import Annotated, Union
+from typing import Annotated, TypeVar, Union
 
 import pytest
 
-from lihil.interface import Body, CustomEncoder, Query, Resp
-from lihil.interface.marks import BODY_REQUEST_MARK, QUERY_REQUEST_MARK
+from lihil import Param
+from lihil.interface import CustomEncoder
 from lihil.utils.typing import (
     deannotate,
     get_origin_pro,
     is_nontextual_sequence,
     is_text_type,
     is_union_type,
+    replace_typevars,
 )
+
+T = TypeVar("T")
+K = TypeVar("K")
 
 
 def test_deannotate():
@@ -45,13 +49,13 @@ def test_is_text_type():
     assert not is_text_type(list[int])
 
 
-type MyTypeAlias = Annotated[Query[int], CustomEncoder]
-type NewAnnotated = Annotated[MyTypeAlias, "aloha"]
+MyTypeAlias = Annotated[int, CustomEncoder]
+NewAnnotated = Annotated[MyTypeAlias, "aloha"]
 
-type MyType[T] = Annotated[T, "mymark"]
+MyType = Annotated[T, "mymark"]
 
 
-type StrDict[T] = dict[str, T]
+StrDict = dict[str, T]
 
 
 def test_get_origin_pro_base_types():
@@ -77,21 +81,20 @@ def test_get_origin_pro_annotated():
 def test_get_origin_pro_type_alias():
     assert get_origin_pro(MyType[str]) == (str, ["mymark"])
     assert get_origin_pro(MyType[str | int]) == (Union[str | int], ["mymark"])
-    assert get_origin_pro(Body[str | None]) == (Union[str, None], [BODY_REQUEST_MARK])
-    assert get_origin_pro(MyTypeAlias) == (int, [QUERY_REQUEST_MARK, CustomEncoder])
-    assert get_origin_pro(NewAnnotated) == (
-        int,
-        [QUERY_REQUEST_MARK, CustomEncoder, "aloha"],
-    )
-    assert get_origin_pro(Resp[str, 200] | Resp[int, 201]) == (
-        Union[str, int],
-        [200, "__LIHIL_RESPONSE_MARK_RESP__", 201, "__LIHIL_RESPONSE_MARK_RESP__"],
-    )
+    assert get_origin_pro(Annotated[str | None, Param("body")])[0] == (Union[str, None])
+    # assert get_origin_pro(MyTypeAlias) == (int, [QUERY_REQUEST_MARK, CustomEncoder])
+    # assert get_origin_pro(NewAnnotated) == (
+    #     int,
+    #     [QUERY_REQUEST_MARK, CustomEncoder, "aloha"],
+    # )
+    # assert get_origin_pro(Resp[str, 200] | Resp[int, 201]) == (
+    #     Union[str, int],
+    #     [200, "__LIHIL_RESPONSE_MARK_RESP__", 201, "__LIHIL_RESPONSE_MARK_RESP__"],
+    # )
 
 
-type Base[T] = Annotated[T, 1]
-type NewBase[T] = Annotated[Base[T], 2]
-type AnotherBase[T, K] = Annotated[NewBase[T], K, 3]
+Base = Annotated[T, 1]
+NewBase = Annotated[Base[T], 2]
 
 
 def test_get_origin_nested():
@@ -101,19 +104,15 @@ def test_get_origin_nested():
     nbase = get_origin_pro(NewBase[str])
     assert nbase[0] == str and nbase[1] == [1, 2]
 
-    res = get_origin_pro(AnotherBase[bytes | float, str] | list[int])
-    assert res[0] == Union[bytes, float, list[int]]
-    assert res[1] == [1, 2, str, 3]
-
 
 # def test_get_origin_pro_type_alias_generic():
 #     # ============= TypeAlias + TypeVar + Genric ============
 #     assert get_origin_pro(StrDict[int]) == (dict[str, int], None)
 
 
-type MARK_ONE = Annotated[str, "ONE"]
-type MARK_TWO = Annotated[MARK_ONE, "TWO"]
-type MARK_THREE = Annotated[MARK_TWO, "THREE"]
+MARK_ONE = Annotated[str, "ONE"]
+MARK_TWO = Annotated[MARK_ONE, "TWO"]
+MARK_THREE = Annotated[MARK_TWO, "THREE"]
 
 
 def test_get_origin_pro_unpack_annotated_in_order():
@@ -126,7 +125,8 @@ def test_get_origin_pro_unpack_textalias_in_order():
     assert res == (str, ["ONE", "TWO", "THREE"])
 
 
-type Pair[K, V] = tuple[K, V]
+V = TypeVar("V")
+Pair = tuple[K, V]
 
 
 def test_get_origin_pro_with_generic_alias():
@@ -138,7 +138,7 @@ def test_get_origin_pro_with_generic_alias():
     assert ptype == tuple[float, int]
 
 
-type StrDict[V] = dict[str, V]
+StrDict = dict[str, V]
 
 
 def test_generic_alias():
@@ -153,3 +153,36 @@ def test_get_origin_pro_with_unset():
     ptype, metas = get_origin_pro(Unset[str])
 
     assert ptype.__args__ == (UnsetType, str)
+
+
+def test_get_auth_header():
+
+    ptype, metas = get_origin_pro(
+        Annotated[str, Param("header", alias="Authorization")]
+    )
+    assert ptype is str
+    assert metas
+    assert metas[0].alias == "Authorization"
+
+
+# def test_replace_type_vars():
+#     """
+#     (Pdb) current_type_args
+#     (T, typing.Literal['Cookie'], C)
+
+#     (Pdb) type_args
+#     (<class 'str'>, typing.Literal['Cookie'], typing.Literal['x-refresh-token'])
+
+#     (Pdb) replace_typevars(current_type_args, type_args)
+#     (<class 'str'>, typing.Literal['Cookie'], typing.Literal['Cookie'])
+#     """
+#     T = TypeVar("T")
+#     C = TypeVar("C")
+
+#     current_type_args = (T, Literal["Cookie"], C)
+#     type_args = (str, Literal["Cookie"], Literal["x-refresh-token"])
+
+#     assert replace_typevars(current_type_args, type_args) == (
+#         str,
+#         Literal["Cookie", Literal["x-refresh-token"]],
+#     )

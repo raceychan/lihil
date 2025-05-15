@@ -1,14 +1,15 @@
-from typing import Annotated, Any, ClassVar, cast
+from typing import Annotated, Any, ClassVar, cast, Generic
 
 from msgspec import Meta
 
 from lihil.constant import status as http_status
 from lihil.interface.struct import Record
+from lihil.interface import T
 from lihil.utils.string import to_kebab_case, trimdoc
 
 
 # =========
-class ProblemDetail[T](Record):  # user can inherit this and extend it
+class ProblemDetail(Record, Generic[T]):  # user can inherit this and extend it
     """
     ## Specification:
         - RFC 9457: https://www.rfc-editor.org/rfc/rfc9457.html
@@ -56,7 +57,7 @@ class ProblemDetail[T](Record):  # user can inherit this and extend it
     ]
 
 
-class DetailBase[T]:
+class DetailBase(Generic[T]):
     __slots__: tuple[str, ...] = ()
     __status__: ClassVar[http_status.Status]
     __problem_type__: ClassVar[str | None] = None
