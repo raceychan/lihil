@@ -105,7 +105,7 @@ async def ws_handler(
     assert session_id == "session123" and max_users == 5
     await ws.send_text("Hello, world!")
 
-lhl = Lihil[None]()
+lhl = Lihil()
 lhl.include_routes(ws_route)
 ```
 
