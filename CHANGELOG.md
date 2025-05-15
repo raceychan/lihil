@@ -954,59 +954,14 @@ But the fundamental flaws of this design is that:
 ## version 0.2.5
 
 - refactor signature attributes
+- supports python version >= 3.10
 
-
-## Features
-
-- adding `AppState`, `StateParam`
-
-Now user can declare unpacked appstate in endpoint
-
-```python
-from lihil.interface import AppState
-async def lifespan():
-    appstate = {"appname": "lihil"}
-    return appstate
-
-async def f(appname: AppState[str]): # this would read "appname" from appstate
-    assert appname == "lihil
-```
 
 
 ### Improvements
 
 
 1. separate `read_config` from `set_config`
-
-<!-- #### `HTTPException.__json_example__`
-
-1. no longer required `type_`, `title`, expects return value of a Typedict with total=False
-
-__json_example__ can be either a callable, or a dict.
-
-
-2. support `Annotated[T, Meta(examples=[value])]`
-
-```python
-class AddressOutOfScopeProblem(Base):
-    current_address: Annotated[str, Meta(examples=["home"])]
-    service_radius: Annotated[float, Meta(examples=[3.5])]
-    distance: Annotated[float, Meta(examples=4)]
-
-    message: str = ""
-
-    def __post_init__(self):
-        self.message = f"Your current address {self.current_address} is {self.distance} miles away and our service radius is {self.service_radius}"
-
-class InvalidOrderError(HTTPException[AddressOutOfScopeProblem]):
-    "Address out of service zone"
-    __status__ = 422
-
-    instance: Annotated[str, Meta(examples=["2cd20e0c-9ddc-4fdc-8f61-b32f62ac784d"])]
-    detail: AddressOutOfScopeProblem
-```
-
-3. collect __json_example__ recursively. -->
 
 
 ### Fxies
@@ -1019,7 +974,6 @@ class InvalidOrderError(HTTPException[AddressOutOfScopeProblem]):
 
 - remove `PluginParam`
 
-
 ```python
 async def authenticator(scheme: str, credentials: str)->Any:
     ...
@@ -1027,5 +981,22 @@ async def authenticator(scheme: str, credentials: str)->Any:
 
 @post
 async def create_user(cred: Authorization[str, CustomDecoder]):
+    ...
+```
+
+- [x] Removed param marks, such as `Body`, `Query`, `Path`, `Header`, `Cookie`, `Form`, `Use`.
+- [x] Added `Param` for all param types, including `Body`, `Query`, `Path`, `Header`, `Cookie`, `Form`, etc.
+
+Usage:
+```python
+from typing import Annotated
+from lihil import Param
+
+async def create_user(
+    user_id: str,
+    auth_token: Annotated[str, Param("header", alias="x-auth-token")],
+    user_data: UserPayload,
+    service: UserService
+) -> Resp[str, 201]:
     ...
 ```
