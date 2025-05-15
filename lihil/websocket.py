@@ -25,7 +25,6 @@ class WebSocketEndpoint:  # TODO:  endpoint base
     def setup(self) -> None:
         self._graph = self._route.graph
         self._busterm = self._route.busterm
-        self._app_state = self._route.app_state
         self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
 
         self._dep_items = self._sig.dependencies.items()
@@ -52,11 +51,7 @@ class WebSocketEndpoint:  # TODO:  endpoint base
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
             else:  # AppState
-                if (state := self._app_state) is None:
-                    raise ValueError(
-                        f"{self} requires state param {name}, but app state is not set"
-                    )
-                params[name] = state[name]
+                raise TypeError(f"Unsupported type {ptype} for parameter {name}")
 
     async def make_call(
         self,
@@ -114,7 +109,7 @@ class WebSocketRoute(RouteBase):
         busterm: BusTerminal | None = None,
         app_state: Mapping[str, Any] | None = None,
     ):
-        super().setup(graph=graph, busterm=busterm, app_state=app_state)
+        super().setup(graph=graph, busterm=busterm)
         self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         if self.endpoint is None:

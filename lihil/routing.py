@@ -3,8 +3,8 @@ from inspect import isasyncgen, isgenerator
 from types import MethodType
 from typing import (
     Any,
-    Generic,
     Callable,
+    Generic,
     Literal,
     Pattern,
     Sequence,
@@ -13,31 +13,31 @@ from typing import (
     cast,
     overload,
 )
-from typing_extensions import Unpack, Self
 
 from ididi import Graph, INodeConfig
 from ididi.graph import Resolver
 from ididi.interfaces import IDependent
 from msgspec import field
 from starlette.responses import StreamingResponse
+from typing_extensions import Self, Unpack
 
 from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.ds.resp import StaticResponse
 from lihil.interface import (
-    P,
-    R,
-    T,
     HTTP_METHODS,
     ASGIApp,
     Func,
     IReceive,
     IScope,
     ISend,
-    MappingLike,
+    # MappingLike,
     MiddlewareFactory,
+    P,
+    R,
     Record,
+    T,
 )
 from lihil.plugins.bus import BusTerminal, Event, EventBus, MessageRegistry
 from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
@@ -142,7 +142,6 @@ class Endpoint(Generic[R]):
     def setup(self, sig: EndpointSignature[R]) -> None:
         self._graph = self._route.graph
         self._busterm = self._route.busterm
-        self._app_state = self._route.app_state
 
         self._sig = sig
 
@@ -172,11 +171,9 @@ class Endpoint(Generic[R]):
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
             else:
-                if (state := self._app_state) is None:
-                    raise ValueError(
-                        f"{self} requires state param {name}, but app state is not set"
-                    )
-                params[name] = state[name]
+                raise TypeError(
+                    f"Unsupported state type {ptype} for {name} in {self._name}"
+                )
 
     async def make_static_call(
         self, scope: IScope, receive: IReceive, send: ISend
@@ -352,9 +349,7 @@ class RouteBase(ASGIBase):
         self,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        app_state: MappingLike | None = None,
     ):
-        self.app_state = app_state
         self.graph = graph or self.graph
         self.busterm = busterm or self.busterm
 
@@ -397,9 +392,8 @@ class Route(RouteBase):
         self,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        app_state: MappingLike | None = None,
     ):
-        super().setup(app_state=app_state, graph=graph, busterm=busterm)
+        super().setup(graph=graph, busterm=busterm)
         self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         for method, ep in self.endpoints.items():

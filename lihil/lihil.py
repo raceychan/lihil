@@ -12,9 +12,7 @@ from typing import (
     AsyncGenerator,
     Awaitable,
     Callable,
-    Generic,
     Mapping,
-    TypeVar,
     cast,
     final,
     overload,
@@ -27,17 +25,7 @@ from uvicorn import run as uvi_run
 from lihil.config import IAppConfig, lhl_get_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
-from lihil.interface import (
-    ASGIApp,
-    IReceive,
-    IScope,
-    ISend,
-    MappingLike,
-    MiddlewareFactory,
-    P,
-    R,
-    T,
-)
+from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
@@ -53,26 +41,20 @@ from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encode_json
 from lihil.utils.string import is_plain_path
 
-UState = MappingLike | None
-"App state that yield from user lifespan"
-
-TState = TypeVar("TS", bound=UState)
-LifeSpan = Callable[
-    ["Lihil[None]"], AsyncContextManager[TState] | AsyncGenerator[TState, None]
-]
-WrappedLifSpan = Callable[["Lihil[Any]"], AsyncContextManager[T]]
+LifeSpan = Callable[["Lihil"], AsyncContextManager[None] | AsyncGenerator[None, None]]
+WrappedLifSpan = Callable[["Lihil"], AsyncContextManager[None]]
 
 
 EMPTY_APP_STATE: Mapping[str, Any] = MappingProxyType({})
 
 
-def lifespan_wrapper(ls: LifeSpan[TState] | None) -> WrappedLifSpan[TState] | None:
+def lifespan_wrapper(ls: LifeSpan | None) -> WrappedLifSpan | None:
     if ls is None:
         return None
     if isasyncgenfunction(ls):
         return asynccontextmanager(ls)
     elif (wrapped := getattr(ls, "__wrapped__", None)) and isasyncgenfunction(wrapped):
-        return cast(WrappedLifSpan[TState], ls)
+        return cast(WrappedLifSpan, ls)
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
@@ -101,8 +83,8 @@ class StaticRoute(RouteBase):
 
 
 @final
-class Lihil(ASGIBase, Generic[TState]):
-    _userls: WrappedLifSpan[TState | None] | None
+class Lihil(ASGIBase):
+    _userls: WrappedLifSpan | None
 
     def __init__(
         self,
@@ -113,7 +95,7 @@ class Lihil(ASGIBase, Generic[TState]):
         max_thread_workers: int | None = None,
         graph: Graph | None = None,
         busterm: BusTerminal | None = None,
-        lifespan: LifeSpan[TState] | None = None,
+        lifespan: LifeSpan | None = None,
     ):
         super().__init__(middlewares)
         if app_config is not None:
@@ -137,7 +119,6 @@ class Lihil(ASGIBase, Generic[TState]):
             self.routes.insert(0, self.root)
 
         self._userls = lifespan_wrapper(lifespan)
-        self._state: S | None = None
 
         self.static_route: StaticRoute | None = None
         self.call_stack: ASGIApp
@@ -151,19 +132,13 @@ class Lihil(ASGIBase, Generic[TState]):
         routes_repr = "\n  ".join(r.__repr__() for r in self.routes)
         return lhl_repr + routes_repr + "\n]"
 
-    @property
-    def state(self) -> TState | None:
-        return self._state
-
     @asynccontextmanager
     async def _lifespan(self):
         if self._userls is None:
             self._setup()
             yield
         else:
-            user_ls = self._userls(self)
-            async with user_ls as app_state:
-                self._state = app_state
+            async with self._userls(self):
                 self._setup()
                 yield
 
@@ -189,7 +164,7 @@ class Lihil(ASGIBase, Generic[TState]):
         self.call_stack = self.chainup_middlewares(self.call_route)
 
         for route in self.routes:
-            route.setup(app_state=self._state, graph=self.graph, busterm=self.busterm)
+            route.setup(graph=self.graph, busterm=self.busterm)
 
     def _generate_builtin_routes(self):
         config = lhl_get_config()

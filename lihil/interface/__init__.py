@@ -55,7 +55,7 @@ Func = Callable[P, R]
 
 
 StrDict = dict[str, Any]
-MappingLike = Mapping[str, Any] | Record
+# MappingLike = Mapping[str, Any] | Record
 RegularTypes = type | UnionType | GenericAlias
 
 

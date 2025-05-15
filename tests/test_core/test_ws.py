@@ -27,7 +27,7 @@ async def test_ws():
 
     ws_route.ws_handler(test_ws)
 
-    lhl = Lihil[None]()
+    lhl = Lihil()
     lhl.include_routes(ws_route)
 
     client = TestClient(lhl)
@@ -51,7 +51,7 @@ async def test_ws_with_body_fail():
 
     ws_route.ws_handler(test_ws)
 
-    lhl = Lihil[None]()
+    lhl = Lihil()
     lhl.include_routes(ws_route)
 
     client = TestClient(lhl)
@@ -78,7 +78,7 @@ async def test_ws_full_fledge():
 
     ws_route.ws_handler(ws_handler)
 
-    lhl = Lihil[None]()
+    lhl = Lihil()
     lhl.include_routes(ws_route)
 
     client = TestClient(lhl)
@@ -132,7 +132,7 @@ async def test_ws_plugins():
 
     ws_route.ws_handler(ws_handler)
 
-    lhl = Lihil[None]()
+    lhl = Lihil()
     lhl.include_routes(ws_route)
 
     client = TestClient(lhl)

@@ -14,7 +14,7 @@ from lihil.interface import MISSING
 
 def test_app_read_config():
     config = lhl_read_config("settings.toml")
-    Lihil[None](app_config=config)
+    Lihil(app_config=config)
     config = lhl_get_config()
     assert config.oas.doc_path == "/docs"
 

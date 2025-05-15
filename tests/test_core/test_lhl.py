@@ -103,7 +103,7 @@ async def test_lihil_basic_routing():
 
 
 async def test_lihil_include_routes():
-    app = Lihil[None]()
+    app = Lihil()
 
     # Create separate routes
     users_route = Route("/users")
@@ -213,7 +213,7 @@ async def test_lihil_static_route():
 
 
 async def test_lihil_static_route_with_callable():
-    app = Lihil[None]()
+    app = Lihil()
 
     # Add a static route with a callable
     def get_content():
@@ -234,7 +234,7 @@ async def test_lihil_static_route_with_callable():
 
 
 async def test_lihil_static_route_with_json():
-    app = Lihil[None]()
+    app = Lihil()
 
     # Add a static route with JSON data
     data = {"message": "JSON data"}
@@ -367,14 +367,11 @@ async def test_lihil_lifespan():
     # Define a lifespan function
     from typing import AsyncGenerator
 
-    async def csls(app: Lihil[None]) -> AsyncGenerator[CustomAppState, None]:
-        state = CustomAppState()
-        state.counter = 1
-        yield state
-        state.counter = 0
+    async def csls(app: Lihil) -> AsyncGenerator[None, None]:
+        yield
 
     # Create app with lifespan
-    app = Lihil[CustomAppState](lifespan=csls)
+    app = Lihil(lifespan=csls)
 
     # Simulate lifespan events
     scope = {"type": "lifespan"}
@@ -402,9 +399,7 @@ async def test_lihil_lifespan():
     # Check that shutdown was completed
     assert any(msg["type"] == "lifespan.shutdown.complete" for msg in send_messages)
 
-    # Check that app state was set
-    assert app.state is not None
-    assert app.state.counter == 0  # Should be reset after shutdown
+
 
 
 async def test_lihil_lifespan_startup_error():
@@ -826,7 +821,7 @@ async def test_a_problem_endpoint():
 
 
 async def test_lihil_run():
-    lhl = Lihil[str]()
+    lhl = Lihil()
 
     def mock_run(server_str: str, **others):
         assert server_str == lhl
@@ -838,7 +833,7 @@ async def test_lihil_run_with_workers():
 
     config = AppConfig(server=ServerConfig(workers=2))
 
-    lhl = Lihil[str](app_config=config)
+    lhl = Lihil(app_config=config)
 
     def mock_run(str_app: str, workers: int, **others):
         assert workers == 2
@@ -919,14 +914,14 @@ async def test_lhl_add_sub_route_before_route():
 
     sub_route = parent_route / "sub"
 
-    lhl = Lihil[None]()
+    lhl = Lihil()
 
     lhl.include_routes(sub_route, parent_route)
 
 
 async def test_lhl_rerpr():
     config = AppConfig(server=ServerConfig(host="127.0.0.1", port=8000))
-    lhl = Lihil[None](app_config=config)
+    lhl = Lihil(app_config=config)
     lhl_repr = repr(lhl)
     assert lhl_repr
 
@@ -937,7 +932,7 @@ async def test_lhl_add_seen_subroute():
     sub_route = parent_route / "sub"
     ssub = parent_route / "second"
 
-    lhl = Lihil[None]()
+    lhl = Lihil()
 
     # sub route should not raise error when seen
     lhl.include_routes(sub_route, parent_route, __seen__={"/second"})
