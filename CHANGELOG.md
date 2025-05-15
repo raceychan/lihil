@@ -1028,7 +1028,7 @@ async def test_ep_with_multiple_value_header():
 The above test would fail before this fix, as `x-token` is a union of list[str] and None, it would be treated as a str instead of list[str].
 
 
-### Improvements
+### Features
 
 User now can combine `UploadFile` and `Form` to set constraints on files
 
