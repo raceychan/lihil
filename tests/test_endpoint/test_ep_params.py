@@ -6,7 +6,7 @@ import msgspec
 import pytest
 from starlette.requests import Request
 
-from lihil import MISSING, DependentNode, Graph, Payload, Request, form, Param, use
+from lihil import MISSING, DependentNode, Graph, Param, Payload, Request, form, use
 from lihil.config import JWTConfig, lhl_set_config
 from lihil.errors import NotSupportedError
 from lihil.signature.parser import (
@@ -369,46 +369,14 @@ def test_param_repr_with_union_args(param_parser: EndpointParser):
 
 
 def test_body_param_repr(param_parser: EndpointParser):
-    param = param_parser.parse_param("data", Annotated[bytes, form()])[0]
-    param.__repr__()
+    with pytest.raises(NotSupportedError):
+        param = param_parser.parse_param("data", Annotated[bytes, form()])[0]
 
+    class UserData(Payload):
+        user_name: str
+        user_age: int
 
-# class CachedProvider(PluginBase):
-#     async def process(
-#         self, params: dict[str, Any], request: Request, resolver: Resolver
-#     ) -> None:
-#         params["param"] = "cached"
-
-#     def parse(self, name: str, type_: type, default, annotation):
-#         return PluginParam(
-#             type_=type_,
-#             name=name,
-#             annotation=annotation,
-#             default=default,
-#             processor=self.process,
-#         )
-
-
-# def test_param_provider(param_parser: EndpointParser):
-#     provider = CachedProvider()
-#     register_plugin_provider(Cached[str], provider)
-
-#     param = param_parser.parse_param("data", Cached[str])[0]
-#     assert isinstance(param, PluginParam)
-#     assert param.type_ == str
-
-#     with pytest.raises(Exception) as exc:
-#         register_plugin_provider("cached", provider)
-
-#     remove_plugin_provider(Cached[str])
-
-
-# def test_param_provider_with_invalid_mark(param_parser):
-#     with pytest.raises(InvalidMarkTypeError):
-#         register_plugin_provider(5, None)
-
-#     with pytest.raises(InvalidMarkTypeError):
-#         register_plugin_provider(Annotated[str, "asdf"], None)
+    param = param_parser.parse_param("data", Annotated[UserData, form()])[0]
 
 
 def test_param_provider_with_invalid_plugin(param_parser: EndpointParser):

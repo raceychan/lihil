@@ -8,6 +8,7 @@ from starlette.requests import Request
 from lihil import (
     Empty,
     Json,
+    Param,
     Payload,
     Request,
     Route,
@@ -16,7 +17,6 @@ from lihil import (
     UploadFile,
     field,
     form,
-    Param,
     status,
 )
 from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
@@ -214,6 +214,7 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
     assert await res.body() == b""
 
 
+@pytest.mark.debug
 async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
 
     class UserInfo(Payload):
@@ -339,8 +340,9 @@ async def test_ep_requiring_upload_file_fail(rusers: Route, lc: LocalClient):
 
 async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
     async def get(
-        by_form: Annotated[bytes, form()],
+        by_form: Annotated[list[int], form()],
     ) -> Annotated[Text, status.OK]:
+        breakpoint()
         assert isinstance(by_form, bytes)
         return "ok"
 
@@ -365,13 +367,12 @@ async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
     # Content-Type header
     content_type = f"multipart/form-data; boundary={boundary}"
 
-    res = await lc.call_endpoint(
-        ep,
-        body=multipart_data,
-        headers={f"content-type": content_type},
-    )
-    assert await res.text() == "ok"
-    assert res.status_code == 200
+    with pytest.raises(NotSupportedError):
+        await lc.call_endpoint(
+            ep,
+            body=multipart_data,
+            headers={f"content-type": content_type},
+        )
 
 
 async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):

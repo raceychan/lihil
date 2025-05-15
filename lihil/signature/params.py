@@ -41,11 +41,13 @@ class ParamMeta(Struct):
 class BodyMeta(ParamMeta):
     source: ParamSource | None = "body"
     decoder: Any = None
-    form: bool = False
     content_type: BodyContentType | None = None
-    max_files: int | float | None = None
-    max_fields: int | float | None = None
-    max_part_size: int | None = None
+
+
+class FormMeta(BodyMeta, kw_only=True):
+    max_files: int | float = 1000
+    max_fields: int | float = 1000
+    max_part_size: int = 1024**2j
 
 
 def form(
@@ -54,10 +56,9 @@ def form(
     max_files: int | float = 1000,
     max_fields: int | float = 1000,
     max_part_size: int = 1024**2,
-) -> BodyMeta:
-    return BodyMeta(
+) -> FormMeta:
+    return FormMeta(
         content_type=content_type,
-        form=True,
         decoder=decoder,
         max_files=max_files,
         max_fields=max_fields,
@@ -234,16 +235,34 @@ class CookieParam(HeaderParam[T], kw_only=True):
     cookie_name: str
 
 
-class BodyParam(Decodable[bytes | FormData, T], kw_only=True):
+B = TypeVar("B", bound=bytes | FormData)
+
+
+class BodyParam(Decodable[B, T], kw_only=True):
     source: ClassVar[ParamSource] = "body"
-    decoder: IDecoder[bytes, T] | IDecoder[FormData, T]
     content_type: BodyContentType = "application/json"
 
     def __repr__(self) -> str:
-        return f"BodyParam<{self.content_type}>({self.name}: {self.type_repr})"
+        return f"{self.__class__.__name__}<{self.content_type}>({self.name}: {self.type_repr})"
 
-    def extract(self, body: bytes | FormData) -> "ParamResult[T]":
-        if body == b"" or (isinstance(body, FormData) and len(body) == 0):
+    def extract(self, body: B) -> "ParamResult[T]":
+        if body == b"":
+            if is_provided(default := self.default):
+                val = default
+                return (val, None)
+            else:
+                error = MissingRequestParam(self.source, self.alias)
+                return (None, error)
+
+        return self.validate(body)
+
+
+class FormParam(BodyParam[FormData, T], kw_only=True):
+    content_type: BodyContentType = "multipart/form-data"
+    meta: FormMeta
+
+    def extract(self, body: FormData) -> "ParamResult[T]":
+        if len(body) == 0:
             if is_provided(default := self.default):
                 val = default
                 return (val, None)
@@ -255,14 +274,16 @@ class BodyParam(Decodable[bytes | FormData, T], kw_only=True):
 
 
 RequestParam = Union[PathParam[T], QueryParam[T], HeaderParam[T], CookieParam[T]]
-ParsedParam = RequestParam[T] | BodyParam[T] | DependentNode | StateParam
+ParsedParam = (
+    RequestParam[T] | BodyParam[bytes, T] | FormParam[T] | DependentNode | StateParam
+)
 ParamResult = tuple[T, None] | tuple[None, ValidationProblem]
 ParamMap = dict[str, T]
 
 
 class EndpointParams(Base, kw_only=True):
     params: ParamMap[RequestParam[Any]] = field(default_factory=dict)
-    bodies: ParamMap[BodyParam[Any]] = field(default_factory=dict)
+    bodies: ParamMap[BodyParam[Any, Any]] = field(default_factory=dict)
     nodes: ParamMap[DependentNode] = field(default_factory=dict)
     states: ParamMap[StateParam] = field(default_factory=dict)
 
@@ -278,7 +299,7 @@ class EndpointParams(Base, kw_only=True):
     def get_source(self, source: ParamSource) -> Mapping[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.source == source}
 
-    def get_body(self) -> tuple[str, BodyParam[Any]] | None:
+    def get_body(self) -> tuple[str, BodyParam[Any, Any]] | None:
         if not self.bodies:
             body_param = None
         elif len(self.bodies) == 1:

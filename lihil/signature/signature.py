@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Generic
 from ididi import DependentNode
 from msgspec import Struct, field
 
-from lihil.interface import Base, IEncoder, Record, R
+from lihil.interface import Base, IEncoder, R, Record
 from lihil.problems import ValidationProblem
 from lihil.vendors import (
     FormData,
@@ -17,6 +17,7 @@ from lihil.vendors import (
 from .params import (
     BodyParam,
     CookieParam,
+    FormMeta,
     HeaderParam,
     ParamMap,
     PathParam,
@@ -42,7 +43,7 @@ class EndpointSignature(Base, Generic[R]):
     query_params: ParamMap[QueryParam[Any]]
     path_params: ParamMap[PathParam[Any]]
     header_params: ParamMap[HeaderParam[Any] | CookieParam[Any]]
-    body_param: tuple[str, BodyParam[Struct]] | None
+    body_param: tuple[str, BodyParam[bytes | FormData, Struct]] | None
 
     dependencies: ParamMap[DependentNode]
     transitive_params: set[str]
@@ -52,7 +53,7 @@ class EndpointSignature(Base, Generic[R]):
     states: ParamMap[StateParam]
 
     scoped: bool
-    is_form_body: bool
+    form_meta: FormMeta | None
 
     status_code: int
     return_encoder: IEncoder[R]
@@ -129,8 +130,12 @@ class EndpointSignature(Base, Generic[R]):
         req_query = req.query_params if self.query_params else None
         req_header = req.headers if self.header_params else None
 
-        if self.is_form_body:
-            body = await req.form()  # TODO: let user decide form configs
+        if self.form_meta:
+            body = await req.form(
+                max_files=self.form_meta.max_files,
+                max_fields=self.form_meta.max_fields,
+                max_part_size=self.form_meta.max_part_size,
+            )
             params = self.prepare_params(req_path, req_query, req_header, body)
             params.callbacks.append(body.close)
         else:

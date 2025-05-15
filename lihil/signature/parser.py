@@ -27,7 +27,7 @@ from lihil.errors import NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, ParamSource, R, T
 from lihil.interface.marks import Struct
-from lihil.interface.struct import IDecoder, ITextualDecoder
+from lihil.interface.struct import IBodyDecoder, IDecoder, IFormDecoder, ITextualDecoder
 from lihil.plugins.bus import EventBus
 from lihil.utils.json import decoder_factory
 from lihil.utils.string import find_path_keys, to_kebab_case
@@ -39,6 +39,8 @@ from .params import (
     BodyParam,
     CookieParam,
     EndpointParams,
+    FormMeta,
+    FormParam,
     HeaderParam,
     ParamMap,
     ParamMeta,
@@ -98,50 +100,48 @@ def textdecoder_factory(
 
 
 def filedeocder_factory(filename: str):
-    def file_decoder(form_data: FormData) -> UploadFile | None:
+    def file_decoder(form_data: FormData) -> UploadFile:
         if upload_file := form_data.get(filename):
             return cast(UploadFile, upload_file)
+        raise FileNotFoundError(
+            f"File {filename} not found in form data, please check the request"
+        )
 
     return file_decoder
 
 
 def file_body_param(
-    name: str, type_: type[UploadFile], annotation: Any, default: Any
-) -> "BodyParam[UploadFile | None]":
-    decoder = filedeocder_factory(name)
-    content_type = "multipart/form-data"
-    req_param = BodyParam[UploadFile | None](
+    name: str,
+    type_: type[UploadFile],
+    annotation: Any,
+    default: Any,
+    meta: FormMeta | None = None,
+) -> "FormParam[UploadFile]":
+    if meta and meta.decoder:
+        decoder_ = meta.decoder
+    else:
+        decoder_ = filedeocder_factory(name)
+    if meta is None:
+        meta = FormMeta()
+    req_param = FormParam[UploadFile](
         name=name,
         alias=name,
         type_=type_,
         annotation=annotation,
-        decoder=decoder,
+        decoder=decoder_,
         default=default,
-        content_type=content_type,
+        meta=meta,
     )
     return req_param
-
-
-def _is_form_body(param_pair: tuple[str, BodyParam[Any]] | None):
-    if not param_pair:
-        return False
-    _, param = param_pair
-    return param.content_type == "multipart/form-data" and param.type_ is not bytes
 
 
 def formdecoder_factory(
     ptype: type[T] | UnionType,
 ) -> IDecoder[FormData, T] | IDecoder[bytes, T]:
 
-    def dummy_decoder(content: bytes) -> bytes:
-        return content
-
     if not isinstance(ptype, type) or not issubclass(ptype, Struct):
-        if ptype is bytes:
-            return cast(IDecoder[bytes, T], dummy_decoder)
-
         raise NotSupportedError(
-            f"Currently only bytes or subclass of Struct is supported for `Form`, received {ptype}"
+            f"Only subclass of Struct is supported for `Form`, received {ptype}"
         )
 
     form_fields = get_fields(ptype)
@@ -306,25 +306,31 @@ class EndpointParser:
             )
             return states
         elif is_body_param(param_type):
-            if is_file_body(param_type):
-                req_param = file_body_param(
-                    name, param_type, annotation=annotation, default=default
-                )
-                req_param = cast("RequestParam[T]", req_param)  # where T is UploadFile
+            if param_meta and param_meta.decoder:
+                decoder = cast(IBodyDecoder[T] | IFormDecoder[T], param_meta.decoder)
             else:
-                if param_meta and param_meta.decoder:
-                    decoder = param_meta.decoder
-                else:
-                    decoder = decoder_factory(param_type)
+                decoder = None
 
-                req_param = BodyParam(
-                    name=name,
-                    alias=name,
+            if is_file_body(param_type):
+                return file_body_param(
+                    name,
+                    param_type,
                     annotation=annotation,
-                    type_=param_type,
                     default=default,
-                    decoder=decoder,
-                )
+                    meta=None,
+                )  # type: ignore
+
+            if decoder is None:
+                decoder = decoder_factory(param_type)
+
+            req_param = BodyParam(
+                name=name,
+                alias=name,
+                annotation=annotation,
+                type_=param_type,
+                default=default,
+                decoder=cast(IBodyDecoder[T], decoder),
+            )
         elif param_type in self.graph.nodes:
             nodes = self._parse_node(param_type)
             return nodes
@@ -408,28 +414,29 @@ class EndpointParser:
         annotation: Any,
         default: Maybe[T],
         param_meta: ParamMeta,
-    ) -> BodyParam[T]:
-        if isinstance(param_meta, BodyMeta) and param_meta.form:
+    ) -> BodyParam[bytes, T] | FormParam[T]:
+        if isinstance(param_meta, FormMeta):
             content_type = param_meta.content_type or "multipart/form-data"
             decoder = param_meta.decoder or formdecoder_factory(type_)
-            body_param = BodyParam(
+            body_param = FormParam(
                 name=name,
                 alias=param_alias,
                 type_=type_,
                 annotation=annotation,
                 default=default,
-                decoder=decoder,
+                decoder=cast(IFormDecoder[T], decoder),
                 content_type=content_type,
+                meta=param_meta,
             )
         else:
-            decoder = param_meta.decoder or decoder_factory(type_)
-            body_param = BodyParam(
+            decoder_ = param_meta.decoder or decoder_factory(type_)
+            body_param = BodyParam[bytes, T](
                 name=name,
                 alias=param_alias,
                 type_=type_,
                 annotation=annotation,
                 default=default,
-                decoder=decoder,
+                decoder=cast(IBodyDecoder[T], decoder_),
             )
         return body_param
 
@@ -518,7 +525,7 @@ class EndpointParser:
             self.path_keys += path_keys
 
         params: ParamMap[RequestParam[Any]] = {}
-        bodies: ParamMap[BodyParam[Any]] = {}
+        bodies: ParamMap[BodyParam[Any, Any]] = {}
         nodes: ParamMap[DependentNode] = {}
         states: ParamMap[StateParam] = {}
 
@@ -560,8 +567,13 @@ class EndpointParser:
             self.graph.should_be_scoped(node.dependent)
             for node in params.nodes.values()
         )
-        body_param = params.get_body()
-        is_form_body: bool = _is_form_body(body_param)
+        body_param_pair = params.get_body()
+        body_param = body_param_pair[1] if body_param_pair else None
+
+        form_meta = None
+        if body_param and isinstance(body_param, FormParam):
+            form_meta = body_param.meta
+
         transitive_params: set[str] = {
             p for p in self.node_derived if p not in func_sig.parameters
         }
@@ -571,7 +583,7 @@ class EndpointParser:
             header_params=params.get_source("header"),
             query_params=params.get_source("query"),
             path_params=params.get_source("path"),
-            body_param=body_param,
+            body_param=body_param_pair,
             states=params.states,
             dependencies=params.nodes,
             transitive_params=transitive_params,
@@ -579,6 +591,6 @@ class EndpointParser:
             status_code=status,
             return_encoder=retparam.encoder,
             scoped=scoped,
-            is_form_body=is_form_body,
+            form_meta=form_meta,
         )
         return ep_sig

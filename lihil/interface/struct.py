@@ -37,7 +37,8 @@ def exclude_value(data: Struct, value: Any) -> dict[str, Any]:
 
 
 ITextualDecoder = IDecoder[str | list[str], T]
-IBodyDecoder = IDecoder[bytes, T] | IDecoder[FormData, T]
+IBodyDecoder = IDecoder[bytes, T]
+IFormDecoder = IDecoder[FormData, T]
 
 
 class Base(Struct):
