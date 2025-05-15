@@ -53,7 +53,7 @@ def is_text_type(t: type | UnionType | GenericAlias) -> bool:
     return t in (str, bytes)
 
 
-def is_mapping_type(qtype: type | UnionType | GenericAlias) -> bool:
+def is_mapping_type(qtype: type[Any] | UnionType | GenericAlias) -> bool:
     if is_union_type(qtype):
         q_union_args = get_args(qtype)
         return any(is_mapping_type(q) for q in q_union_args)
@@ -89,8 +89,10 @@ def replace_typevars(
             typevar_map[var] = nonvars[idx]
             idx += 1
 
-    result = [typevar_map[var] if isinstance(var, TypeVar) else var for var in tyvars]
-    return tuple(result)
+    result = tuple(
+        typevar_map[var] if isinstance(var, TypeVar) else var for var in tyvars
+    )
+    return result
 
 
 def repair_type_generic_alias(

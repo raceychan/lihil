@@ -25,7 +25,7 @@ from typing_extensions import TypeAliasType
 
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
-from lihil.interface import IRequest, ParamSource, R, T, _Missed
+from lihil.interface import IRequest, Maybe, ParamSource, R, T
 from lihil.interface.marks import Struct
 from lihil.interface.struct import IDecoder
 from lihil.plugins.bus import EventBus
@@ -171,7 +171,7 @@ def req_param_factory(
     alias: str,
     param_type: type[T] | UnionType,
     annotation: Any,
-    default: T | _Missed,
+    default: Maybe[T],
     decoder: IDecoder[str | list[str], T] | None = None,
     param_meta: ParamMeta | None = None,
     source: ParamSource = "query",
@@ -285,7 +285,7 @@ class EndpointParser:
         name: str,
         param_type: type[T] | UnionType,
         annotation: Any,
-        default: _Missed | T,
+        default: Maybe[T],
         param_meta: ParamMeta | None = None,
     ) -> "ParsedParam[T] | list[ParsedParam[T]]":
         if name in self.path_keys:  # simplest case
@@ -347,7 +347,7 @@ class EndpointParser:
         header_key: str,
         type_: type[T] | UnionType,
         annotation: Any,
-        default: _Missed | T,
+        default: Maybe[T],
         param_meta: ParamMeta,
     ) -> "ParsedParam[T]":
         if custom_decoder := param_meta.decoder:
@@ -376,7 +376,7 @@ class EndpointParser:
         name: str,
         type_: type[T] | UnionType,
         annotation: Any,
-        default: _Missed | T,
+        default: Maybe[T],
         param_meta: ParamMeta,
     ) -> "ParsedParam[T]":
         location = "header"
@@ -408,7 +408,7 @@ class EndpointParser:
         param_alias: str,
         type_: type[T] | UnionType,
         annotation: Any,
-        default: _Missed | T,
+        default: Maybe[T],
         param_meta: ParamMeta,
     ) -> BodyParam[T]:
         if isinstance(param_meta, BodyMeta) and param_meta.form:
@@ -440,7 +440,7 @@ class EndpointParser:
         name: str,
         type_: type[T] | UnionType,
         annotation: Any,
-        default: _Missed | T,
+        default: Maybe[T],
         param_meta: ParamMeta,
     ) -> "ParsedParam[T] | list[ParsedParam[T]]":
         assert param_meta.source
@@ -480,7 +480,7 @@ class EndpointParser:
         self,
         name: str,
         annotation: type[T] | UnionType | GenericAlias | TypeAliasType,
-        default: _Missed | T = LIHIL_MISSING,
+        default: Maybe[T] = LIHIL_MISSING,
     ) -> list["ParsedParam[T]"]:
         parsed_type, pmetas = get_origin_pro(annotation)
         parsed_type = cast(type[T], parsed_type)

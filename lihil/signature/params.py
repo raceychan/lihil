@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Literal, Mapping, Union, overload, Generic, TypeVar
+from typing import Any, ClassVar, Generic, Literal, Mapping, TypeVar, Union, overload
 
 from ididi import DependentNode
 from msgspec import DecodeError
@@ -7,7 +7,7 @@ from msgspec import Struct, ValidationError, field
 from starlette.datastructures import FormData
 
 from lihil.errors import NotSupportedError
-from lihil.interface import BodyContentType, ParamBase, ParamSource, is_provided, T
+from lihil.interface import BodyContentType, ParamBase, ParamSource, T, is_provided
 from lihil.interface.struct import Base, IDecoder
 from lihil.problems import (
     CustomDecodeErrorMessage,
@@ -21,11 +21,6 @@ from lihil.utils.typing import is_mapping_type, is_nontextual_sequence
 from lihil.vendors import FormData, Headers, QueryParams
 
 D = TypeVar("D")
-
-RequestParam = "PathParam[T] | QueryParam[T] | HeaderParam[T] | CookieParam[T]"
-ParsedParam = "RequestParam[T] | BodyParam[T] | DependentNode | StateParam"
-ParamResult = tuple[T, None] | tuple[None, ValidationProblem]
-ParamMap = dict[str, T]
 
 
 class StateParam(ParamBase[Any]): ...
@@ -146,7 +141,7 @@ def Param(
     return meta
 
 
-class Decodable(ParamBase[T], Generic[D,T], kw_only=True):
+class Decodable(ParamBase[T], Generic[D, T], kw_only=True):
     source: ClassVar[ParamSource]
     decoder: IDecoder[Any, T] = None  # type: ignore
 
@@ -168,7 +163,7 @@ class Decodable(ParamBase[T], Generic[D,T], kw_only=True):
         """
         return self.decoder(content)
 
-    def validate(self, raw: D) -> ParamResult[T]:
+    def validate(self, raw: D) -> "ParamResult[T]":
         try:
             value = self.decode(raw)
             return value, None
@@ -191,7 +186,7 @@ class PathParam(Decodable[str, T], Generic[T], kw_only=True):
                 f"Path param {self} with default value is not supported"
             )
 
-    def extract(self, params: Mapping[str, str]) -> ParamResult[T]:
+    def extract(self, params: Mapping[str, str]) -> "ParamResult[T]":
         try:
             raw = params[self.alias]
         except KeyError:
@@ -200,7 +195,7 @@ class PathParam(Decodable[str, T], Generic[T], kw_only=True):
         return self.validate(raw)
 
 
-class QueryParam(Decodable[str | list[str], Generic[T]]):
+class QueryParam(Decodable[str | list[str], T]):
     source: ClassVar[ParamSource] = "query"
     decoder: IDecoder[str | list[str], T] = None  # type: ignore
     multivals: bool = False
@@ -215,7 +210,7 @@ class QueryParam(Decodable[str | list[str], Generic[T]]):
 
         self.multivals = is_nontextual_sequence(self.type_)
 
-    def extract(self, queries: QueryParams | Headers) -> ParamResult[T]:
+    def extract(self, queries: QueryParams | Headers) -> "ParamResult[T]":
         alias = self.alias
         if self.multivals:
             raw = queries.getlist(alias)
@@ -246,7 +241,7 @@ class BodyParam(Decodable[bytes | FormData, T], kw_only=True):
     def __repr__(self) -> str:
         return f"BodyParam<{self.content_type}>({self.name}: {self.type_repr})"
 
-    def extract(self, body: bytes | FormData) -> ParamResult[T]:
+    def extract(self, body: bytes | FormData) -> "ParamResult[T]":
         if body == b"" or (isinstance(body, FormData) and len(body) == 0):
             if is_provided(default := self.default):
                 val = default
@@ -258,8 +253,14 @@ class BodyParam(Decodable[bytes | FormData, T], kw_only=True):
         return self.validate(body)
 
 
+RequestParam = Union[PathParam[T], QueryParam[T], HeaderParam[T], CookieParam[T]]
+ParsedParam = RequestParam[T] | BodyParam[T] | DependentNode | StateParam
+ParamResult = tuple[T, None] | tuple[None, ValidationProblem]
+ParamMap = dict[str, T]
+
+
 class EndpointParams(Base, kw_only=True):
-    params: ParamMap["RequestParam[Any]"] = field(default_factory=dict)
+    params: ParamMap[RequestParam[Any]] = field(default_factory=dict)
     bodies: ParamMap[BodyParam[Any]] = field(default_factory=dict)
     nodes: ParamMap[DependentNode] = field(default_factory=dict)
     states: ParamMap[StateParam] = field(default_factory=dict)
@@ -273,7 +274,7 @@ class EndpointParams(Base, kw_only=True):
     @overload
     def get_source(self, source: Literal["path"]) -> ParamMap[PathParam[Any]]: ...
 
-    def get_source(self, source: ParamSource) -> Mapping[str, "RequestParam[Any]"]:
+    def get_source(self, source: ParamSource) -> Mapping[str, RequestParam[Any]]:
         return {n: p for n, p in self.params.items() if p.source == source}
 
     def get_body(self) -> tuple[str, BodyParam[Any]] | None:
