@@ -1004,6 +1004,8 @@ async def create_user(
 
 ## version 0.2.6
 
+### Fixes
+
 - [x] fix a bug where if a header param is declared as a union of types, it would not be treated as a sequence type even if the union contains a sequence type.
 
 ```python
@@ -1024,3 +1026,43 @@ async def test_ep_with_multiple_value_header():
 ```
 
 The above test would fail before this fix, as `x-token` is a union of list[str] and None, it would be treated as a str instead of list[str].
+
+
+### Improvements
+
+User now can combine `UploadFile` and `Form` to set constraints on files
+
+```python
+async def test_ep_requiring_upload_file_exceed_max_files(
+    rusers: Route, lc: LocalClient
+):
+
+    async def get(
+        req: Request, myfile: Annotated[UploadFile, Form(max_files=0)]
+    ) -> Annotated[str, status.OK]:
+        assert isinstance(myfile, UploadFile)
+        return None
+
+    boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+
+    file_content = b"Hello, this is test content!"  # Example file content
+    filename = "test_file.txt"
+
+    multipart_body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="myfile"; filename="{filename}"\r\n'
+        f"Content-Type: text/plain\r\n\r\n"
+        + file_content.decode()  # File content as string
+        + f"\r\n--{boundary}--\r\n"
+    ).encode("utf-8")
+
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+
+    rusers.get(get)
+    ep = rusers.get_endpoint("GET")
+
+    result = await lc.call_endpoint(ep, body=multipart_body, headers=headers)
+    assert result.status_code == 422
+    data = await result.json()
+    assert data["detail"][0]["type"] == "InvalidFormError"
+```

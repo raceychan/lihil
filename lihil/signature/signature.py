@@ -114,12 +114,12 @@ class EndpointSignature(Base, Generic[R]):
         assert self.body_param
         name, param = self.body_param
 
-        if self.form_meta:
+        if form_meta := self.form_meta:
             try:
                 body = await request.form(
-                    max_files=self.form_meta.max_files,
-                    max_fields=self.form_meta.max_fields,
-                    max_part_size=self.form_meta.max_part_size,
+                    max_files=form_meta.max_files,
+                    max_fields=form_meta.max_fields,
+                    max_part_size=form_meta.max_part_size,
                 )
             except MultiPartException:
                 parsed.errors.append(InvalidFormError("body", name))
@@ -134,7 +134,6 @@ class EndpointSignature(Base, Generic[R]):
             parsed.params[name] = val
         else:
             parsed.errors.append(error)
-
         return parsed
 
     def parse_query(self, req: Request | WebSocket) -> ParseResult:
