@@ -1,5 +1,5 @@
 import sys
-from typing import Annotated, Literal
+from typing import Annotated
 from unittest import mock
 
 import msgspec
@@ -8,7 +8,7 @@ from starlette.requests import Request
 
 from lihil import MISSING, DependentNode, Graph, Param, Payload, Request, Form, use
 from lihil.config import JWTConfig, lhl_set_config
-from lihil.errors import NotSupportedError
+from lihil.errors import NotSupportedError, InvalidParamError
 from lihil.signature.parser import (
     BodyParam,
     EndpointParser,
@@ -548,3 +548,11 @@ async def test_parse_ep_with_path_key(param_parser: EndpointParser):
 
     sig = param_parser.parse(get_user)
     assert sig.path_params["user_id"]
+
+
+async def test_endpoint_with_invalid_param(param_parser: EndpointParser):
+
+    with pytest.raises(InvalidParamError):
+        async def with_header_key(
+            user_agen: Annotated[str, Param("asdf")],
+        ): ...

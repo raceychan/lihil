@@ -191,46 +191,47 @@ def req_param_factory(
     else:
         decoder_ = textdecoder_factory(param_type=param_type)
 
-    if source == "path":
-        req_param = PathParam(
-            name=name,
-            alias=alias,
-            type_=param_type,
-            annotation=annotation,
-            decoder=cast(IDecoder[str, T], decoder_),
-            default=default,
-        )
-    elif source == "header":
-        return HeaderParam(
-            name=name,
-            alias=alias,
-            type_=param_type,
-            annotation=annotation,
-            decoder=decoder_,
-            default=default,
-        )
-    elif source == "cookie":
-        assert param_meta
-        cookie_name = param_meta.alias or to_kebab_case(name)
-        return CookieParam(
-            name=name,
-            cookie_name=cookie_name,
-            alias=alias,
-            type_=param_type,
-            annotation=annotation,
-            decoder=decoder_,
-            default=default,
-        )
+    match source:
+        case "path":
+            req_param = PathParam(
+                name=name,
+                alias=alias,
+                type_=param_type,
+                annotation=annotation,
+                decoder=cast(IDecoder[str, T], decoder_),
+                default=default,
+            )
+        case "header":
+            return HeaderParam(
+                name=name,
+                alias=alias,
+                type_=param_type,
+                annotation=annotation,
+                decoder=decoder_,
+                default=default,
+            )
+        case "cookie":
+            assert param_meta
+            cookie_name = param_meta.alias or to_kebab_case(name)
+            return CookieParam(
+                name=name,
+                cookie_name=cookie_name,
+                alias=alias,
+                type_=param_type,
+                annotation=annotation,
+                decoder=decoder_,
+                default=default,
+            )
+        case "query":
+            req_param = QueryParam(
+                name=name,
+                alias=alias,
+                type_=param_type,
+                annotation=annotation,
+                decoder=decoder_,
+                default=default,
+            )
 
-    else:
-        req_param = QueryParam(
-            name=name,
-            alias=alias,
-            type_=param_type,
-            annotation=annotation,
-            decoder=decoder_,
-            default=default,
-        )
 
     return req_param
 
@@ -385,7 +386,6 @@ class EndpointParser:
         default: Maybe[T],
         param_meta: ParamMeta,
     ) -> "ParsedParam[T]":
-        location = "header"
         header_key = param_meta.alias or to_kebab_case(name)
 
         if header_key.lower() == "authorization":
@@ -403,7 +403,7 @@ class EndpointParser:
             alias=header_key,
             param_type=type_,
             annotation=annotation,
-            source=location,
+            source="header",
             default=default,
             param_meta=param_meta,
         )

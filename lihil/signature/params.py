@@ -1,14 +1,4 @@
-from typing import (
-    Any,
-    ClassVar,
-    Generic,
-    Literal,
-    Mapping,
-    Sequence,
-    TypeVar,
-    Union,
-    overload,
-)
+from typing import Any, ClassVar, Generic, Literal, Mapping, TypeVar, Union, overload
 
 from ididi import DependentNode
 from msgspec import DecodeError
@@ -16,7 +6,7 @@ from msgspec import Meta as Constraint
 from msgspec import Struct, ValidationError
 from starlette.datastructures import FormData
 
-from lihil.errors import NotSupportedError
+from lihil.errors import InvalidParamError, NotSupportedError
 from lihil.interface import BodyContentType, ParamBase, ParamSource, T, is_provided
 from lihil.interface.struct import Base, IBodyDecoder, IDecoder, ITextualDecoder
 from lihil.problems import (
@@ -99,7 +89,7 @@ def Param(
 ) -> ParamMeta:
     param_sources: tuple[str, ...] = ParamSource.__args__
     if source is not None and source not in param_sources:
-        raise RuntimeError(f"Invalid source {source}, expected one of {param_sources}")
+        raise InvalidParamError(source, param_sources)
     if any(
         x is not None
         for x in (

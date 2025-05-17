@@ -52,3 +52,9 @@ class InvalidMarkTypeError(LihilError):
 class MissingDependencyError(LihilError):
     def __init__(self, dep_name: str) -> None:
         super().__init__(f"{dep_name} is required but not provided")
+
+
+class InvalidParamError(LihilError):
+    def __init__(self, source: str, param_sources: tuple[str, ...]):
+        msg = f"Invalid source {source}, expected one of {param_sources}"
+        super().__init__(msg)
