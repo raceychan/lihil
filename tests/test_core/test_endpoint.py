@@ -254,7 +254,7 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
     assert res.status_code == 200
     assert res
 
-
+@pytest.mark.debug
 async def test_ep_requiring_missing_Param(rusers: Route, lc: LocalClient):
 
     class UserInfo(Payload):

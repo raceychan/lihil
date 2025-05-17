@@ -1,13 +1,15 @@
-from typing import Any, Awaitable, Callable, Generic
+from typing import Any, Awaitable, Callable, Generic, cast
 
-from ididi import DependentNode
+from ididi import DependentNode, Resolver
 from msgspec import Struct, field
 
 from lihil.interface import Base, IEncoder, R, Record
-from lihil.problems import InvalidFormError, ValidationProblem
+from lihil.plugins.bus import BusTerminal, EventBus
+from lihil.problems import InvalidFormError, InvalidRequestErrors, ValidationProblem
 from lihil.vendors import (
     FormData,
     Headers,
+    HTTPConnection,
     MultiPartException,
     QueryParams,
     Request,
@@ -27,12 +29,14 @@ from .params import (
 )
 from .returns import EndpointReturn
 
+AnyAwaitble = Callable[..., Awaitable[None]]
+
 
 class ParseResult(Record):
     params: dict[str, Any]
     errors: list[ValidationProblem]
 
-    callbacks: list[Callable[..., Awaitable[None]]] = field(default_factory=list)
+    callbacks: list[AnyAwaitble] = field(default_factory=list)
 
     def __getitem__(self, key: str):
         return self.params[key]
@@ -60,48 +64,41 @@ class EndpointSignature(Base, Generic[R]):
     return_encoder: IEncoder[R]
     return_params: dict[int, EndpointReturn[R]]
 
-    def prepare_params(
-        self,
-        req_path: dict[str, str] | None = None,
-        req_query: QueryParams | None = None,
-        req_header: Headers | None = None,
-    ) -> ParseResult:
+    def _validate_conn(self, conn: HTTPConnection) -> ParseResult:
         verrors: list[Any] = []
         params: dict[str, Any] = {}
 
-        if req_header:
-            raw_cookies: str | None = None
+        if self.header_params:
+            headers = conn.headers
+
             cookie_params: dict[str, str] | None = None
             for name, param in self.header_params.items():
                 if param.alias == "cookie":
-                    cookie: CookieParam[Any] = param  # type: ignore
-
-                    if raw_cookies is None:
-                        raw_cookie = req_header["cookie"]
                     if cookie_params is None:
-                        cookie_params = cookie_parser(raw_cookie)
-
-                    raw_cookie: str = cookie_params[cookie.cookie_name]
-                    val, error = param.validate(raw_cookie)
+                        cookie_params = cookie_parser(headers["cookie"])
+                    cookie: str = cookie_params[param.cookie_name]  # type: ignore
+                    val, error = param.validate(cookie)
                 else:
-                    val, error = param.extract(req_header)
+                    val, error = param.extract(headers)
 
                 if val:
                     params[name] = val
                 else:
                     verrors.append(error)
 
-        if req_path is not None:
+        if self.path_params:
+            paths = conn.path_params
             for name, param in self.path_params.items():
-                val, error = param.extract(req_path)
+                val, error = param.extract(paths)
                 if val:
                     params[name] = val
                 else:
                     verrors.append(error)
 
-        if req_query is not None:
+        if self.query_params:
+            queries = conn.query_params
             for name, param in self.query_params.items():
-                val, error = param.extract(req_query)
+                val, error = param.extract(queries)
                 if val:
                     params[name] = val
                 else:
@@ -110,45 +107,84 @@ class EndpointSignature(Base, Generic[R]):
         parsed_result = ParseResult(params, verrors)
         return parsed_result
 
-    async def prepare_body(self, request: Request, parsed: ParseResult) -> ParseResult:
-        assert self.body_param
-        name, param = self.body_param
+    async def validate_websocket(
+        self, ws: WebSocket, resolver: Resolver, busterm: BusTerminal
+    ):
+        parsed_result = self._validate_conn(ws)
 
-        if form_meta := self.form_meta:
-            try:
-                body = await request.form(
-                    max_files=form_meta.max_files,
-                    max_fields=form_meta.max_fields,
-                    max_part_size=form_meta.max_part_size,
-                )
-            except MultiPartException:
-                parsed.errors.append(InvalidFormError("body", name))
-                return parsed
+        if errors := parsed_result.errors:
+            raise InvalidRequestErrors(detail=errors)
+
+        params = parsed_result.params
+        for name, p in self.states.items():
+            ptype = cast(type, p.type_)
+            if issubclass(ptype, WebSocket):
+                params[name] = ws
+            elif issubclass(ptype, EventBus):
+                bus = busterm.create_event_bus(resolver)
+                params[name] = bus
+            elif issubclass(ptype, Resolver):
+                params[name] = resolver
+            else:  # AppState
+                raise TypeError(f"Unsupported type {ptype} for parameter {name}")
+
+        for name, dep in self.dependencies.items():
+            params[name] = await resolver.aresolve(dep.dependent, **params)
+
+        return parsed_result
+
+    async def validate_request(
+        self, req: Request, resolver: Resolver, busterm: BusTerminal
+    ):
+        parsed = self._validate_conn(req)
+        params, errors = parsed.params, parsed.errors
+
+        if self.body_param:
+            name, param = self.body_param
+
+            if form_meta := self.form_meta:
+                try:
+                    body = await req.form(
+                        max_files=form_meta.max_files,
+                        max_fields=form_meta.max_fields,
+                        max_part_size=form_meta.max_part_size,
+                    )
+                except MultiPartException:
+                    body = b""
+                    errors.append(InvalidFormError("body", name))
+                else:
+                    parsed.callbacks.append(body.close)
             else:
-                parsed.callbacks.append(body.close)
-        else:
-            body = await request.body()
+                body = await req.body()
 
-        val, error = param.extract(body)
-        if val:
-            parsed.params[name] = val
-        else:
-            parsed.errors.append(error)
+            val, error = param.extract(body)
+            if val:
+                params[name] = val
+            else:
+                errors.append(error)
+
+        if errors:
+            raise InvalidRequestErrors(detail=errors)
+
+        for name, p in self.states.items():
+            ptype = cast(type, p.type_)
+            if issubclass(ptype, Request):
+                params[name] = req
+            elif issubclass(ptype, EventBus):
+                bus = busterm.create_event_bus(resolver)
+                params[name] = bus
+            elif issubclass(ptype, Resolver):
+                params[name] = resolver
+            else:
+                raise TypeError(f"Unsupported state type {ptype} for {name} in {self}")
+
+        for name, dep in self.dependencies.items():
+            params[name] = await resolver.aresolve(dep.dependent, **params)
+
+        for p in self.transitive_params:
+            params.pop(p)
+
         return parsed
-
-    def parse_query(self, req: Request | WebSocket) -> ParseResult:
-        req_path = req.path_params if self.path_params else None
-        req_query = req.query_params if self.query_params else None
-        req_header = req.headers if self.header_params else None
-        params = self.prepare_params(req_path, req_query, req_header)
-        return params
-
-    async def parse_command(self, req: Request) -> ParseResult:
-        req_path = req.path_params if self.path_params else None
-        req_query = req.query_params if self.query_params else None
-        req_header = req.headers if self.header_params else None
-        parsed = self.prepare_params(req_path, req_query, req_header)
-        return await self.prepare_body(req, parsed)
 
     @property
     def static(self) -> bool:
@@ -166,4 +202,5 @@ class EndpointSignature(Base, Generic[R]):
     @property
     def media_type(self) -> str:
         default = "application/json"
-        return next(iter(self.return_params.values())).content_type or default
+        first_return = next(iter(self.return_params.values()))
+        return first_return.content_type or default

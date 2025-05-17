@@ -1,13 +1,12 @@
 from inspect import iscoroutinefunction
-from typing import Any, Mapping, cast
+from typing import Any
 
 from ididi import Graph, Resolver
 from starlette.responses import Response
 
 from lihil.errors import NotSupportedError
 from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
-from lihil.plugins.bus import BusTerminal, EventBus
-from lihil.problems import InvalidRequestErrors
+from lihil.plugins.bus import BusTerminal
 from lihil.routing import RouteBase, build_path_regex
 from lihil.signature import EndpointParser, ParseResult
 from lihil.vendors import WebSocket
@@ -27,9 +26,6 @@ class WebSocketEndpoint:  # TODO:  endpoint base
         self._busterm = self._route.busterm
         self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
 
-        self._dep_items = self._sig.dependencies.items()
-        self._states_items = self._sig.states.items()
-
         if self._sig.body_param is not None:
             raise NotSupportedError("websocket does not support body param")
 
@@ -37,21 +33,6 @@ class WebSocketEndpoint:  # TODO:  endpoint base
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._route.path!r} {self._func})"
-
-    def inject_states(
-        self, params: dict[str, Any], websocket: WebSocket, resolver: Resolver
-    ):
-        for name, p in self._states_items:
-            ptype = cast(type, p.type_)
-            if issubclass(ptype, WebSocket):
-                params[name] = websocket
-            elif issubclass(ptype, EventBus):
-                bus = self._busterm.create_event_bus(resolver)
-                params[name] = bus
-            elif issubclass(ptype, Resolver):
-                params[name] = resolver
-            else:  # AppState
-                raise TypeError(f"Unsupported type {ptype} for parameter {name}")
 
     async def make_call(
         self,
@@ -63,17 +44,8 @@ class WebSocketEndpoint:  # TODO:  endpoint base
         ws = WebSocket(scope, receive, send)
 
         try:
-            parsed_result = self._sig.parse_query(ws)
-            if errors := parsed_result.errors:
-                raise InvalidRequestErrors(detail=errors)
-
-            params = parsed_result.params
-            self.inject_states(params, ws, resolver)
-
-            for name, dep in self._dep_items:
-                params[name] = await resolver.aresolve(dep.dependent, **params)
-
-            await self._func(**params)
+            parsed = await self._sig.validate_websocket(ws, resolver, self._busterm)
+            await self._func(**parsed.params)
         except Exception as exc:
             await ws.close(reason=str(exc))
             raise
@@ -103,12 +75,7 @@ class WebSocketRoute(RouteBase):
     def __repr__(self):
         return f"{self.__class__.__name__}({self.path!r}, {self.endpoint})"
 
-    def setup(
-        self,
-        graph: Graph | None = None,
-        busterm: BusTerminal | None = None,
-        app_state: Mapping[str, Any] | None = None,
-    ):
+    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
         super().setup(graph=graph, busterm=busterm)
         self.endpoint_parser = EndpointParser(self.graph, self.path)
 

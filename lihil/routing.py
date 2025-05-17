@@ -39,7 +39,7 @@ from lihil.interface import (  # MappingLike,
     T,
 )
 from lihil.plugins.bus import BusTerminal, Event, EventBus, MessageRegistry
-from lihil.problems import DetailBase, InvalidRequestErrors, get_solver
+from lihil.problems import DetailBase, get_solver
 from lihil.signature import EndpointSignature, ParseResult
 from lihil.signature.parser import EndpointParser
 from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
@@ -140,39 +140,17 @@ class Endpoint(Generic[R]):
 
     def setup(self, sig: EndpointSignature[R]) -> None:
         self._graph = self._route.graph
-        self._busterm = self._route.busterm
+        self._busterm = self._route.busterm  # TODO: make this a plugin
+        # for decor in self.props.decorators:
+        #    self._func = decor(sig)(func)
 
         self._sig = sig
 
-        self._dep_items = sig.dependencies.items()
-        self._states_items = sig.states.items()
         self._static = sig.static
-        self._transitive_params = sig.transitive_params
-
-        self._require_body: bool = sig.body_param is not None
         self._status_code = sig.status_code
         self._scoped: bool = sig.scoped or self._props.scoped is True
         self._encoder = sig.return_encoder
-        self._media_type = (
-            next(iter(sig.return_params.values())).content_type or "application/json"
-        )
-
-    def inject_states(
-        self, params: dict[str, Any], request: Request, resolver: Resolver
-    ):
-        for name, p in self._states_items:
-            ptype = cast(type, p.type_)
-            if issubclass(ptype, Request):
-                params[name] = request
-            elif issubclass(ptype, EventBus):
-                bus = self._busterm.create_event_bus(resolver)
-                params[name] = bus
-            elif issubclass(ptype, Resolver):
-                params[name] = resolver
-            else:
-                raise TypeError(
-                    f"Unsupported state type {ptype} for {name} in {self._name}"
-                )
+        self._media_type = sig.media_type
 
     async def make_static_call(
         self, scope: IScope, receive: IReceive, send: ISend
@@ -191,28 +169,9 @@ class Endpoint(Generic[R]):
         request = Request(scope, receive, send)
         callbacks = None
         try:
-            if self._require_body:
-                parsed_result = await self._sig.parse_command(request)
-            else:
-                parsed_result = self._sig.parse_query(request)
-
-            callbacks = parsed_result.callbacks
-            if errors := parsed_result.errors:
-                raise InvalidRequestErrors(detail=errors)
-
-            params = parsed_result.params
-
-            if self._states_items:
-                self.inject_states(params, request, resolver)
-
-            for name, dep in self._dep_items:
-                params[name] = await resolver.aresolve(dep.dependent, **params)
-
-            for p in self._transitive_params:
-                params.pop(p)
-
-            raw_return = await self._func(**params)
-            return raw_return
+            parsed = await self._sig.validate_request(request, resolver, self._busterm)
+            params, callbacks = parsed.params, parsed.callbacks
+            return await self._func(**params)
         except Exception as exc:
             if solver := get_solver(exc):
                 return solver(request, exc)
