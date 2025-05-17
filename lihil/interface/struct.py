@@ -6,6 +6,7 @@ from typing import (
     Generic,
     Literal,
     Protocol,
+    Sequence,
     TypeVar,
 )
 

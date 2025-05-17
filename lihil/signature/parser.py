@@ -28,7 +28,7 @@ from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, ParamSource, R, T
 from lihil.interface.marks import Struct
 from lihil.interface.struct import IBodyDecoder, IDecoder, IFormDecoder, ITextualDecoder
-from lihil.utils.json import decoder_factory
+from lihil.utils.json import decoder_factory, encode_json
 from lihil.utils.string import find_path_keys, to_kebab_case
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
 from lihil.vendors import Request, UploadFile, WebSocket
@@ -76,21 +76,27 @@ def is_body_param(annt: Any) -> bool:
 
 def textdecoder_factory(
     param_type: type[T] | UnionType | GenericAlias,
-) -> IDecoder[str | list[str], T]:
+) -> ITextualDecoder[T]:
     if is_union_type(param_type):
         union_args = get_args(param_type)
         if bytes in union_args:
             raise NotSupportedError(
                 "Union of bytes and other types is not supported, as it is always valid to decode the object as bytes"
             )
-    else:
-        if param_type is bytes:
+    if param_type is bytes:
 
-            def str_to_bytes(content: str) -> bytes:
+        def str_to_bytes(content: str | list[str]) -> bytes:
+            if isinstance(content, str):
                 return content.encode("utf-8")
+            return encode_json(content)
 
-            # here T is bytes
-            return cast(IDecoder[str | list[str], T], str_to_bytes)
+        return str_to_bytes
+    if param_type is str:
+
+        def dummy(content: str):
+            return content
+
+        return dummy
 
     def converter(content: str | list[str]) -> T:
         return convert(content, param_type, strict=False)

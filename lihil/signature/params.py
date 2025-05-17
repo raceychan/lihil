@@ -1,4 +1,14 @@
-from typing import Any, ClassVar, Generic, Literal, Mapping, TypeVar, Union, overload
+from typing import (
+    Any,
+    ClassVar,
+    Generic,
+    Literal,
+    Mapping,
+    Sequence,
+    TypeVar,
+    Union,
+    overload,
+)
 
 from ididi import DependentNode
 from msgspec import DecodeError
@@ -198,7 +208,7 @@ class PathParam(Decodable[str, T], Generic[T], kw_only=True):
 
 class QueryParam(Decodable[str | list[str], T], kw_only=True):
     source: ClassVar[ParamSource] = "query"
-    decoder: IDecoder[str | list[str], T]
+    decoder: ITextualDecoder[T]
     multivals: bool = False
 
     def __post_init__(self):

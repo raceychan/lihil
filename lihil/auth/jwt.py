@@ -1,6 +1,6 @@
 from time import time
 from types import UnionType
-from typing import Annotated, Any, ClassVar, Literal, TypedDict, TypeVar, cast
+from typing import Annotated, Any, ClassVar, Literal, TypedDict, TypeVar, cast, Sequence
 from uuid import uuid4
 
 from msgspec import convert
