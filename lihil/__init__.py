@@ -20,8 +20,6 @@ from .interface import Payload as Payload
 from .interface import Stream as Stream
 from .interface import Text as Text
 from .lihil import Lihil as Lihil
-from .plugins.bus import BusTerminal as BusTerminal
-from .plugins.bus import EventBus as EventBus
 from .plugins.testclient import LocalClient as LocalClient
 from .problems import HTTPException as HTTPException
 from .routing import Route as Route

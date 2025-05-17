@@ -23,7 +23,7 @@ from lihil.vendors import FormData, Headers, QueryParams
 D = TypeVar("D", bound=bytes | FormData | str | list[str])
 
 
-class StateParam(ParamBase[Any]): ...
+class PluginParam(ParamBase[Any]): ...
 
 
 class ParamExtra(Struct):
@@ -275,7 +275,7 @@ class FormParam(BodyParam[FormData, T], kw_only=True):
 
 RequestParam = Union[PathParam[T], QueryParam[T], HeaderParam[T], CookieParam[T]]
 ParsedParam = (
-    RequestParam[T] | BodyParam[bytes, T] | FormParam[T] | DependentNode | StateParam
+    RequestParam[T] | BodyParam[bytes, T] | FormParam[T] | DependentNode | PluginParam
 )
 ParamResult = tuple[T, None] | tuple[None, ValidationProblem]
 ParamMap = dict[str, T]
@@ -285,7 +285,7 @@ class EndpointParams(Base, kw_only=True):
     params: ParamMap[RequestParam[Any]]
     bodies: ParamMap[BodyParam[Any, Any]]
     nodes: ParamMap[DependentNode]
-    states: ParamMap[StateParam]
+    plugins: ParamMap[PluginParam]
 
     @overload
     def get_source(self, source: Literal["header"]) -> ParamMap[HeaderParam[Any]]: ...

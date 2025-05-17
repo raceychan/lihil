@@ -15,7 +15,7 @@ from lihil.signature.parser import (
     HeaderParam,
     PathParam,
     QueryParam,
-    StateParam,
+    PluginParam,
 )
 from lihil.utils.typing import get_origin_pro
 
@@ -120,7 +120,7 @@ def test_parsed_params(param_parser: EndpointParser):
     service = sig.dependencies["service"]
     assert service.dependent == DependentService
 
-    req = sig.states["req"]
+    req = sig.plugins["req"]
     assert req.type_ == Request
 
 
@@ -192,7 +192,7 @@ def test_analyze_param_lihil_dep(param_parser: EndpointParser):
     assert len(result) == 1
     param = result[0]
     assert param.name == "request"
-    assert isinstance(param, StateParam)
+    assert isinstance(param, PluginParam)
     assert param.type_ == Request
 
 
@@ -378,9 +378,6 @@ def test_body_param_repr(param_parser: EndpointParser):
 
     param = param_parser.parse_param("data", Annotated[UserData, Form()])[0]
 
-
-def test_param_provider_with_invalid_plugin(param_parser: EndpointParser):
-    assert not param_parser.is_lhl_primitive(5)
 
 
 def test_path_param_with_default_fail(param_parser: EndpointParser):

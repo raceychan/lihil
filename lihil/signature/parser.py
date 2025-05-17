@@ -28,7 +28,6 @@ from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, ParamSource, R, T
 from lihil.interface.marks import Struct
 from lihil.interface.struct import IBodyDecoder, IDecoder, IFormDecoder, ITextualDecoder
-from lihil.plugins.bus import EventBus
 from lihil.utils.json import decoder_factory
 from lihil.utils.string import find_path_keys, to_kebab_case
 from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
@@ -46,15 +45,15 @@ from .params import (
     ParamMeta,
     ParsedParam,
     PathParam,
+    PluginParam,
     QueryParam,
     RequestParam,
-    StateParam,
 )
 from .returns import parse_returns
 from .signature import EndpointSignature
 
 STARLETTE_TYPES: tuple[type, ...] = (Request, WebSocket)
-LIHIL_TYPES: tuple[type, ...] = (EventBus, Resolver)
+LIHIL_TYPES: tuple[type, ...] = (Resolver,)
 LIHIL_PRIMITIVES: tuple[type, ...] = STARLETTE_TYPES + LIHIL_TYPES
 
 
@@ -256,9 +255,6 @@ class EndpointParser:
         self.seen_path = set(self.path_keys)
         self.node_derived = set[str]()
 
-    def is_lhl_primitive(self, obj: Any):
-        return is_lhl_primitive(obj)
-
     def _parse_node(
         self, node_type: INode[..., Any], node_config: NodeConfig | None = None
     ) -> list["ParsedParam[Any]"]:
@@ -300,10 +296,10 @@ class EndpointParser:
             )
         elif is_lhl_primitive(param_type):
             type_ = Request if param_type is IRequest else param_type
-            states: StateParam = StateParam(
+            plugins: PluginParam = PluginParam(
                 type_=type_, annotation=annotation, name=name, default=default
             )
-            return states
+            return plugins
         elif is_body_param(param_type):
             if param_meta and param_meta.decoder:
                 decoder = cast(IBodyDecoder[T] | IFormDecoder[T], param_meta.decoder)
@@ -479,6 +475,10 @@ class EndpointParser:
                 default=default,
                 param_meta=param_meta,
             )
+        elif param_source == "plugin":
+            return PluginParam(
+                type_=type_, annotation=annotation, name=name, default=default
+            )
 
         req_param = req_param_factory(
             name=name,
@@ -537,7 +537,7 @@ class EndpointParser:
         params: ParamMap[RequestParam[Any]] = {}
         bodies: ParamMap[BodyParam[Any, Any]] = {}
         nodes: ParamMap[DependentNode] = {}
-        states: ParamMap[StateParam] = {}
+        plugins: ParamMap[PluginParam] = {}
 
         for name, param in func_params.items():
             annotation, default = param.annotation, param.default
@@ -553,8 +553,8 @@ class EndpointParser:
                     nodes[name] = req_param
                 elif isinstance(req_param, BodyParam):
                     bodies[req_param.name] = req_param
-                elif isinstance(req_param, StateParam):
-                    states[req_param.name] = req_param
+                elif isinstance(req_param, PluginParam):
+                    plugins[req_param.name] = req_param
                 else:
                     params[req_param.name] = req_param
 
@@ -562,7 +562,7 @@ class EndpointParser:
             warn(f"Unused path keys {self.seen_path}")
 
         ep_params = EndpointParams(
-            params=params, bodies=bodies, nodes=nodes, states=states
+            params=params, bodies=bodies, nodes=nodes, plugins=plugins
         )
         return ep_params
 
@@ -594,7 +594,7 @@ class EndpointParser:
             query_params=params.get_source("query"),
             path_params=params.get_source("path"),
             body_param=body_param_pair,
-            states=params.states,
+            plugins=params.plugins,
             dependencies=params.nodes,
             transitive_params=transitive_params,
             return_params=retns,

@@ -3,16 +3,17 @@ from ididi.interfaces import AsyncResource
 
 from lihil import (  # AppState,
     Annotated,
-    EventBus,
     Graph,
     Ignore,
     Lihil,
+    Param,
     Payload,
     WebSocket,
     WebSocketRoute,
     use,
 )
 from lihil.errors import NotSupportedError
+from lihil.plugins.bus import BusPlugin, BusTerminal, EventBus
 from lihil.vendors import TestClient
 
 
@@ -121,7 +122,7 @@ async def test_ws_plugins():
 
     async def ws_handler(
         ws: WebSocket,
-        bus: EventBus,
+        bus: Annotated[EventBus, Param("plugin")],
         dg: Graph,
         session_id: str,
         max_users: int,
@@ -130,7 +131,9 @@ async def test_ws_plugins():
         await ws.send_text("Hello, world!")
         await ws.close()
 
-    ws_route.ws_handler(ws_handler)
+    ws_route.ws_handler(
+        ws_handler, decorators=[BusPlugin(busterm=BusTerminal()).decorate]
+    )
 
     lhl = Lihil()
     lhl.include_routes(ws_route)
@@ -146,7 +149,7 @@ async def test_ws_close_on_exc():
 
     async def ws_handler(
         ws: WebSocket,
-        bus: EventBus,
+        bus: Annotated[EventBus, Param("plugin")],
         dg: Graph,
         session_id: str,
         max_users: int,

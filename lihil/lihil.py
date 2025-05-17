@@ -22,12 +22,13 @@ from ididi import Graph
 from typing_extensions import Unpack
 from uvicorn import run as uvi_run
 
-from lihil.config import AppConfig, IAppConfig, lhl_get_config, lhl_set_config
+from lihil.config import IAppConfig, lhl_get_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
-from lihil.plugins.bus import BusTerminal
+
+# from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
 from lihil.routing import (
     ASGIBase,
@@ -94,7 +95,6 @@ class Lihil(ASGIBase):
         app_config: IAppConfig | None = None,
         max_thread_workers: int | None = None,
         graph: Graph | None = None,
-        busterm: BusTerminal | None = None,
         lifespan: LifeSpan | None = None,
     ):
         super().__init__(middlewares)
@@ -105,7 +105,6 @@ class Lihil(ASGIBase):
         self.graph = graph or Graph(
             self_inject=True, workers=self.workers, ignore=LIHIL_PRIMITIVES
         )
-        self.busterm = busterm or BusTerminal()
         self.graph.node(lhl_get_config)
         # =========== keep above order ============
         self.routes: list[RouteBase] = []
@@ -165,7 +164,7 @@ class Lihil(ASGIBase):
         self.call_stack = self.chainup_middlewares(self.call_route)
 
         for route in self.routes:
-            route.setup(graph=self.graph, busterm=self.busterm)
+            route.setup(graph=self.graph)
 
     def _generate_builtin_routes(self):
         config = lhl_get_config()
@@ -178,7 +177,6 @@ class Lihil(ASGIBase):
 
     def _merge_deps(self, route: RouteBase):
         self.graph.merge(route.graph)
-        self.busterm.include(route.registry)
 
     def include_routes(self, *routes: RouteBase, __seen__: set[str] | None = None):
         seen = __seen__ or set()

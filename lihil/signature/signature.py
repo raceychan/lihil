@@ -4,7 +4,6 @@ from ididi import DependentNode, Resolver
 from msgspec import Struct
 
 from lihil.interface import Base, IEncoder, R, Record
-from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import InvalidFormError, InvalidRequestErrors, ValidationProblem
 from lihil.vendors import (
     FormData,
@@ -22,8 +21,8 @@ from .params import (
     HeaderParam,
     ParamMap,
     PathParam,
+    PluginParam,
     QueryParam,
-    StateParam,
 )
 from .returns import EndpointReturn
 
@@ -50,7 +49,7 @@ class EndpointSignature(Base, Generic[R]):
     """
     Transitive params are parameters required by dependencies, but not directly required by the endpoint function.
     """
-    states: ParamMap[StateParam]
+    plugins: ParamMap[PluginParam]
 
     scoped: bool
     form_meta: FormMeta | None
@@ -68,7 +67,7 @@ class EndpointSignature(Base, Generic[R]):
                 self.header_params,
                 self.body_param,
                 self.dependencies,
-                self.states,
+                self.plugins,
             )
         )
 
@@ -85,7 +84,7 @@ class Injector(Generic[R]):
         self.header_params = self._sig.header_params.items()
         self.path_params = self._sig.path_params.items()
         self.query_params = self._sig.query_params.items()
-        self.state_params = self._sig.states.items()
+        self.state_params = self._sig.plugins.items()
         self.deps = self._sig.dependencies.items()
         self.body_param = self._sig.body_param
         self.form_meta = self._sig.form_meta
@@ -134,9 +133,7 @@ class Injector(Generic[R]):
         parsed_result = ParseResult(params, verrors, [])
         return parsed_result
 
-    async def validate_websocket(
-        self, ws: WebSocket, resolver: Resolver, busterm: BusTerminal
-    ):
+    async def validate_websocket(self, ws: WebSocket, resolver: Resolver):
         parsed_result = self._validate_conn(ws)
 
         if errors := parsed_result.errors:
@@ -147,22 +144,15 @@ class Injector(Generic[R]):
             ptype = cast(type, p.type_)
             if issubclass(ptype, WebSocket):
                 params[name] = ws
-            elif issubclass(ptype, EventBus):
-                bus = busterm.create_event_bus(resolver)
-                params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-            else:  # AppState
-                raise TypeError(f"Unsupported type {ptype} for parameter {name}")
 
         for name, dep in self.deps:
             params[name] = await resolver.aresolve(dep.dependent, **params)
 
         return parsed_result
 
-    async def validate_request(
-        self, req: Request, resolver: Resolver, busterm: BusTerminal
-    ):
+    async def validate_request(self, req: Request, resolver: Resolver):
         parsed = self._validate_conn(req)
         params, errors = parsed.params, parsed.errors
 
@@ -188,7 +178,7 @@ class Injector(Generic[R]):
             if val:
                 params[name] = val
             else:
-                errors.append(error)
+                errors.append(error)  # type: ignore
 
         if errors:
             raise InvalidRequestErrors(detail=errors)
@@ -197,13 +187,8 @@ class Injector(Generic[R]):
             ptype = cast(type, p.type_)
             if issubclass(ptype, Request):
                 params[name] = req
-            elif issubclass(ptype, EventBus):
-                bus = busterm.create_event_bus(resolver)
-                params[name] = bus
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
-            else:
-                raise TypeError(f"Unsupported state type {ptype} for {name} in {self}")
 
         for name, dep in self.deps:
             params[name] = await resolver.aresolve(dep.dependent, **params)

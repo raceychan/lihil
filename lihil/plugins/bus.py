@@ -3,17 +3,19 @@ from abc import ABC
 from asyncio import Task, create_task, to_thread
 from collections import defaultdict
 from dataclasses import dataclass
-from functools import partial
+from functools import partial, wraps
 from types import MethodType, UnionType
-from typing import Annotated, Any, Protocol, Union, cast, get_args, get_origin as ty_get_origin
+from typing import Annotated, Any, Awaitable, Callable, Protocol, Union, cast, get_args
+from typing import get_origin as ty_get_origin
 from weakref import ref
 
 from ididi import Graph, Resolver
 from ididi.interfaces import GraphIgnore
 
-from lihil.ds.event import Envelope, Event
-from lihil.interface import MISSING, Record
-from lihil.utils.typing import all_subclasses
+from lihil.ds.event import Event  # Envelope,
+from lihil.interface import MISSING, P, R, Record
+from lihil.signature import EndpointSignature
+from lihil.utils.typing import all_subclasses, get_origin_pro
 
 UNION_META = (UnionType, Union)
 CTX_MARKER = "__anywise_context__"
@@ -23,7 +25,6 @@ FrozenContext = Any
 IGNORE_TYPES = (Context, FrozenContext)
 """
 TODO:
-
 MsgCtx[T] = Annotated[T, CTX_MARKER]
 """
 
@@ -726,3 +727,25 @@ class BusTerminal:
 
         handler = await self._handler_manager.resolve_handler(type(msg), resolver)
         return await self._sender(msg, context, handler)
+
+
+class BusPlugin:
+    def __init__(self, busterm: BusTerminal):
+        self.busterm = busterm
+
+    def decorate(
+        self, graph: Graph, func: Callable[P, Awaitable[R]], sig: EndpointSignature[Any]
+    ):
+        for name, param in sig.plugins.items():
+            param_type, _ = get_origin_pro(param.type_)
+            if param_type is EventBus:
+                break
+        else:
+            return func
+
+        @wraps(func)
+        async def f(*args: P.args, **kwargs: P.kwargs) -> R:
+            kwargs[name] = self.busterm.create_event_bus(graph)
+            return await func(*args, **kwargs)
+
+        return f

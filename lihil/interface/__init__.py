@@ -47,7 +47,7 @@ T = TypeVar("T")
 P = ParamSpec("P")
 R = TypeVar("R")
 
-ParamSource = Literal["path", "query", "header", "cookie", "body"]
+ParamSource = Literal["path", "query", "header", "cookie", "body", "plugin"]
 BodyContentType = Literal[
     "application/json", "multipart/form-data", "application/x-www-form-urlencoded"
 ]

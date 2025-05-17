@@ -3,23 +3,26 @@ from typing import Any
 
 from ididi import Graph, Resolver
 from starlette.responses import Response
+from typing_extensions import Unpack
 
 from lihil.errors import NotSupportedError
 from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
-from lihil.plugins.bus import BusTerminal
-from lihil.routing import RouteBase, build_path_regex
+from lihil.routing import EndpointProps, IEndpointProps, RouteBase, build_path_regex
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.vendors import WebSocket
 
 
 class WebSocketEndpoint:  # TODO:  endpoint base
-    def __init__(self, route: "WebSocketRoute", func: Func[..., None]):
+    def __init__(
+        self, route: "WebSocketRoute", func: Func[..., None], props: EndpointProps
+    ):
         self._route = route
         self._unwrapped_func = func
         if not iscoroutinefunction(func):
             raise NotSupportedError("sync function is not supported for websocket")
         self._func = func
         self._name = func.__name__
+        self._props = props
 
     @property
     def unwrapped_func(self):
@@ -27,9 +30,9 @@ class WebSocketEndpoint:  # TODO:  endpoint base
 
     def setup(self, sig: EndpointSignature[None]) -> None:
         self._graph = self._route.graph
-        self._busterm = self._route.busterm
         self._sig = sig
-
+        for decor in self._props.decorators:
+            self._func = decor(self._graph, self._func, sig)
         self._injector = Injector(self._sig)
         self._scoped: bool = self._sig.scoped
 
@@ -46,9 +49,7 @@ class WebSocketEndpoint:  # TODO:  endpoint base
         ws = WebSocket(scope, receive, send)
 
         try:
-            parsed = await self._injector.validate_websocket(
-                ws, resolver, self._busterm
-            )
+            parsed = await self._injector.validate_websocket(ws, resolver)
             await self._func(**parsed.params)
         except Exception as exc:
             await ws.close(reason=str(exc))
@@ -79,11 +80,11 @@ class WebSocketRoute(RouteBase):
     def __repr__(self):
         return f"{self.__class__.__name__}({self.path!r}, {self.endpoint})"
 
-    def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
+    def setup(self, graph: Graph | None = None):
         if self.endpoint is None:
             raise RuntimeError(f"Empty websocket route")
 
-        super().setup(graph=graph, busterm=busterm)
+        super().setup(graph=graph)
         self.endpoint_parser = EndpointParser(self.graph, self.path)
         sig = self.endpoint_parser.parse(self.endpoint.unwrapped_func)
         if sig.body_param is not None:
@@ -93,8 +94,9 @@ class WebSocketRoute(RouteBase):
         self.endpoint.setup(sig)
         self.call_stack = self.chainup_middlewares(self.endpoint)
 
-    def ws_handler(self, func: Any = None) -> Any:
-        endpoint = WebSocketEndpoint(self, func=func)
+    def ws_handler(self, func: Any = None, **iprops: Unpack[IEndpointProps]) -> Any:
+        props = EndpointProps.from_unpack(**iprops)
+        endpoint = WebSocketEndpoint(self, func=func, props=props)
 
         self.endpoint = endpoint
         if self.path_regex is None:

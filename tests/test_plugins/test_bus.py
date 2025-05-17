@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from lihil import Route, status, Annotated
+from lihil import Route, status, Annotated, Param
 from lihil.plugins.bus import Event, EventBus
 from lihil.plugins.testclient import LocalClient
 
@@ -32,7 +32,7 @@ def bus_route():
 
 async def test_bus_is_singleton(bus_route: Route):
     async def create_todo(
-        name: str, content: str, bus: EventBus
+        name: str, content: str, bus: Annotated[EventBus, Param("plugin")]
     ) -> Annotated[None, status.OK]:
         await bus.publish(TodoCreated(name, content))
 
@@ -40,8 +40,8 @@ async def test_bus_is_singleton(bus_route: Route):
 
     ep = bus_route.get_endpoint("POST")
     bus_route.setup()
-    assert ep.sig.states
-    assert any(p.type_ is EventBus for p in ep.sig.states.values())
+    assert ep.sig.plugins
+    assert any(p.type_ is EventBus for p in ep.sig.plugins.values())
 
 
 async def test_call_ep_invoke_bus(bus_route: Route):

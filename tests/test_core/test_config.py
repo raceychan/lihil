@@ -5,7 +5,8 @@ from typing import Optional, Union
 import pytest
 from msgspec.structs import FieldInfo
 
-from lihil import EventBus, Request
+from lihil import Request
+from lihil.plugins.bus import EventBus
 from lihil.config import (
     DEFAULT_CONFIG,
     AppConfig,
@@ -89,7 +90,7 @@ def test_store_true_if_provided():
 def test_is_lhl_dep():
     """Test identification of lihil dependencies"""
     assert is_lhl_primitive(Request) is True
-    assert is_lhl_primitive(EventBus) is True
+    assert is_lhl_primitive(EventBus) is False
     assert is_lhl_primitive(str) is False
     assert is_lhl_primitive(int) is False
     assert is_lhl_primitive(AppConfig) is False

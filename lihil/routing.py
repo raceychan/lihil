@@ -3,10 +3,12 @@ from inspect import isasyncgen, isgenerator
 from types import MethodType
 from typing import (
     Any,
+    Awaitable,
     Callable,
     Generic,
     Literal,
     Pattern,
+    Protocol,
     Sequence,
     TypedDict,
     Union,
@@ -25,7 +27,7 @@ from lihil.asgi import ASGIBase
 from lihil.auth.oauth import AuthBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.ds.resp import StaticResponse
-from lihil.interface import (  # MappingLike,
+from lihil.interface import (
     HTTP_METHODS,
     ASGIApp,
     Func,
@@ -38,7 +40,7 @@ from lihil.interface import (  # MappingLike,
     Record,
     T,
 )
-from lihil.plugins.bus import BusTerminal, Event, MessageRegistry
+from lihil.plugins.bus import Event, MessageRegistry
 from lihil.problems import DetailBase, get_solver
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
@@ -50,6 +52,16 @@ from lihil.utils.string import (
 )
 from lihil.utils.threading import async_wrapper
 from lihil.vendors import Request, Response
+
+
+class IDecorator(Protocol):
+    def __call__(
+        self,
+        graph: Graph,
+        func: Callable[..., Awaitable[Any]],
+        sig: EndpointSignature[Any],
+        /,
+    ) -> Callable[..., Awaitable[Any]]: ...
 
 
 class IEndpointProps(TypedDict, total=False):
@@ -65,6 +77,8 @@ class IEndpointProps(TypedDict, total=False):
     "Auth Scheme for access control"
     tags: Sequence[str] | None
     "OAS tag, endpoints with the same tag will be grouped together"
+    decorators: list[IDecorator]
+    "Decorators that used to replace the endpoint function"
 
 
 class EndpointProps(Record, kw_only=True):
@@ -74,6 +88,7 @@ class EndpointProps(Record, kw_only=True):
     scoped: Literal[True] | None = None
     auth_scheme: AuthBase | None = None
     tags: Sequence[str] | None = None
+    decorators: list[IDecorator] = field(default_factory=list[IDecorator])
 
     @classmethod
     def from_unpack(cls, **iconfig: Unpack[IEndpointProps]):
@@ -139,9 +154,8 @@ class Endpoint(Generic[R]):
 
     def setup(self, sig: EndpointSignature[R]) -> None:
         self._graph = self._route.graph
-        self._busterm = self._route.busterm  # TODO: make this a plugin
-        # for decor in self.props.decorators:
-        #    self._func = decor(sig)(func)
+        for decor in self._props.decorators:
+            self._func = decor(self._graph, self._func, sig)
 
         self._sig = sig
         self._injector = Injector(self._sig)
@@ -169,9 +183,7 @@ class Endpoint(Generic[R]):
         request = Request(scope, receive, send)
         callbacks = None
         try:
-            parsed = await self._injector.validate_request(
-                request, resolver, self._busterm
-            )
+            parsed = await self._injector.validate_request(request, resolver)
             params, callbacks = parsed.params, parsed.callbacks
             return await self._func(**params)
         except Exception as exc:
@@ -246,7 +258,6 @@ class RouteBase(ASGIBase):
         self.registry = registry or MessageRegistry(event_base=Event, graph=graph)
         if listeners:
             self.registry.register(*listeners)
-        self.busterm = BusTerminal(self.registry, graph=graph)
         self.subroutes: list[Self] = []
 
     def __truediv__(self, path: str) -> "Self":
@@ -308,11 +319,9 @@ class RouteBase(ASGIBase):
     def setup(
         self,
         graph: Graph | None = None,
-        busterm: BusTerminal | None = None,
         # TODO: workers
     ):
         self.graph = graph or self.graph
-        self.busterm = busterm or self.busterm
 
 
 class Route(RouteBase):
@@ -349,12 +358,8 @@ class Route(RouteBase):
         endpoint = self.call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
         await endpoint(scope, receive, send)
 
-    def setup(
-        self,
-        graph: Graph | None = None,
-        busterm: BusTerminal | None = None,
-    ):
-        super().setup(graph=graph, busterm=busterm)
+    def setup(self, graph: Graph | None = None):
+        super().setup(graph=graph)
         self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         for method, ep in self.endpoints.items():
