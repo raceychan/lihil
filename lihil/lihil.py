@@ -22,7 +22,7 @@ from ididi import Graph
 from typing_extensions import Unpack
 from uvicorn import run as uvi_run
 
-from lihil.config import IAppConfig, lhl_get_config, lhl_set_config
+from lihil.config import AppConfig, IAppConfig, lhl_get_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
@@ -106,6 +106,7 @@ class Lihil(ASGIBase):
             self_inject=True, workers=self.workers, ignore=LIHIL_PRIMITIVES
         )
         self.busterm = busterm or BusTerminal()
+        self.graph.node(lhl_get_config)
         # =========== keep above order ============
         self.routes: list[RouteBase] = []
 

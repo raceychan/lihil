@@ -8,7 +8,7 @@ from lihil.errors import NotSupportedError
 from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
 from lihil.plugins.bus import BusTerminal
 from lihil.routing import RouteBase, build_path_regex
-from lihil.signature import EndpointParser, ParseResult
+from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.vendors import WebSocket
 
 
@@ -21,14 +21,16 @@ class WebSocketEndpoint:  # TODO:  endpoint base
         self._func = func
         self._name = func.__name__
 
-    def setup(self) -> None:
+    @property
+    def unwrapped_func(self):
+        return self._unwrapped_func
+
+    def setup(self, sig: EndpointSignature[None]) -> None:
         self._graph = self._route.graph
         self._busterm = self._route.busterm
-        self._sig = self._route.endpoint_parser.parse(self._unwrapped_func)
+        self._sig = sig
 
-        if self._sig.body_param is not None:
-            raise NotSupportedError("websocket does not support body param")
-
+        self._injector = Injector(self._sig)
         self._scoped: bool = self._sig.scoped
 
     def __repr__(self) -> str:
@@ -44,7 +46,9 @@ class WebSocketEndpoint:  # TODO:  endpoint base
         ws = WebSocket(scope, receive, send)
 
         try:
-            parsed = await self._sig.validate_websocket(ws, resolver, self._busterm)
+            parsed = await self._injector.validate_websocket(
+                ws, resolver, self._busterm
+            )
             await self._func(**parsed.params)
         except Exception as exc:
             await ws.close(reason=str(exc))
@@ -76,13 +80,17 @@ class WebSocketRoute(RouteBase):
         return f"{self.__class__.__name__}({self.path!r}, {self.endpoint})"
 
     def setup(self, graph: Graph | None = None, busterm: BusTerminal | None = None):
-        super().setup(graph=graph, busterm=busterm)
-        self.endpoint_parser = EndpointParser(self.graph, self.path)
-
         if self.endpoint is None:
             raise RuntimeError(f"Empty websocket route")
 
-        self.endpoint.setup()
+        super().setup(graph=graph, busterm=busterm)
+        self.endpoint_parser = EndpointParser(self.graph, self.path)
+        sig = self.endpoint_parser.parse(self.endpoint.unwrapped_func)
+        if sig.body_param is not None:
+            raise NotSupportedError(
+                f"Websocket does not support body param, got {sig.body_param}"
+            )
+        self.endpoint.setup(sig)
         self.call_stack = self.chainup_middlewares(self.endpoint)
 
     def ws_handler(self, func: Any = None) -> Any:

@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import TypeVar, cast, overload
+from ididi import Ignore
 
 from .app_config import AppConfig as AppConfig
 from .app_config import ConfigBase as ConfigBase
@@ -41,7 +42,9 @@ def config_registry():
     @overload
     def _get_config(config_type: None = None) -> IAppConfig: ...
 
-    def _get_config(config_type: type[TConfig] | None = None) -> TConfig | IAppConfig:
+    def _get_config(
+        config_type: Ignore[type[TConfig] | None] = None,
+    ) -> TConfig | IAppConfig:
         "Get current config, low overhead"
         return cast(TConfig, _app_config)
 

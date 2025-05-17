@@ -3,7 +3,7 @@ from typing import Any, ClassVar, Generic, Literal, Mapping, TypeVar, Union, ove
 from ididi import DependentNode
 from msgspec import DecodeError
 from msgspec import Meta as Constraint
-from msgspec import Struct, ValidationError, field
+from msgspec import Struct, ValidationError
 from starlette.datastructures import FormData
 
 from lihil.errors import NotSupportedError
@@ -282,10 +282,10 @@ ParamMap = dict[str, T]
 
 
 class EndpointParams(Base, kw_only=True):
-    params: ParamMap[RequestParam[Any]] = field(default_factory=dict)
-    bodies: ParamMap[BodyParam[Any, Any]] = field(default_factory=dict)
-    nodes: ParamMap[DependentNode] = field(default_factory=dict)
-    states: ParamMap[StateParam] = field(default_factory=dict)
+    params: ParamMap[RequestParam[Any]]
+    bodies: ParamMap[BodyParam[Any, Any]]
+    nodes: ParamMap[DependentNode]
+    states: ParamMap[StateParam]
 
     @overload
     def get_source(self, source: Literal["header"]) -> ParamMap[HeaderParam[Any]]: ...

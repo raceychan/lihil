@@ -38,10 +38,9 @@ from lihil.interface import (  # MappingLike,
     Record,
     T,
 )
-from lihil.plugins.bus import BusTerminal, Event, EventBus, MessageRegistry
+from lihil.plugins.bus import BusTerminal, Event, MessageRegistry
 from lihil.problems import DetailBase, get_solver
-from lihil.signature import EndpointSignature, ParseResult
-from lihil.signature.parser import EndpointParser
+from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.utils.string import (
     build_path_regex,
@@ -145,6 +144,7 @@ class Endpoint(Generic[R]):
         #    self._func = decor(sig)(func)
 
         self._sig = sig
+        self._injector = Injector(self._sig)
 
         self._static = sig.static
         self._status_code = sig.status_code
@@ -169,7 +169,9 @@ class Endpoint(Generic[R]):
         request = Request(scope, receive, send)
         callbacks = None
         try:
-            parsed = await self._sig.validate_request(request, resolver, self._busterm)
+            parsed = await self._injector.validate_request(
+                request, resolver, self._busterm
+            )
             params, callbacks = parsed.params, parsed.callbacks
             return await self._func(**params)
         except Exception as exc:

@@ -1,17 +1,15 @@
 from typing import Any, Awaitable, Callable, Generic, cast
 
 from ididi import DependentNode, Resolver
-from msgspec import Struct, field
+from msgspec import Struct
 
 from lihil.interface import Base, IEncoder, R, Record
 from lihil.plugins.bus import BusTerminal, EventBus
 from lihil.problems import InvalidFormError, InvalidRequestErrors, ValidationProblem
 from lihil.vendors import (
     FormData,
-    Headers,
     HTTPConnection,
     MultiPartException,
-    QueryParams,
     Request,
     WebSocket,
     cookie_parser,
@@ -36,10 +34,7 @@ class ParseResult(Record):
     params: dict[str, Any]
     errors: list[ValidationProblem]
 
-    callbacks: list[AnyAwaitble] = field(default_factory=list)
-
-    def __getitem__(self, key: str):
-        return self.params[key]
+    callbacks: list[AnyAwaitble]
 
 
 class EndpointSignature(Base, Generic[R]):
@@ -64,6 +59,38 @@ class EndpointSignature(Base, Generic[R]):
     return_encoder: IEncoder[R]
     return_params: dict[int, EndpointReturn[R]]
 
+    @property
+    def static(self) -> bool:
+        return not any(
+            (
+                self.path_params,
+                self.query_params,
+                self.header_params,
+                self.body_param,
+                self.dependencies,
+                self.states,
+            )
+        )
+
+    @property
+    def media_type(self) -> str:
+        default = "application/json"
+        first_return = next(iter(self.return_params.values()))
+        return first_return.content_type or default
+
+
+class Injector(Generic[R]):
+    def __init__(self, sig: EndpointSignature[R]):
+        self._sig = sig
+        self.header_params = self._sig.header_params.items()
+        self.path_params = self._sig.path_params.items()
+        self.query_params = self._sig.query_params.items()
+        self.state_params = self._sig.states.items()
+        self.deps = self._sig.dependencies.items()
+        self.body_param = self._sig.body_param
+        self.form_meta = self._sig.form_meta
+        self.transitive_params = self._sig.transitive_params
+
     def _validate_conn(self, conn: HTTPConnection) -> ParseResult:
         verrors: list[Any] = []
         params: dict[str, Any] = {}
@@ -72,7 +99,7 @@ class EndpointSignature(Base, Generic[R]):
             headers = conn.headers
 
             cookie_params: dict[str, str] | None = None
-            for name, param in self.header_params.items():
+            for name, param in self.header_params:
                 if param.alias == "cookie":
                     if cookie_params is None:
                         cookie_params = cookie_parser(headers["cookie"])
@@ -88,7 +115,7 @@ class EndpointSignature(Base, Generic[R]):
 
         if self.path_params:
             paths = conn.path_params
-            for name, param in self.path_params.items():
+            for name, param in self.path_params:
                 val, error = param.extract(paths)
                 if val:
                     params[name] = val
@@ -97,14 +124,14 @@ class EndpointSignature(Base, Generic[R]):
 
         if self.query_params:
             queries = conn.query_params
-            for name, param in self.query_params.items():
+            for name, param in self.query_params:
                 val, error = param.extract(queries)
                 if val:
                     params[name] = val
                 else:
                     verrors.append(error)
 
-        parsed_result = ParseResult(params, verrors)
+        parsed_result = ParseResult(params, verrors, [])
         return parsed_result
 
     async def validate_websocket(
@@ -116,7 +143,7 @@ class EndpointSignature(Base, Generic[R]):
             raise InvalidRequestErrors(detail=errors)
 
         params = parsed_result.params
-        for name, p in self.states.items():
+        for name, p in self.state_params:
             ptype = cast(type, p.type_)
             if issubclass(ptype, WebSocket):
                 params[name] = ws
@@ -128,7 +155,7 @@ class EndpointSignature(Base, Generic[R]):
             else:  # AppState
                 raise TypeError(f"Unsupported type {ptype} for parameter {name}")
 
-        for name, dep in self.dependencies.items():
+        for name, dep in self.deps:
             params[name] = await resolver.aresolve(dep.dependent, **params)
 
         return parsed_result
@@ -166,7 +193,7 @@ class EndpointSignature(Base, Generic[R]):
         if errors:
             raise InvalidRequestErrors(detail=errors)
 
-        for name, p in self.states.items():
+        for name, p in self.state_params:
             ptype = cast(type, p.type_)
             if issubclass(ptype, Request):
                 params[name] = req
@@ -178,29 +205,10 @@ class EndpointSignature(Base, Generic[R]):
             else:
                 raise TypeError(f"Unsupported state type {ptype} for {name} in {self}")
 
-        for name, dep in self.dependencies.items():
+        for name, dep in self.deps:
             params[name] = await resolver.aresolve(dep.dependent, **params)
 
         for p in self.transitive_params:
             params.pop(p)
 
         return parsed
-
-    @property
-    def static(self) -> bool:
-        return not any(
-            (
-                self.path_params,
-                self.query_params,
-                self.header_params,
-                self.body_param,
-                self.dependencies,
-                self.states,
-            )
-        )
-
-    @property
-    def media_type(self) -> str:
-        default = "application/json"
-        first_return = next(iter(self.return_params.values()))
-        return first_return.content_type or default
