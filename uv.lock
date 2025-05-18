@@ -1121,7 +1121,7 @@ dev = [
 requires-dist = [
     { name = "ididi", specifier = ">=1.6.2" },
     { name = "msgspec", specifier = ">=0.19.0" },
-    { name = "premier", specifier = ">=0.4.0" },
+    { name = "premier", specifier = ">=0.4.1" },
     { name = "pyjwt", marker = "extra == 'standard'", specifier = ">=2.10.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "starlette", specifier = ">=0.45.3" },
@@ -1676,14 +1676,11 @@ wheels = [
 
 [[package]]
 name = "premier"
-version = "0.4.0"
+version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "redis" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/bd/48/17da7b5e00da6ed5dd1cc70a1569f6b99f6dd435c8613a50742f8439117e/premier-0.4.0.tar.gz", hash = "sha256:9a26564fc45dcca5118eeaf24fd487b50f654d5bf203da189d362830bd63dd0e", size = 11620 }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/a6/445c3f88c7786c27b948bc022716b5523773452e6f68593c2921b788084e/premier-0.4.1.tar.gz", hash = "sha256:4b90036dce709f85b7a0dfddefc59a34b4be744602e4cae3e889f184a66bac26", size = 58982 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/85/40/aba1ed39808e54f2d83f9c0d64e498c91a54e270f7490e3587e65ebadb8e/premier-0.4.0-py3-none-any.whl", hash = "sha256:8550a18fd99ef6e73594bc94186d720037623e2e3900064bafeba4e38b0af5af", size = 14233 },
+    { url = "https://files.pythonhosted.org/packages/cd/a1/9a03fd359cdf8bc7dc4112c322b571105c9de31435c25e9dd9e6f2979f75/premier-0.4.1-py3-none-any.whl", hash = "sha256:832e59989c219b52969fd3e29fba0276ac1d5ff745d898f90147937c828ad3ae", size = 14256 },
 ]
 
 [[package]]
@@ -2152,18 +2149,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1e/1e/c5f47928789cd5abb96e527929dea088213968f785983a231b3dfe08cc4f/realtime-2.4.2.tar.gz", hash = "sha256:760308d5310533f65a9098e0b482a518f6ad2f3c0f2723e83cf5856865bafc5d", size = 18802 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1d/b7/1b7651f353e14543c60cdfe40e3ea4dea412cfb2e93ab6384e72be813f05/realtime-2.4.2-py3-none-any.whl", hash = "sha256:0cc1b4a097acf9c0bd3a2f1998170de47744574c606617285113ddb3021e54ca", size = 22025 },
-]
-
-[[package]]
-name = "redis"
-version = "5.2.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "async-timeout", marker = "python_full_version < '3.11.3'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/47/da/d283a37303a995cd36f8b92db85135153dc4f7a8e4441aa827721b442cfb/redis-5.2.1.tar.gz", hash = "sha256:16f2e22dff21d5125e8481515e386711a34cbec50f0e44413dd7d9c060a54e0f", size = 4608355 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3c/5f/fa26b9b2672cbe30e07d9a5bdf39cf16e3b80b42916757c5f92bca88e4ba/redis-5.2.1-py3-none-any.whl", hash = "sha256:ee7e1056b9aea0f04c6c2ed59452947f34c4940ee025f5dd83e6a6418b6989e4", size = 261502 },
 ]
 
 [[package]]

@@ -39,13 +39,11 @@ This is the very first version of lihil, but we already have a working version t
 
 - `static` now works with `uvicorn`
 
-
 ## version 0.1.4
 
 ### Fix
 
 - a quick fix for not catching HttpException when sub-exception is a generic exception
-
 
 ## version 0.1.5
 
@@ -56,6 +54,7 @@ This is the very first version of lihil, but we already have a working version t
 ```python
 lhl = Lihil(config_file="pyproject.toml")
 ```
+
 Note: currently only toml file is supported
 
 or by inheriting `lihil.config.AppConfig` instance manually,
@@ -129,7 +128,7 @@ a: int | None
 it will be interpreted as `Optional`, which is a derived type of `Union`
 
 - fix a bug where `CustomerDecoder` won't be use
-previously whenever we deal with `Annotated[Path[int], ...]`
+  previously whenever we deal with `Annotated[Path[int], ...]`
 
 we treat it as `Path[int]` and ignore its metadatas, where decoder will be placed, this is now fixed as we detect and perserve the decoder before discarding the matadata.
 
@@ -233,12 +232,10 @@ before v0.1.8, here return value will be encoded as json.
 
 same thing goes with Generator
 
-
 ```python
 async def new_todo() -> Generator[Text, None, None]:
     ...
 ```
-
 
 ## version 0.1.9
 
@@ -249,7 +246,6 @@ async def new_todo() -> Generator[Text, None, None]:
 ### Fix
 
 fix a bug where `Envelopment.build_decoder` would return a decoder that only decodes None
-
 
 ## version 0.1.10
 
@@ -292,7 +288,6 @@ async def post(myfile: UploadFile) -> Resp[Text, 200]:
     return "ok"
 ```
 
-
 ## version 0.1.11
 
 ### Improvements
@@ -302,7 +297,6 @@ async def post(myfile: UploadFile) -> Resp[Text, 200]:
 - add `MiddlewareBuildError`, which will be raised when calling middleware factory fail
 - add `NotSupportedError` for usage not currently supported, such a multiple return params.
 - add `InvalidParamTypeError` for invalid param type, such as `Literal[3.14]`
-
 
 ### Feat:
 
@@ -360,7 +354,6 @@ async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
     assert side_effect == [1]
 ```
 
-
 This is a powerful feature where user can define what will be called after leaving current scope.
 
 note that only resource would require scope, unless specifically configured via endpoint config
@@ -410,19 +403,14 @@ before this change, when `get_order` is added to `order_route`, `Engine` will be
 
 - chain up middlewares after lifespan, this means that user might add middlewares inside lifespan function, the benefit of doing so is that user can use graph to resolve and manage complex dependencies (if the middleware need them to be built).
 
-
 - add http methods `connect`, `trace` to `Lihil` and `Route`.
 - add `endpoint_factory` param to `Route`, where user can provide a endpoint factory to generate custom endpoint.
-
 
 ### Fix
 
 - fix a bug where `lihil.utils.typing.is_nontextual_sequence` would negate generic sequence type such as `list[int]`
 
-
-
 ## version 0.1.13
-
 
 ### Improvements
 
@@ -482,7 +470,6 @@ async def profile(
 
 now openapi docs would show that `profile` returns `User` with `200`, `Order` with `201`
 
-
 - `PluginProvider`, use might now provide customized mark
 
 ```python
@@ -507,7 +494,6 @@ def test_param_provider(param_parser: ParamParser):
     assert isinstance(param, PluginParam)
     assert param.type_ == str
 ```
-
 
 ## version 0.1.14
 
@@ -545,8 +531,6 @@ async def get_user():
     raise UserNotFoundError("user not found", headers={"error-id": "random-id"})
 ```
 
-
-
 ## version 0.1.14
 
 ### Feature
@@ -561,9 +545,7 @@ async def read_users_me(
     return token
 ```
 
-
 where `OAuth2PasswordFlow` is a subclass of `PluginBase`
-
 
 - `LocalClient.submit_form` for testing endpoint with form data.
 
@@ -574,18 +556,13 @@ res = await lc.submit_form(
 )
 ```
 
-
-
 ## version 0.1.15
-
 
 ### Fix
 
 - fix a bug where if `lifespan` is not provided and app starup fails, it will fail silently.
 
 - fix a bug where if endponit returns non-stream response, media-type would be lost, no will include the media-type of first response.
-
-
 
 ### Features
 
@@ -632,15 +609,11 @@ lhl = Lihil[None](
 )
 ```
 
-
 ### Improvements
 
 - No longer automatically drops resonse body when status code < 200 or in (204, 205, 304), instead, user should declare its return with `lihil.Empty`
 
-
-
 ## version 0.2.0
-
 
 ### improvements:
 
@@ -702,8 +675,8 @@ err = HTTPException(problem_status=status.NOT_FOUND)
 assert err.status == 404
 ```
 
--  `lihil.plugin.testclient.LocalClient` now has a new helper functions
-`make_endpoint` that receives a function and returns a endpoint.
+- `lihil.plugin.testclient.LocalClient` now has a new helper functions
+  `make_endpoint` that receives a function and returns a endpoint.
 
 ```python
 async def f() -> Resp[str, status.OK] | Resp[int | list[int], status.CREATED]: ...
@@ -715,27 +688,22 @@ ep = lc.make_endpoint(f)
 
 - fix a bug where if config_file is None, config through cli arguments won't be read.
 
-
 ## version 0.2.1
-
 
 ### Improvements
 
 - rename `JWToken` to `JWTAuth`, we might have `BasicAuth`, `DigestAuth` later
 
 - refactor decoder for textual params, including header, query, path, etc.
-use msgspec.convert instead of msgspec.json.decode
-
+  use msgspec.convert instead of msgspec.json.decode
 
 ### Fixes:
 
 - now support multi value query & headers, declare your query | header param with non-textual sequence such as list, tuple, set and lihil would validate the param accordingly.
 
-
 ### Feature
 
 - Single param constraint
-
 
 ## version 0.2.2
 
@@ -785,7 +753,6 @@ options:
                         List of accepted JWT algorithms
 ```
 
-
 - better typing support
 
 now you might declare more complex type such as
@@ -797,9 +764,7 @@ type Pair[K, V] = tuple[K, V]
 async def get_user(p: Pair[int, float]): ...
 ```
 
-
 - add `exclude_none`, `exclude_unset` to `Base.asdict`.
-
 
 ## Feature
 
@@ -812,8 +777,6 @@ from lihil.config import get_config, AppConfig
 
 assert isinstance(get_config(), AppConfig)
 ```
-
-
 
 ## version 0.2.3
 
@@ -834,9 +797,7 @@ async def create_user(): ...
 
 This used to result in two same `Route(f"users/{user_id}")` being added to `Route("users")`
 
-
-- [x]  fix a bug where the default lifespan of lihil would not emit "lifespan.shutdown" event
-
+- [x] fix a bug where the default lifespan of lihil would not emit "lifespan.shutdown" event
 
 ### Features
 
@@ -849,7 +810,6 @@ async def get_user(
     refresh_token: Annotated[Cookie[str, Literal["refresh-token"]], Meta(min_length=1)], user_id: Annotated[str, Meta(min_length=5)]
 ): ...
 ```
-
 
 - [x] websocket
 
@@ -887,7 +847,6 @@ the websocket usage is pretty close to regular route, except
 - websocket handler can't have body param
 - websocket only accepts get method
 
-
 ### Improvement
 
 - [x] now lihil primitives might be used with function dependency for
@@ -908,8 +867,6 @@ async def ws_handler(
 NOTE that for this to work, both `ws_handler` and `ws_factory` should name `WebSocket` with a same name, which is `ws` in this case.
 
 - [x] now `lihil.use` would set "reuse" default to False
-
-
 
 ## version 0.2.4
 
@@ -933,7 +890,8 @@ previously, instances of `Route` will be cached by their path
 assert Route("user") is Route("user")
 ```
 
-This  was for the sake of convenience, so that user do
+This was for the sake of convenience, so that user do
+
 ```python
 @Route("/user").get
 def get_user(): ...
@@ -947,22 +905,16 @@ But the fundamental flaws of this design is that:
 1. users might not expect this.
 2. testing is harder.
 
-
 - [x] specialized param meta
-
 
 ## version 0.2.5
 
 - refactor signature attributes
 - supports python version >= 3.10
 
-
-
 ### Improvements
 
-
 1. separate `read_config` from `set_config`
-
 
 ### Fxies
 
@@ -988,6 +940,7 @@ async def create_user(cred: Authorization[str, CustomDecoder]):
 - [x] Added `Param` for all param types, including `Body`, `Query`, `Path`, `Header`, `Cookie`, `Form`, etc.
 
 Usage:
+
 ```python
 from typing import Annotated
 from lihil import Param
@@ -1000,7 +953,6 @@ async def create_user(
 ) -> Resp[str, 201]:
     ...
 ```
-
 
 ## version 0.2.6
 
@@ -1026,7 +978,6 @@ async def test_ep_with_multiple_value_header():
 ```
 
 The above test would fail before this fix, as `x-token` is a union of list[str] and None, it would be treated as a str instead of list[str].
-
 
 ### Features
 
@@ -1065,4 +1016,59 @@ async def test_ep_requiring_upload_file_exceed_max_files(
     assert result.status_code == 422
     data = await result.json()
     assert data["detail"][0]["type"] == "InvalidFormError"
+```
+
+## version 0.2.7
+
+### Features
+
+- Plugin system
+
+now user can add plugin in EndpointProps to route and endpoint.
+
+Plugin Interface
+
+```
+class IPlugin(Protocol):
+    async def __call__(
+        self,
+        graph: Graph,
+        func: IFunc,
+        sig: EndpointSignature[Any],
+        /,
+    ) -> IFunc: ...
+```
+
+API
+
+```python
+@route.get(plugins=[my_plugin])
+async def create_user():
+    ...
+```
+
+- PremierPlugin
+
+```python
+from lihil.plugins.premier import PremierPlugin, throttler, AsyncDefaultHandler
+from lihil.plugins.testclient import LocalClient
+
+async def test_throttling():
+    async def hello():
+        print("called the hello func")
+        return "hello"
+
+    lc = LocalClient()
+
+    throttler.config(aiohandler=AsyncDefaultHandler())
+
+    plugin = PremierPlugin(throttler)
+
+    ep = await lc.make_endpoint(hello, plugins=[plugin.fix_window(1, 1)])
+
+    await lc(ep)
+
+    with pytest.raises(QuotaExceedsError):
+        for _ in range(2):
+            await lc(ep)
 ```
