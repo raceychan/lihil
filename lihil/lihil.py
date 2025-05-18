@@ -135,11 +135,11 @@ class Lihil(ASGIBase):
     @asynccontextmanager
     async def _lifespan(self):
         if self._userls is None:
-            self._setup()
+            await self._setup()
             yield
         else:
             async with self._userls(self):
-                self._setup()
+                await self._setup()
                 yield
 
     async def _on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
@@ -160,11 +160,12 @@ class Lihil(ASGIBase):
         await receive()  # receive {'type': 'lifespan.shutdown'}
         await event_handler(ls.__aexit__(None, None, None), "shutdown")
 
-    def _setup(self) -> None:
+    async def _setup(self) -> None:
         self.call_stack = self.chainup_middlewares(self.call_route)
 
         for route in self.routes:
-            route.setup(graph=self.graph)
+            await route.setup(graph=self.graph)
+
 
     def _generate_builtin_routes(self):
         config = lhl_get_config()

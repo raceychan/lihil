@@ -733,9 +733,9 @@ class BusPlugin:
     def __init__(self, busterm: BusTerminal):
         self.busterm = busterm
 
-    def decorate(
+    async def decorate(
         self, graph: Graph, func: Callable[P, Awaitable[R]], sig: EndpointSignature[Any]
-    ):
+    ) -> Callable[P, Awaitable[R]]:
         for name, param in sig.plugins.items():
             param_type, _ = get_origin_pro(param.type_)
             if param_type is EventBus:

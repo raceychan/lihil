@@ -282,7 +282,7 @@ async def test_route_build_stack():
     assert not route.call_stacks
 
     # Build the stack
-    route.setup()
+    await route.setup()
 
     # Now call_stacks should have the GET method
     assert "GET" in route.call_stacks
@@ -565,7 +565,7 @@ async def test_route_on_lifespan():
     async def get(): ...
 
     route.get(get)
-    route.setup()
+    await route.setup()
     assert route.call_stacks["GET"]
 
 
@@ -681,7 +681,7 @@ async def test_route_with_literal_resp():
 
     route.post(post_empty)
     # with pytest.raises(InvalidParamTypeError):
-    route.setup()
+    await route.setup()
 
     route.endpoints["POST"].sig.return_params[200]
 

@@ -28,11 +28,11 @@ class WebSocketEndpoint:  # TODO:  endpoint base
     def unwrapped_func(self):
         return self._unwrapped_func
 
-    def setup(self, sig: EndpointSignature[None]) -> None:
+    async def setup(self, sig: EndpointSignature[None]) -> None:
         self._graph = self._route.graph
         self._sig = sig
-        for decor in self._props.decorators:
-            self._func = decor(self._graph, self._func, sig)
+        for decor in self._props.plugins:
+            self._func = await decor(self._graph, self._func, sig)
         self._injector = Injector(self._sig)
         self._scoped: bool = self._sig.scoped
 
@@ -80,18 +80,18 @@ class WebSocketRoute(RouteBase):
     def __repr__(self):
         return f"{self.__class__.__name__}({self.path!r}, {self.endpoint})"
 
-    def setup(self, graph: Graph | None = None):
+    async def setup(self, graph: Graph | None = None):
         if self.endpoint is None:
             raise RuntimeError(f"Empty websocket route")
 
-        super().setup(graph=graph)
+        await super().setup(graph=graph)
         self.endpoint_parser = EndpointParser(self.graph, self.path)
         sig = self.endpoint_parser.parse(self.endpoint.unwrapped_func)
         if sig.body_param is not None:
             raise NotSupportedError(
                 f"Websocket does not support body param, got {sig.body_param}"
             )
-        self.endpoint.setup(sig)
+        await self.endpoint.setup(sig)
         self.call_stack = self.chainup_middlewares(self.endpoint)
 
     def ws_handler(self, func: Any = None, **iprops: Unpack[IEndpointProps]) -> Any:

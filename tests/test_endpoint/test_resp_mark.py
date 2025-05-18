@@ -22,11 +22,11 @@ async def get_order(
 ) -> Order | str: ...
 
 
-def test_endpoint_deps():
+async def test_endpoint_deps():
     route = Route()
     route.get(get_order)
     ep = route.get_endpoint("GET")
-    route.setup()
+    await route.setup()
     rt = ep.sig.return_params[200]
     assert rt.type_ == Union[Order, str]
 

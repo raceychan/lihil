@@ -3,12 +3,10 @@ from inspect import isasyncgen, isgenerator
 from types import MethodType
 from typing import (
     Any,
-    Awaitable,
     Callable,
     Generic,
     Literal,
     Pattern,
-    Protocol,
     Sequence,
     TypedDict,
     Union,
@@ -40,6 +38,7 @@ from lihil.interface import (
     Record,
     T,
 )
+from lihil.plugins import IPlugin
 from lihil.plugins.bus import Event, MessageRegistry
 from lihil.problems import DetailBase, get_solver
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
@@ -52,16 +51,6 @@ from lihil.utils.string import (
 )
 from lihil.utils.threading import async_wrapper
 from lihil.vendors import Request, Response
-
-
-class IDecorator(Protocol):
-    def __call__(
-        self,
-        graph: Graph,
-        func: Callable[..., Awaitable[Any]],
-        sig: EndpointSignature[Any],
-        /,
-    ) -> Callable[..., Awaitable[Any]]: ...
 
 
 class IEndpointProps(TypedDict, total=False):
@@ -77,7 +66,7 @@ class IEndpointProps(TypedDict, total=False):
     "Auth Scheme for access control"
     tags: Sequence[str] | None
     "OAS tag, endpoints with the same tag will be grouped together"
-    decorators: list[IDecorator]
+    plugins: list[IPlugin]
     "Decorators that used to replace the endpoint function"
 
 
@@ -88,7 +77,7 @@ class EndpointProps(Record, kw_only=True):
     scoped: Literal[True] | None = None
     auth_scheme: AuthBase | None = None
     tags: Sequence[str] | None = None
-    decorators: list[IDecorator] = field(default_factory=list[IDecorator])
+    plugins: list[IPlugin] = field(default_factory=list[IPlugin])
 
     @classmethod
     def from_unpack(cls, **iconfig: Unpack[IEndpointProps]):
@@ -152,10 +141,10 @@ class Endpoint(Generic[R]):
     def unwrapped_func(self) -> Callable[..., R]:
         return self._unwrapped_func
 
-    def setup(self, sig: EndpointSignature[R]) -> None:
+    async def setup(self, sig: EndpointSignature[R]) -> None:
         self._graph = self._route.graph
-        for decor in self._props.decorators:
-            self._func = decor(self._graph, self._func, sig)
+        for decor in self._props.plugins:
+            self._func = await decor(self._graph, self._func, sig)
 
         self._sig = sig
         self._injector = Injector(self._sig)
@@ -316,7 +305,7 @@ class RouteBase(ASGIBase):
                     return True
         return False
 
-    def setup(
+    async def setup(
         self,
         graph: Graph | None = None,
         # TODO: workers
@@ -358,13 +347,13 @@ class Route(RouteBase):
         endpoint = self.call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
         await endpoint(scope, receive, send)
 
-    def setup(self, graph: Graph | None = None):
-        super().setup(graph=graph)
+    async def setup(self, graph: Graph | None = None):
+        await super().setup(graph=graph)
         self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         for method, ep in self.endpoints.items():
             ep_sig = self.endpoint_parser.parse(ep.unwrapped_func)
-            ep.setup(ep_sig)
+            await ep.setup(ep_sig)
             self.call_stacks[method] = self.chainup_middlewares(ep)
 
     def parse_endpoint(self, func: Callable[..., R]) -> EndpointSignature[R]:

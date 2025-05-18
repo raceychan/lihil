@@ -24,9 +24,9 @@ async def listen_twice(created: TodoCreated, _: Any):
 
 
 @pytest.fixture
-def bus_route():
+async def bus_route():
     route = Route("/bus", listeners=[listen_create, listen_twice])
-    route.setup()
+    await route.setup()
     return route
 
 
@@ -39,7 +39,7 @@ async def test_bus_is_singleton(bus_route: Route):
     bus_route.post(create_todo)
 
     ep = bus_route.get_endpoint("POST")
-    bus_route.setup()
+    await bus_route.setup()
     assert ep.sig.plugins
     assert any(p.type_ is EventBus for p in ep.sig.plugins.values())
 

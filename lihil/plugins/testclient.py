@@ -363,7 +363,7 @@ class LocalClient:
         3. set ep.graph = new graph
         4. reset ep.graph to old graph
         """
-        ep._route.setup()
+        await ep._route.setup()
 
         resp = await self.request(
             app=ep,
@@ -393,7 +393,7 @@ class LocalClient:
         4. reset route.graph to old graph
         """
 
-        route.setup()
+        await route.setup()
 
         resp = await self.request(
             app=route,
@@ -499,7 +499,7 @@ class LocalClient:
         else:
             raise TypeError(f"Not supported type {app}")
 
-    def make_endpoint(
+    async def make_endpoint(
         self,
         f: Callable[..., R],
         method: HTTP_METHODS = "GET",
@@ -510,5 +510,5 @@ class LocalClient:
 
         route.add_endpoint(method, func=f, **props)
         ep = route.get_endpoint(method)
-        route.setup()
+        await route.setup()
         return ep

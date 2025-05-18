@@ -29,7 +29,7 @@ async def test_login():
     token.post(create_token)
 
     form_ep = token.get_endpoint("POST")
-    token.setup()
+    await token.setup()
 
     lc = LocalClient()
     res = await lc.submit_form(

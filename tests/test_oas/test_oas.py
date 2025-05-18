@@ -33,9 +33,9 @@ class Order(Payload, tag=True):
 
 
 @pytest.fixture
-def user_route():
+async def user_route():
     route = Route("/user/{user_id}/order/{order_id}")
-    route.setup()
+    await route.setup()
     return route
 
 
@@ -46,7 +46,7 @@ class OrderNotFound(HTTPException[str]):
 oas_config = OASConfig()
 
 
-def test_get_order_schema(user_route: Route):
+async def test_get_order_schema(user_route: Route):
     async def get_order(
         user_id: str | int, order_id: str, q: int | str, l: str, u: User
     ) -> Order | User: ...
@@ -54,7 +54,7 @@ def test_get_order_schema(user_route: Route):
     user_route.post(errors=OrderNotFound)(get_order)
 
     current_ep = user_route.endpoints["POST"]
-    user_route.setup()
+    await user_route.setup()
     ep_rt = current_ep.sig.return_params[200]
     ep_rt.type_ == Union[Order, User]
     components = {"schemas": {}}
@@ -63,14 +63,14 @@ def test_get_order_schema(user_route: Route):
     )
 
 
-def test_get_hello_return(user_route: Route):
+async def test_get_hello_return(user_route: Route):
     @user_route.get
     async def get_hello(
         user_id: str, order_id: str, q: int, l: str, u: User
     ) -> Annotated[Text, status.OK]: ...
 
     current_ep = user_route.get_endpoint(get_hello)
-    user_route.setup()
+    await user_route.setup()
     ep_rt = current_ep.sig.return_params[200]
     assert ep_rt.type_ == bytes
 
@@ -100,7 +100,7 @@ def complex_route():
     return Route("user")
 
 
-def test_complex_route(complex_route: Route):
+async def test_complex_route(complex_route: Route):
 
     class UserNotFoundError(HTTPException[str]):
         "You can't see me"
@@ -116,7 +116,7 @@ def test_complex_route(complex_route: Route):
     complex_route.add_endpoint(
         "GET", func=get_user, errors=[UserNotFoundError, UserNotHappyError]
     )
-    complex_route.setup()
+    await complex_route.setup()
 
     oas = generate_oas([complex_route], oas_config, "0.1.0")
     assert oas
@@ -158,7 +158,7 @@ async def test_ep_with_empty_resp():
     route.get(empty_ep)
 
     ep = route.get_endpoint("GET")
-    route.setup()
+    await route.setup()
     schema = get_resp_schemas(ep, {}, "")
     assert schema["200"].description == "No Content"
 
@@ -175,7 +175,7 @@ async def test_ep_with_annotated_resp():
     route.get(empty_ep)
 
     ep = route.get_endpoint("GET")
-    route.setup()
+    await route.setup()
     schema = get_resp_schemas(ep, {}, "")
     assert schema
 
@@ -207,7 +207,7 @@ def test_detail_base_to_content():
     assert detail_base_to_content(Random, {}, {})
 
 
-def test_ep_with_status_larger_than_300():
+async def test_ep_with_status_larger_than_300():
     async def create_user() -> (
         Annotated[str, status.NOT_FOUND] | Annotated[int, status.INTERNAL_SERVER_ERROR]
     ): ...
@@ -215,23 +215,23 @@ def test_ep_with_status_larger_than_300():
     route = Route()
     route.post(create_user)
     ep = route.get_endpoint(create_user)
-    route.setup()
+    await route.setup()
 
     get_resp_schemas(ep, {}, "")
 
 
-def test_ep_without_ret():
+async def test_ep_without_ret():
     async def create_user(): ...
 
     route = Route()
     route.post(create_user)
     ep = route.get_endpoint(create_user)
-    route.setup()
+    await route.setup()
 
     get_resp_schemas(ep, {}, "")
 
 
-def test_ep_with_auth():
+async def test_ep_with_auth():
 
     async def get_user(token: str): ...
 
@@ -239,27 +239,27 @@ def test_ep_with_auth():
     route.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_user)
 
     ep = route.get_endpoint("GET")
-    route.setup()
+    await route.setup()
 
     sc = {}
     get_ep_security(ep, sc)
     assert sc["OAuth2PasswordBearer"]
 
 
-def test_ep_with_mutliple_ret():
+async def test_ep_with_mutliple_ret():
     async def f() -> Annotated[str, status.OK] | Annotated[int | list[int], status.CREATED]: ...
 
     lc = LocalClient()
 
-    ep = lc.make_endpoint(f)
+    ep = await lc.make_endpoint(f)
 
     get_resp_schemas(ep, {}, "")
 
 
-def test_ep_with_auth_scheme():
+async def test_ep_with_auth_scheme():
     async def f() -> Annotated[str, status.OK] | Annotated[int | list[int], status.CREATED]: ...
 
     lc = LocalClient()
 
-    ep = lc.make_endpoint(f)
+    ep = await lc.make_endpoint(f)
     get_resp_schemas(ep, {}, "")

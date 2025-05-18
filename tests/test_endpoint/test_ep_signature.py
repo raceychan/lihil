@@ -54,7 +54,7 @@ async def test_non_use_dep(route: Route):
     async def get_todo(p: str, service: Annotated[UserService, use(UserService)]): ...
 
     ep = route.get_endpoint(get_todo)
-    route.setup()
+    await route.setup()
     deps = ep.sig.dependencies
 
     assert len(deps) == 1  # only service not engine
@@ -231,7 +231,7 @@ async def test_prepare_params_with_custom_validation_error():
     ): ...
 
     lc = LocalClient()
-    ep = lc.make_endpoint(func)
+    ep = await lc.make_endpoint(func)
 
     await lc(ep, query_params={"user_id": "adsf"}, body="aloha")
 
@@ -242,5 +242,5 @@ async def test_query_with_default():
 
     lc = LocalClient()
 
-    resp = await lc.call_endpoint(lc.make_endpoint(func))
+    resp = await lc.call_endpoint(await lc.make_endpoint(func))
     await resp.body()

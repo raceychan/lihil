@@ -132,7 +132,7 @@ async def test_ws_plugins():
         await ws.close()
 
     ws_route.ws_handler(
-        ws_handler, decorators=[BusPlugin(busterm=BusTerminal()).decorate]
+        ws_handler, plugins=[BusPlugin(busterm=BusTerminal()).decorate]
     )
 
     lhl = Lihil()
