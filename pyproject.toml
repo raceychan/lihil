@@ -3,7 +3,7 @@ authors = [{ name = "raceychan", email = "raceychan@gmail.com" }]
 dependencies = [
   "ididi>=1.6.2",
   "msgspec>=0.19.0",
-  "premier>=0.4.0",
+  "premier>=0.4.1",
   "python-multipart>=0.0.20",
   "starlette>=0.45.3",
   "tomli>=2.2.1",
@@ -28,7 +28,6 @@ classifiers = [
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development",
   "Typing :: Typed",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -55,9 +54,8 @@ dev = [
   "pyinstrument>=5.0.1",
   "py-spy>=0.4.0",
   "pytest-asyncio>=0.25.3",
-  # "ipython>=9.0.2",
-  "hatch>=1.14.0",
   "pytest-cov>=6.0.0",
+  "hatch>=1.14.0",
   "twine>=6.1.0",
   "mkdocs>=1.6.1",
   "pymdown-extensions>=10.14.3",
@@ -76,7 +74,7 @@ dev = [
 [tool.pyright]
 exclude = ["tests"]
 include = ["lihil/*.py"]
-python_version = "3.12"
+python_version = "3.10"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]

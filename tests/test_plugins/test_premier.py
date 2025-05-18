@@ -6,7 +6,6 @@ from lihil.plugins.premier import PremierPlugin, throttler
 from lihil.plugins.testclient import LocalClient
 
 
-@pytest.mark.debug
 async def test_throttling():
     async def hello():
         print("called the hello func")
