@@ -131,9 +131,8 @@ async def test_ws_plugins():
         await ws.send_text("Hello, world!")
         await ws.close()
 
-    ws_route.ws_handler(
-        ws_handler, plugins=[BusPlugin(busterm=BusTerminal()).decorate]
-    )
+    plugin = BusPlugin(busterm=BusTerminal())
+    ws_route.ws_handler(ws_handler, plugins=[plugin.decorate])
 
     lhl = Lihil()
     lhl.include_routes(ws_route)

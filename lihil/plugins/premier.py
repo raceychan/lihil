@@ -1,17 +1,21 @@
-from premier import throttler
+from premier import Throttler, throttler
+from premier.handler import AsyncThrottleHandler as AsyncThrottleHandler
 
 from lihil.plugins import Any, Callable, EndpointSignature, Graph, IFunc
 
 
 class PremierPlugin:
-    def __init__(
+    def __init__(self, throttler_: Throttler):
+        self.throttler_ = throttler_
+
+    def fix_window(
         self, quota: int, duration: int, keymaker: Callable[..., str] | None = None
     ):
-        self.quota = quota
-        self.duration = duration
-        self.keymaker = keymaker
 
-    async def fix_window(
-        self, graph: Graph, func: IFunc, sig: EndpointSignature[Any]
-    ) -> IFunc:
-        return throttler.fixed_window(self.quota, self.duration, self.keymaker)(func)
+        async def inner(
+            graph: Graph, func: IFunc, sig: EndpointSignature[Any]
+        ) -> IFunc:
+            return self.throttler_.fixed_window(quota, duration)(func)
+
+
+        return inner

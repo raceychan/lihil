@@ -67,7 +67,7 @@ class IEndpointProps(TypedDict, total=False):
     tags: Sequence[str] | None
     "OAS tag, endpoints with the same tag will be grouped together"
     plugins: list[IPlugin]
-    "Decorators that used to replace the endpoint function"
+    "Decorators to decorate the endpoint function"
 
 
 class EndpointProps(Record, kw_only=True):
@@ -105,9 +105,14 @@ class Endpoint(Generic[R]):
         self._func = async_wrapper(func, threaded=props.to_thread)
         self._props = props
         self._name = func.__name__
+        self.__is_setup: bool = False
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._method}: {self._route.path!r} {self._func})"
+
+    @property
+    def route(self):
+        return self._route
 
     @property
     def props(self):
@@ -141,10 +146,19 @@ class Endpoint(Generic[R]):
     def unwrapped_func(self) -> Callable[..., R]:
         return self._unwrapped_func
 
+    @property
+    def is_setup(self) -> bool:
+        return self.__is_setup
+
     async def setup(self, sig: EndpointSignature[R]) -> None:
+        if self.__is_setup:
+            raise Exception(f"`setup` is called more than once in {self}")
+
         self._graph = self._route.graph
+        wrapped = self._func
         for decor in self._props.plugins:
-            self._func = await decor(self._graph, self._func, sig)
+            wrapped = await decor(self._graph, wrapped, sig)
+        self._func = wrapped
 
         self._sig = sig
         self._injector = Injector(self._sig)
@@ -154,6 +168,8 @@ class Endpoint(Generic[R]):
         self._scoped: bool = sig.scoped or self._props.scoped is True
         self._encoder = sig.return_encoder
         self._media_type = sig.media_type
+
+        self.__is_setup = True
 
     async def make_static_call(
         self, scope: IScope, receive: IReceive, send: ISend
@@ -352,6 +368,8 @@ class Route(RouteBase):
         self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         for method, ep in self.endpoints.items():
+            if ep.is_setup:
+                continue
             ep_sig = self.endpoint_parser.parse(ep.unwrapped_func)
             await ep.setup(ep_sig)
             self.call_stacks[method] = self.chainup_middlewares(ep)

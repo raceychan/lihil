@@ -255,7 +255,6 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
     assert res
 
 
-@pytest.mark.debug
 async def test_ep_requiring_missing_Param(rusers: Route, lc: LocalClient):
 
     class UserInfo(Payload):
@@ -374,7 +373,6 @@ async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
     async def get(
         by_form: Annotated[list[int], Form()],
     ) -> Annotated[Text, status.OK]:
-        breakpoint()
         assert isinstance(by_form, bytes)
         return "ok"
 
