@@ -19,9 +19,9 @@ from lihil import (
     field,
     status,
 )
-from lihil.auth.jwt import JWTAuth, JWTPayload, jwt_decoder_factory
-from lihil.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
-from lihil.config import DEFAULT_CONFIG, AppConfig, JWTConfig, lhl_set_config
+from lihil.plugins.auth.jwt import JWTAuth, JWTConfig, JWTPayload, jwt_decoder_factory
+from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
+from lihil.config import DEFAULT_CONFIG, AppConfig, lhl_set_config
 from lihil.errors import MissingDependencyError, NotSupportedError, StatusConflictError
 from lihil.plugins.testclient import LocalClient
 from lihil.signature.parser import EndpointParser

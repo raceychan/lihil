@@ -5,7 +5,6 @@ from ididi import Ignore
 from .app_config import AppConfig as AppConfig
 from .app_config import ConfigBase as ConfigBase
 from .app_config import IAppConfig as IAppConfig
-from .app_config import JWTConfig as JWTConfig
 from .app_config import OASConfig as OASConfig
 from .app_config import ServerConfig as ServerConfig
 from .loader import ConfigLoader as ConfigLoader

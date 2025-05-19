@@ -1,18 +1,19 @@
 from time import time
 from types import UnionType
-from typing import Annotated, Any, ClassVar, Literal, TypedDict, TypeVar, cast, Sequence
+from typing import Annotated, Any, ClassVar, Literal, Sequence, TypedDict, TypeVar, cast
 from uuid import uuid4
 
 from msgspec import convert
 from typing_extensions import Required, dataclass_transform
 
 from lihil.config import lhl_get_config
-from lihil.config.app_config import IAppConfig, IJWTConfig
+from lihil.config.app_config import AppConfig, Doc, IAppConfig
 from lihil.errors import MissingDependencyError, NotSupportedError
 from lihil.interface import MISSING, UNSET, Base, T, Unset, field, is_provided
 from lihil.problems import InvalidAuthError
 from lihil.signature.params import Param
 from lihil.utils.json import encode_json
+from lihil.utils.typing import lexient_issubclass
 
 
 def jwt_timeclaim():
@@ -21,6 +22,20 @@ def jwt_timeclaim():
 
 def uuid_factory() -> str:
     return str(uuid4())
+
+
+class IJWTConfig(IAppConfig):
+    @property
+    def jwt_secret(self) -> str: ...
+    @property
+    def jwt_algorithms(self) -> str | Sequence[str]: ...
+
+
+class JWTConfig(AppConfig, kw_only=True):
+    jwt_secret: Annotated[str, Doc("Secret key for encoding and decoding JWTs")]
+    jwt_algorithms: Annotated[
+        str | Sequence[str], Doc("List of accepted JWT algorithms")
+    ]
 
 
 class JWTClaims(TypedDict, total=False):
@@ -125,7 +140,7 @@ else:
         algorithms = config.jwt_algorithms
         options = None
 
-        if not isinstance(payload_type, type) or not issubclass(
+        if not isinstance(payload_type, type) or not lexient_issubclass(
             payload_type, (JWTPayload, str)
         ):
             raise NotSupportedError(
@@ -137,7 +152,7 @@ else:
 
         jws_encode = PyJWS(algorithms=algorithms, options=options).encode
 
-        if issubclass(payload_type, JWTPayload):
+        if lexient_issubclass(payload_type, JWTPayload):
             try:
                 encode_fields = getattr(payload_type, "__struct_encode_fields__")
                 assert "sub" in encode_fields or "sub" in payload_type.__struct_fields__

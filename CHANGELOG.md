@@ -1072,3 +1072,9 @@ async def test_throttling():
         for _ in range(2):
             await lc(ep)
 ```
+
+## version 0.2.8
+
+### Refactor
+
+- [x] remove `registry` and `listeners` from `Route`

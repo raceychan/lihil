@@ -1,5 +1,5 @@
 from inspect import iscoroutinefunction
-from typing import Any
+from typing import Any, Awaitable, Callable, cast
 
 from ididi import Graph, Resolver
 from starlette.responses import Response
@@ -28,11 +28,21 @@ class WebSocketEndpoint:  # TODO:  endpoint base
     def unwrapped_func(self):
         return self._unwrapped_func
 
+    async def chainup_plugins(
+        self, func: Callable[..., Awaitable[None]], sig: EndpointSignature[None]
+    ) -> Callable[..., Awaitable[None]]:
+        for decor in self._props.plugins:
+            if iscoroutinefunction(decor):
+                wrapped = await decor(self._route.graph, func, sig)
+            else:
+                wrapped = decor(self._route.graph, func, sig)
+            func = cast(Callable[..., Awaitable[None]], wrapped)
+        return func
+
     async def setup(self, sig: EndpointSignature[None]) -> None:
         self._graph = self._route.graph
         self._sig = sig
-        for decor in self._props.plugins:
-            self._func = await decor(self._graph, self._func, sig)
+        self._func = await self.chainup_plugins(self._func, sig)
         self._injector = Injector(self._sig)
         self._scoped: bool = self._sig.scoped
 

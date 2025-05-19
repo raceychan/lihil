@@ -6,16 +6,17 @@ import msgspec
 import pytest
 from starlette.requests import Request
 
-from lihil import MISSING, DependentNode, Graph, Param, Payload, Request, Form, use
-from lihil.config import JWTConfig, lhl_set_config
-from lihil.errors import NotSupportedError, InvalidParamError
+from lihil import MISSING, DependentNode, Form, Graph, Param, Payload, Request, use
+from lihil.config import lhl_set_config
+from lihil.plugins.auth.jwt import JWTConfig
+from lihil.errors import InvalidParamError, NotSupportedError
 from lihil.signature.parser import (
     BodyParam,
     EndpointParser,
     HeaderParam,
     PathParam,
-    QueryParam,
     PluginParam,
+    QueryParam,
 )
 from lihil.utils.typing import get_origin_pro
 
@@ -400,11 +401,11 @@ def test_multiple_body_is_not_suuported(param_parser: EndpointParser):
 
 def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
     with mock.patch.dict("sys.modules", {"jwt": None}):
-        if "lihil.auth.jwt" in sys.modules:
-            del sys.modules["lihil.auth.jwt"]
+        if "lihil.plugins.auth.jwt" in sys.modules:
+            del sys.modules["lihil.plugins.auth.jwt"]
         del sys.modules["lihil.signature.params"]
 
-    from lihil.auth.jwt import JWTAuth
+    from lihil.plugins.auth.jwt import JWTAuth
 
     def ep_expects_jwt(user_id: JWTAuth[str]): ...
 
@@ -416,7 +417,7 @@ def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
 
 
 def test_JWTAuth_with_custom_decoder(param_parser: EndpointParser):
-    from lihil.auth.jwt import JWTAuth
+    from lihil.plugins.auth.jwt import JWTAuth
 
     def ep_expects_jwt(
         user_id: Annotated[JWTAuth[str], Param(decoder=lambda c: c)],

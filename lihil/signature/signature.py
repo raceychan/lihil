@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Callable, Generic, cast
+from typing import Any, Awaitable, Callable, Generic
 
 from ididi import DependentNode, Resolver
 from msgspec import Struct
@@ -84,11 +84,11 @@ class Injector(Generic[R]):
         self.header_params = self._sig.header_params.items()
         self.path_params = self._sig.path_params.items()
         self.query_params = self._sig.query_params.items()
-        self.state_params = self._sig.plugins.items()
-        self.deps = self._sig.dependencies.items()
         self.body_param = self._sig.body_param
         self.form_meta = self._sig.form_meta
-        self.transitive_params = self._sig.transitive_params
+        self.state_params = self._sig.plugins.items()
+        self.deps = self._sig.dependencies.items()
+        self.transitive_params: tuple[str, ...] = tuple(self._sig.transitive_params)
 
     def _validate_conn(self, conn: HTTPConnection) -> ParseResult:
         verrors: list[Any] = []
@@ -141,7 +141,9 @@ class Injector(Generic[R]):
 
         params = parsed_result.params
         for name, p in self.state_params:
-            ptype = cast(type, p.type_)
+            ptype = p.type_
+            if not isinstance(ptype, type):
+                continue
             if issubclass(ptype, WebSocket):
                 params[name] = ws
             elif issubclass(ptype, Resolver):
@@ -184,7 +186,9 @@ class Injector(Generic[R]):
             raise InvalidRequestErrors(detail=errors)
 
         for name, p in self.state_params:
-            ptype = cast(type, p.type_)
+            ptype = p.type_
+            if not isinstance(ptype, type):
+                continue
             if issubclass(ptype, Request):
                 params[name] = req
             elif issubclass(ptype, Resolver):

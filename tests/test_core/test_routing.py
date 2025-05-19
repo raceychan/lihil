@@ -6,7 +6,7 @@ from lihil import Graph, Text, Param, status
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend
-from lihil.plugins.bus import Event
+from lihil.ds.event import Event
 from lihil.plugins.testclient import LocalClient
 from lihil.routing import Route
 
@@ -318,31 +318,31 @@ async def test_route_factory():
     assert callable(node_factory)
 
 
-async def test_route_listen():
-    route = Route("/test")
+# async def test_route_listen():
+#     route = Route("/test")
 
-    # Create a simple listener
-    def test_listener(event: Event):
-        pass
+#     # Create a simple listener
+#     def test_listener(event: Event):
+#         pass
 
-    # Register the listener
-    route.listen(test_listener)
+#     # Register the listener
+#     route.listen(test_listener)
 
-    assert route.has_listener(test_listener)
-
-    # Verify the listener was registered
-
-
-async def test_route_with_listeners_Param():
-    # Create a simple listener
-    def test_listener(event: Event):
-        pass
-
-    # Create route with listeners
-    route = Route("/test", listeners=[test_listener])
+#     assert route.has_listener(test_listener)
 
     # Verify the listener was registered
-    assert route.has_listener(test_listener)
+
+
+# async def test_route_with_listeners_Param():
+#     # Create a simple listener
+#     def test_listener(event: Event):
+#         pass
+
+#     # Create route with listeners
+#     route = Route("/test", listeners=[test_listener])
+
+#     # Verify the listener was registered
+#     assert route.has_listener(test_listener)
 
 
 async def test_route_decorator_style():
@@ -541,22 +541,22 @@ async def test_route_add_middleware_sequence():
     assert result["mw2"] is True
 
 
-async def test_route_has_listener():
-    route = Route("/test")
+# async def test_route_has_listener():
+#     route = Route("/test")
 
-    # Create listeners
-    def listener1(event: Event):
-        pass
+#     # Create listeners
+#     def listener1(event: Event):
+#         pass
 
-    def listener2(event: Event):
-        pass
+#     def listener2(event: Event):
+#         pass
 
-    # Register only one listener
-    route.listen(listener1)
+#     # Register only one listener
+#     route.listen(listener1)
 
-    # Test has_listener
-    assert route.has_listener(listener1) is True
-    assert route.has_listener(listener2) is False
+#     # Test has_listener
+#     assert route.has_listener(listener1) is True
+#     assert route.has_listener(listener2) is False
 
 
 async def test_route_on_lifespan():

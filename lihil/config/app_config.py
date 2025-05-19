@@ -42,12 +42,6 @@ class IAppConfig(Protocol):
     def oas(self) -> IOASConfig: ...
 
 
-class IJWTConfig(IAppConfig):
-    @property
-    def jwt_secret(self) -> str: ...
-    @property
-    def jwt_algorithms(self) -> str | Sequence[str]: ...
-
 
 class ConfigBase(Record, forbid_unknown_fields=True): ...
 
@@ -86,10 +80,3 @@ class AppConfig(ConfigBase):
     server: Annotated[ServerConfig, Doc("Server runtime configuration")] = field(
         default_factory=ServerConfig
     )
-
-
-class JWTConfig(AppConfig, kw_only=True):
-    jwt_secret: Annotated[str, Doc("Secret key for encoding and decoding JWTs")]
-    jwt_algorithms: Annotated[
-        str | Sequence[str], Doc("List of accepted JWT algorithms")
-    ]

@@ -21,7 +21,7 @@ from lihil.interface import ParamSource, Record, T
 from lihil.interface.problem import DetailBase, ProblemDetail
 from lihil.utils.json import encode_json
 from lihil.utils.string import to_kebab_case, trimdoc
-from lihil.utils.typing import all_subclasses, is_union_type
+from lihil.utils.typing import all_subclasses, is_union_type, lexient_issubclass
 from lihil.vendors import Request, Response  # , WebSocket
 
 """
@@ -44,7 +44,7 @@ def parse_exception(
     exc_origin = get_origin(exc)
 
     if exc_origin is None:
-        if isinstance(exc, type) and issubclass(exc, HTTPException):
+        if lexient_issubclass(exc, HTTPException):
             return exc
         elif http_status.is_status(exc):
             return http_status.code(exc)
@@ -66,7 +66,9 @@ def parse_exception(
         else:
             exc_local = exc
 
-        if issubclass(exc_origin, DetailBase) or issubclass(exc_local, DetailBase):
+        if lexient_issubclass(exc_origin, DetailBase) or lexient_issubclass(
+            exc_local, DetailBase
+        ):
             # if exc is a subclass of DetailBase then tha
             return cast(type["DetailBase[Any]"], exc_origin)
         raise TypeError(f"Invalid exception type {exc}")

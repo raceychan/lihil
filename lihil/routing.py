@@ -1,8 +1,9 @@
 from functools import partial
-from inspect import isasyncgen, isgenerator
+from inspect import isasyncgen, iscoroutinefunction, isgenerator
 from types import MethodType
 from typing import (
     Any,
+    Awaitable,
     Callable,
     Generic,
     Literal,
@@ -22,7 +23,6 @@ from starlette.responses import StreamingResponse
 from typing_extensions import Self, Unpack
 
 from lihil.asgi import ASGIBase
-from lihil.auth.oauth import AuthBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.ds.resp import StaticResponse
 from lihil.interface import (
@@ -38,8 +38,8 @@ from lihil.interface import (
     Record,
     T,
 )
-from lihil.plugins import IPlugin
-from lihil.plugins.bus import Event, MessageRegistry
+from lihil.plugins import IPlugin, ISyncPlugin
+from lihil.plugins.auth.oauth import AuthBase
 from lihil.problems import DetailBase, get_solver
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
@@ -66,7 +66,7 @@ class IEndpointProps(TypedDict, total=False):
     "Auth Scheme for access control"
     tags: Sequence[str] | None
     "OAS tag, endpoints with the same tag will be grouped together"
-    plugins: list[IPlugin]
+    plugins: list[IPlugin | ISyncPlugin]
     "Decorators to decorate the endpoint function"
 
 
@@ -77,7 +77,9 @@ class EndpointProps(Record, kw_only=True):
     scoped: Literal[True] | None = None
     auth_scheme: AuthBase | None = None
     tags: Sequence[str] | None = None
-    plugins: list[IPlugin] = field(default_factory=list[IPlugin])
+    plugins: list[IPlugin | ISyncPlugin] = field(
+        default_factory=list[IPlugin | ISyncPlugin]
+    )
 
     @classmethod
     def from_unpack(cls, **iconfig: Unpack[IEndpointProps]):
@@ -150,17 +152,24 @@ class Endpoint(Generic[R]):
     def is_setup(self) -> bool:
         return self.__is_setup
 
+    async def chainup_plugins(
+        self, func: Callable[..., Awaitable[R]], sig: EndpointSignature[R]
+    ) -> Callable[..., Awaitable[R]]:
+        for decor in self._props.plugins:
+            if iscoroutinefunction(decor):
+                wrapped = await decor(self._route.graph, func, sig)
+            else:
+                wrapped = decor(self._route.graph, func, sig)
+            func = cast(Callable[..., Awaitable[R]], wrapped)
+        return func
+
     async def setup(self, sig: EndpointSignature[R]) -> None:
         if self.__is_setup:
             raise Exception(f"`setup` is called more than once in {self}")
 
         self._graph = self._route.graph
-        wrapped = self._func
-        for decor in self._props.plugins:
-            wrapped = await decor(self._graph, wrapped, sig)
-        self._func = wrapped
-
         self._sig = sig
+        self._func = await self.chainup_plugins(self._func, self._sig)
         self._injector = Injector(self._sig)
 
         self._static = sig.static
@@ -252,17 +261,13 @@ class RouteBase(ASGIBase):
         path: str = "",
         *,
         graph: Graph | None = None,
-        registry: MessageRegistry | None = None,
-        listeners: list[Callable[..., Any]] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
     ):
         super().__init__(middlewares)
         self.path = trim_path(path)
         self.path_regex: Pattern[str] | None = None
         self.graph = graph or Graph(self_inject=False)
-        self.registry = registry or MessageRegistry(event_base=Event, graph=graph)
-        if listeners:
-            self.registry.register(*listeners)
+
         self.subroutes: list[Self] = []
 
     def __truediv__(self, path: str) -> "Self":
@@ -288,7 +293,6 @@ class RouteBase(ASGIBase):
         sub = self.__class__(
             path=merged_path,
             graph=self.graph,
-            registry=self.registry,
             middlewares=self.middle_factories,
         )
         self.subroutes.append(sub)
@@ -309,18 +313,6 @@ class RouteBase(ASGIBase):
     def factory(self, node: Callable[..., R], **node_config: Unpack[INodeConfig]):
         return self.graph.node(node, **node_config)
 
-    def listen(self, listener: Callable[[Event, Any], None]) -> None:
-        self.registry.register(listener)
-
-    def has_listener(self, listener: Callable[..., Any]) -> bool:
-        event_metas = list(self.registry.event_mapping.values())
-
-        for metas in event_metas:
-            for meta in metas:
-                if meta.handler is listener:
-                    return True
-        return False
-
     async def setup(
         self,
         graph: Graph | None = None,
@@ -336,16 +328,12 @@ class Route(RouteBase):
         path: str = "",
         *,
         graph: Graph | None = None,
-        registry: MessageRegistry | None = None,
-        listeners: list[Callable[..., Any]] | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
         props: EndpointProps | None = None,
     ):
         super().__init__(
             path,
             graph=graph,
-            registry=registry,
-            listeners=listeners,
             middlewares=middlewares,
         )
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}

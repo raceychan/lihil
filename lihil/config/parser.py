@@ -1,12 +1,12 @@
 import argparse
-from typing import Any, Sequence, TypeGuard, cast, get_args
+from typing import Any, Sequence, cast, get_args
 
 from msgspec.structs import FieldInfo, fields
 from typing_extensions import Doc
 
 from lihil.config.app_config import ConfigBase
 from lihil.interface import MISSING, P, Record, StrDict, UnsetType, _Missed, is_provided
-from lihil.utils.typing import get_origin_pro, is_union_type
+from lihil.utils.typing import get_origin_pro, is_union_type, lexient_issubclass
 
 
 def get_thread_cnt() -> int:
@@ -51,15 +51,11 @@ class StoreTrueIfProvided(argparse.Action):
         # Set a flag to indicate this argument was provided
         setattr(namespace, f"{self.dest}_provided", True)
 
-    def __init__(self, *args: P.args, **kwargs: P.kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         # Set nargs to 0 for store_true action
         kwargs["nargs"] = 0
         kwargs["default"] = MISSING
-        super().__init__(*args, **kwargs)  # type: ignore
-
-
-def is_config_type(ftype: Any) -> TypeGuard[type[ConfigBase]]:
-    return isinstance(ftype, type) and issubclass(ftype, ConfigBase)
+        super().__init__(*args, **kwargs)
 
 
 class ConfigField(Record):
@@ -103,7 +99,7 @@ def generate_parser_actions(
         config_field = parse_field_type(field_info)
 
         field_type = config_field.field_type
-        if is_config_type(field_type):
+        if lexient_issubclass(field_type, ConfigBase):
             nested_actions = generate_parser_actions(field_type, full_field_name)
             actions.extend(nested_actions)
         else:

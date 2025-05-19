@@ -109,7 +109,7 @@ def parse_return_pro(
         elif is_status(meta):
             status = get_status_code(meta)
         elif isinstance(meta, ParamMeta) and meta.extra and meta.extra.use_jwt:
-            from lihil.auth.jwt import jwt_encoder_factory
+            from lihil.plugins.auth.jwt import jwt_encoder_factory
 
             encoder = jwt_encoder_factory(payload_type=ret_type)
         else:

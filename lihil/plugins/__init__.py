@@ -20,3 +20,13 @@ class IPlugin(Protocol):
         sig: EndpointSignature[Any],
         /,
     ) -> IFunc: ...
+
+
+class ISyncPlugin(Protocol):
+    def __call__(
+        self,
+        graph: Graph,
+        func: IFunc,
+        sig: EndpointSignature[Any],
+        /,
+    ) -> IFunc: ...

@@ -30,6 +30,7 @@ from lihil.interface import MISSING, Maybe
 from lihil.signature.parser import is_lhl_primitive
 
 
+
 def test_get_thread_cnt():
     """Test that get_thread_cnt returns a positive integer"""
     thread_count = get_thread_cnt()

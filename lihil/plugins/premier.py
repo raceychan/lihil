@@ -14,9 +14,7 @@ class PremierPlugin:
         self, quota: int, duration: int, keymaker: Callable[..., str] | None = None
     ):
 
-        async def inner(
-            graph: Graph, func: IFunc, sig: EndpointSignature[Any]
-        ) -> IFunc:
+        def inner(graph: Graph, func: IFunc, sig: EndpointSignature[Any]) -> IFunc:
             return self.throttler_.fixed_window(quota, duration, keymaker=keymaker)(
                 func
             )
@@ -27,9 +25,7 @@ class PremierPlugin:
         self, quota: int, duration: int, keymaker: Callable[..., str] | None = None
     ):
 
-        async def inner(
-            graph: Graph, func: IFunc, sig: EndpointSignature[Any]
-        ) -> IFunc:
+        def inner(graph: Graph, func: IFunc, sig: EndpointSignature[Any]) -> IFunc:
             return self.throttler_.sliding_window(quota, duration, keymaker=keymaker)(
                 func
             )
@@ -44,9 +40,7 @@ class PremierPlugin:
         keymaker: Callable[..., str] | None = None,
     ):
 
-        async def inner(
-            graph: Graph, func: IFunc, sig: EndpointSignature[Any]
-        ) -> IFunc:
+        def inner(graph: Graph, func: IFunc, sig: EndpointSignature[Any]) -> IFunc:
             return self.throttler_.leaky_bucket(
                 bucket_size=bucket_size,
                 quota=quota,
@@ -63,9 +57,7 @@ class PremierPlugin:
         keymaker: Callable[..., str] | None = None,
     ):
 
-        async def inner(
-            graph: Graph, func: IFunc, sig: EndpointSignature[Any]
-        ) -> IFunc:
+        def inner(graph: Graph, func: IFunc, sig: EndpointSignature[Any]) -> IFunc:
             return self.throttler_.token_bucket(
                 quota=quota,
                 duration=duration,

@@ -1,11 +1,36 @@
 from collections.abc import Mapping
 from types import GenericAlias, UnionType
-from typing import Annotated, Any, Literal, Sequence, TypeVar, Union, cast, get_args
+from typing import (
+    Annotated,
+    Any,
+    ForwardRef,
+    Literal,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+)
 from typing import get_origin as ty_get_origin
+from typing import overload
 
-from typing_extensions import TypeAliasType
+from typing_extensions import TypeAliasType, TypeGuard
 
 T = TypeVar("T")
+
+
+@overload
+def lexient_issubclass(t: Any, cls_or_clses: type[T]) -> TypeGuard[type[T]]: ...
+
+
+@overload
+def lexient_issubclass(t: Any, cls_or_clses: tuple[type, ...]) -> TypeGuard[type]: ...
+
+
+def lexient_issubclass(
+    t: Any, cls_or_clses: Union[type[T], tuple[type, ...]]
+) -> TypeGuard[type[T]]:
+    return isinstance(t, type) and issubclass(t, cls_or_clses)
 
 
 def union_types(subs: Sequence[type[Any]]) -> type | UnionType | GenericAlias | None:
@@ -148,7 +173,7 @@ def deannotate(
 
 
 def get_origin_pro(
-    type_: type[T] | UnionType | GenericAlias | TypeAliasType | TypeVar,
+    type_: type[T] | UnionType | GenericAlias | TypeAliasType | TypeVar | ForwardRef,
     metas: list[Any] | None = None,
     type_args: tuple[type, ...] | None = None,
 ) -> tuple[type | UnionType | GenericAlias, list[Any] | None]:
@@ -163,6 +188,9 @@ def get_origin_pro(
 
     if isinstance(type_, TypeAliasType):
         return get_origin_pro(type_.__value__, metas, type_args)
+
+    if isinstance(type_, ForwardRef):
+        raise TypeError(f"{type_} is not supported before python 3.12")
 
     if (current_origin := ty_get_origin(type_)) is None:
         return (cast(type, type_), cast(None, metas))

@@ -20,7 +20,7 @@ class OAuthLogin(Payload):
     client_id: str | None = None
     client_secret: str | None = None
     scope: str = ""
-    scopes: list[str] = field(default_factory=list)
+    scopes: list[str] = field(default_factory=list[str])
 
     def __post_init__(self):
         self.scopes.extend(self.scope.split())

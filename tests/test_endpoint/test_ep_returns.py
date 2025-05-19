@@ -183,9 +183,9 @@ class PublicUser(Payload):
 
 
 def test_parse_jwt_return():
-    from lihil.auth.jwt import JWTAuth
-    from lihil.config import JWTConfig, lhl_set_config
+    from lihil.config import lhl_set_config
     from lihil.errors import NotSupportedError
+    from lihil.plugins.auth.jwt import JWTAuth, JWTConfig
 
     lhl_set_config(JWTConfig(jwt_secret="secret", jwt_algorithms="HS256"))
 

@@ -5,16 +5,26 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial, wraps
 from types import MethodType, UnionType
-from typing import Annotated, Any, Awaitable, Callable, Protocol, Union, cast, get_args
+from typing import (
+    Annotated,
+    Any,
+    Awaitable,
+    Callable,
+    Generic,
+    Protocol,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+)
 from typing import get_origin as ty_get_origin
 from weakref import ref
 
 from ididi import Graph, Resolver
 from ididi.interfaces import GraphIgnore
 
-from lihil.ds.event import Event  # Envelope,
-from lihil.interface import MISSING, P, R, Record
-from lihil.signature import EndpointSignature
+from lihil.interface import MISSING, Maybe, P, R, Struct
+from lihil.signature import EndpointSignature, Param
 from lihil.utils.typing import all_subclasses, get_origin_pro
 
 UNION_META = (UnionType, Union)
@@ -27,6 +37,9 @@ IGNORE_TYPES = (Context, FrozenContext)
 TODO:
 MsgCtx[T] = Annotated[T, CTX_MARKER]
 """
+
+
+E = TypeVar("E")
 
 
 # ============= Strategy ==============
@@ -458,12 +471,12 @@ def get_methodmetas(msg_base: type, cls: type) -> list[MethodMeta]:
 
 
 # TODO: separate EventRegistry and CommandRegistry
-class MessageRegistry:
+class MessageRegistry(Generic[E]):
     def __init__(
         self,
         *,
         command_base: Any = MISSING,
-        event_base: Any = MISSING,
+        event_base: Maybe[type[E]] = MISSING,
         graph: Any = MISSING,
     ):
         self._command_base = command_base
@@ -483,7 +496,7 @@ class MessageRegistry:
         return self._command_base
 
     @property
-    def event_base(self) -> Any:
+    def event_base(self) -> Maybe[type[E]]:
         return self._event_base
 
     def __repr__(self) -> str:
@@ -606,7 +619,7 @@ class MessageRegistry:
                 self.guard_mapping[target].append(meta)
 
 
-class EventBus(Record):
+class EventBus(Struct, Generic[E], frozen=True):
     resolver: Resolver
     lsnmgr: ListenerManager
     strategy: Any
@@ -615,7 +628,7 @@ class EventBus(Record):
 
     async def publish(
         self,
-        event: Event,
+        event: E,
         *,
         context: Any = None,
     ) -> None:
@@ -627,11 +640,11 @@ class EventBus(Record):
 
     def emit(
         self,
-        event: Event,
+        event: E,
         context: Any = None,
         callback: Any = None,
     ) -> None:
-        async def event_task(event: Event, context: Any):
+        async def event_task(event: E, context: Any):
             async with self.resolver.ascope() as asc:
                 listeners = await self.lsnmgr.resolve_listeners(
                     type(event), resolver=asc
@@ -656,12 +669,15 @@ class EventBus(Record):
             raise SinkUnsetError()
 
 
-class BusTerminal:
+PEventBus = Annotated[EventBus[Any], Param("plugin")]
+
+
+class BusTerminal(Generic[E]):
     "persist meta data of event bus and command bus"
 
     def __init__(
         self,
-        *registries: Any,
+        *registries: MessageRegistry[E],
         graph: Any = None,
         sink: Any = None,
         sender: Any = default_send,
@@ -680,7 +696,7 @@ class BusTerminal:
         self.include(*registries)
 
     def create_event_bus(self, resolver: Resolver):
-        return EventBus(
+        return EventBus[E](
             resolver, self._listener_manager, self._publisher, self._sink, self._tasks
         )
 
@@ -730,7 +746,7 @@ class BusTerminal:
 
 
 class BusPlugin:
-    def __init__(self, busterm: BusTerminal):
+    def __init__(self, busterm: BusTerminal[Any]):
         self.busterm = busterm
 
     async def decorate(
@@ -738,6 +754,7 @@ class BusPlugin:
     ) -> Callable[P, Awaitable[R]]:
         for name, param in sig.plugins.items():
             param_type, _ = get_origin_pro(param.type_)
+            param_type = ty_get_origin(param_type) or param_type
             if param_type is EventBus:
                 break
         else:

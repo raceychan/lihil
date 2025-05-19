@@ -5,6 +5,7 @@ from typing import (
     Annotated,
     Any,
     Callable,
+    Literal,
     Mapping,
     TypeGuard,
     Union,
@@ -25,12 +26,17 @@ from typing_extensions import TypeAliasType
 
 from lihil.errors import NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
-from lihil.interface import IRequest, Maybe, ParamSource, R, T
+from lihil.interface import IRequest, Maybe, R, T
 from lihil.interface.marks import Struct
 from lihil.interface.struct import IBodyDecoder, IDecoder, IFormDecoder, ITextualDecoder
 from lihil.utils.json import decoder_factory, encode_json
 from lihil.utils.string import find_path_keys, to_kebab_case
-from lihil.utils.typing import get_origin_pro, is_nontextual_sequence, is_union_type
+from lihil.utils.typing import (
+    get_origin_pro,
+    is_nontextual_sequence,
+    is_union_type,
+    lexient_issubclass,
+)
 from lihil.vendors import Request, UploadFile, WebSocket
 
 from .params import (
@@ -71,7 +77,7 @@ def is_body_param(annt: Any) -> bool:
             return is_body_param(annt_origin)
         if not isinstance(annt, type):
             raise NotSupportedError(f"Not Supported type {annt}")
-        return issubclass(annt, Struct) or is_file_body(annt)
+        return lexient_issubclass(annt, Struct) or is_file_body(annt)
 
 
 def textdecoder_factory(
@@ -90,13 +96,14 @@ def textdecoder_factory(
                 return content.encode("utf-8")
             return encode_json(content)
 
-        return str_to_bytes
+        return str_to_bytes  # type: ignore[no-untyped-def]
+
     if param_type is str:
 
         def dummy(content: str):
             return content
 
-        return dummy
+        return dummy  # type: ignore[no-untyped-def]
 
     def converter(content: str | list[str]) -> T:
         return convert(content, param_type, strict=False)
@@ -106,11 +113,13 @@ def textdecoder_factory(
 
 def filedeocder_factory(filename: str):
     def file_decoder(form_data: FormData) -> UploadFile:
-        if upload_file := form_data.get(filename):
-            return cast(UploadFile, upload_file)
-        raise FileNotFoundError(
-            f"File {filename} not found in form data, please check the request"
-        )
+        try:
+            file = form_data[filename]
+            return cast(UploadFile, file)
+        except KeyError:
+            raise FileNotFoundError(
+                f"File {filename} not found in form data, please check the request"
+            )
 
     return file_decoder
 
@@ -143,7 +152,7 @@ def file_body_param(
 def formdecoder_factory(
     ptype: type[T] | UnionType,
 ) -> IDecoder[FormData, T] | IDecoder[bytes, T]:
-    if not isinstance(ptype, type) or not issubclass(ptype, Struct):
+    if not lexient_issubclass(ptype, Struct):
         raise NotSupportedError(
             f"Only subclass of Struct is supported for `Form`, received {ptype}"
         )
@@ -165,7 +174,7 @@ def formdecoder_factory(
 
             values[ffield.name] = val
 
-        return convert(values, ptype)
+        return convert(values, ptype)  # type: ignore[no-untyped-call]
 
     return form_decoder
 
@@ -178,7 +187,7 @@ def req_param_factory(
     default: Maybe[T],
     decoder: ITextualDecoder[T] | None = None,
     param_meta: ParamMeta | None = None,
-    source: ParamSource = "query",
+    source: Literal["path", "query", "header", "cookie"] = "query",
 ) -> "RequestParam[T]":
 
     if isinstance(param_meta, ParamMeta) and param_meta.constraint:
@@ -232,7 +241,6 @@ def req_param_factory(
                 default=default,
             )
 
-
     return req_param
 
 
@@ -248,7 +256,9 @@ def is_lhl_primitive(param_type: Any) -> TypeGuard[type]:
             return is_lhl_primitive(type(param_type))
     else:
         type_origin = get_origin(param_type) or param_type
-        return param_type is IRequest or issubclass(type_origin, LIHIL_PRIMITIVES)
+        return param_type is IRequest or lexient_issubclass(
+            type_origin, LIHIL_PRIMITIVES
+        )
 
 
 class EndpointParser:
@@ -311,7 +321,7 @@ class EndpointParser:
             if param_meta and param_meta.decoder:
                 decoder = cast(IBodyDecoder[T] | IFormDecoder[T], param_meta.decoder)
             else:
-                decoder = None
+                decoder = decoder_factory(param_type)
 
             if is_file_body(param_type):
                 body_param = file_body_param(
@@ -322,9 +332,6 @@ class EndpointParser:
                     meta=None,
                 )
                 return cast(FormParam[T], body_param)
-
-            if decoder is None:
-                decoder = decoder_factory(param_type)
 
             req_param = BodyParam(
                 name=name,
@@ -360,7 +367,7 @@ class EndpointParser:
     ) -> "ParsedParam[T]":
 
         if param_meta.extra and param_meta.extra.use_jwt:
-            from lihil.auth.jwt import jwt_decoder_factory
+            from lihil.plugins.auth.jwt import jwt_decoder_factory
 
             decoder = jwt_decoder_factory(payload_type=type_)
         else:
@@ -482,6 +489,7 @@ class EndpointParser:
                 param_meta=param_meta,
             )
         elif param_source == "plugin":
+            type_ = type_ or type_
             return PluginParam(
                 type_=type_, annotation=annotation, name=name, default=default
             )
