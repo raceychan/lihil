@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from inspect import iscoroutinefunction
 from typing import Any, Awaitable, Callable, cast
 
@@ -90,11 +91,13 @@ class WebSocketRoute(RouteBase):
     def __repr__(self):
         return f"{self.__class__.__name__}({self.path!r}, {self.endpoint})"
 
-    async def setup(self, graph: Graph | None = None):
+    async def setup(
+        self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
+    ):
         if self.endpoint is None:
             raise RuntimeError(f"Empty websocket route")
 
-        await super().setup(graph=graph)
+        await super().setup(graph=graph, workers=workers)
         self.endpoint_parser = EndpointParser(self.graph, self.path)
         sig = self.endpoint_parser.parse(self.endpoint.unwrapped_func)
         if sig.body_param is not None:

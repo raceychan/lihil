@@ -200,10 +200,12 @@ class ConfigLoader:
 
     def load_config(
         self, *config_files: Path | str, config_type: type[TConfig] = AppConfig
-    ) -> TConfig:
+    ) -> TConfig | None:
         config_dict = self.load_files(*config_files)
         cli_config = load_from_cli(config_type=config_type)
         if cli_config:
             deep_update(config_dict, cli_config)
+        if not config_dict:
+            return None
         config = convert(config_dict, config_type)
         return config

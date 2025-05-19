@@ -1,3 +1,4 @@
+from concurrent.futures.thread import ThreadPoolExecutor
 from functools import partial
 from inspect import isasyncgen, iscoroutinefunction, isgenerator
 from types import MethodType
@@ -100,11 +101,12 @@ class Endpoint(Generic[R]):
         method: HTTP_METHODS,
         func: Callable[..., R],
         props: EndpointProps,
+        workers: ThreadPoolExecutor | None,
     ):
         self._route = route
         self._method: HTTP_METHODS = method
         self._unwrapped_func = func
-        self._func = async_wrapper(func, threaded=props.to_thread)
+        self._func = async_wrapper(func, threaded=props.to_thread, workers=workers)
         self._props = props
         self._name = func.__name__
         self.__is_setup: bool = False
@@ -271,6 +273,7 @@ class RouteBase(ASGIBase):
         self.path = trim_path(path)
         self.path_regex: Pattern[str] | None = None
         self.graph = graph or Graph(self_inject=False)
+        self.workers = None
         self.subroutes: list[Self] = []
 
     def __truediv__(self, path: str) -> "Self":
@@ -319,9 +322,10 @@ class RouteBase(ASGIBase):
     async def setup(
         self,
         graph: Graph | None = None,
-        # TODO: workers
+        workers: ThreadPoolExecutor | None = None,
     ):
         self.graph = graph or self.graph
+        self.workers = workers
 
 
 class Route(RouteBase):
@@ -354,8 +358,10 @@ class Route(RouteBase):
         endpoint = self.call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
         await endpoint(scope, receive, send)
 
-    async def setup(self, graph: Graph | None = None):
-        await super().setup(graph=graph)
+    async def setup(
+        self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
+    ):
+        await super().setup(workers=workers, graph=graph)
         self.endpoint_parser = EndpointParser(self.graph, self.path)
 
         for method, ep in self.endpoints.items():
@@ -400,10 +406,7 @@ class Route(RouteBase):
 
         for method in methods:
             endpoint = Endpoint(
-                self,
-                method=method,
-                func=func,
-                props=props,
+                self, method=method, func=func, props=props, workers=self.workers
             )
             self.endpoints[method] = endpoint
             if self.path_regex is None:

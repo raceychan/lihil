@@ -6,7 +6,6 @@ import pytest
 from msgspec.structs import FieldInfo
 
 from lihil import Request
-from lihil.plugins.bus import EventBus
 from lihil.config import (
     DEFAULT_CONFIG,
     AppConfig,
@@ -21,21 +20,13 @@ from lihil.config.parser import (
     build_parser,
     format_nested_dict,
     generate_parser_actions,
-    get_thread_cnt,
     is_provided,
     parse_field_type,
 )
 from lihil.errors import AppConfiguringError
 from lihil.interface import MISSING, Maybe
+from lihil.plugins.bus import EventBus
 from lihil.signature.parser import is_lhl_primitive
-
-
-
-def test_get_thread_cnt():
-    """Test that get_thread_cnt returns a positive integer"""
-    thread_count = get_thread_cnt()
-    assert isinstance(thread_count, int)
-    assert thread_count > 0
 
 
 def test_format_nested_dict():

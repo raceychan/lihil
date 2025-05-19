@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import TypeVar, cast, overload
+
 from ididi import Ignore
 
 from .app_config import AppConfig as AppConfig
@@ -28,7 +29,7 @@ def config_registry():
 
     def _read_config(
         *config_files: str | Path, config_type: type[TConfig] = AppConfig
-    ) -> TConfig:
+    ) -> TConfig | None:
         """Read config from config file as well as from command line arguments
         Read Order
         files -> env vars -> cli args"""

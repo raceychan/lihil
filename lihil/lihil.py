@@ -22,7 +22,7 @@ from ididi import Graph
 from typing_extensions import Unpack
 from uvicorn import run as uvi_run
 
-from lihil.config import IAppConfig, lhl_get_config, lhl_set_config
+from lihil.config import IAppConfig, lhl_get_config, lhl_read_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
@@ -100,6 +100,10 @@ class Lihil(ASGIBase):
         super().__init__(middlewares)
         if app_config is not None:
             lhl_set_config(app_config)
+        else:
+            loaded_config = lhl_read_config()
+            if loaded_config is not None:
+                lhl_set_config(loaded_config)
 
         self.workers = ThreadPoolExecutor(max_workers=max_thread_workers)
         self.graph = graph or Graph(
@@ -164,8 +168,7 @@ class Lihil(ASGIBase):
         self.call_stack = self.chainup_middlewares(self.call_route)
 
         for route in self.routes:
-            await route.setup(graph=self.graph)
-
+            await route.setup(graph=self.graph, workers=self.workers)
 
     def _generate_builtin_routes(self):
         config = lhl_get_config()
