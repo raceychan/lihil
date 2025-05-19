@@ -58,7 +58,7 @@ async def test_bus_is_singleton(bus_route: Route):
     assert get_origin(ep.sig.plugins["bus"].type_) is EventBus
 
 
-async def test_call_ep_invoke_bus(bus_route: Route, registry: MessageRegistry):
+async def test_call_ep_invoke_bus(bus_route: Route, registry: MessageRegistry[Event]):
     async def create_todo(
         name: str, content: str, bus: PEventBus
     ) -> Annotated[None, status.OK]:

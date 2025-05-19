@@ -10,9 +10,10 @@ from ididi import Graph
 
 from lihil.signature import EndpointSignature
 
-IFunc  = Callable[..., Awaitable[Any]]
+IFunc = Callable[..., Awaitable[Any]]
 
-class IPlugin(Protocol):
+
+class IAsyncPlugin(Protocol):
     async def __call__(
         self,
         graph: Graph,
@@ -30,3 +31,6 @@ class ISyncPlugin(Protocol):
         sig: EndpointSignature[Any],
         /,
     ) -> IFunc: ...
+
+
+IPlugin = IAsyncPlugin | ISyncPlugin

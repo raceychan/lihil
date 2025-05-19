@@ -541,23 +541,6 @@ async def test_route_add_middleware_sequence():
     assert result["mw2"] is True
 
 
-# async def test_route_has_listener():
-#     route = Route("/test")
-
-#     # Create listeners
-#     def listener1(event: Event):
-#         pass
-
-#     def listener2(event: Event):
-#         pass
-
-#     # Register only one listener
-#     route.listen(listener1)
-
-#     # Test has_listener
-#     assert route.has_listener(listener1) is True
-#     assert route.has_listener(listener2) is False
-
 
 async def test_route_on_lifespan():
     route = Route("aloha")

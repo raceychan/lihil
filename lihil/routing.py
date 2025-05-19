@@ -155,12 +155,16 @@ class Endpoint(Generic[R]):
     async def chainup_plugins(
         self, func: Callable[..., Awaitable[R]], sig: EndpointSignature[R]
     ) -> Callable[..., Awaitable[R]]:
+        seen: set[int] = set()
         for decor in self._props.plugins:
+            if (decor_id := id(decor)) in seen:
+                continue
             if iscoroutinefunction(decor):
                 wrapped = await decor(self._route.graph, func, sig)
             else:
                 wrapped = decor(self._route.graph, func, sig)
             func = cast(Callable[..., Awaitable[R]], wrapped)
+            seen.add(decor_id)
         return func
 
     async def setup(self, sig: EndpointSignature[R]) -> None:
@@ -267,7 +271,6 @@ class RouteBase(ASGIBase):
         self.path = trim_path(path)
         self.path_regex: Pattern[str] | None = None
         self.graph = graph or Graph(self_inject=False)
-
         self.subroutes: list[Self] = []
 
     def __truediv__(self, path: str) -> "Self":

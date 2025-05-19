@@ -3,8 +3,9 @@ from typing import Union
 
 import pytest
 
-from lihil.interface import MISSING, Base, get_maybe_vars, Maybe
+from lihil.interface import MISSING, Base, Maybe, get_maybe_vars
 from lihil.lihil import ThreadPoolExecutor
+from lihil.utils.algorithms import deep_merge
 from lihil.utils.json import encode_text
 from lihil.utils.string import to_kebab_case
 
@@ -102,3 +103,25 @@ def test_to_kebab_case():
     assert to_kebab_case("HTTPException") == "http-exception"
     assert to_kebab_case("UserAPI") == "user-api"
     assert to_kebab_case("OAuth2PasswordBearer") == "o-auth2-password-bearer"
+
+
+def test_deep_merge():
+
+    dict1 = {"a": 1, "b": {"c": 2, "d": 3}}
+    dict2 = {"b": {"c": 4}, "e": 5}
+
+    merged = deep_merge(dict1, dict2)
+    assert merged == {"a": 1, "b": {"c": 4, "d": 3}, "e": 5}
+
+    dict1 = {"a": [1, 2], "b": {"c": [3, 4]}}
+    dict2 = {"a": [5], "b": {"c": [6]}}
+
+    merged = deep_merge(dict1, dict2)
+    assert merged == {"a": [1, 2, 5], "b": {"c": [3, 4, 6]}}
+
+    # Test tuple and sets
+
+    dict1 = {"a": (1, 2), "b": {"c": {3, 4}}}
+    dict2 = {"a": (5,), "b": {"c": {6}}}
+    merged = deep_merge(dict1, dict2)
+    assert merged == {"a": (1, 2, 5), "b": {"c": {3, 4, 6}}}

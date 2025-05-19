@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Protocol, Sequence
+from typing import Annotated, Any, Protocol
 
 from msgspec import field
 from typing_extensions import Doc
@@ -40,7 +40,6 @@ class IAppConfig(Protocol):
     def server(self) -> IServerConfig: ...
     @property
     def oas(self) -> IOASConfig: ...
-
 
 
 class ConfigBase(Record, forbid_unknown_fields=True): ...

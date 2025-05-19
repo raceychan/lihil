@@ -6,7 +6,6 @@ from typing import (
     Generic,
     Literal,
     Protocol,
-    Sequence,
     TypeVar,
 )
 
@@ -17,6 +16,7 @@ from typing_extensions import Self, dataclass_transform
 
 from lihil.interface import UNSET
 from lihil.interface.marks import EMPTY_RETURN_MARK
+from lihil.utils.algorithms import deep_merge
 from lihil.vendors import FormData
 
 I = TypeVar("I")
@@ -86,7 +86,7 @@ class Base(Struct):
     def merge(self, other: Self) -> Self:
         "merge other props with current props, return a new props without modiying current props"
         vals = other.asdict(skip_defaults=True)
-        merged = self.asdict() | vals
+        merged = deep_merge(self.asdict(), vals)
         return self.__class__(**merged)
 
 

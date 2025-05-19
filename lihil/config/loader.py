@@ -1,6 +1,6 @@
 import abc
 from pathlib import Path
-from typing import Any, ClassVar, Sequence, TypeVar, cast
+from typing import ClassVar, Sequence, TypeVar
 
 from msgspec import convert
 
@@ -8,28 +8,9 @@ from lihil.config.app_config import AppConfig
 from lihil.config.parser import build_parser, format_nested_dict
 from lihil.errors import AppConfiguringError
 from lihil.interface import StrDict, is_provided
+from lihil.utils.algorithms import deep_update
 
 TConfig = TypeVar("TConfig", bound=AppConfig)
-
-
-def deep_update(original: StrDict, update_data: StrDict) -> StrDict:
-    """
-    Recursively update a nested dictionary without overwriting entire nested structures.
-    """
-
-    def both_instance(a: Any, b: Any, t: type) -> bool:
-        return isinstance(a, t) and isinstance(b, t)
-
-    for key, value in update_data.items():
-        if key not in original:
-            original[key] = value
-        else:
-            ori_val = original[key]
-            if both_instance(ori_val, value, dict):
-                deep_update(cast(StrDict, ori_val), cast(StrDict, value))
-            else:
-                original[key] = value
-    return original
 
 
 class UnsupportedFileFormatError(AppConfiguringError):
