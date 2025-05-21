@@ -1,4 +1,4 @@
-from typing import Annotated, TypeVar, Union
+from typing import Annotated, Generic, TypeAlias, TypeVar, Union
 
 import pytest
 
@@ -10,7 +10,7 @@ from lihil.utils.typing import (
     is_nontextual_sequence,
     is_text_type,
     is_union_type,
-    replace_typevars,
+    lexient_issubclass,
 )
 
 T = TypeVar("T")
@@ -165,24 +165,20 @@ def test_get_auth_header():
     assert metas[0].alias == "Authorization"
 
 
-# def test_replace_type_vars():
-#     """
-#     (Pdb) current_type_args
-#     (T, typing.Literal['Cookie'], C)
+class T1(Generic[K, V]): ...
 
-#     (Pdb) type_args
-#     (<class 'str'>, typing.Literal['Cookie'], typing.Literal['x-refresh-token'])
 
-#     (Pdb) replace_typevars(current_type_args, type_args)
-#     (<class 'str'>, typing.Literal['Cookie'], typing.Literal['Cookie'])
-#     """
-#     T = TypeVar("T")
-#     C = TypeVar("C")
+TAlias: TypeAlias = T1[K, V]
 
-#     current_type_args = (T, Literal["Cookie"], C)
-#     type_args = (str, Literal["Cookie"], Literal["x-refresh-token"])
 
-#     assert replace_typevars(current_type_args, type_args) == (
-#         str,
-#         Literal["Cookie", Literal["x-refresh-token"]],
-#     )
+def test_get_generic_types():
+
+    ptype, metas = get_origin_pro(TAlias[str, int])
+    assert ptype == T1[str, int]
+    assert not metas
+
+
+def test_lexient_issubclass():
+    assert lexient_issubclass(str, str)
+    assert lexient_issubclass(str, (str, object))
+    assert not lexient_issubclass(5, str)

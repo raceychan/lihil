@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Mapping
 from types import GenericAlias, UnionType
 from typing import (
@@ -94,10 +95,6 @@ def is_generic_type(type_: Any) -> bool:
     return isinstance(type_, TypeVar) or any(
         is_generic_type(arg) for arg in get_args(type_)
     )
-
-
-# def contains_generic_type(container: Sequence[Any]) -> bool:
-#     return any(is_generic_type(t) for t in container)
 
 
 def replace_typevars(
@@ -203,7 +200,8 @@ def get_origin_pro(
         if local_metas and metas:
             local_metas += metas
         return get_origin_pro(annt_type, local_metas, type_args)
-    elif isinstance(current_origin, TypeAliasType):
+
+    if isinstance(current_origin, TypeAliasType):
         dealiased = cast(TypeAliasType, type_).__value__
         dtype, demetas = get_origin_pro(dealiased, metas, type_args)
 
@@ -224,7 +222,7 @@ def get_origin_pro(
                 return dtype, None
         else:
             return get_origin_pro(dealiased, metas, type_args)
-    elif current_origin is UnionType:
+    if current_origin is UnionType:
         union_args = get_args(type_)
         utypes: list[type | UnionType | GenericAlias] = []
         new_metas: list[Any] = []
@@ -241,8 +239,8 @@ def get_origin_pro(
         else:
             metas.extend(new_metas)
         return get_origin_pro(Union[tuple(utypes)], metas, type_args)  # type: ignore
-    else:
-        return (cast(type, type_), cast(None, metas))
+
+    return (cast(type, type_), cast(None, metas))
 
 
 def all_subclasses(cls: type[T], ignore: set[type[Any]] | None = None) -> set[type[T]]:

@@ -31,19 +31,6 @@ def resp_mark(name: str) -> str:
     return f"{LIHIL_RESPONSE_MARK}_{name.upper()}__"
 
 
-def is_lihil_marked(m: Any, mark_prefix: str) -> bool:
-    if isinstance(m, str):
-        return m.startswith(mark_prefix)
-    elif ty_get_origin(m) is Annotated:
-        meta_args = get_args(m)
-        return any(is_lihil_marked(m, mark_prefix) for m in meta_args)
-    elif isinstance(m, (TypeAliasType, GenericAlias)):
-        value = getattr(m, "__value__", None)
-        return is_lihil_marked(value, mark_prefix) if value else False
-    else:
-        return False
-
-
 def extract_resp_type(mark: Any) -> "ResponseMark | None":
     if not isinstance(mark, str):
         return None
@@ -55,18 +42,6 @@ def extract_resp_type(mark: Any) -> "ResponseMark | None":
         return res.lower()  # type: ignore
     return None
 
-
-def is_resp_mark(m: Any) -> TypeGuard[TypeAliasType]:
-    """
-    marks that usually show up in endpoint return annotation
-    """
-    return is_lihil_marked(m, LIHIL_RESPONSE_MARK)
-
-
-# ================ Request ================
-
-
-# type AppState[T] = Annotated[T, "lihil_app_state"]
 
 
 # ================ Response ================

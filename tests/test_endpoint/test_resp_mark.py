@@ -2,8 +2,8 @@ from typing import Union
 
 import pytest
 
-from lihil import Payload, status
-from lihil.interface.marks import Json, is_resp_mark, resp_mark
+from lihil import Payload
+from lihil.interface.marks import resp_mark
 from lihil.routing import Route
 
 

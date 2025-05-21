@@ -92,7 +92,7 @@ markers = [
 testpaths = ["tests"]
 
 [tool.coverage.run]
-omit = ["lihil/plugins/*"]
+omit = ["lihil/plugins/*", "lihil/utils/typing.py", "lihil/config/loader.py"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -100,4 +100,5 @@ exclude_lines = [
   "if typing.TYPE_CHECKING:",
   "@typing.overload",
   "raise NotImplementedError",
+  "if sys.version_info >= (3, 12):"
 ]

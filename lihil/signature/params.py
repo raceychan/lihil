@@ -158,10 +158,6 @@ class Decodable(ParamBase[T], Generic[D, T], kw_only=True):
         )
 
     def decode(self, content: D) -> T:
-        """
-        for decoder in self.decoders:
-            content = decoder(content)
-        """
         return self.decoder(content)
 
     def validate(self, raw: D) -> "ParamResult[T]":
