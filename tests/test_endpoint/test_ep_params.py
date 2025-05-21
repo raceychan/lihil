@@ -8,8 +8,8 @@ from starlette.requests import Request
 
 from lihil import MISSING, DependentNode, Form, Graph, Param, Payload, Request, use
 from lihil.config import lhl_set_config
+from lihil.errors import InvalidParamSourceError, NotSupportedError, InvalidParamError
 from lihil.plugins.auth.jwt import JWTConfig
-from lihil.errors import InvalidParamError, NotSupportedError
 from lihil.signature.parser import (
     BodyParam,
     EndpointParser,
@@ -301,7 +301,7 @@ def test_analyze_endpoint_params(param_parser: EndpointParser):
 
 
 def test_param_parser_parse_unions(param_parser: EndpointParser):
-    with pytest.raises(NotSupportedError):
+    with pytest.raises(InvalidParamError):
         param_parser.parse_param("test", dict[str, int] | list[int])
 
 
@@ -317,7 +317,7 @@ def test_param_parser_parse_bytes_union(param_parser: EndpointParser):
 
 
 def test_invalid_Param(param_parser: EndpointParser):
-    with pytest.raises(NotSupportedError):
+    with pytest.raises(InvalidParamError):
         param_parser.parse_param("aloha", 5)
 
 
@@ -370,7 +370,7 @@ def test_param_repr_with_union_args(param_parser: EndpointParser):
 
 
 def test_body_param_repr(param_parser: EndpointParser):
-    with pytest.raises(NotSupportedError):
+    with pytest.raises(InvalidParamError):
         param = param_parser.parse_param("data", Annotated[bytes, Form()])[0]
 
     class UserData(Payload):
@@ -378,7 +378,6 @@ def test_body_param_repr(param_parser: EndpointParser):
         user_age: int
 
     param = param_parser.parse_param("data", Annotated[UserData, Form()])[0]
-
 
 
 def test_path_param_with_default_fail(param_parser: EndpointParser):
@@ -418,6 +417,9 @@ def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
 
 def test_JWTAuth_with_custom_decoder(param_parser: EndpointParser):
     from lihil.plugins.auth.jwt import JWTAuth
+    app_config = JWTConfig(jwt_secret="test", jwt_algorithms=["HS256"])
+    lhl_set_config(app_config)
+
 
     def ep_expects_jwt(
         user_id: Annotated[JWTAuth[str], Param(decoder=lambda c: c)],
@@ -494,7 +496,7 @@ def test_constraint_dt(param_parser: EndpointParser):
 
 def test_param_with_bytes_in_union(param_parser: EndpointParser):
 
-    with pytest.raises(NotSupportedError):
+    with pytest.raises(InvalidParamError):
         res = param_parser.parse_param("n", int | bytes)
 
 
@@ -553,7 +555,8 @@ async def test_parse_ep_with_path_key(param_parser: EndpointParser):
 
 async def test_endpoint_with_invalid_param(param_parser: EndpointParser):
 
-    with pytest.raises(InvalidParamError):
+    with pytest.raises(InvalidParamSourceError):
+
         async def with_header_key(
             user_agen: Annotated[str, Param("asdf")],
         ): ...

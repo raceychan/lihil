@@ -13,7 +13,7 @@ from lihil.errors import (
 )
 from lihil.interface import ASGIApp, Base
 from lihil.lihil import Lihil, lhl_set_config, lifespan_wrapper
-from lihil.plugins.testclient import LocalClient
+from lihil.local_client import LocalClient
 from lihil.routing import Route
 
 
@@ -780,7 +780,7 @@ async def test_a_problem_endpoint():
 
     from lihil import Lihil
     from lihil.constant import status
-    from lihil.plugins.testclient import LocalClient
+    from lihil.local_client import LocalClient
     from lihil.problems import HTTPException, problem_solver
 
     app = Lihil()

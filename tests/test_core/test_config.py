@@ -20,11 +20,10 @@ from lihil.config.parser import (
     build_parser,
     format_nested_dict,
     generate_parser_actions,
-    is_provided,
     parse_field_type,
 )
 from lihil.errors import AppConfiguringError
-from lihil.interface import MISSING, Maybe
+from lihil.interface import MISSING, Maybe, is_provided
 from lihil.plugins.bus import EventBus
 from lihil.signature.parser import is_lhl_primitive
 

@@ -34,9 +34,6 @@ class MiddlewareBuildError(LihilError):
         super().__init__(f"Unable to instantiate middleware from {factory}")
 
 
-class InvalidParamTypeError(LihilError): ...
-
-
 class NotSupportedError(LihilError):
     "A generic error for behaviors we currently do not support"
 
@@ -44,9 +41,10 @@ class NotSupportedError(LihilError):
         super().__init__(msg)
 
 
-class InvalidMarkTypeError(LihilError):
-    def __init__(self, mark_type: Any):
-        super().__init__(f"Invalid mark type {mark_type}")
+class InvalidParamError(LihilError): ...
+
+
+class InvalidParamPackError(InvalidParamError): ...
 
 
 class MissingDependencyError(LihilError):
@@ -54,7 +52,7 @@ class MissingDependencyError(LihilError):
         super().__init__(f"{dep_name} is required but not provided")
 
 
-class InvalidParamError(LihilError):
+class InvalidParamSourceError(LihilError):
     def __init__(self, source: str, param_sources: tuple[str, ...]):
         msg = f"Invalid source {source}, expected one of {param_sources}"
         super().__init__(msg)

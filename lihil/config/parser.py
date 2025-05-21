@@ -1,11 +1,11 @@
 import argparse
 from typing import Any, Sequence, cast, get_args
 
-from msgspec.structs import FieldInfo, fields
+from msgspec.structs import NODEFAULT, FieldInfo, fields
 from typing_extensions import Doc
 
 from lihil.config.app_config import ConfigBase
-from lihil.interface import MISSING, Record, StrDict, UnsetType, _Missed, is_provided
+from lihil.interface import MISSING, Record, StrDict, UnsetType, _Missed
 from lihil.utils.typing import get_origin_pro, is_union_type, lexient_issubclass
 
 
@@ -95,7 +95,7 @@ def generate_parser_actions(
             actions.extend(nested_actions)
         else:
             help_msg = f"{config_field.doc}"
-            if is_provided(field_default):
+            if field_info.default is not NODEFAULT:
                 help_msg += f"default: {field_default})"
 
             if field_type is bool:

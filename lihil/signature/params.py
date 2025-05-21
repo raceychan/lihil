@@ -1,12 +1,13 @@
+from copy import deepcopy
 from typing import Any, ClassVar, Generic, Literal, Mapping, TypeVar, Union, overload
 
 from ididi import DependentNode
 from msgspec import DecodeError
 from msgspec import Meta as Constraint
-from msgspec import Struct, ValidationError
+from msgspec import ValidationError
 from starlette.datastructures import FormData
 
-from lihil.errors import InvalidParamError, NotSupportedError
+from lihil.errors import InvalidParamSourceError, NotSupportedError
 from lihil.interface import BodyContentType, ParamBase, ParamSource, T, is_provided
 from lihil.interface.struct import Base, IBodyDecoder, IDecoder, ITextualDecoder
 from lihil.problems import (
@@ -17,7 +18,7 @@ from lihil.problems import (
     MissingRequestParam,
     ValidationProblem,
 )
-from lihil.utils.typing import is_mapping_type, is_nontextual_sequence
+from lihil.utils.typing import is_nontextual_sequence
 from lihil.vendors import FormData, Headers, QueryParams
 
 D = TypeVar("D", bound=bytes | FormData | str | list[str])
@@ -26,11 +27,11 @@ D = TypeVar("D", bound=bytes | FormData | str | list[str])
 class PluginParam(ParamBase[Any]): ...
 
 
-class ParamExtra(Struct):
+class ParamExtra(Base):
     use_jwt: bool = False
 
 
-class ParamMeta(Struct):
+class ParamMeta(Base):
     source: Union[ParamSource, None] = None
     alias: Union[str, None] = None
     decoder: IBodyDecoder[Any] | ITextualDecoder[Any] | None = None
@@ -89,7 +90,7 @@ def Param(
 ) -> ParamMeta:
     param_sources: tuple[str, ...] = ParamSource.__args__
     if source is not None and source not in param_sources:
-        raise InvalidParamError(source, param_sources)
+        raise InvalidParamSourceError(source, param_sources)
     if any(
         x is not None
         for x in (
@@ -200,22 +201,20 @@ class QueryParam(Decodable[str | list[str], T], kw_only=True):
     def __post_init__(self):
         super().__post_init__()
 
-        if is_mapping_type(self.type_):
-            raise NotSupportedError(
-                f"query param should not be declared as mapping type, or a union that contains mapping type, received: {self.type_}"
-            )
-
         self.multivals = is_nontextual_sequence(self.type_)
 
     def extract(self, queries: QueryParams | Headers) -> "ParamResult[T]":
         alias = self.alias
-        if self.multivals:
+        is_multivals = self.multivals
+        if is_multivals:
             raw = queries.getlist(alias)
         else:
             raw = queries.get(alias)
 
         if raw is None:
             if is_provided(default := self.default):
+                if is_multivals:
+                    return (deepcopy(default), None)
                 return (default, None)
             else:
                 return (None, MissingRequestParam(self.source, alias))

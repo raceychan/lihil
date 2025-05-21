@@ -209,8 +209,6 @@ Status = Literal[
 def is_status(status: Any) -> bool:
     if not (args := get_args(status)):
         return False
-    if not args:
-        return False
     return args[0] in Status.__args__
 
 

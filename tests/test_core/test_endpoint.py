@@ -19,11 +19,11 @@ from lihil import (
     field,
     status,
 )
+from lihil.config import DEFAULT_CONFIG, AppConfig, lhl_set_config
+from lihil.errors import AppConfiguringError, InvalidParamError, StatusConflictError
+from lihil.local_client import LocalClient
 from lihil.plugins.auth.jwt import JWTAuth, JWTConfig, JWTPayload, jwt_decoder_factory
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
-from lihil.config import DEFAULT_CONFIG, AppConfig, lhl_set_config
-from lihil.errors import MissingDependencyError, NotSupportedError, StatusConflictError
-from lihil.plugins.testclient import LocalClient
 from lihil.signature.parser import EndpointParser
 from lihil.utils.threading import async_wrapper
 from lihil.utils.typing import is_nontextual_sequence
@@ -397,7 +397,7 @@ async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
     # Content-Type header
     content_type = f"multipart/form-data; boundary={boundary}"
 
-    with pytest.raises(NotSupportedError):
+    with pytest.raises(InvalidParamError):
         await lc.call_endpoint(
             ep,
             body=multipart_data,
@@ -413,7 +413,7 @@ async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
         return "ok"
 
     rusers.get(get)
-    with pytest.raises(NotSupportedError):
+    with pytest.raises(InvalidParamError):
         await rusers.setup()
 
 
@@ -641,7 +641,7 @@ async def test_endpoint_with_jwt_fail_without_security_config(
 
     testroute.get_endpoint(get_me)
 
-    with pytest.raises(MissingDependencyError):
+    with pytest.raises(AppConfiguringError):
         await testroute.setup()
 
 

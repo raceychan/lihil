@@ -9,7 +9,7 @@ from lihil import Route, Text
 from lihil.plugins.auth.jwt import JWTPayload
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.errors import NotSupportedError
-from lihil.plugins.testclient import LocalClient
+from lihil.local_client import LocalClient
 from lihil.problems import InvalidAuthError
 
 

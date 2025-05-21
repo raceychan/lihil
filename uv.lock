@@ -1091,6 +1091,9 @@ standard = [
     { name = "pyjwt" },
     { name = "uvicorn", extra = ["standard"] },
 ]
+supabase = [
+    { name = "supabase" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1125,11 +1128,12 @@ requires-dist = [
     { name = "pyjwt", marker = "extra == 'standard'", specifier = ">=2.10.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "starlette", specifier = ">=0.45.3" },
+    { name = "supabase", marker = "extra == 'supabase'", specifier = ">=2.15.1" },
     { name = "tomli", specifier = ">=2.2.1" },
     { name = "typing-extensions", specifier = ">=4.12.2" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'standard'", specifier = ">=0.34.0" },
 ]
-provides-extras = ["standard"]
+provides-extras = ["standard", "supabase"]
 
 [package.metadata.requires-dev]
 dev = [

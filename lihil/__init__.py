@@ -20,7 +20,7 @@ from .interface import Payload as Payload
 from .interface import Stream as Stream
 from .interface import Text as Text
 from .lihil import Lihil as Lihil
-from .plugins.testclient import LocalClient as LocalClient
+from .local_client import LocalClient as LocalClient
 from .problems import HTTPException as HTTPException
 from .routing import Route as Route
 from .signature.params import Form as Form

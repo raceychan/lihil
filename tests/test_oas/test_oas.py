@@ -17,7 +17,7 @@ from lihil.oas.schema import (
     get_path_item_from_route,
     get_resp_schemas,
 )
-from lihil.plugins.testclient import LocalClient
+from lihil.local_client import LocalClient
 from lihil.problems import collect_problems
 from lihil.routing import EndpointProps
 

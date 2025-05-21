@@ -1,4 +1,6 @@
 from copy import deepcopy
+from dataclasses import MISSING as DS_MISSING
+from dataclasses import is_dataclass
 from inspect import Parameter, signature
 from types import GenericAlias, UnionType
 from typing import (
@@ -20,13 +22,14 @@ from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from ididi.utils.typing_utils import is_builtin_type
 from msgspec import Struct, convert
+from msgspec.structs import NODEFAULT
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
-from typing_extensions import TypeAliasType
+from typing_extensions import NotRequired, TypeAliasType, is_typeddict
 
-from lihil.errors import NotSupportedError
+from lihil.errors import InvalidParamPackError, InvalidParamError
 from lihil.interface import MISSING as LIHIL_MISSING
-from lihil.interface import IRequest, Maybe, R, T
+from lihil.interface import IRequest, Maybe, R, T, is_provided
 from lihil.interface.marks import Struct
 from lihil.interface.struct import IBodyDecoder, IDecoder, IFormDecoder, ITextualDecoder
 from lihil.utils.json import decoder_factory, encode_json
@@ -34,6 +37,7 @@ from lihil.utils.string import find_path_keys, to_kebab_case
 from lihil.utils.typing import (
     get_origin_pro,
     is_nontextual_sequence,
+    is_structured_type,
     is_union_type,
     lexient_issubclass,
 )
@@ -49,6 +53,7 @@ from .params import (
     HeaderParam,
     ParamMap,
     ParamMeta,
+    ParamSource,
     ParsedParam,
     PathParam,
     PluginParam,
@@ -76,7 +81,7 @@ def is_body_param(annt: Any) -> bool:
         if annt_origin := get_origin(annt):
             return is_body_param(annt_origin)
         if not isinstance(annt, type):
-            raise NotSupportedError(f"Not Supported type {annt}")
+            raise InvalidParamError(f"Invalid type {annt} for body param")
         return lexient_issubclass(annt, Struct) or is_file_body(annt)
 
 
@@ -86,7 +91,7 @@ def textdecoder_factory(
     if is_union_type(param_type):
         union_args = get_args(param_type)
         if bytes in union_args:
-            raise NotSupportedError(
+            raise InvalidParamError(
                 "Union of bytes and other types is not supported, as it is always valid to decode the object as bytes"
             )
     if param_type is bytes:
@@ -153,7 +158,7 @@ def formdecoder_factory(
     ptype: type[T] | UnionType,
 ) -> IDecoder[FormData, T] | IDecoder[bytes, T]:
     if not lexient_issubclass(ptype, Struct):
-        raise NotSupportedError(
+        raise InvalidParamError(
             f"Only subclass of Struct is supported for `Form`, received {ptype}"
         )
 
@@ -189,6 +194,11 @@ def req_param_factory(
     param_meta: ParamMeta | None = None,
     source: Literal["path", "query", "header", "cookie"] = "query",
 ) -> "RequestParam[T]":
+
+    if source in ("path", "query") and is_structured_type(param_type):
+        raise InvalidParamError(
+            f"Structured type, or a union that contains a structured type is not supported for {source} param, received: {param_type}"
+        )
 
     if isinstance(param_meta, ParamMeta) and param_meta.constraint:
         param_type = cast(type[T], Annotated[param_type, param_meta.constraint])
@@ -377,10 +387,11 @@ class EndpointParser:
             name=name,
             alias=header_key,
             param_type=type_,
+            default=default,
             annotation=annotation,
             decoder=decoder,
+            param_meta=param_meta,
             source="header",
-            default=default,
         )
 
         return req_param
@@ -459,6 +470,89 @@ class EndpointParser:
             )
         return body_param
 
+    def _parse_param_pack(
+        self,
+        name: str,
+        type_: type | UnionType,
+        annotation: Any,
+        default: Any,
+        param_meta: ParamMeta,
+    ) -> list[ParsedParam[Any]]:
+        if any(
+            val is not None
+            for val in (param_meta.alias, param_meta.decoder, param_meta.constraint)
+        ):
+            raise InvalidParamPackError(
+                f"Invalid param meta {param_meta} for param pack {name}: {annotation}"
+            )
+
+        if is_union_type(type_):
+            raise InvalidParamPackError(
+                f"param pack {name}: {annotation} should not be a union type"
+            )
+
+        type_ = cast(type, type_)
+
+        if is_provided(default):
+            raise InvalidParamPackError(
+                f"param pack {name}: {annotation} should not have a default value"
+            )
+
+        params: list[ParsedParam[Any]] = []
+
+        if issubclass(type_, Struct):
+            for f in get_fields(type_):
+                fdefault = f.default if f.default is not NODEFAULT else LIHIL_MISSING
+                if f.default_factory is not NODEFAULT:
+                    raise InvalidParamPackError(
+                        f"Param {f.name} with default factory is not supported in param pack"
+                    )
+                fparams = self.parse_param(
+                    name=f.name,
+                    annotation=f.type,
+                    default=fdefault,
+                    source=param_meta.source,
+                )
+                params.extend(fparams)
+
+        elif is_dataclass(type_):
+            for name, f in type_.__dataclass_fields__.items():
+                fdefault = LIHIL_MISSING if f.default is DS_MISSING else f.default
+                if f.default_factory is not DS_MISSING:
+                    raise InvalidParamPackError(
+                        f"Param {f.name!r} has default factory, which is not supported in param pack"
+                    )
+                fparams = self.parse_param(
+                    name=f.name,
+                    annotation=f.type,
+                    default=fdefault,
+                    source=param_meta.source,
+                )
+                params.extend(fparams)
+        elif is_typeddict(type_):
+            for name, annt in type_.__annotations__.items():
+                origin = get_origin(annt)
+                if origin is NotRequired:
+                    not_required_type = get_args(annt)[0]
+                    annt = Union[(not_required_type, None)]
+                    fdefault = None
+                else:
+                    fdefault = LIHIL_MISSING
+
+                fparams = self.parse_param(
+                    name=name,
+                    annotation=annt,
+                    default=fdefault,
+                    source=param_meta.source,
+                )
+                params.extend(fparams)
+        else:
+            raise InvalidParamPackError(
+                f"Invalid type for param pack {type_}"
+            )
+
+        return params
+
     def _parse_declared(
         self,
         name: str,
@@ -466,10 +560,23 @@ class EndpointParser:
         annotation: Any,
         default: Maybe[T],
         param_meta: ParamMeta,
-    ) -> "ParsedParam[T] | list[ParsedParam[T]]":
+    ) -> ParsedParam[T] | list[ParsedParam[T]]:
         assert param_meta.source
         param_source = param_meta.source
         param_alias = param_meta.alias or name
+
+        # TODO: get rid of this after refactor jwt auth into plugins
+        use_jwt = param_meta.extra and param_meta.extra.use_jwt
+
+        if param_source in ("path", "query", "header", "cookie"):
+            if not use_jwt and is_structured_type(type_):
+                return self._parse_param_pack(
+                    name=name,
+                    type_=type_,
+                    annotation=annotation,
+                    default=default,
+                    param_meta=param_meta,
+                )
 
         if param_source == "header":
             return self._parse_header(
@@ -510,19 +617,29 @@ class EndpointParser:
         name: str,
         annotation: type[T] | UnionType | GenericAlias | TypeAliasType,
         default: Maybe[T] = LIHIL_MISSING,
-    ) -> list["ParsedParam[T]"]:
-        parsed_type, pmetas = get_origin_pro(annotation)
+        source: ParamSource | None = None,
+    ) -> list[ParsedParam[T]]:
+        parsed_type, parsed_metas = get_origin_pro(annotation)
         parsed_type = cast(type[T], parsed_type)
         param_meta: ParamMeta | None = None
-        if pmetas:
-            for idx, meta in enumerate(pmetas):
+        if parsed_metas:
+            for idx, meta in enumerate(parsed_metas):
                 if isinstance(meta, (ParamMeta, BodyMeta)):
-                    param_meta = meta
+                    if param_meta:
+                        param_meta = param_meta.merge(meta)  # type: ignore
+                    else:
+                        param_meta = meta
                 elif meta == USE_FACTORY_MARK:
-                    factory, config = pmetas[idx + 1], pmetas[idx + 2]
+                    factory, config = parsed_metas[idx + 1], parsed_metas[idx + 2]
                     return self._parse_node(factory, config)
 
-        if param_meta is None or not param_meta.source:
+        if source is not None:
+            if param_meta is None:
+                param_meta = ParamMeta(source=source)
+            elif param_meta.source is None:
+                param_meta = param_meta.replace(source=source)
+
+        if param_meta is None or param_meta.source is None:
             res = self._parse_rule_based(
                 name=name,
                 param_type=parsed_type,
@@ -540,13 +657,7 @@ class EndpointParser:
             )
         return res if isinstance(res, list) else [res]
 
-    def parse_params(
-        self,
-        func_params: Mapping[str, Parameter],
-        path_keys: tuple[str, ...] | None = None,
-    ) -> EndpointParams:
-        if path_keys:
-            self.path_keys += path_keys
+    def parse_params(self, func_params: Mapping[str, Parameter]) -> EndpointParams:
 
         params: ParamMap[RequestParam[Any]] = {}
         bodies: ParamMap[BodyParam[Any, Any]] = {}

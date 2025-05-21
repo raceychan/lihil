@@ -7,7 +7,7 @@ from lihil import Graph, Text, Param, status
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend
 from lihil.ds.event import Event
-from lihil.plugins.testclient import LocalClient
+from lihil.local_client import LocalClient
 from lihil.routing import Route
 
 # from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
@@ -663,7 +663,6 @@ async def test_route_with_literal_resp():
     async def post_empty() -> Literal[None]: ...
 
     route.post(post_empty)
-    # with pytest.raises(InvalidParamTypeError):
     await route.setup()
 
     route.endpoints["POST"].sig.return_params[200]

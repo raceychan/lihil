@@ -1,7 +1,7 @@
 from premier import Throttler
 from premier import throttler as throttler
 from premier.handler import AsyncDefaultHandler as AsyncDefaultHandler
-from premier.handler import AsyncThrottleHandler as AsyncThrottleHandler
+from premier.interface import AsyncThrottleHandler as AsyncThrottleHandler
 
 from lihil.plugins import Any, Callable, EndpointSignature, Graph, IFunc
 

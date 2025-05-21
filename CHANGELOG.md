@@ -1020,7 +1020,7 @@ async def test_ep_requiring_upload_file_exceed_max_files(
 
 ## version 0.2.7
 
-### Features
+- Features
 
 - Plugin system
 
@@ -1075,7 +1075,7 @@ async def test_throttling():
 
 ## version 0.2.8
 
-### Refactor
+- Refactor
 
 - [x] remove `registry` and `listeners` from `Route`
 
@@ -1109,6 +1109,16 @@ async def test_route_merge_endpoint_plugin():
 
 -[x] `Lihil(max_thread_workers=x)` would set max thread workers to x, this would be used in `Graph` and `Endpoint` for executing sync function in thread workers.
 
-### Fixes
+- Fixes
 
 - [x] fix a bug where if lihil will not read config from cli upon initialization.
+
+## version 0.2.9
+
+- Features
+    1. ParamCollections, when combine Structualred data type(msgspec.Struct, Typeddict, dataclass)  with header, cookie, path, query param, would split the param collection into params.
+
+- Improvements
+    1. merge param meta
+
+    2. now for query, header, cookie param with sequence default value, such as list, would perform a deep copy operation to avoid changing mutable values.

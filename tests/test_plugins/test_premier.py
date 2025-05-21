@@ -3,7 +3,7 @@ from premier.handler import AsyncDefaultHandler
 from premier.errors import QuotaExceedsError
 
 from lihil.plugins.premier import PremierPlugin, throttler
-from lihil.plugins.testclient import LocalClient
+from lihil.local_client import LocalClient
 
 
 async def test_throttling():

@@ -8,7 +8,7 @@ from typing_extensions import Required, dataclass_transform
 
 from lihil.config import lhl_get_config
 from lihil.config.app_config import AppConfig, Doc, IAppConfig
-from lihil.errors import MissingDependencyError, NotSupportedError
+from lihil.errors import AppConfiguringError, MissingDependencyError, NotSupportedError
 from lihil.interface import MISSING, UNSET, Base, T, Unset, field, is_provided
 from lihil.problems import InvalidAuthError
 from lihil.signature.params import Param
@@ -117,6 +117,8 @@ class OAuth2Token(Base):
     scope: Unset[str] = UNSET
 
 
+# TODO: make this a plugin
+
 try:
     from jwt import PyJWT
     from jwt.api_jws import PyJWS
@@ -179,7 +181,9 @@ else:
         if not hasattr(app_config, "jwt_secret") or not hasattr(
             app_config, "jwt_algorithms"
         ):
-            raise MissingDependencyError("JWTConfig")
+            raise AppConfiguringError(
+                f"JWTAuth requires 'jwt_secret' and 'jwt_algorithms' attributes in {type(app_config)}"
+            )
         config = cast(IJWTConfig, app_config)
 
         secret = config.jwt_secret

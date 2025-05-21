@@ -4,7 +4,7 @@ import pytest
 from starlette.requests import Request
 
 from lihil import Empty, Param, Payload, Route, Text, use
-from lihil.plugins.testclient import LocalClient
+from lihil.local_client import LocalClient
 from lihil.problems import CustomValidationError
 from lihil.utils.json import encode_text
 

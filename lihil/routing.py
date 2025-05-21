@@ -39,7 +39,7 @@ from lihil.interface import (
     Record,
     T,
 )
-from lihil.plugins import IPlugin, ISyncPlugin
+from lihil.plugins import IPlugin
 from lihil.plugins.auth.oauth import AuthBase
 from lihil.problems import DetailBase, get_solver
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
@@ -67,7 +67,7 @@ class IEndpointProps(TypedDict, total=False):
     "Auth Scheme for access control"
     tags: Sequence[str] | None
     "OAS tag, endpoints with the same tag will be grouped together"
-    plugins: list[IPlugin | ISyncPlugin]
+    plugins: list[IPlugin]
     "Decorators to decorate the endpoint function"
 
 
@@ -78,9 +78,7 @@ class EndpointProps(Record, kw_only=True):
     scoped: Literal[True] | None = None
     auth_scheme: AuthBase | None = None
     tags: Sequence[str] | None = None
-    plugins: list[IPlugin | ISyncPlugin] = field(
-        default_factory=list[IPlugin | ISyncPlugin]
-    )
+    plugins: list[IPlugin] = field(default_factory=list[IPlugin])
 
     @classmethod
     def from_unpack(cls, **iconfig: Unpack[IEndpointProps]):

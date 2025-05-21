@@ -1,5 +1,5 @@
-import sys
 from collections.abc import Mapping
+from dataclasses import is_dataclass
 from types import GenericAlias, UnionType
 from typing import (
     Annotated,
@@ -15,7 +15,8 @@ from typing import (
 from typing import get_origin as ty_get_origin
 from typing import overload
 
-from typing_extensions import TypeAliasType, TypeGuard
+from msgspec import Struct
+from typing_extensions import TypeAliasType, TypeGuard, is_typeddict
 
 T = TypeVar("T")
 
@@ -52,11 +53,13 @@ def is_py_singleton(t: Any) -> Literal[None, True, False]:
 
 def is_union_type(
     t: type | UnionType | GenericAlias | TypeAliasType,
-):
+) -> TypeGuard[UnionType]:
     return ty_get_origin(t) in (Union, UnionType)
 
 
-def is_nontextual_sequence(type_: Any, strict: bool = False):
+def is_nontextual_sequence(
+    type_: Any, strict: bool = False
+) -> TypeGuard[list[Any] | tuple[Any] | bytearray]:
     type_origin = ty_get_origin(type_) or type_
 
     if type_origin is Union:
@@ -82,13 +85,21 @@ def is_text_type(t: type | UnionType | GenericAlias) -> bool:
     return t in (str, bytes)
 
 
-def is_mapping_type(qtype: type[Any] | UnionType | GenericAlias) -> bool:
-    if is_union_type(qtype):
-        q_union_args = get_args(qtype)
-        return any(is_mapping_type(q) for q in q_union_args)
+def is_structured_type(param_type: type[Any] | UnionType | GenericAlias) -> bool:
+    if is_union_type(param_type):
+        q_union_args = get_args(param_type)
+        return any(is_structured_type(q) for q in q_union_args)
 
-    qorigin = ty_get_origin(qtype) or qtype
-    return qorigin is dict or isinstance(qorigin, type) and issubclass(qorigin, Mapping)
+    qorigin = ty_get_origin(param_type) or param_type
+
+    if not isinstance(qorigin, type):
+        return False
+
+    return (
+        issubclass(qorigin, (Mapping, Struct))
+        or is_typeddict(qorigin)
+        or is_dataclass(qorigin)
+    )
 
 
 def is_generic_type(type_: Any) -> bool:

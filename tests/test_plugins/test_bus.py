@@ -11,7 +11,7 @@ from lihil.plugins.bus import (
     MessageRegistry,
     PEventBus,
 )
-from lihil.plugins.testclient import LocalClient
+from lihil.local_client import LocalClient
 
 
 class TodoCreated(Event):
