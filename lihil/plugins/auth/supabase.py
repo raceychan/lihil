@@ -1,18 +1,15 @@
-# from inspect import signature
 
 
-# from lihil import Request
-# from supabase import AsyncClient
+try:
+    from gotrue.types import (
+        SignInWithIdTokenCredentials as SignInWithIdTokenCredentials,
+    )
+    from supabase import AsyncClient
+except ImportError:
+    pass
+else:
 
-# # from lihil.errors import MissingDependencyError
-# from lihil.routing import Route
-# from lihil.interface import AppState, Record
-
-from supabase import AsyncClient
-
-from gotrue.types import SignInWithIdTokenCredentials as SignInWithIdTokenCredentials
-
-
+    def generate_login_function(): ...
 
 
 # class SupabasePlugin:
@@ -23,8 +20,8 @@ from gotrue.types import SignInWithIdTokenCredentials as SignInWithIdTokenCreden
 #         ...
 
 #         self.supabase.auth.sign_in_with_id_token()
-        # user = await self.supabase.auth.sign_up(email=email, password=password)
-        # return user
+# user = await self.supabase.auth.sign_up(email=email, password=password)
+# return user
 
 
 # class PhoneSignup(Record): ...

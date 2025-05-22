@@ -175,6 +175,8 @@ else:
                     decoded: dict[str, Any] = self.jwt.decode(
                         token, key=self.jwt_secret, algorithms=self.jwt_algorithms
                     )
+                    if payload_type is str:
+                        return decoded["sub"]
                     return convert(decoded, payload_type)
                 except InvalidTokenError:
                     raise InvalidAuthError("Unable to validate your credential")
