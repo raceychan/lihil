@@ -1122,6 +1122,12 @@ async def test_route_merge_endpoint_plugin():
 - Improvements
 
   1. merge param meta
+     These two params are equivalent
+
+  ```python
+  Annotated[str, Param("header"), Param(alias="x-auth-token"), Param(decoder=lambda x: x)]
+  Annotated[str, Param("header", alias="x-auth-token", decoder=lambda x: x)]
+  ```
 
   2. now for query, header, cookie param with sequence default value, such as list, would perform a deep copy operation to avoid changing mutable values.
 

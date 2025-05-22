@@ -1,17 +1,18 @@
 from time import time
-from typing import Annotated, Any, Literal, Sequence, TypedDict, TypeVar
+from types import UnionType
+from typing import Annotated, Any, Literal, Sequence, TypedDict
 from uuid import uuid4
 
 from ididi import Graph
 from msgspec import convert
+from msgspec.structs import asdict as struct_asdict
 from typing_extensions import Required, Unpack
 
 from lihil.config.app_config import AppConfig, Doc, IAppConfig
-from lihil.interface import UNSET, Base, IAsyncFunc, P, R, Unset
+from lihil.interface import UNSET, Base, IAsyncFunc, P, R, Struct, Unset
 from lihil.problems import InvalidAuthError
 from lihil.signature import EndpointSignature, Param
 from lihil.utils.json import encode_json
-from lihil.utils.typing import lexient_issubclass
 
 
 def jwt_timeclaim():
@@ -59,19 +60,6 @@ class JWTOptions(TypedDict, total=False):
     require: list[Any]
 
 
-"""
-| Code | Name             | Description                                                                 |
-|------|------------------|-----------------------------------------------------------------------------|
-| iss  | Issuer           | Principal that issued the JWT.                                              |
-| sub  | Subject          | The subject of the JWT.                                                     |
-| aud  | Audience         | The recipients that the JWT is intended for.                                |
-| exp  | Expiration Time  | The expiration time on and after which the JWT must not be accepted.        |
-| nbf  | Not Before       | The time on which the JWT will start to be accepted. Must be a NumericDate. |
-| iat  | Issued At        | The time at which the JWT was issued. Must be a NumericDate.                |
-| jti  | JWT ID           | Case-sensitive unique identifier of the token, even among different issuers.|
-"""
-
-
 class OAuth2Token(Base):
     "https://www.oauth.com/oauth2-servers/access-tokens/access-token-response/"
 
@@ -112,8 +100,7 @@ else:
         ) -> IAsyncFunc[P, R]:
             for _, param in sig.header_params.items():
                 if param.alias == "Authorization":
-                    if lexient_issubclass(param.type_, Base):
-                        param.decoder = self.jwt_decode_factory(param.type_)
+                    param.decoder = self.jwt_decode_factory(param.type_)
             return func
 
         def encode_plugin(
@@ -124,6 +111,17 @@ else:
             aud: str | None = None,
             scheme_type: type[OAuth2Token] = OAuth2Token,
         ):
+            """
+            | Code | Name             | Description                                                                 |
+            |------|------------------|-----------------------------------------------------------------------------|
+            | iss  | Issuer           | Principal that issued the JWT.                                              |
+            | sub  | Subject          | The subject of the JWT.                                                     |
+            | aud  | Audience         | The recipients that the JWT is intended for.                                |
+            | exp  | Expiration Time  | The expiration time on and after which the JWT must not be accepted.        |
+            | nbf  | Not Before       | The time on which the JWT will start to be accepted. Must be a NumericDate. |
+            | iat  | Issued At        | The time at which the JWT was issued. Must be a NumericDate.                |
+            | jti  | JWT ID           | Case-sensitive unique identifier of the token, even among different issuers.|
+            """
             if expires_in_s < 0:
                 raise ValueError(
                     "expires_in_s must be greater than 0, got {expires_in_s}"
@@ -133,39 +131,36 @@ else:
                 graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
             ) -> IAsyncFunc[P, R]:
 
-                for code, param in sig.return_params.items():
-                    param_type = param.type_
-                    if issubclass(param_type, Base):
+                def encode_jwt(content: Struct | str) -> bytes:
+                    if isinstance(content, str):
+                        payload_dict: dict[str, Any] = dict(sub=content)
+                    else:
+                        payload_dict = struct_asdict(content)
 
-                        def encode_jwt(content: Base) -> bytes:
-                            payload_dict = content.asdict()
-                            payload_dict["iat"] = now_ = jwt_timeclaim()
-                            payload_dict["jti"] = uuid_factory()
-                            payload_dict["exp"] = now_ + expires_in_s
+                    payload_dict["iat"] = now_ = jwt_timeclaim()
+                    payload_dict["jti"] = uuid_factory()
+                    payload_dict["exp"] = now_ + expires_in_s
 
-                            if iss is not None:
-                                payload_dict["iss"] = iss
-                            if nbf is not None:
-                                payload_dict["nbf"] = nbf
-                            if aud is not None:
-                                payload_dict["aud"] = aud
+                    if iss is not None:
+                        payload_dict["iss"] = iss
+                    if nbf is not None:
+                        payload_dict["nbf"] = nbf
+                    if aud is not None:
+                        payload_dict["aud"] = aud
 
-                            payload_bytes = encode_json(content)
-                            jwt = self.jws.encode(payload_bytes, key=self.jwt_secret)
-                            token_resp = scheme_type(
-                                access_token=jwt, expires_in=expires_in_s
-                            )
-                            resp = encode_json(token_resp)
-                            return resp
+                    payload_bytes = encode_json(content)
+                    jwt = self.jws.encode(payload_bytes, key=self.jwt_secret)
+                    token_resp = scheme_type(access_token=jwt, expires_in=expires_in_s)
+                    resp = encode_json(token_resp)
+                    return resp
 
-                        sig.return_params[code] = param.replace(encoder=encode_jwt)
-                    break
+                sig.default_return.encoder = encode_jwt
 
                 return func
 
             return jwt_encoder_factory
 
-        def jwt_decode_factory(self, payload_type: Base):
+        def jwt_decode_factory(self, payload_type: type | UnionType):
             def decode_jwt(content: str | list[str]):
                 if isinstance(content, list):
                     raise InvalidAuthError(

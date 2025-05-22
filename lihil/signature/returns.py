@@ -9,16 +9,15 @@ from lihil.constant.status import is_status
 from lihil.errors import InvalidStatusError, NotSupportedError, StatusConflictError
 from lihil.interface import (
     MISSING,
+    Base,
     CustomEncoder,
     IEncoder,
-    Record,
     RegularTypes,
     T,
     _Missed,
     is_provided,
 )
 from lihil.interface.marks import ResponseMark, extract_resp_type
-from lihil.signature.params import ParamMeta
 from lihil.utils.json import encode_json, encode_text
 from lihil.utils.typing import get_origin_pro, is_union_type
 
@@ -61,7 +60,7 @@ def is_annotated(annt: Any) -> TypeGuard[RegularTypes]:
     return is_provided(annt) and annt is not Parameter.empty
 
 
-class EndpointReturn(Record, Generic[T]):
+class EndpointReturn(Base, Generic[T]):
     type_: type[T] | UnionType | GenericAlias | TypeAliasType | _Missed | None
     status: int
     encoder: IEncoder[T]

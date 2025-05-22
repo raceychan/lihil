@@ -20,7 +20,6 @@ from warnings import warn
 from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
-from ididi.utils.typing_utils import is_builtin_type
 from msgspec import Struct, convert
 from msgspec.structs import NODEFAULT
 from msgspec.structs import fields as get_fields
@@ -513,7 +512,7 @@ class EndpointParser:
                     source=param_meta.source,
                 )
                 params.extend(fparams)
-        elif is_dataclass(type_):
+        elif is_dataclass(type_):  # type: ignore
             for name, f in type_.__dataclass_fields__.items():
                 fdefault = LIHIL_MISSING if f.default is DS_MISSING else f.default
                 if f.default_factory is not DS_MISSING:
@@ -522,7 +521,7 @@ class EndpointParser:
                     )
                 fparams = self.parse_param(
                     name=f.name,
-                    annotation=f.type,
+                    annotation=f.type,  # type: ignore
                     default=fdefault,
                     source=param_meta.source,
                 )
