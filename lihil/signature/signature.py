@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Generic
 from ididi import DependentNode, Resolver
 from msgspec import Struct
 
-from lihil.interface import Base, IEncoder, R, Record
+from lihil.interface import Base, R, Record
 from lihil.problems import InvalidFormError, InvalidRequestErrors, ValidationProblem
 from lihil.vendors import (
     FormData,
@@ -54,9 +54,19 @@ class EndpointSignature(Base, Generic[R]):
     scoped: bool
     form_meta: FormMeta | None
 
-    status_code: int
-    return_encoder: IEncoder[R]
     return_params: dict[int, EndpointReturn[R]]
+
+    @property
+    def default_return(self):
+        return next(iter(self.return_params.values()))
+
+    @property
+    def status_code(self):
+        return self.default_return.status
+
+    @property
+    def encoder(self):
+        return self.default_return.encoder
 
     @property
     def static(self) -> bool:

@@ -19,10 +19,16 @@ from lihil import (
     field,
     status,
 )
-from lihil.config import DEFAULT_CONFIG, AppConfig, lhl_set_config
-from lihil.errors import AppConfiguringError, InvalidParamError, StatusConflictError
+from lihil.config import DEFAULT_CONFIG, lhl_set_config
+from lihil.errors import InvalidParamError, StatusConflictError
 from lihil.local_client import LocalClient
-from lihil.plugins.auth.jwt import JWTAuth, JWTConfig, JWTPayload, jwt_decoder_factory
+from lihil.plugins.auth.jwt import (
+    JWTAuth,
+    JWTAuthPlugin,
+    JWTConfig,
+    JWTPayload,
+    OAuth2Token,
+)
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.signature.parser import EndpointParser
 from lihil.utils.threading import async_wrapper
@@ -45,7 +51,7 @@ def rusers() -> Route:
 
 @pytest.fixture
 def testroute() -> Route:
-    app_config = JWTConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
+    app_config = JWTConfig(JWT_SECRET="mysecret", JWT_ALGORITHMS=["HS256"])
     lhl_set_config(app_config)
     route = Route("test")
     route.endpoint_parser = EndpointParser(route.graph, route.path)
@@ -91,7 +97,7 @@ async def test_status_conflict(rusers: Route):
 
     rusers.get(get_user)
     with pytest.raises(StatusConflictError):
-        ep = rusers.get_endpoint(get_user)
+        rusers.get_endpoint(get_user)
         await rusers.setup()
 
 
@@ -575,31 +581,31 @@ class UserProfile(JWTPayload):
     user_name: str
 
 
-async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
+# async def test_endpoint_returns_jwt_payload(testroute: Route, lc: LocalClient):
 
-    async def get_token(data: OAuthLoginForm) -> JWTAuth[UserProfile]:
-        return UserProfile(user_id="1", user_name=data.username)
+#     async def get_token(data: OAuthLoginForm) -> JWTAuth[UserProfile]:
+#         return UserProfile(user_id="1", user_name=data.username)
 
-    testroute.post(get_token)
+#     testroute.post(get_token)
 
-    ep = testroute.get_endpoint(get_token)
+#     ep = testroute.get_endpoint(get_token)
 
-    app_config = JWTConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-    lhl_set_config(app_config)
-    await testroute.setup()
+#     app_config = JWTConfig(JWT_SECRET="mysecret", JWT_ALGORITHMS=["HS256"])
+#     lhl_set_config(app_config)
+#     await testroute.setup()
 
-    res = await lc.submit_form(
-        ep, form_data={"username": "user", "password": "pasword"}
-    )
+#     res = await lc.submit_form(
+#         ep, form_data={"username": "user", "password": "pasword"}
+#     )
 
-    token = await res.json()
+#     token = await res.json()
 
-    decoder = jwt_decoder_factory(payload_type=UserProfile)
-    token_type, token = token["token_type"], token["access_token"]
-    content = f"{token_type.capitalize()} {token}"
+#     decoder = jwt_decoder_factory(payload_type=UserProfile)
+#     token_type, token = token["token_type"], token["access_token"]
+#     content = f"{token_type.capitalize()} {token}"
 
-    payload = decoder(content)
-    assert isinstance(payload, UserProfile)
+#     payload = decoder(content)
+#     assert isinstance(payload, UserProfile)
 
 
 async def test_oauth2_not_plugin():
@@ -617,11 +623,26 @@ async def test_oauth2_not_plugin():
     assert ep.sig.header_params
 
 
-async def test_endpoint_with_jwt_decode_fail(testroute: Route, lc: LocalClient):
-    async def get_me(token: JWTAuth[UserProfile]):
+@pytest.fixture
+def jwt_auth_plugin():
+    return JWTAuthPlugin(jwt_secret="mysecret", jwt_algorithms="HS256")
+
+
+async def test_endpoint_with_jwt_decode_fail(
+    testroute: Route, lc: LocalClient, jwt_auth_plugin: JWTAuthPlugin
+):
+    async def get_me(
+        token: Annotated[
+            UserProfile,
+            Param("header", alias="Authorization", extra_meta=dict(skip_unpack=True)),
+        ],
+    ):
         assert isinstance(token, UserProfile)
 
-    testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
+    testroute.get(
+        auth_scheme=OAuth2PasswordFlow(token_url="token"),
+        plugins=[jwt_auth_plugin.decode_plugin],
+    )(get_me)
 
     ep = testroute.get_endpoint(get_me)
     await testroute.setup()
@@ -630,36 +651,22 @@ async def test_endpoint_with_jwt_decode_fail(testroute: Route, lc: LocalClient):
     assert res.status_code == 401
 
 
-async def test_endpoint_with_jwt_fail_without_security_config(
-    testroute: Route, lc: LocalClient
+@pytest.mark.debug
+async def test_endpoint_login_and_validate(
+    testroute: Route, lc: LocalClient, jwt_auth_plugin: JWTAuthPlugin
 ):
-    async def get_me(token: JWTAuth[UserProfile]):
-        assert isinstance(token, UserProfile)
-
-    lhl_set_config()
-    testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
-
-    testroute.get_endpoint(get_me)
-
-    with pytest.raises(AppConfiguringError):
-        await testroute.setup()
-
-
-async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
-    from lihil.config import lhl_set_config
-
+    @testroute.get(
+        auth_scheme=OAuth2PasswordFlow(token_url="token"),
+        plugins=[jwt_auth_plugin.decode_plugin],
+    )
     async def get_me(token: JWTAuth[UserProfile]) -> Annotated[Text, status.OK]:
         assert token.user_id == "1" and token.user_name == "2"
         return "ok"
 
-    async def login_get_token(login_form: OAuthLoginForm) -> JWTAuth[UserProfile]:
+    @testroute.post(plugins=[jwt_auth_plugin.encode_plugin(OAuth2Token)])
+    async def login_get_token(login_form: OAuthLoginForm) -> UserProfile:
         return UserProfile(user_id="1", user_name="2")
 
-    testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
-    testroute.post(login_get_token)
-    lhl_set_config(
-        app_config=JWTConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-    )
     await testroute.setup()
 
     login_ep = testroute.get_endpoint(login_get_token)
@@ -671,47 +678,6 @@ async def test_endpoint_login_and_validate(testroute: Route, lc: LocalClient):
     token_data = await res.json()
 
     token_type, token = token_data["token_type"], token_data["access_token"]
-    token_type: str
-
-    lc.update_headers({"Authorization": f"{token_type.capitalize()} {token}"})
-
-    meep = testroute.get_endpoint(get_me)
-
-    res = await lc(meep)
-
-    assert res.status_code == 200
-    assert await res.text() == "ok"
-
-
-@pytest.mark.skip("not implemented")
-async def test_endpoint_login_and_validate_with_str_resp(
-    testroute: Route, lc: LocalClient
-):
-    async def get_me(token: JWTAuth[str]) -> Annotated[Text, status.OK]:
-        assert token == "user_id"
-        return "ok"
-
-    async def login_get_token(login_form: OAuthLoginForm) -> JWTAuth[str]:
-        return "user_id"
-
-    testroute.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_me)
-    testroute.post(login_get_token)
-    set_config(
-        AppConfig(
-            security=SecurityConfig(jwt_secret="mysecret", jwt_algorithms=["HS256"])
-        )
-    )
-    await testroute.setup()
-
-    login_ep = testroute.get_endpoint(login_get_token)
-
-    res = await lc.submit_form(
-        login_ep, form_data={"username": "user", "password": "test"}
-    )
-
-    token_data = await res.json()
-
-    token_type, token = token_data["token_type"], token_data["token"]
     token_type: str
 
     lc.update_headers({"Authorization": f"{token_type.capitalize()} {token}"})

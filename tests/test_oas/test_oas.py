@@ -59,7 +59,7 @@ async def test_get_order_schema(user_route: Route):
     ep_rt.type_ == Union[Order, User]
     components = {"schemas": {}}
     ep_oas = generate_op_from_ep(
-        current_ep, components["schemas"], {}, oas_config.problem_path
+        current_ep, components["schemas"], {}, oas_config.PROBLEM_PATH
     )
 
 

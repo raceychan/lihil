@@ -1116,9 +1116,15 @@ async def test_route_merge_endpoint_plugin():
 ## version 0.2.9
 
 - Features
-    1. ParamCollections, when combine Structualred data type(msgspec.Struct, Typeddict, dataclass)  with header, cookie, path, query param, would split the param collection into params.
+
+  1. ParamPack, when combine Structualred data type(msgspec.Struct, Typeddict, dataclass) with header, cookie, path, query param, would split the param collection into params.
 
 - Improvements
-    1. merge param meta
 
-    2. now for query, header, cookie param with sequence default value, such as list, would perform a deep copy operation to avoid changing mutable values.
+  1. merge param meta
+
+  2. now for query, header, cookie param with sequence default value, such as list, would perform a deep copy operation to avoid changing mutable values.
+
+- Refactors
+  - change AppConfig attribute names to uppercase
+  - change JWTAuth to a plugin

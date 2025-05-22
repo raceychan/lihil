@@ -122,13 +122,13 @@ def test_build_parser():
     # Check that basic arguments are added
     actions = {action.dest: action for action in parser._actions}
 
-    assert "is_prod" in actions
-    assert "version" in actions
+    assert "IS_PROD" in actions
+    assert "VERSION" in actions
 
     # Check nested config arguments
-    assert "oas.title" in actions
-    assert "server.host" in actions
-    assert "server.port" in actions
+    assert "oas.TITLE" in actions
+    assert "server.HOST" in actions
+    assert "server.PORT" in actions
 
 
 def test_load_config_toml():
@@ -137,26 +137,26 @@ def test_load_config_toml():
         tmp.write(
             """
         [lihil]
-        is_prod = true
-        version = "1.0.0"
+        IS_PROD = true
+        VERSION = "1.0.0"
 
         [lihil.oas]
-        title = "Test API"
+        TITLE = "Test API"
 
         [lihil.server]
-        host = "127.0.0.1"
-        port = 9000
+        HOST = "127.0.0.1"
+        PORT = 9000
         """
         )
         tmp.flush()
 
         config = ConfigLoader().load_config(tmp.name)
 
-        assert config.is_prod is True
-        assert config.version == "1.0.0"
-        assert config.oas.title == "Test API"
-        assert config.server.host == "127.0.0.1"
-        assert config.server.port == 9000
+        assert config.IS_PROD is True
+        assert config.VERSION == "1.0.0"
+        assert config.oas.TITLE == "Test API"
+        assert config.server.HOST == "127.0.0.1"
+        assert config.server.PORT == 9000
 
 
 def test_load_config_toml_alternative_format():
@@ -165,20 +165,20 @@ def test_load_config_toml_alternative_format():
         tmp.write(
             """
         [lihil]
-        is_prod = true
-        version = "1.0.0"
+        IS_PROD = true
+        VERSION = "1.0.0"
 
         [lihil.oas]
-        title = "Test API"
+        TITLE = "Test API"
         """
         )
         tmp.flush()
 
         config = ConfigLoader().load_config(tmp.name)
 
-        assert config.is_prod is True
-        assert config.version == "1.0.0"
-        assert config.oas.title == "Test API"
+        assert config.IS_PROD is True
+        assert config.VERSION == "1.0.0"
+        assert config.oas.TITLE == "Test API"
 
 
 def test_load_config_nonexistent():
@@ -212,15 +212,15 @@ def test_load_config_missing_table():
 def test_config_from_cli(monkeypatch):
     """Test loading config from command line arguments"""
     # Mock sys.argv to simulate command line arguments
-    test_args = ["prog", "--is_prod", "--version", "2.0.0", "--server.port", "8080"]
+    test_args = ["prog", "--IS_PROD", "--VERSION", "2.0.0", "--server.PORT", "8080"]
     monkeypatch.setattr("sys.argv", test_args)
 
     config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
-    assert config_dict["is_prod"] is True
-    assert config_dict["version"] == "2.0.0"
-    assert config_dict["server"]["port"] == 8080
+    assert config_dict["IS_PROD"] is True
+    assert config_dict["VERSION"] == "2.0.0"
+    assert config_dict["server"]["PORT"] == 8080
 
 
 def test_config_from_cli_empty(monkeypatch):
@@ -237,7 +237,7 @@ def test_config_from_cli_empty(monkeypatch):
 def test_config_from_cli_should_filter_provided_flags(monkeypatch):
     """Test that config_from_cli should filter out _provided attributes"""
     # Mock sys.argv with a boolean flag
-    test_args = ["prog", "--is_prod"]
+    test_args = ["prog", "--IS_PROD"]
     monkeypatch.setattr("sys.argv", test_args)
 
     # Get CLI config
@@ -252,8 +252,8 @@ def test_config_from_cli_should_filter_provided_flags(monkeypatch):
         assert not key.endswith("_provided"), f"Found unexpected _provided flag: {key}"
 
     # Check that the actual flag is still there
-    assert "is_prod" in cli_config
-    assert cli_config["is_prod"] is True
+    assert "IS_PROD" in cli_config
+    assert cli_config["IS_PROD"] is True
 
 
 def test_config_from_cli_fix():
@@ -309,7 +309,7 @@ def test_generate_app_confg_acotions():
 
 
 def test_empty_set_config_reset_config():
-    config = AppConfig(is_prod=True)
+    config = AppConfig(IS_PROD=True)
     lhl_set_config(config)
     assert lhl_get_config() is config
 

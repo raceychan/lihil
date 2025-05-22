@@ -60,11 +60,11 @@ async def test_lifespan_wrapper_with_invalid():
 
 async def test_read_config_with_app_config():
     # Test read_config with app_config
-    app_config = AppConfig(version="0.2.0")
+    app_config = AppConfig(VERSION="0.2.0")
     lhl_set_config(app_config)
     config = lhl_get_config()
     assert config is app_config
-    assert config.version == "0.2.0"
+    assert config.VERSION == "0.2.0"
 
 
 async def test_lihil_basic_routing():
@@ -831,7 +831,7 @@ async def test_lihil_run():
 
 async def test_lihil_run_with_workers():
 
-    config = AppConfig(server=ServerConfig(workers=2))
+    config = AppConfig(server=ServerConfig(WORKERS=2))
 
     lhl = Lihil(app_config=config)
 
@@ -920,7 +920,7 @@ async def test_lhl_add_sub_route_before_route():
 
 
 async def test_lhl_rerpr():
-    config = AppConfig(server=ServerConfig(host="127.0.0.1", port=8000))
+    config = AppConfig(server=ServerConfig(HOST="127.0.0.1", PORT=8000))
     lhl = Lihil(app_config=config)
     lhl_repr = repr(lhl)
     assert lhl_repr

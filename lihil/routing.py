@@ -179,7 +179,8 @@ class Endpoint(Generic[R]):
         self._static = sig.static
         self._status_code = sig.status_code
         self._scoped: bool = sig.scoped or self._props.scoped is True
-        self._encoder = sig.return_encoder
+        self._encoder = sig.encoder
+
         self._media_type = sig.media_type
 
         self.__is_setup = True

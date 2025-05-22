@@ -5,6 +5,7 @@ from typing import (
     Any,
     AsyncContextManager,
     AsyncGenerator,
+    Awaitable,
     Callable,
     Generic,
     Iterator,
@@ -52,6 +53,7 @@ BodyContentType = Literal[
     "application/json", "multipart/form-data", "application/x-www-form-urlencoded"
 ]
 Func = Callable[P, R]
+IAsyncFunc = Callable[P, Awaitable[R]]
 
 
 StrDict = dict[str, Any]

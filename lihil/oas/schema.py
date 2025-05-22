@@ -440,14 +440,14 @@ def generate_oas(
             route=route,
             schemas=schemas,
             security_schemas=security_schemas,
-            problem_path=oas_config.problem_path,
+            problem_path=oas_config.PROBLEM_PATH,
         )
 
     comp = oasmodel.Components(**components)
-    info = oasmodel.Info(title=oas_config.title, version=app_version)
+    info = oasmodel.Info(title=oas_config.TITLE, version=app_version)
 
     oas = oasmodel.OpenAPI(
-        openapi=oas_config.version,
+        openapi=oas_config.VERSION,
         info=info,
         paths=paths,
         components=comp,

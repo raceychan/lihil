@@ -19,7 +19,7 @@ from .schema import generate_oas
 def get_openapi_route(
     oas_config: IOASConfig, routes: list[RouteBase], app_version: str
 ) -> Route:
-    oas_path = oas_config.oas_path
+    oas_path = oas_config.OAS_PATH
 
     async def openapi():
         content = generate_oas(routes, oas_config, app_version)
@@ -31,11 +31,11 @@ def get_openapi_route(
 
 
 def get_doc_route(oas_config: IOASConfig) -> Route:
-    oas_path = oas_config.oas_path
-    docs_path = oas_config.doc_path
+    oas_path = oas_config.OAS_PATH
+    docs_path = oas_config.DOC_PATH
 
     async def swagger():
-        return get_swagger_ui_html(openapi_url=oas_path, title=oas_config.title)
+        return get_swagger_ui_html(openapi_url=oas_path, title=oas_config.TITLE)
 
     doc_route = Route(docs_path, props=EndpointProps(in_schema=False))
     doc_route.get(swagger)
@@ -45,10 +45,10 @@ def get_doc_route(oas_config: IOASConfig) -> Route:
 def get_problem_route(
     oas_config: IOASConfig, problems: list[type[DetailBase[Any]]]
 ) -> Route:
-    problem_path = oas_config.problem_path
+    problem_path = oas_config.PROBLEM_PATH
 
     async def problem_detail():
-        return get_problem_ui_html(title=oas_config.problem_title, problems=problems)
+        return get_problem_ui_html(title=oas_config.PROBLEM_TITLE, problems=problems)
 
     problem_route = Route(problem_path, props=EndpointProps(in_schema=False))
     problem_route.get(problem_detail)

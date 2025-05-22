@@ -1,5 +1,5 @@
 [lihil]
-is_prod = true
+IS_PROD = true
 
 [lihil.oas]
-doc_path = "/docs"
+DOC_PATH = "/docs"

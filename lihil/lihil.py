@@ -131,7 +131,7 @@ class Lihil(ASGIBase):
 
     def __repr__(self) -> str:
         config = lhl_get_config()
-        conn_info = f"({config.server.host}:{config.server.port})"
+        conn_info = f"({config.server.HOST}:{config.server.PORT})"
         lhl_repr = f"{self.__class__.__name__}{conn_info}[\n  "
         routes_repr = "\n  ".join(r.__repr__() for r in self.routes)
         return lhl_repr + routes_repr + "\n]"
@@ -173,7 +173,7 @@ class Lihil(ASGIBase):
     def _generate_builtin_routes(self):
         config = lhl_get_config()
         oas_config = config.oas
-        openapi_route = get_openapi_route(oas_config, self.routes, config.version)
+        openapi_route = get_openapi_route(oas_config, self.routes, config.VERSION)
         doc_route = get_doc_route(oas_config)
         problems = collect_problems()
         problem_route = get_problem_route(oas_config, problems)
@@ -282,11 +282,11 @@ class Lihil(ASGIBase):
 
         config = lhl_get_config()
         server_config = config.server
-        set_values = {k: v for k, v in server_config.asdict().items() if v is not None}
+        set_values = {k.lower(): v for k, v in server_config.asdict().items() if v is not None}
 
-        worker_num = server_config.workers
+        worker_num = server_config.WORKERS
 
-        use_app_str = (worker_num and worker_num > 1) or server_config.reload
+        use_app_str = (worker_num and worker_num > 1) or server_config.RELOAD
         if not use_app_str:
             runner(self, **set_values)
             return

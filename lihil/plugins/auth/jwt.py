@@ -3,15 +3,27 @@ from types import UnionType
 from typing import Annotated, Any, ClassVar, Literal, Sequence, TypedDict, TypeVar, cast
 from uuid import uuid4
 
+from ididi import Graph
 from msgspec import convert
-from typing_extensions import Required, dataclass_transform
+from typing_extensions import Required, Unpack, dataclass_transform
 
 from lihil.config import lhl_get_config
 from lihil.config.app_config import AppConfig, Doc, IAppConfig
-from lihil.errors import AppConfiguringError, MissingDependencyError, NotSupportedError
-from lihil.interface import MISSING, UNSET, Base, T, Unset, field, is_provided
+from lihil.errors import AppConfiguringError, NotSupportedError
+from lihil.interface import (
+    MISSING,
+    UNSET,
+    Base,
+    IAsyncFunc,
+    P,
+    R,
+    T,
+    Unset,
+    field,
+    is_provided,
+)
 from lihil.problems import InvalidAuthError
-from lihil.signature.params import Param
+from lihil.signature import EndpointSignature, Param
 from lihil.utils.json import encode_json
 from lihil.utils.typing import lexient_issubclass
 
@@ -26,14 +38,14 @@ def uuid_factory() -> str:
 
 class IJWTConfig(IAppConfig):
     @property
-    def jwt_secret(self) -> str: ...
+    def JWT_SECRET(SELF) -> str: ...
     @property
-    def jwt_algorithms(self) -> str | Sequence[str]: ...
+    def JWT_ALGORITHMS(self) -> str | Sequence[str]: ...
 
 
 class JWTConfig(AppConfig, kw_only=True):
-    jwt_secret: Annotated[str, Doc("Secret key for encoding and decoding JWTs")]
-    jwt_algorithms: Annotated[
+    JWT_SECRET: Annotated[str, Doc("Secret key for encoding and decoding JWTs")]
+    JWT_ALGORITHMS: Annotated[
         str | Sequence[str], Doc("List of accepted JWT algorithms")
     ]
 
@@ -132,14 +144,16 @@ else:
     ):
         app_config = app_config or lhl_get_config()
 
-        if not hasattr(app_config, "jwt_secret") or not hasattr(
-            app_config, "jwt_algorithms"
+        if not hasattr(app_config, "JWT_SECRET") or not hasattr(
+            app_config, "JWT_ALGORITHMS"
         ):
-            raise MissingDependencyError("JWTConfig")
+            raise AppConfiguringError(
+                f"JWTAuth requires 'JWT_SECRET' and 'JWT_ALGORITHMS' attributes in {type(app_config)}"
+            )
 
         config = cast(IJWTConfig, app_config)
-        secret = config.jwt_secret
-        algorithms = config.jwt_algorithms
+        secret = config.JWT_SECRET
+        algorithms = config.JWT_ALGORITHMS
         options = None
 
         if not isinstance(payload_type, type) or not lexient_issubclass(
@@ -173,48 +187,87 @@ else:
 
         return encoder
 
-    def jwt_decoder_factory(
-        *, payload_type: type[T] | UnionType, app_config: IAppConfig | None = None
-    ):
-
-        app_config = app_config or lhl_get_config()
-        if not hasattr(app_config, "jwt_secret") or not hasattr(
-            app_config, "jwt_algorithms"
+    class JWTAuthPlugin:
+        def __init__(
+            self,
+            jwt_secret: str,
+            jwt_algorithms: str | Sequence[str],
+            **options: Unpack[JWTOptions],
         ):
-            raise AppConfiguringError(
-                f"JWTAuth requires 'jwt_secret' and 'jwt_algorithms' attributes in {type(app_config)}"
+            self.jwt_secret = jwt_secret
+            self.jwt_algorithms: Sequence[str] = (
+                [jwt_algorithms] if isinstance(jwt_algorithms, str) else jwt_algorithms
             )
-        config = cast(IJWTConfig, app_config)
+            self.options = options
+            self.jwt = PyJWT(options=options)
 
-        secret = config.jwt_secret
-        algorithms = config.jwt_algorithms
-        options = None
+        def decode_plugin(
+            self, graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
+        ) -> IAsyncFunc[P, R]:
+            for _, param in sig.header_params.items():
+                if param.alias == "Authorization":
+                    if lexient_issubclass(param.type_, JWTPayload):
+                        param.decoder = self.jwt_decode_factory(param.type_)
+            return func
 
-        jwt = PyJWT(options)  # type: ignore
+        def encode_plugin(self, scheme_type: type[OAuth2Token]):
+            def jwt_encoder_factory(
+                graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
+            ) -> IAsyncFunc[P, R]:
 
-        def decoder(content: str | list[str]) -> T:
-            if isinstance(content, list):
-                raise InvalidAuthError("Multiple authorization headers are not allowed")
+                for code, param in sig.return_params.items():
+                    param_type = param.type_
+                    if issubclass(param_type, JWTPayload):
 
-            try:
-                scheme, _, token = content.partition(" ")
-                if scheme.lower() != "bearer":
-                    raise InvalidAuthError(f"Invalid authorization scheme {scheme}")
-                algos = [algorithms] if isinstance(algorithms, str) else algorithms
-                decoded: dict[str, Any] = jwt.decode(
-                    token, key=secret, algorithms=algos
-                )
-                return convert(decoded, payload_type)
-            except InvalidTokenError:
-                raise InvalidAuthError("Unable to validate your credential")
+                        def encode_jwt(content: JWTPayload) -> bytes:
+                            payload_bytes = encode_json(content)
+                            jwt = PyJWS(algorithms=self.jwt_algorithms).encode(
+                                payload_bytes, key=self.jwt_secret
+                            )
+                            expires = param_type.__jwt_claims__["expires_in"]
+                            token_resp = OAuth2Token(
+                                access_token=jwt, expires_in=expires
+                            )
+                            resp = encode_json(token_resp)
+                            return resp
 
-        return decoder
+                        sig.return_params[code] = param.replace(encoder=encode_jwt)
+                    break
+
+                return func
+
+            return jwt_encoder_factory
+
+        def jwt_decode_factory(self, payload_type: JWTPayload):
+            def decode_jwt(content: str | list[str]):
+                if isinstance(content, list):
+                    raise InvalidAuthError(
+                        "Multiple authorization headers are not allowed"
+                    )
+
+                try:
+                    scheme, _, token = content.partition(" ")
+                    if scheme.lower() != "bearer":
+                        raise InvalidAuthError(f"Invalid authorization scheme {scheme}")
+
+                    decoded: dict[str, Any] = self.jwt.decode(
+                        token, key=self.jwt_secret, algorithms=self.jwt_algorithms
+                    )
+                    return convert(decoded, payload_type)
+                except InvalidTokenError:
+                    raise InvalidAuthError("Unable to validate your credential")
+
+            return decode_jwt
 
 
 TPayload = TypeVar("TPayload", bound=JWTPayload | str | bytes)
 
 JWTAuth = Annotated[
     TPayload,
-    Param("header", alias="Authorization", jwt=True),
+    Param("header", alias="Authorization", extra_meta=dict(skip_unpack=True)),
     "application/json",
 ]
+
+"""
+async def login(user_profile: Annotated[UserProfile, Param("header", alias="Authorization")]) -> OAuth2Token:
+"""

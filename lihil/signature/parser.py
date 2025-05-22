@@ -27,7 +27,7 @@ from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 from typing_extensions import NotRequired, TypeAliasType, is_typeddict
 
-from lihil.errors import InvalidParamPackError, InvalidParamError
+from lihil.errors import InvalidParamError, InvalidParamPackError
 from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, R, T, is_provided
 from lihil.interface.marks import Struct
@@ -260,8 +260,6 @@ def is_lhl_primitive(param_type: Any) -> TypeGuard[type]:
         param_origin = get_origin(param_type)
         if param_origin is Union:
             return any(is_lhl_primitive(arg) for arg in get_args(param_type))
-        elif param_origin and is_builtin_type(param_origin):
-            return False
         else:
             return is_lhl_primitive(type(param_type))
     else:
@@ -376,20 +374,12 @@ class EndpointParser:
         param_meta: ParamMeta,
     ) -> "ParsedParam[T]":
 
-        if param_meta.extra and param_meta.extra.use_jwt:
-            from lihil.plugins.auth.jwt import jwt_decoder_factory
-
-            decoder = jwt_decoder_factory(payload_type=type_)
-        else:
-            decoder = None
-
         req_param = req_param_factory(
             name=name,
             alias=header_key,
             param_type=type_,
             default=default,
             annotation=annotation,
-            decoder=decoder,
             param_meta=param_meta,
             source="header",
         )
@@ -478,20 +468,12 @@ class EndpointParser:
         default: Any,
         param_meta: ParamMeta,
     ) -> list[ParsedParam[Any]]:
-        if any(
-            val is not None
-            for val in (param_meta.alias, param_meta.decoder, param_meta.constraint)
-        ):
-            raise InvalidParamPackError(
-                f"Invalid param meta {param_meta} for param pack {name}: {annotation}"
-            )
-
         if is_union_type(type_):
             raise InvalidParamPackError(
                 f"param pack {name}: {annotation} should not be a union type"
             )
 
-        type_ = cast(type, type_)
+        type_ = cast(type[Any], type_)
 
         if is_provided(default):
             raise InvalidParamPackError(
@@ -500,36 +482,7 @@ class EndpointParser:
 
         params: list[ParsedParam[Any]] = []
 
-        if issubclass(type_, Struct):
-            for f in get_fields(type_):
-                fdefault = f.default if f.default is not NODEFAULT else LIHIL_MISSING
-                if f.default_factory is not NODEFAULT:
-                    raise InvalidParamPackError(
-                        f"Param {f.name} with default factory is not supported in param pack"
-                    )
-                fparams = self.parse_param(
-                    name=f.name,
-                    annotation=f.type,
-                    default=fdefault,
-                    source=param_meta.source,
-                )
-                params.extend(fparams)
-
-        elif is_dataclass(type_):
-            for name, f in type_.__dataclass_fields__.items():
-                fdefault = LIHIL_MISSING if f.default is DS_MISSING else f.default
-                if f.default_factory is not DS_MISSING:
-                    raise InvalidParamPackError(
-                        f"Param {f.name!r} has default factory, which is not supported in param pack"
-                    )
-                fparams = self.parse_param(
-                    name=f.name,
-                    annotation=f.type,
-                    default=fdefault,
-                    source=param_meta.source,
-                )
-                params.extend(fparams)
-        elif is_typeddict(type_):
+        if is_typeddict(type_):
             for name, annt in type_.__annotations__.items():
                 origin = get_origin(annt)
                 if origin is NotRequired:
@@ -546,10 +499,36 @@ class EndpointParser:
                     source=param_meta.source,
                 )
                 params.extend(fparams)
+        elif issubclass(type_, Struct):
+            for f in get_fields(type_):
+                fdefault = f.default if f.default is not NODEFAULT else LIHIL_MISSING
+                if f.default_factory is not NODEFAULT:
+                    raise InvalidParamPackError(
+                        f"Param {f.name} with default factory is not supported in param pack"
+                    )
+                fparams = self.parse_param(
+                    name=f.name,
+                    annotation=f.type,
+                    default=fdefault,
+                    source=param_meta.source,
+                )
+                params.extend(fparams)
+        elif is_dataclass(type_):
+            for name, f in type_.__dataclass_fields__.items():
+                fdefault = LIHIL_MISSING if f.default is DS_MISSING else f.default
+                if f.default_factory is not DS_MISSING:
+                    raise InvalidParamPackError(
+                        f"Param {f.name!r} has default factory, which is not supported in param pack"
+                    )
+                fparams = self.parse_param(
+                    name=f.name,
+                    annotation=f.type,
+                    default=fdefault,
+                    source=param_meta.source,
+                )
+                params.extend(fparams)
         else:
-            raise InvalidParamPackError(
-                f"Invalid type for param pack {type_}"
-            )
+            raise InvalidParamPackError(f"Invalid type for param pack {type_}")
 
         return params
 
@@ -565,11 +544,10 @@ class EndpointParser:
         param_source = param_meta.source
         param_alias = param_meta.alias or name
 
-        # TODO: get rid of this after refactor jwt auth into plugins
-        use_jwt = param_meta.extra and param_meta.extra.use_jwt
+        skip_unpack = param_meta.extra_meta.get("skip_unpack", False)
 
         if param_source in ("path", "query", "header", "cookie"):
-            if not use_jwt and is_structured_type(type_):
+            if not skip_unpack and is_structured_type(type_):
                 return self._parse_param_pack(
                     name=name,
                     type_=type_,
@@ -697,7 +675,6 @@ class EndpointParser:
         params = self.parse_params(func_sig.parameters)
         retns = parse_returns(func_sig.return_annotation)
 
-        status, retparam = next(iter(retns.items()))
         scoped = any(
             self.graph.should_be_scoped(node.dependent)
             for node in params.nodes.values()
@@ -723,8 +700,6 @@ class EndpointParser:
             dependencies=params.nodes,
             transitive_params=transitive_params,
             return_params=retns,
-            status_code=status,
-            return_encoder=retparam.encoder,
             scoped=scoped,
             form_meta=form_meta,
         )

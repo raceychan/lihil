@@ -1,9 +1,12 @@
+from typing import Callable
+
 from premier import Throttler
 from premier import throttler as throttler
 from premier.handler import AsyncDefaultHandler as AsyncDefaultHandler
 from premier.interface import AsyncThrottleHandler as AsyncThrottleHandler
 
-from lihil.plugins import Any, Callable, EndpointSignature, Graph, IFunc
+from lihil.interface import IAsyncFunc, P, R
+from lihil.plugins import Any, EndpointSignature, Graph, IAsyncFunc
 
 
 class PremierPlugin:
@@ -14,7 +17,9 @@ class PremierPlugin:
         self, quota: int, duration: int, keymaker: Callable[..., str] | None = None
     ):
 
-        def inner(graph: Graph, func: IFunc, sig: EndpointSignature[Any]) -> IFunc:
+        def inner(
+            graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
+        ) -> IAsyncFunc[P, R]:
             return self.throttler_.fixed_window(quota, duration, keymaker=keymaker)(
                 func
             )
@@ -25,7 +30,9 @@ class PremierPlugin:
         self, quota: int, duration: int, keymaker: Callable[..., str] | None = None
     ):
 
-        def inner(graph: Graph, func: IFunc, sig: EndpointSignature[Any]) -> IFunc:
+        def inner(
+            graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
+        ) -> IAsyncFunc[P, R]:
             return self.throttler_.sliding_window(quota, duration, keymaker=keymaker)(
                 func
             )
@@ -40,7 +47,9 @@ class PremierPlugin:
         keymaker: Callable[..., str] | None = None,
     ):
 
-        def inner(graph: Graph, func: IFunc, sig: EndpointSignature[Any]) -> IFunc:
+        def inner(
+            graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
+        ) -> IAsyncFunc[P, R]:
             return self.throttler_.leaky_bucket(
                 bucket_size=bucket_size,
                 quota=quota,
@@ -57,7 +66,9 @@ class PremierPlugin:
         keymaker: Callable[..., str] | None = None,
     ):
 
-        def inner(graph: Graph, func: IFunc, sig: EndpointSignature[Any]) -> IFunc:
+        def inner(
+            graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
+        ) -> IAsyncFunc[P, R]:
             return self.throttler_.token_bucket(
                 quota=quota,
                 duration=duration,

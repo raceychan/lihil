@@ -16,7 +16,7 @@ def test_app_read_config():
     config = lhl_read_config("settings.toml")
     Lihil(app_config=config)
     config = lhl_get_config()
-    assert config.oas.doc_path == "/docs"
+    assert config.oas.DOC_PATH == "/docs"
 
 
 def test_format_nested_dict():
@@ -71,31 +71,31 @@ def test_app_config_build_parser():
     actions = {action.dest: action for action in parser._actions}
 
     # Check top-level arguments
-    assert "version" in actions
-    assert "is_prod" in actions
+    assert "VERSION" in actions
+    assert "IS_PROD" in actions
 
     # Check nested arguments
-    assert "oas.title" in actions
-    assert "oas.doc_path" in actions
+    assert "oas.TITLE" in actions
+    assert "oas.DOC_PATH" in actions
 
 
-@patch("sys.argv", ["prog", "--version", "2.0.0", "--oas.title", "Custom API"])
+@patch("sys.argv", ["prog", "--VERSION", "2.0.0", "--oas.TITLE", "Custom API"])
 def test_config_from_cli():
     """Test that config_from_cli correctly parses command line arguments."""
     config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
-    assert config_dict["version"] == "2.0.0"
-    assert config_dict["oas"]["title"] == "Custom API"
+    assert config_dict["VERSION"] == "2.0.0"
+    assert config_dict["oas"]["TITLE"] == "Custom API"
 
 
-@patch("sys.argv", ["prog", "--is_prod"])
+@patch("sys.argv", ["prog", "--IS_PROD"])
 def test_config_from_cli_boolean_flag():
     """Test that boolean flags are correctly handled."""
     config_dict = load_from_cli(config_type=AppConfig)
 
     assert config_dict is not None
-    assert config_dict["is_prod"] is True
+    assert config_dict["IS_PROD"] is True
 
 
 @patch("sys.argv", ["prog"])

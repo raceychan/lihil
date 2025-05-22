@@ -408,7 +408,7 @@ def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
 
     def ep_expects_jwt(user_id: JWTAuth[str]): ...
 
-    app_config = JWTConfig(jwt_secret="test", jwt_algorithms=["HS256"])
+    app_config = JWTConfig(JWT_SECRET="test", JWT_ALGORITHMS=["HS256"])
     lhl_set_config(app_config)
 
     param_parser.parse(ep_expects_jwt)
@@ -417,7 +417,7 @@ def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
 
 def test_JWTAuth_with_custom_decoder(param_parser: EndpointParser):
     from lihil.plugins.auth.jwt import JWTAuth
-    app_config = JWTConfig(jwt_secret="test", jwt_algorithms=["HS256"])
+    app_config = JWTConfig(JWT_SECRET="test", JWT_ALGORITHMS=["HS256"])
     lhl_set_config(app_config)
 
 
@@ -560,3 +560,12 @@ async def test_endpoint_with_invalid_param(param_parser: EndpointParser):
         async def with_header_key(
             user_agen: Annotated[str, Param("asdf")],
         ): ...
+
+
+@pytest.mark.debug
+async def test_parse_ep_with_path_key(param_parser: EndpointParser):
+
+    async def get_user(user_id: list[str]): ...
+
+    sig = param_parser.parse(get_user)
+    assert sig.query_params["user_id"]

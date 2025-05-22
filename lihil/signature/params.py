@@ -4,7 +4,7 @@ from typing import Any, ClassVar, Generic, Literal, Mapping, TypeVar, Union, ove
 from ididi import DependentNode
 from msgspec import DecodeError
 from msgspec import Meta as Constraint
-from msgspec import ValidationError
+from msgspec import ValidationError, field
 from starlette.datastructures import FormData
 
 from lihil.errors import InvalidParamSourceError, NotSupportedError
@@ -27,16 +27,12 @@ D = TypeVar("D", bound=bytes | FormData | str | list[str])
 class PluginParam(ParamBase[Any]): ...
 
 
-class ParamExtra(Base):
-    use_jwt: bool = False
-
-
 class ParamMeta(Base):
     source: Union[ParamSource, None] = None
     alias: Union[str, None] = None
     decoder: IBodyDecoder[Any] | ITextualDecoder[Any] | None = None
     constraint: Constraint | None = None
-    extra: ParamExtra | None = None
+    extra_meta: dict[str, Any] = field(default_factory=dict[str, Any])
 
 
 class BodyMeta(ParamMeta):
@@ -57,6 +53,7 @@ def Form(
     max_files: int | float = 1000,
     max_fields: int | float = 1000,
     max_part_size: int = 1024**2,
+    extra_meta: Union[dict[str, Any], None] = None,
 ) -> FormMeta:
     return FormMeta(
         content_type=content_type,
@@ -64,6 +61,7 @@ def Form(
         max_files=max_files,
         max_fields=max_fields,
         max_part_size=max_part_size,
+        extra_meta=extra_meta or {},
     )
 
 
@@ -72,7 +70,6 @@ def Param(
     *,
     alias: Union[str, None] = None,
     decoder: Union[Any, None] = None,
-    jwt: bool = False,
     gt: Union[int, float, None] = None,
     ge: Union[int, float, None] = None,
     lt: Union[int, float, None] = None,
@@ -86,7 +83,8 @@ def Param(
     description: Union[str, None] = None,
     examples: Union[list[Any], None] = None,
     extra_json_schema: Union[dict[str, Any], None] = None,
-    extra: Union[dict[str, Any], None] = None,
+    schema_extra: Union[dict[str, Any], None] = None,
+    extra_meta: Union[dict[str, Any], None] = None,
 ) -> ParamMeta:
     param_sources: tuple[str, ...] = ParamSource.__args__
     if source is not None and source not in param_sources:
@@ -107,7 +105,7 @@ def Param(
             description,
             examples,
             extra_json_schema,
-            extra,
+            schema_extra,
         )
     ):
         constraint = Constraint(
@@ -124,21 +122,17 @@ def Param(
             description=description,
             examples=examples,
             extra_json_schema=extra_json_schema,
-            extra=extra,
+            extra=schema_extra,
         )
     else:
         constraint = None
 
-    if jwt:
-        param_extra = ParamExtra(use_jwt=True)
-    else:
-        param_extra = None
     meta = ParamMeta(
         source=source,
         alias=alias,
         decoder=decoder,
-        extra=param_extra,
         constraint=constraint,
+        extra_meta=extra_meta or {}
     )
     return meta
 
