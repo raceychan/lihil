@@ -8,8 +8,8 @@ from starlette.requests import Request
 
 from lihil import MISSING, DependentNode, Form, Graph, Param, Payload, Request, use
 from lihil.config import lhl_set_config
-from lihil.errors import InvalidParamSourceError, NotSupportedError, InvalidParamError
-from lihil.plugins.auth.jwt import JWTConfig
+from lihil.errors import InvalidParamError, InvalidParamSourceError, NotSupportedError
+from lihil.plugins.auth.jwt import JWTAuthParam, JWTConfig
 from lihil.signature.parser import (
     BodyParam,
     EndpointParser,
@@ -404,9 +404,7 @@ def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
             del sys.modules["lihil.plugins.auth.jwt"]
         del sys.modules["lihil.signature.params"]
 
-    from lihil.plugins.auth.jwt import JWTAuth
-
-    def ep_expects_jwt(user_id: JWTAuth[str]): ...
+    def ep_expects_jwt(user_id: Annotated[str, JWTAuthParam]): ...
 
     app_config = JWTConfig(JWT_SECRET="test", JWT_ALGORITHMS=["HS256"])
     lhl_set_config(app_config)
@@ -416,13 +414,13 @@ def test_parse_JWTAuth_without_pyjwt_installed(param_parser: EndpointParser):
 
 
 def test_JWTAuth_with_custom_decoder(param_parser: EndpointParser):
-    from lihil.plugins.auth.jwt import JWTAuth
+    from lihil.plugins.auth.jwt import JWTAuthParam
+
     app_config = JWTConfig(JWT_SECRET="test", JWT_ALGORITHMS=["HS256"])
     lhl_set_config(app_config)
 
-
     def ep_expects_jwt(
-        user_id: Annotated[JWTAuth[str], Param(decoder=lambda c: c)],
+        user_id: Annotated[str, JWTAuthParam, Param(decoder=lambda c: c)],
     ): ...
 
     param_parser.parse(ep_expects_jwt)

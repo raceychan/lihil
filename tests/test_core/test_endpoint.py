@@ -21,14 +21,9 @@ from lihil import (
 )
 from lihil.config import DEFAULT_CONFIG, lhl_set_config
 from lihil.errors import InvalidParamError, StatusConflictError
+from lihil.interface import Base
 from lihil.local_client import LocalClient
-from lihil.plugins.auth.jwt import (
-    JWTAuth,
-    JWTAuthPlugin,
-    JWTConfig,
-    JWTPayload,
-    OAuth2Token,
-)
+from lihil.plugins.auth.jwt import JWTAuthParam, JWTAuthPlugin, JWTConfig, OAuth2Token
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.signature.parser import EndpointParser
 from lihil.utils.threading import async_wrapper
@@ -574,8 +569,7 @@ async def test_endpoint_with_resp_alias(rusers: Route, lc: LocalClient):
     assert text == "ok"
 
 
-class UserProfile(JWTPayload):
-    __jwt_claims__ = {"expires_in": 3600}
+class UserProfile(Base):
 
     user_id: str = field(name="sub")
     user_name: str
@@ -659,11 +653,13 @@ async def test_endpoint_login_and_validate(
         auth_scheme=OAuth2PasswordFlow(token_url="token"),
         plugins=[jwt_auth_plugin.decode_plugin],
     )
-    async def get_me(token: JWTAuth[UserProfile]) -> Annotated[Text, status.OK]:
+    async def get_me(
+        token: Annotated[UserProfile, JWTAuthParam],
+    ) -> Annotated[Text, status.OK]:
         assert token.user_id == "1" and token.user_name == "2"
         return "ok"
 
-    @testroute.post(plugins=[jwt_auth_plugin.encode_plugin(OAuth2Token)])
+    @testroute.post(plugins=[jwt_auth_plugin.encode_plugin(expires_in_s=3600)])
     async def login_get_token(login_form: OAuthLoginForm) -> UserProfile:
         return UserProfile(user_id="1", user_name="2")
 

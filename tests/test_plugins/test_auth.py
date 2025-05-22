@@ -8,7 +8,6 @@ from msgspec import field
 from lihil import Route, Text
 from lihil.errors import NotSupportedError
 from lihil.local_client import LocalClient
-from lihil.plugins.auth.jwt import JWTPayload
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.problems import InvalidAuthError
 
@@ -45,22 +44,6 @@ async def test_login():
 def test_random_obj_to_jwt(): ...
 
 
-def test_payload_with_aud_and_iss():
-    class UserProfile(JWTPayload):
-        __jwt_claims__ = {"aud": "client", "iss": "test", "expires_in": 5}
-
-    profile = UserProfile()
-    assert profile.exp
-
-
-def test_payload_without_exp():
-    class UserProfile(JWTPayload):
-        __jwt_claims__ = {"aud": "client", "iss": "test"}
-
-    with pytest.raises(NotSupportedError):
-        UserProfile()
-
-
 def test_jwt_missing():
     with mock.patch.dict("sys.modules", {"jwt": None}):
         if "lihil.plugins.auth.jwt" in sys.modules:
@@ -68,17 +51,3 @@ def test_jwt_missing():
 
         with pytest.raises(ImportError):
             from lihil.plugins.auth.jwt import jwt_decoder_factory
-
-
-def test_invalid_payload_type():
-    from lihil.config import lhl_set_config
-    from lihil.errors import NotSupportedError
-    from lihil.plugins.auth.jwt import JWTConfig, jwt_encoder_factory
-
-    lhl_set_config(JWTConfig(JWT_SECRET="secret", JWT_ALGORITHMS="HS256"))
-
-    with pytest.raises(NotSupportedError):
-        jwt_encoder_factory(payload_type=list[int])
-
-    with pytest.raises(NotSupportedError):
-        jwt_encoder_factory(payload_type=JWTPayload)
