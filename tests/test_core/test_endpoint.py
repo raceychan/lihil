@@ -23,7 +23,7 @@ from lihil.config import DEFAULT_CONFIG, lhl_set_config
 from lihil.errors import InvalidParamError, StatusConflictError
 from lihil.interface import Base
 from lihil.local_client import LocalClient
-from lihil.plugins.auth.jwt import JWTAuthParam, JWTAuthPlugin, JWTConfig, OAuth2Token
+from lihil.plugins.auth.jwt import JWTAuthParam, JWTAuthPlugin, JWTConfig
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.signature.parser import EndpointParser
 from lihil.utils.threading import async_wrapper

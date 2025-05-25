@@ -99,8 +99,9 @@ else:
             self, graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
         ) -> IAsyncFunc[P, R]:
             for _, param in sig.header_params.items():
-                if param.alias == "Authorization":
+                if param.source == "header" and param.alias == "Authorization":
                     param.decoder = self.jwt_decode_factory(param.type_)
+
             return func
 
         def encode_plugin(
@@ -189,3 +190,6 @@ async def login(user_profile: Annotated[UserProfile, Param("header", alias="Auth
 """
 
 JWTAuthParam = Param("header", alias="Authorization", extra_meta=dict(skip_unpack=True))
+# JWTCookieParam = Param(
+#     "cookie", alias="access_token", extra_meta=dict(skip_unpack=True)
+# )

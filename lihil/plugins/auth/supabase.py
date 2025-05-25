@@ -1,40 +1,50 @@
+from typing import Annotated
+
+from gotrue import types as auth_types
+from ididi import use
+from supabase import AsyncClient
+
+from lihil.problems import HTTPException
+from lihil.signature.params import Form
 
 
-try:
-    from gotrue.types import (
-        SignInWithIdTokenCredentials as SignInWithIdTokenCredentials,
-    )
-    from supabase import AsyncClient
-except ImportError:
-    pass
-else:
+async def supabase_signup(
+    client: Annotated[AsyncClient, use(AsyncClient)],
+    singup_form: Annotated[auth_types.SignUpWithPasswordCredentials, Form()],
+):
+    resp = await client.auth.sign_up(singup_form)
 
-    def generate_login_function(): ...
-
-
-# class SupabasePlugin:
-#     def __init__(self, supabase: AsyncClient):
-#         self.supabase = supabase
-
-#     async def __call__(self, email: str, password: str):
-#         ...
-
-#         self.supabase.auth.sign_in_with_id_token()
-# user = await self.supabase.auth.sign_up(email=email, password=password)
-# return user
+    if resp.user is None:
+        raise HTTPException("User not created", problem_status=400)
+    return resp.user
 
 
-# class PhoneSignup(Record): ...
+def sign_in_endpoint_factory(
+    cred_type: type[
+        auth_types.SignInWithEmailAndPasswordCredentials
+        | auth_types.SignInWithPhoneAndPasswordCredentials
+    ],
+    client: AsyncClient,
+):
 
+    match cred_type:
+        case auth_types.SignInWithEmailAndPasswordCredentials:
+            api = client.auth.sign_in_with_password
 
-# def create_singup(client_name: str):
-#     async def signup(dummy: AppState[AsyncClient]): ...
+        case auth_types.SignInWithIdTokenCredentials:
+            api = client.auth.sign_in_with_id_token
 
-#     fsig = signature(signup)
-#     # fsig.parameters[]
-#     fsig.replace()
+        case _:
+            raise TypeError(f"{cred_type} not supported")
 
-#     return signup
+    async def supabase_signin(credentials: Annotated[cred_type, Form()]):
 
+        resp = await api(credentials)
 
-# func = create_singup("supb")
+        if resp.user is None:
+            raise HTTPException(
+                "User not found or invalid credentials", problem_status=401
+            )
+        return resp.user
+
+    return supabase_signin
