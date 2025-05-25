@@ -1117,7 +1117,8 @@ async def test_route_merge_endpoint_plugin():
 
 - Features
 
-  1. ParamPack, when combine Structualred data type(msgspec.Struct, Typeddict, dataclass) with header, cookie, path, query param, would split the param collection into params.
+  1. supbase integration, see doc for details
+  2. ParamPack, when combine Structualred data type(msgspec.Struct, Typeddict, dataclass) with header, cookie, path, query param, would split the param collection into params.
 
 - Improvements
 
@@ -1130,7 +1131,12 @@ async def test_route_merge_endpoint_plugin():
   ```
 
   2. now for query, header, cookie param with sequence default value, such as list, would perform a deep copy operation to avoid changing mutable values.
+  3. adding support for typeddict and dataclass
 
 - Refactors
   - change AppConfig attribute names to uppercase
   - change JWTAuth to a plugin
+
+- Fixes
+
+    Fix a bug where openapi doc would not recognize form body param and shows content-type as "application/json"

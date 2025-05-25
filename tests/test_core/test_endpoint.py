@@ -830,3 +830,9 @@ async def test_ep_with_multiple_value_header():
         multi_headers=[("x-token", "value1"), ("x-token", "value2")],
     )
     assert resp.status_code == 200
+
+
+from msgspec import convert
+
+async def test_convert():
+    ...

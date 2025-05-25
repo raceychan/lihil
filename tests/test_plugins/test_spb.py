@@ -1,5 +1,3 @@
-# from lihil.plugins.supabase import func
-
 import pytest
 from msgspec import ValidationError, convert
 

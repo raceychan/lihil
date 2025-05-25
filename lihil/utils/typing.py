@@ -85,10 +85,13 @@ def is_text_type(t: type | UnionType | GenericAlias) -> bool:
     return t in (str, bytes)
 
 
-def is_structured_type(param_type: type[Any] | UnionType | GenericAlias) -> bool:
+def is_structured_type(
+    param_type: type[Any] | UnionType | GenericAlias, homogeneous_union: bool = False
+) -> bool:
     if is_union_type(param_type):
         q_union_args = get_args(param_type)
-        return any(is_structured_type(q) for q in q_union_args)
+        union_filter = all if homogeneous_union else any
+        return union_filter(is_structured_type(q) for q in q_union_args)
 
     qorigin = ty_get_origin(param_type) or param_type
 

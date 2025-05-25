@@ -139,7 +139,7 @@ def test_analyze_param_path(param_parser: EndpointParser):
 
 
 # Test analyze_param for payload
-def test_analyze_param_payload(param_parser):
+def test_analyze_param_payload(param_parser: EndpointParser):
 
     result = param_parser.parse_param("data", SamplePayload, MISSING)
 
@@ -156,12 +156,9 @@ def test_analyze_param_union_payload(param_parser: EndpointParser):
 
     assert len(result) == 1
 
-    if isinstance(result[0], DependentNode):
-        raise Exception
-
     param = result[0]
-    assert param.name == "data"
     assert isinstance(param, BodyParam)
+    assert param.name == "data"
 
 
 # Test analyze_param for query parameters
@@ -301,8 +298,12 @@ def test_analyze_endpoint_params(param_parser: EndpointParser):
 
 
 def test_param_parser_parse_unions(param_parser: EndpointParser):
-    with pytest.raises(InvalidParamError):
-        param_parser.parse_param("test", dict[str, int] | list[int])
+    result = param_parser.parse_param("test", dict[str, int] | list[int])
+    assert result
+    param = result[0]
+    assert param.source == "body"
+    assert param.type_ == dict[str, int] | list[int]
+
 
 
 def test_param_parser_parse_bytes_union(param_parser: EndpointParser):

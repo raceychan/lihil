@@ -24,11 +24,14 @@ from uvicorn import run as uvi_run
 
 from lihil.config import IAppConfig, lhl_get_config, lhl_read_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
-from lihil.errors import DuplicatedRouteError, InvalidLifeSpanError, NotSupportedError
+from lihil.errors import (
+    AppConfiguringError,
+    DuplicatedRouteError,
+    InvalidLifeSpanError,
+    NotSupportedError,
+)
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
-
-# from lihil.plugins.bus import BusTerminal
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
 from lihil.routing import (
     ASGIBase,
@@ -127,7 +130,6 @@ class Lihil(ASGIBase):
         self.static_route: StaticRoute | None = None
         self.call_stack: ASGIApp
         self.err_registry = LIHIL_ERRESP_REGISTRY
-        self._generate_builtin_routes()
 
     def __repr__(self) -> str:
         config = lhl_get_config()
@@ -135,6 +137,16 @@ class Lihil(ASGIBase):
         lhl_repr = f"{self.__class__.__name__}{conn_info}[\n  "
         routes_repr = "\n  ".join(r.__repr__() for r in self.routes)
         return lhl_repr + routes_repr + "\n]"
+
+    @property
+    def config(self) -> IAppConfig:
+        return lhl_get_config()
+
+    @config.setter
+    def config(self, config_val: IAppConfig | None):
+        if config_val is None:
+            raise AppConfiguringError(f"Invalid app config {config_val}")
+        lhl_set_config(config_val)
 
     @asynccontextmanager
     async def _lifespan(self):
@@ -165,6 +177,7 @@ class Lihil(ASGIBase):
         await event_handler(ls.__aexit__(None, None, None), "shutdown")
 
     async def _setup(self) -> None:
+        self._generate_builtin_routes()
         self.call_stack = self.chainup_middlewares(self.call_route)
 
         for route in self.routes:
@@ -227,7 +240,7 @@ class Lihil(ASGIBase):
             if isinstance(static_content, str) and content_type == "text/plain":
                 encoded = static_content.encode(charset)
             else:
-                encoded = encode_json(static_content)
+                encoded = encode_json(static_content) # type: ignore
 
         content_resp = uvicorn_static_resp(encoded, 200, content_type, charset)
         if self.static_route is None:
@@ -282,7 +295,9 @@ class Lihil(ASGIBase):
 
         config = lhl_get_config()
         server_config = config.server
-        set_values = {k.lower(): v for k, v in server_config.asdict().items() if v is not None}
+        set_values = {
+            k.lower(): v for k, v in server_config.asdict().items() if v is not None
+        }
 
         worker_num = server_config.WORKERS
 

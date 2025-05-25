@@ -202,7 +202,7 @@ def body_schema(
     if not (body_param := ep_deps.body_param):
         return None
     _, param = body_param
-    content = type_to_content(param.type_, schemas)
+    content = type_to_content(param.type_, schemas, param.content_type)
     body = oasmodel.RequestBody(content=content, required=True)
     return body
 

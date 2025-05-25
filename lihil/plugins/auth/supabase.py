@@ -10,7 +10,7 @@ from lihil.signature.params import Form
 
 async def supabase_signup(
     client: Annotated[AsyncClient, use(AsyncClient)],
-    singup_form: Annotated[auth_types.SignUpWithPasswordCredentials, Form()],
+    singup_form: Annotated[auth_types.SignUpWithEmailAndPasswordCredentials, Form()],
 ):
     resp = await client.auth.sign_up(singup_form)
 

@@ -1,5 +1,6 @@
 from copy import deepcopy
 from dataclasses import MISSING as DS_MISSING
+from dataclasses import fields as get_dc_fields
 from dataclasses import is_dataclass
 from inspect import Parameter, signature
 from types import GenericAlias, UnionType
@@ -14,6 +15,7 @@ from typing import (
     cast,
     get_args,
     get_origin,
+    get_type_hints,
 )
 from warnings import warn
 
@@ -21,7 +23,7 @@ from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from msgspec import Struct, convert
-from msgspec.structs import NODEFAULT
+from msgspec.structs import NODEFAULT, FieldInfo
 from msgspec.structs import fields as get_fields
 from starlette.datastructures import FormData
 from typing_extensions import NotRequired, TypeAliasType, is_typeddict
@@ -81,7 +83,7 @@ def is_body_param(annt: Any) -> bool:
             return is_body_param(annt_origin)
         if not isinstance(annt, type):
             raise InvalidParamError(f"Invalid type {annt} for body param")
-        return lexient_issubclass(annt, Struct) or is_file_body(annt)
+        return is_structured_type(annt) or is_file_body(annt)
 
 
 def textdecoder_factory(
@@ -153,15 +155,59 @@ def file_body_param(
     return req_param
 
 
+def lexient_get_field(ptype: type):
+    # msgspec.Struct
+    if lexient_issubclass(ptype, Struct):
+        return tuple(get_fields(ptype))
+    # dataclass
+    elif is_dataclass(ptype):
+        result: list[FieldInfo] = []
+        for f in get_dc_fields(ptype):
+            default = NODEFAULT if f.default is DS_MISSING else f.default
+            default_factory = (
+                NODEFAULT if f.default_factory is DS_MISSING else f.default_factory
+            )
+            result.append(
+                FieldInfo(
+                    name=f.name,
+                    type=f.type,
+                    default=default,
+                    default_factory=default_factory,
+                    encode_name=f.name,
+                )
+            )
+        return tuple(result)
+    # TypedDict
+    elif is_typeddict(ptype):
+        hints = get_type_hints(ptype)
+        optionals = getattr(ptype, "__optional_keys__", set[str]())
+
+        result = []
+        for name, typ in hints.items():
+            if name in optionals:
+                typ = Union[(ptype, None)]
+                default = None
+            else:
+                default = NODEFAULT
+            result.append(
+                FieldInfo(
+                    name=name,
+                    type=typ,
+                    default=default,
+                    encode_name=name,
+                )
+            )
+        return tuple(result)
+    else:
+        raise TypeError(f"Unsupported type: {ptype}")
+
+
 def formdecoder_factory(
     ptype: type[T] | UnionType,
 ) -> IDecoder[FormData, T] | IDecoder[bytes, T]:
-    if not lexient_issubclass(ptype, Struct):
-        raise InvalidParamError(
-            f"Only subclass of Struct is supported for `Form`, received {ptype}"
-        )
-
-    form_fields = get_fields(ptype)
+    if not is_structured_type(ptype, homogeneous_union=True):
+        raise InvalidParamError(f"Form type must be a structured type")
+    form_fields = lexient_get_field(ptype)
 
     def form_decoder(form_data: FormData) -> T:
         values = {}
@@ -635,7 +681,6 @@ class EndpointParser:
         return res if isinstance(res, list) else [res]
 
     def parse_params(self, func_params: Mapping[str, Parameter]) -> EndpointParams:
-
         params: ParamMap[RequestParam[Any]] = {}
         bodies: ParamMap[BodyParam[Any, Any]] = {}
         nodes: ParamMap[DependentNode] = {}
