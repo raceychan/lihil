@@ -544,7 +544,7 @@ class EndpointParser:
                     source=param_meta.source,
                 )
                 params.extend(fparams)
-        elif issubclass(type_, Struct):
+        elif lexient_issubclass(type_, Struct):
             for f in get_fields(type_):
                 fdefault = f.default if f.default is not NODEFAULT else LIHIL_MISSING
                 if f.default_factory is not NODEFAULT:
