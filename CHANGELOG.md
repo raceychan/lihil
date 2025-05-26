@@ -1131,6 +1131,7 @@ async def test_route_merge_endpoint_plugin():
   ```
 
   2. now for query, header, cookie param with sequence default value, such as list, would perform a deep copy operation to avoid changing mutable values.
+
   3. adding support for typeddict and dataclass
 
 - Refactors
@@ -1138,5 +1139,4 @@ async def test_route_merge_endpoint_plugin():
   - change JWTAuth to a plugin
 
 - Fixes
-
-    Fix a bug where openapi doc would not recognize form body param and shows content-type as "application/json"
+  - Fix a bug where openapi doc would not recognize form body param and shows content-type as "application/json"

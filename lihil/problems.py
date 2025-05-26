@@ -160,7 +160,7 @@ def __erresp_factory_registry():
 
 class HTTPException(Exception, DetailBase[T]):
     """
-    Something Wrong with the client client.
+    Something Wrong with the client request.
     """
 
     __status__: ClassVar[http_status.Status] = http_status.code(
