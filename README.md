@@ -1,4 +1,4 @@
-![Lihil](asset/lihil_logo_transparent.png)
+![Lihil](assets/lhl_logo_ts.png)
 
 # Lihil
 

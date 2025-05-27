@@ -1117,7 +1117,42 @@ async def test_route_merge_endpoint_plugin():
 
 - Features
 
-  1. supbase integration, see doc for details
+  1. supbase integration(see doc for details)
+    Code Example
+
+```python
+from supabase import AsyncClient
+
+from lihil import Lihil
+from lihil.config import AppConfig, lhl_get_config, lhl_read_config
+from lihil.plugins.auth.supabase import signin_route_factory
+
+
+class ProjectConfig(AppConfig, kw_only=True):
+    SUPABASE_URL: str
+    SUPABASE_API_KEY: str
+
+
+def supabase_factory() -> AsyncClient:
+    config = lhl_get_config(config_type=ProjectConfig)
+    return AsyncClient(
+        supabase_url=config.SUPABASE_URL, supabase_key=config.SUPABASE_API_KEY
+    )
+
+
+async def lifespan(app: Lihil):
+    app.config = lhl_read_config(".env", config_type=ProjectConfig)
+    app.graph.analyze(supabase_factory)
+    app.include_routes(signin_route_factory(route_path="/login"))
+    yield
+
+
+lhl = Lihil(lifespan=lifespan)
+
+if __name__ == "__main__":
+    lhl.run(__file__)
+```
+
   2. ParamPack, when combine Structualred data type(msgspec.Struct, Typeddict, dataclass) with header, cookie, path, query param, would split the param collection into params.
 
 - Improvements
