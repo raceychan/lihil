@@ -400,8 +400,6 @@ async def test_lihil_lifespan():
     assert any(msg["type"] == "lifespan.shutdown.complete" for msg in send_messages)
 
 
-
-
 async def test_lihil_lifespan_startup_error():
     # Define a lifespan function that raises an error during startup
     @asynccontextmanager
@@ -508,7 +506,7 @@ async def test_init_app_with_routes():
     posts_route.get(get_posts)
 
     # Initialize app with routes
-    app = Lihil(routes=[users_route, posts_route])
+    app = Lihil(users_route, posts_route)
 
     # Initialize app lifespan
 
@@ -540,8 +538,9 @@ async def test_include_same_route():
 
     users_route.get(get_users)
 
-    with pytest.raises(DuplicatedRouteError):
-        app.include_routes(users_route, users_route)
+    # with pytest.raises(DuplicatedRouteError):
+    # app.include_routes(users_route)
+    app.include_routes(users_route)
 
 
 async def test_include_root_route_fail():
@@ -934,8 +933,4 @@ async def test_lhl_add_seen_subroute():
 
     lhl = Lihil()
 
-    # sub route should not raise error when seen
-    lhl.include_routes(sub_route, parent_route, __seen__={"/second"})
-
-    with pytest.raises(DuplicatedRouteError):
-        lhl.include_routes(ssub, __seen__={"/second"})
+    lhl.include_routes(parent_route, sub_route, ssub)

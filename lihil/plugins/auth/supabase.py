@@ -1,5 +1,6 @@
 from typing import Annotated, Literal
 
+from gotrue import AuthResponse
 from gotrue import types as auth_types
 from gotrue.errors import AuthError
 from ididi import use
@@ -29,7 +30,7 @@ def signup_route_factory(
         client: Annotated[AsyncClient, use(AsyncClient)],
     ):
         try:
-            resp = await client.auth.sign_up(singup_form)
+            resp: AuthResponse = await client.auth.sign_up(singup_form)
         except AuthError as ae:
             raise HTTPException(str(ae), problem_status=400)
 
@@ -67,7 +68,7 @@ def signin_route_factory(
                 raise Exception
 
         try:
-            resp = await api
+            resp: AuthResponse = await api
         except AuthError as ae:
             raise HTTPException(str(ae), problem_status=400)
 

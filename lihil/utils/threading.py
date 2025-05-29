@@ -36,7 +36,14 @@ def async_wrapper(
     if iscoroutinefunction(func):
         return func
 
-    loop = get_running_loop()
+    @wraps(func)
+    async def dummy(**params: Any) -> T:
+        return func(**params)
+
+    try:
+        loop = get_running_loop()
+    except RuntimeError:
+        return dummy
 
     @wraps(func)
     async def inner(**params: Any) -> T:
@@ -44,9 +51,5 @@ def async_wrapper(
         func_call = partial(ctx.run, func, **params)
         res = await loop.run_in_executor(workers, func_call)
         return cast(T, res)
-
-    @wraps(func)
-    async def dummy(**params: Any) -> T:
-        return func(**params)
 
     return inner if threaded else dummy

@@ -270,7 +270,7 @@ class RouteBase(ASGIBase):
     ):
         super().__init__(middlewares)
         self.path = trim_path(path)
-        self.path_regex: Pattern[str] | None = None
+        self.path_regex: Pattern[str] = build_path_regex(self.path)
         self.graph = graph or Graph(self_inject=False)
         self.workers = None
         self.subroutes: list[Self] = []
@@ -289,7 +289,7 @@ class RouteBase(ASGIBase):
         rest = self.path.removeprefix(other_path)
         return rest.count("/") < 2
 
-    def sub(self, path: str) -> "Self":
+    def sub(self, path: str) -> Self:
         sub_path = trim_path(path)
         merged_path = merge_path(self.path, sub_path)
         for sub in self.subroutes:
@@ -344,7 +344,12 @@ class Route(RouteBase):
         )
         self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
-        self.props = props or EndpointProps(tags=[generate_route_tag(self.path)])
+        if props is not None:
+            if props.tags is None:
+                props = props.replace(tags=generate_route_tag(self.path))
+            self.props = props
+        else:
+            self.props = EndpointProps(tags=[generate_route_tag(self.path)])
 
     def __repr__(self):
         endpoints_repr = "".join(
@@ -386,6 +391,33 @@ class Route(RouteBase):
         else:
             raise KeyError(f"{method_func} is not in current route")
 
+    def include_subroutes(self, *subs: Self, parent_prefix: str | None = None) -> None:
+        """
+        Merge other routes into current route as sub routes,
+        a new route would be created based on the merged subroute
+
+        NOTE: This method is NOT idempotent
+        """
+        for sub in subs:
+            self.graph.merge(sub.graph)
+            if parent_prefix:
+                sub_path = sub.path.removeprefix(parent_prefix)
+            else:
+                sub_path = sub.path
+            merged_path = merge_path(self.path, sub_path)
+            sub_subs = sub.subroutes
+            new_sub = self.__class__(
+                path=merged_path,
+                graph=self.graph,
+                middlewares=sub.middle_factories,
+                props=sub.props,
+            )
+            for method, ep in sub.endpoints.items():
+                new_sub.add_endpoint(method, func=ep.unwrapped_func, **ep.props)
+            for sub_sub in sub_subs:
+                new_sub.include_subroutes(sub_sub, parent_prefix=sub.path)
+            self.subroutes.append(new_sub)
+
     def redirect(self, method: MethodType, **path_params: str) -> None:
         # owner = method.__self__
         raise NotImplementedError
@@ -408,8 +440,7 @@ class Route(RouteBase):
                 self, method=method, func=func, props=props, workers=self.workers
             )
             self.endpoints[method] = endpoint
-            if self.path_regex is None:
-                self.path_regex = build_path_regex(self.path)
+
         return func
 
     # ============ Http Methods ================

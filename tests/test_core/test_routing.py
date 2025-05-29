@@ -2,11 +2,11 @@ from typing import Annotated, Literal
 
 import pytest
 
-from lihil import Graph, Text, Param, status
+from lihil import Graph, Param, Text, status
+from lihil.ds.event import Event
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend
-from lihil.ds.event import Event
 from lihil.local_client import LocalClient
 from lihil.routing import Route
 
@@ -330,7 +330,7 @@ async def test_route_factory():
 
 #     assert route.has_listener(test_listener)
 
-    # Verify the listener was registered
+# Verify the listener was registered
 
 
 # async def test_route_with_listeners_Param():
@@ -541,7 +541,6 @@ async def test_route_add_middleware_sequence():
     assert result["mw2"] is True
 
 
-
 async def test_route_on_lifespan():
     route = Route("aloha")
 
@@ -693,3 +692,17 @@ async def test_parse_header_with_key():
     p = res[0]
 
     assert p.alias == "Authorization"
+
+
+def test_routing_merge_sub_route():
+    root = Route("api/v0")
+    user = Route("users")
+    item = user.sub("items")
+    item.sub("{item_id}")
+    root.include_subroutes(user)
+
+    new_user = root.subroutes[0]
+    assert new_user.path == "/api/v0/users"
+    new_item = new_user.subroutes[0]
+    assert new_item.path == "/api/v0/users/items"
+    assert new_item.subroutes[0].path == "/api/v0/users/items/{item_id}"

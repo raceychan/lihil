@@ -1118,7 +1118,7 @@ async def test_route_merge_endpoint_plugin():
 - Features
 
   1. supbase integration(see doc for details)
-    Code Example
+     Code Example
 
 ```python
 from supabase import AsyncClient
@@ -1153,7 +1153,7 @@ if __name__ == "__main__":
     lhl.run(__file__)
 ```
 
-  2. ParamPack, when combine Structualred data type(msgspec.Struct, Typeddict, dataclass) with header, cookie, path, query param, would split the param collection into params.
+2. ParamPack, when combine Structualred data type(msgspec.Struct, Typeddict, dataclass) with header, cookie, path, query param, would split the param collection into params.
 
 - Improvements
 
@@ -1170,8 +1170,34 @@ if __name__ == "__main__":
   3. adding support for typeddict and dataclass
 
 - Refactors
+
   - change AppConfig attribute names to uppercase
   - change JWTAuth to a plugin
 
 - Fixes
   - Fix a bug where openapi doc would not recognize form body param and shows content-type as "application/json"
+
+## version 0.2.10
+
+- Features
+
+- [x] `Route.include_subroutes` that includes subroutes, works like fastapi `include_router`
+
+```python
+def app_factory():
+    lhl = Lihil()
+    lhl.config = lhl_read_config(".env", config_type=ProjectConfig)
+    lhl.graph.analyze(supabase_factory)
+    root = Route("/api/v0")
+    root.get(hello)
+    root.include_subroutes(
+        signin_route_factory(route_path="/login"),
+        signup_route_factory(route_path="/signup"),
+    )
+    lhl.include_routes(root)
+    return lhl
+
+
+if __name__ == "__main__":
+    app_factory().run(__file__)
+```

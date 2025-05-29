@@ -9,9 +9,11 @@ from lihil.signature.params import Form
 
 class OAuthLogin(Payload):
     """
-    use this with Form
+    OAuth2 login form model.
 
-    login_form: Form[OAuthLoginForm]
+    This model is used to represent the data required for OAuth2 password grant type authentication.
+    It includes fields for username, password, grant type, client ID, client secret, scope, and scopes.
+    refference: https://datatracker.ietf.org/doc/html/rfc6749
     """
 
     username: str
@@ -26,7 +28,6 @@ class OAuthLogin(Payload):
         self.scopes.extend(self.scope.split())
 
 
-# refference: https://datatracker.ietf.org/doc/html/rfc6749
 OAuthLoginForm = Annotated[OAuthLogin, Form()]
 
 

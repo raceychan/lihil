@@ -92,8 +92,7 @@ class Lihil(ASGIBase):
 
     def __init__(
         self,
-        *,
-        routes: list[RouteBase] | None = None,
+        *routes: RouteBase,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
         app_config: IAppConfig | None = None,
         max_thread_workers: int | None = None,
@@ -108,21 +107,24 @@ class Lihil(ASGIBase):
             if loaded_config is not None:
                 lhl_set_config(loaded_config)
 
+        self.config = lhl_get_config()
+
         self.workers = ThreadPoolExecutor(max_workers=max_thread_workers)
         self.graph = graph or Graph(
             self_inject=True, workers=self.workers, ignore=LIHIL_PRIMITIVES
         )
-        self.graph.node(lhl_get_config)
+        self.graph.register_singleton(self.config, IAppConfig)
         # =========== keep above order ============
         self.routes: list[RouteBase] = []
 
         if routes:
             if not any(route.path == "/" for route in routes):
-                self.root = Route("/", graph=self.graph)
+                self.root = Route(graph=self.graph)
                 self.routes.insert(0, self.root)
-            self.include_routes(*routes)
+            for route in routes:
+                self.include_routes(route)
         else:
-            self.root = Route("/", graph=self.graph)
+            self.root = Route(graph=self.graph)
             self.routes.insert(0, self.root)
 
         self._userls = lifespan_wrapper(lifespan)
@@ -190,32 +192,27 @@ class Lihil(ASGIBase):
         doc_route = get_doc_route(oas_config)
         problems = collect_problems()
         problem_route = get_problem_route(oas_config, problems)
+
         self.include_routes(openapi_route, doc_route, problem_route)
 
-    def _merge_deps(self, route: RouteBase):
-        self.graph.merge(route.graph)
-
-    def include_routes(self, *routes: RouteBase, __seen__: set[str] | None = None):
-        seen = __seen__ or set()
+    def include_routes(self, *routes: RouteBase):
         for route in routes:
-            if route.path in seen:
-                raise DuplicatedRouteError(route, route)
+            if route in self.routes:
+                continue
 
-            self._merge_deps(route)
+            self.graph.merge(route.graph)
             if route.path == "/":
                 if self.routes:
                     if isinstance(self.root, Route) and self.root.endpoints:
                         raise DuplicatedRouteError(route, self.root)
-                self.root = route
-                self.routes.insert(0, self.root)
+                root_idx = self.routes.index(self.root)
+                self.root = self.routes[root_idx] = route
+
             else:
                 self.routes.append(route)
 
-            seen.add(route.path)
             for sub in route.subroutes:
-                if sub.path in seen:
-                    continue
-                self.include_routes(sub, __seen__=seen)
+                self.include_routes(sub)
 
     def static(
         self,
@@ -240,7 +237,7 @@ class Lihil(ASGIBase):
             if isinstance(static_content, str) and content_type == "text/plain":
                 encoded = static_content.encode(charset)
             else:
-                encoded = encode_json(static_content) # type: ignore
+                encoded = encode_json(static_content)  # type: ignore
 
         content_resp = uvicorn_static_resp(encoded, 200, content_type, charset)
         if self.static_route is None:
