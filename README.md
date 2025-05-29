@@ -29,10 +29,29 @@ lihil requires python>=3.10
 ### pip
 
 ```bash
-pip install lihil
+pip install "lihil[standard]"
+```
+
+## Qucik Start
+
+```python
+from lihil import Lihil, Route, Text
+
+root = Route()
+
+@root.get
+def hello(world: str = "world") -> Annotated[Text, 200]:
+    return f"hello, {world}!"
+
+if __name__ == "__main__":
+    Lihil(root).run(__file__)
 ```
 
 ## Features
+
+- **Performance**
+
+  Lihil is on average 50%-100% faster than other ASGI web frameworks, and is the fastest webframework in python running on uvicorn, see benchmarks [lhl benchmarks](https://github.com/raceychan/lhl_bench)
 
 - **Param Parsing & Validation**
 
@@ -53,14 +72,8 @@ pip install lihil
 - **OpenAPI docs & Error Response Generator**
   Lihil creates smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
 
-- **Problems Page**:
-  Declare exceptions using route decorator and they will be displayed as route response at openapi schemas & problem page
-
 - **Bettery included**:
   Lihil comes with authentification & authorization, throttling, messaging and other plugins.
-
-- **Great Testability**:
-  bulit-in `LocalClient` to easily and independently test your endpoints, routes, middlewares, app.
 
 - **Low memory Usage**
   lihil is deeply optimized for memory usage, significantly reduce GC overhead, making your services more robust and resilient under load.
