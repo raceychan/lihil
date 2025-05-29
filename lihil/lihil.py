@@ -117,15 +117,16 @@ class Lihil(ASGIBase):
         # =========== keep above order ============
         self.routes: list[RouteBase] = []
 
-        if routes:
-            if not any(route.path == "/" for route in routes):
-                self.root = Route(graph=self.graph)
-                self.routes.insert(0, self.root)
-            for route in routes:
-                self.include_routes(route)
-        else:
+        if not routes:
             self.root = Route(graph=self.graph)
             self.routes.insert(0, self.root)
+        else:
+            for route in routes:
+                if route.path == "/":
+                    self.root = route
+                    self.routes.insert(0, self.root)
+
+            self.include_routes(*routes)
 
         self._userls = lifespan_wrapper(lifespan)
 
@@ -201,13 +202,11 @@ class Lihil(ASGIBase):
                 continue
 
             self.graph.merge(route.graph)
-            if route.path == "/":
-                if self.routes:
-                    if isinstance(self.root, Route) and self.root.endpoints:
-                        raise DuplicatedRouteError(route, self.root)
+            if route.path == "/" and route is not self.root:
+                if isinstance(self.root, Route) and self.root.endpoints:
+                    raise DuplicatedRouteError(route, self.root)
                 root_idx = self.routes.index(self.root)
                 self.root = self.routes[root_idx] = route
-
             else:
                 self.routes.append(route)
 
