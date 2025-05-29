@@ -4,12 +4,13 @@ from typing import Any, Awaitable, Callable, cast
 
 from ididi import Graph, Resolver
 from starlette.responses import Response
-from typing_extensions import Unpack
+from typing_extensions import Self, Unpack
 
 from lihil.errors import NotSupportedError
 from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
-from lihil.routing import EndpointProps, IEndpointProps, RouteBase, build_path_regex
+from lihil.routing import EndpointProps, IEndpointProps, RouteBase
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
+from lihil.utils.string import merge_path
 from lihil.vendors import WebSocket
 
 
@@ -28,6 +29,10 @@ class WebSocketEndpoint:  # TODO:  endpoint base
     @property
     def unwrapped_func(self):
         return self._unwrapped_func
+
+    @property
+    def props(self):
+        return self._props
 
     async def chainup_plugins(
         self, func: Callable[..., Awaitable[None]], sig: EndpointSignature[None]
@@ -107,11 +112,36 @@ class WebSocketRoute(RouteBase):
         await self.endpoint.setup(sig)
         self.call_stack = self.chainup_middlewares(self.endpoint)
 
+    def include_subroutes(self, *subs: Self, parent_prefix: str | None = None) -> None:
+        """
+        Merge other routes into current route as sub routes,
+        a new route would be created based on the merged subroute
+
+        NOTE: This method is NOT idempotent
+        """
+        for sub in subs:
+            self.graph.merge(sub.graph)
+            if parent_prefix:
+                sub_path = sub.path.removeprefix(parent_prefix)
+            else:
+                sub_path = sub.path
+            merged_path = merge_path(self.path, sub_path)
+            sub_subs = sub.subroutes
+            new_sub = self.__class__(
+                path=merged_path,
+                graph=self.graph,
+                middlewares=sub.middle_factories,
+            )
+            if sub.endpoint is not None:
+                new_sub.ws_handler(sub.endpoint.unwrapped_func, **sub.endpoint.props)
+
+            for sub_sub in sub_subs:
+                new_sub.include_subroutes(sub_sub, parent_prefix=sub.path)
+            self.subroutes.append(new_sub)
+
     def ws_handler(self, func: Any = None, **iprops: Unpack[IEndpointProps]) -> Any:
         props = EndpointProps.from_unpack(**iprops)
         endpoint = WebSocketEndpoint(self, func=func, props=props)
 
         self.endpoint = endpoint
-        if self.path_regex is None:
-            self.path_regex = build_path_regex(self.path)
         return func

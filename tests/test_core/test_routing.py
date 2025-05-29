@@ -706,3 +706,33 @@ def test_routing_merge_sub_route():
     new_item = new_user.subroutes[0]
     assert new_item.path == "/api/v0/users/items"
     assert new_item.subroutes[0].path == "/api/v0/users/items/{item_id}"
+
+
+async def test_routing_query_with_sequence_type():
+    lc = LocalClient()
+
+    async def get_user(names: tuple[str, ...]):
+        assert isinstance(names, tuple)
+        assert names == ("a", "b", "c")
+
+    ep = await lc.make_endpoint(get_user)
+
+    resp = await lc.request(
+        ep, method="GET", path="test", query_string=b"names=a&names=b&names=c"
+    )
+    assert resp.status_code == 200
+
+
+async def test_routing_query_with_bytes():
+    lc = LocalClient()
+
+    async def get_user(names: bytes):
+        ...
+
+
+    ep = await lc.make_endpoint(get_user)
+
+    resp = await lc.request(
+        ep, method="GET", path="test", query_string=b"names=a&names=b&names=c"
+    )
+    assert resp.status_code == 200

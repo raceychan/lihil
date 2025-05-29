@@ -166,43 +166,14 @@ async def test_ws_close_on_exc():
                 websocket.receive_text()
 
 
-# async def test_ws_with_app_state():
-
-#     route = WebSocketRoute("/test")
-
-#     async def f(ws: WebSocket, name: AppState[str]):
-#         await ws.accept()
-#         await ws.send_text(name)
-#         await ws.close()
-
-#     route.ws_handler(f)
-
-#     mystate = dict(name="lihil")
-#     lhl = Lihil[None](routes=[route])
-#     lhl._app_state = mystate  # type: ignore
-
-#     client = TestClient(lhl)
-#     with client:
-#         with client.websocket_connect("/test") as websocket:
-#             text = websocket.receive_text()
-#             assert text == "lihil"
 
 
-# async def test_ws_with_app_state():
+async def test_ws_with_include_subs():
+    paretn_ws = WebSocketRoute("/parent")
+    paretn_ws.sub("/sub")
 
-#     route = WebSocketRoute("/test")
+    root_ws = WebSocketRoute("/api/v0")
 
-#     async def f(ws: WebSocket, name: AppState[str]):
-#         await ws.accept()
-#         await ws.send_text(name)
-#         await ws.close()
-
-#     route.ws_handler(f)
-
-#     lhl = Lihil[None](routes=[route])
-
-#     client = TestClient(lhl)
-#     with client:
-#         with pytest.raises(ValueError):
-#             with client.websocket_connect("/test") as websocket:
-#                 websocket.receive_text()
+    root_ws.include_subroutes(paretn_ws)
+    assert root_ws.subroutes[0].path == root_ws.path + "/parent"
+    assert root_ws.subroutes[0].subroutes[0].path == root_ws.path + "/parent" + "/sub"

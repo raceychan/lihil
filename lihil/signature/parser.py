@@ -33,7 +33,7 @@ from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, R, T, is_provided
 from lihil.interface.marks import Struct
 from lihil.interface.struct import IBodyDecoder, IDecoder, IFormDecoder, ITextualDecoder
-from lihil.utils.json import decoder_factory, encode_json
+from lihil.utils.json import decoder_factory
 from lihil.utils.string import find_path_keys, to_kebab_case
 from lihil.utils.typing import (
     get_origin_pro,
@@ -97,10 +97,8 @@ def textdecoder_factory(
             )
     if param_type is bytes:
 
-        def str_to_bytes(content: str | list[str]) -> bytes:
-            if isinstance(content, str):
-                return content.encode("utf-8")
-            return encode_json(content)
+        def str_to_bytes(content: str) -> bytes:
+            return content.encode("utf-8")
 
         return str_to_bytes  # type: ignore[no-untyped-def]
 
@@ -119,13 +117,8 @@ def textdecoder_factory(
 
 def filedeocder_factory(filename: str):
     def file_decoder(form_data: FormData) -> UploadFile:
-        try:
-            file = form_data[filename]
-            return cast(UploadFile, file)
-        except KeyError:
-            raise FileNotFoundError(
-                f"File {filename} not found in form data, please check the request"
-            )
+        file = form_data[filename]
+        return cast(UploadFile, file)
 
     return file_decoder
 
@@ -155,7 +148,7 @@ def file_body_param(
     return req_param
 
 
-def lexient_get_field(ptype: type):
+def lexient_get_fields(ptype: type[Any]):
     # msgspec.Struct
     if lexient_issubclass(ptype, Struct):
         return tuple(get_fields(ptype))
@@ -207,7 +200,12 @@ def formdecoder_factory(
 ) -> IDecoder[FormData, T] | IDecoder[bytes, T]:
     if not is_structured_type(ptype, homogeneous_union=True):
         raise InvalidParamError(f"Form type must be a structured type")
-    form_fields = lexient_get_field(ptype)
+
+    if get_origin(ptype) is UnionType:
+        raise InvalidParamError(f"Union of multiple form type is not supported yet")
+
+    ptype = cast(type[T], ptype)
+    form_fields = lexient_get_fields(ptype)
 
     def form_decoder(form_data: FormData) -> T:
         values = {}
