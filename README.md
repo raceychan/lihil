@@ -13,6 +13,12 @@
 [![License](https://img.shields.io/github/license/raceychan/lihil)](https://github.com/raceychan/lihil/blob/master/LICENSE)
 [![Python Version](https://img.shields.io/pypi/pyversions/lihil.svg)](https://pypi.org/project/lihil/)
 
+# Lihil
+
+🌐 Choose your language：
+
+- 🇨🇳 [中文README](README_CN.md)
+
 ## 📚 Docs: https://lihil.cc
 
 Lihil is

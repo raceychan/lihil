@@ -18,7 +18,7 @@
 Lihil 是：
 
 - **高生产力**: 符合人体工程学的 API，具有强大的类型支持和针对常见问题的内置解决方案——以及诸如 OpenAPI 文档生成等受欢迎的功能——使用户能够快速构建应用程序，而不会牺牲可扩展性。
-- **专业级**: Lihil 附带了企业开发必不可少的中间件——例如身份验证、授权、事件发布等。确保从一开始就具有生产力。专为现代开发风格和架构量身定制，包括 TDD 和 DDD。
+- **专业**: Lihil 附带了企业开发必不可少的中间件——例如身份验证、授权、事件发布等。确保从一开始就具有生产力。专为现代开发风格和架构量身定制，包括 TDD 和 DDD。
 - **高性能**: 在各种任务和条件下都非常快速——Lihil 是最快的 Python Web 框架之一，性能比同类 ASGI 框架高出 50%–100%，请参阅 [lihil 基准测试](https://github.com/raceychan/lhl_bench)，[独立基准测试](https://web-frameworks-benchmark.netlify.app/result?l=python)。
 
 
@@ -55,7 +55,7 @@ async def create_user(
     user_data: UserPayload,                                 # 来自请求体
     service: UserService
 ) -> Resp[str, 201]: ...
-
+```
 
 
 ### **依赖注入**:
@@ -151,15 +151,13 @@ class OutOfStockError(HTTPException[str]):
         super().__init__(detail)
 ```
 
-当在 `endpoint` 中抛出上述异常时，客户端将收到如下响应：
+当在 `endpoint` 中抛出上述异常时，客户端将响应
 
-![outofstock](/docs/images/order_out_of_stock.png)
 
 ### **问题页（Problems Page）**
 
 通过 `Route` 装饰器声明异常类后，这些异常将自动出现在 OpenAPI 的响应结构和问题页面中：
 
-![problem page](/docs/images/order_out_of_stock_problem_page.png)
 
 ### **内建认证功能（Auth Builtin）**
 
