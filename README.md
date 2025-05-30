@@ -11,7 +11,6 @@
 [![codecov](https://codecov.io/gh/raceychan/lihil/graph/badge.svg?token=KOK5S1IGVX)](https://codecov.io/gh/raceychan/lihil)
 [![PyPI version](https://badge.fury.io/py/lihil.svg)](https://badge.fury.io/py/lihil)
 [![License](https://img.shields.io/github/license/raceychan/lihil)](https://github.com/raceychan/lihil/blob/master/LICENSE)
-[![Downloads](https://img.shields.io/pypi/dm/lihil.svg)](https://pypistats.org/packages/lihil)
 [![Python Version](https://img.shields.io/pypi/pyversions/lihil.svg)](https://pypi.org/project/lihil/)
 
 ## 📚 Docs: https://lihil.cc
@@ -32,6 +31,8 @@ lihil requires python>=3.10
 pip install "lihil[standard]"
 ```
 
+This includes uvicorn and pyjwt
+
 ## Qucik Start
 
 ```python
@@ -44,7 +45,8 @@ def hello(world: str = "world") -> Annotated[Text, 200]:
     return f"hello, {world}!"
 
 if __name__ == "__main__":
-    Lihil(root).run(__file__)
+    lhl = Lihil(root)
+    lhl.run(__file__)
 ```
 
 ## Features
@@ -112,7 +114,3 @@ lihil follows semantic versioning, where a version in x.y.z represents:
 - z: patch, bug fixes, typing updates
 
 Thecnically, **v1.0.0** will be the first stable major version. However, breaking changes from 0.4.x onwards is highly unlikely.
-
-## Contribution & RoadMap
-
-No contribution is trivial, and every contribution is appreciated. However, our focus and goals vary at different stages of this project.
