@@ -12,18 +12,20 @@ from lihil.interface import (
     Base,
     CustomEncoder,
     IEncoder,
+    Maybe,
     RegularTypes,
     T,
-    _Missed,
     is_provided,
 )
 from lihil.interface.marks import ResponseMark, extract_resp_type
-from lihil.utils.json import encode_json, encode_text
+from lihil.utils.json import encoder_factory
 from lihil.utils.typing import get_origin_pro, is_union_type
+
+# from lihil.config import AppConfig
 
 
 def parse_status(status: Any) -> int:
-    status_type: type = type(status)
+    status_type = type(status)
 
     try:
         if status_type is int:
@@ -37,14 +39,14 @@ def parse_status(status: Any) -> int:
 
 
 async def agen_encode_wrapper(
-    async_gen: AsyncGenerator[T, None], encoder: IEncoder[T]
+    async_gen: AsyncGenerator[T, None], encoder: IEncoder
 ) -> AsyncGenerator[bytes, None]:
     async for res in async_gen:
         yield encoder(res)
 
 
 def syncgen_encode_wrapper(
-    sync_gen: Generator[T, None, None], encoder: IEncoder[T]
+    sync_gen: Generator[T, None, None], encoder: IEncoder
 ) -> Generator[bytes, None, None]:
     for res in sync_gen:
         yield encoder(res)
@@ -61,9 +63,9 @@ def is_annotated(annt: Any) -> TypeGuard[RegularTypes]:
 
 
 class EndpointReturn(Base, Generic[T]):
-    type_: type[T] | UnionType | GenericAlias | TypeAliasType | _Missed | None
+    type_: Maybe[type[T] | UnionType | GenericAlias | TypeAliasType | None]
     status: int
-    encoder: IEncoder[T]
+    encoder: IEncoder
     mark_type: ResponseMark = "json"
     annotation: Any = MISSING
     content_type: str | None = "application/json"
@@ -78,7 +80,7 @@ class EndpointReturn(Base, Generic[T]):
 
 
 DEFAULT_RETURN = EndpointReturn(
-    type_=MISSING, status=200, encoder=encode_json, annotation=MISSING
+    type_=MISSING, status=200, encoder=encoder_factory(), annotation=MISSING
 )
 
 
@@ -87,7 +89,10 @@ def parse_return_pro(
 ) -> EndpointReturn[Any]:
     if metas is None:
         return EndpointReturn(
-            type_=ret_type, annotation=annotation, encoder=encode_json, status=200
+            type_=ret_type,
+            annotation=annotation,
+            encoder=encoder_factory(ret_type),
+            status=200,
         )
 
     encoder = None
@@ -113,11 +118,11 @@ def parse_return_pro(
     content, _ = content_type.split("/") if content_type else (None, None)
     if content == "text":
         if encoder is None:
-            encoder = encode_text
+            encoder = encoder_factory(content_type=content)
         ret_type = bytes
     else:
         if encoder is None:
-            encoder = encode_json
+            encoder = encoder_factory(ret_type)
 
     ret = EndpointReturn(
         type_=ret_type,
@@ -131,7 +136,7 @@ def parse_return_pro(
 
 
 def parse_returns(
-    annt: _Missed | type[Any] | UnionType | TypeAliasType | GenericAlias,
+    annt: Maybe[type[Any] | UnionType | TypeAliasType | GenericAlias],
 ) -> dict[int, EndpointReturn[Any]]:
     if not is_annotated(annt):
         return {DEFAULT_RETURN.status: DEFAULT_RETURN}

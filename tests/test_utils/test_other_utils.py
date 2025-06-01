@@ -6,7 +6,7 @@ import pytest
 from lihil.interface import MISSING, Base, Maybe, get_maybe_vars
 from lihil.lihil import ThreadPoolExecutor
 from lihil.utils.algorithms import deep_merge
-from lihil.utils.json import encode_text
+from lihil.utils.json import encoder_factory
 from lihil.utils.string import to_kebab_case
 
 # from lihil.utils.threading import sync_ctx_to_thread
@@ -73,8 +73,9 @@ def test_interface_utils():
 
 
 def test_encode_test():
-    assert encode_text(b"123") == b"123"
-    assert encode_text("123") == b"123"
+    encoder = encoder_factory(content_type="text")
+    assert encoder(b"123") == b"123"
+    assert encoder("123") == b"123"
 
 
 def test_payload_replace():

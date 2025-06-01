@@ -6,7 +6,7 @@ from starlette.requests import Request
 from lihil import Empty, Param, Payload, Route, Text, use
 from lihil.local_client import LocalClient
 from lihil.problems import CustomValidationError
-from lihil.utils.json import encode_text
+from lihil.utils.json import encoder_factory
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ async def test_call_endpoint(route: Route):
     resp = await client.call_endpoint(
         ep=ep, path_params=dict(p="hello"), query_params=dict(q=5)
     )
-    assert ep.encoder is encode_text
+    assert ep.encoder is encoder_factory(content_type="text")
     result = await resp.body()
     assert result == b"ok"
 

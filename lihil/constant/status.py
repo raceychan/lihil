@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Any, Literal, get_args
 
-from typing_extensions import TypeAliasType
+from typing_extensions import TypeAliasType, TypeGuard
 
 CONTINUE = Literal[100]
 """#### This interim response indicates that the client should continue the request or ignore the response if the request is already finished."""
@@ -206,7 +206,7 @@ Status = Literal[
 """ ### HTTP status code (https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml)"""
 
 
-def is_status(status: Any) -> bool:
+def is_status(status: Any) -> TypeGuard[TypeAliasType]:
     if not (args := get_args(status)):
         return False
     return args[0] in Status.__args__
@@ -276,7 +276,7 @@ STATUS_CODE: dict[TypeAliasType, Status] = {
     LOOP_DETECTED: 508,
     NOT_EXTENDED: 510,
     NETWORK_AUTHENTICATION_REQUIRED: 511,
-}
+} # type: ignore
 
 
 def phrase(status: int) -> str:

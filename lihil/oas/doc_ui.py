@@ -3,7 +3,7 @@ from typing import Any
 from starlette.responses import HTMLResponse
 
 from lihil.interface.problem import DetailBase
-from lihil.utils.json import encode_json
+from lihil.utils.json import encoder_factory
 
 problem_ui_default_parameters: dict[str, Any] = {
     "dom_id": "#problem-ui",
@@ -53,9 +53,10 @@ def get_swagger_ui_html(
     const ui = SwaggerUIBundle({{
         url: '{openapi_url}',
     """
+    encoder = encoder_factory()
 
     for key, value in current_swagger_ui_parameters.items():
-        html += f"{encode_json(key).decode()}: {encode_json(value).decode()},\n"
+        html += f"{encoder(key).decode()}: {encoder(value).decode()},\n"
 
     if oauth2_redirect_url:
         html += f"oauth2RedirectUrl: window.location.origin + '{oauth2_redirect_url}',"
@@ -69,7 +70,7 @@ def get_swagger_ui_html(
 
     if init_oauth:
         html += f"""
-        ui.initOAuth({encode_json(init_oauth)})
+        ui.initOAuth({encoder(init_oauth)})
         """
 
     html += """
@@ -214,8 +215,9 @@ def get_problem_ui_html(
             }
         )
 
+    encoder = encoder_factory()
     # Encode problem examples as JSON
-    problems_json = encode_json(problem_examples).decode()
+    problems_json = encoder(problem_examples).decode()
 
     # TODO: use <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/digitallytailored/classless@latest/classless.min.css"> for better visual
     html = f"""

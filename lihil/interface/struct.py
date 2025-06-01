@@ -27,8 +27,8 @@ class IDecoder(Protocol, Generic[I, T]):
     def __call__(self, content: I, /) -> T: ...
 
 
-class IEncoder(Protocol, Generic[T]):
-    def __call__(self, content: T, /) -> bytes: ...
+class IEncoder(Protocol):
+    def __call__(self, content: Any, /) -> bytes: ...
 
 
 def exclude_value(data: Struct, value: Any) -> dict[str, Any]:

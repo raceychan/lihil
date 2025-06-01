@@ -12,7 +12,7 @@ from lihil.config.app_config import AppConfig, Doc, IAppConfig
 from lihil.interface import UNSET, Base, IAsyncFunc, P, R, Struct, Unset
 from lihil.problems import InvalidAuthError
 from lihil.signature import EndpointSignature, Param
-from lihil.utils.json import encode_json
+from lihil.utils.json import encoder_factory
 
 
 def jwt_timeclaim():
@@ -69,8 +69,6 @@ class OAuth2Token(Base):
     refresh_token: Unset[str] = UNSET
     scope: Unset[str] = UNSET
 
-
-# TODO: make this a plugin
 
 try:
     from jwt import PyJWT
@@ -131,6 +129,7 @@ else:
             def jwt_encoder_factory(
                 graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
             ) -> IAsyncFunc[P, R]:
+                encoder = encoder_factory()
 
                 def encode_jwt(content: Struct | str) -> bytes:
                     if isinstance(content, str):
@@ -149,10 +148,10 @@ else:
                     if aud is not None:
                         payload_dict["aud"] = aud
 
-                    payload_bytes = encode_json(content)
+                    payload_bytes = encoder(content)
                     jwt = self.jws.encode(payload_bytes, key=self.jwt_secret)
                     token_resp = scheme_type(access_token=jwt, expires_in=expires_in_s)
-                    resp = encode_json(token_resp)
+                    resp = encoder(token_resp)
                     return resp
 
                 sig.default_return.encoder = encode_jwt

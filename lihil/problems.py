@@ -19,7 +19,7 @@ from typing_extensions import TypeAliasType
 from lihil.constant import status as http_status
 from lihil.interface import ParamSource, Record, T
 from lihil.interface.problem import DetailBase, ProblemDetail
-from lihil.utils.json import encode_json
+from lihil.utils.json import encoder_factory
 from lihil.utils.string import to_kebab_case, trimdoc
 from lihil.utils.typing import all_subclasses, is_union_type, lexient_issubclass
 from lihil.vendors import Request, Response  # , WebSocket
@@ -221,6 +221,8 @@ class HTTPException(Exception, DetailBase[T]):
 
 
 class ErrorResponse(Response, Generic[T]):
+    encoder = encoder_factory(None)
+
     def __init__(
         self,
         detail: ProblemDetail[T],
@@ -228,7 +230,8 @@ class ErrorResponse(Response, Generic[T]):
         headers: Mapping[str, str] | None = None,
         media_type: str = "application/problem+json",
     ):
-        content = encode_json(detail)
+
+        content = self.encoder(detail)
         super().__init__(
             content, status_code=status_code, headers=headers, media_type=media_type
         )

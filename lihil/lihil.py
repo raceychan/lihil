@@ -42,7 +42,7 @@ from lihil.routing import (
     RouteBase,
 )
 from lihil.signature.parser import LIHIL_PRIMITIVES
-from lihil.utils.json import encode_json
+from lihil.utils.json import encoder_factory
 from lihil.utils.string import is_plain_path
 
 LifeSpan = Callable[["Lihil"], AsyncContextManager[None] | AsyncGenerator[None, None]]
@@ -236,7 +236,7 @@ class Lihil(ASGIBase):
             if isinstance(static_content, str) and content_type == "text/plain":
                 encoded = static_content.encode(charset)
             else:
-                encoded = encode_json(static_content)  # type: ignore
+                encoded = encoder_factory()(static_content)  # type: ignore
 
         content_resp = uvicorn_static_resp(encoded, 200, content_type, charset)
         if self.static_route is None:
