@@ -1232,3 +1232,11 @@ async def lifespan(app: Lihil):
 
 Fixes:
 - [x] fix a bug where return value from `lihil.plugins.auth.supabase.signin_route_factory` can't be properly encoded as json.
+
+
+## version 0.2.12
+
+Improvements
+
+- [x] supports more complicated pydantic type such as `list[BaseModel]`
+- [x] add `Lihil.generate_oas` to generate an openapi schema for current routes.
