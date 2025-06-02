@@ -1,4 +1,3 @@
-
 from lihil import Lihil
 from lihil.config import IAppConfig, lhl_get_config
 

@@ -32,6 +32,8 @@ from lihil.errors import (
 )
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
+from lihil.oas.schema import generate_oas
+from lihil.oas.model import OpenAPI
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
 from lihil.routing import (
     ASGIBase,
@@ -180,21 +182,28 @@ class Lihil(ASGIBase):
         await event_handler(ls.__aexit__(None, None, None), "shutdown")
 
     async def _setup(self) -> None:
-        self._generate_builtin_routes()
         self.call_stack = self.chainup_middlewares(self.call_route)
 
         for route in self.routes:
             await route.setup(graph=self.graph, workers=self.workers)
 
+        self._generate_builtin_routes()
+
     def _generate_builtin_routes(self):
         config = lhl_get_config()
         oas_config = config.oas
-        openapi_route = get_openapi_route(oas_config, self.routes, config.VERSION)
+        openapi_route = get_openapi_route(self.genereate_oas(), oas_config.OAS_PATH)
         doc_route = get_doc_route(oas_config)
-        problems = collect_problems()
-        problem_route = get_problem_route(oas_config, problems)
+        problem_route = get_problem_route(oas_config, collect_problems())
 
         self.include_routes(openapi_route, doc_route, problem_route)
+
+    def genereate_oas(self) -> OpenAPI:
+        return generate_oas(
+            routes=self.routes,
+            oas_config=self.config.oas,
+            app_version=self.config.VERSION,
+        )
 
     def include_routes(self, *routes: RouteBase):
         for route in routes:

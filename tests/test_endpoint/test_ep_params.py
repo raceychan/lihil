@@ -305,7 +305,6 @@ def test_param_parser_parse_unions(param_parser: EndpointParser):
     assert param.type_ == dict[str, int] | list[int]
 
 
-
 def test_param_parser_parse_bytes_union(param_parser: EndpointParser):
     res = param_parser.parse_param("test", bytes)
 

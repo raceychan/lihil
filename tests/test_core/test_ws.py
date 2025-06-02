@@ -166,8 +166,6 @@ async def test_ws_close_on_exc():
                 websocket.receive_text()
 
 
-
-
 async def test_ws_with_include_subs():
     paretn_ws = WebSocketRoute("/parent")
     paretn_ws.sub("/sub")

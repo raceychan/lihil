@@ -276,7 +276,7 @@ STATUS_CODE: dict[TypeAliasType, Status] = {
     LOOP_DETECTED: 508,
     NOT_EXTENDED: 510,
     NETWORK_AUTHENTICATION_REQUIRED: 511,
-} # type: ignore
+}  # type: ignore
 
 
 def phrase(status: int) -> str:

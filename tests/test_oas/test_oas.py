@@ -125,7 +125,9 @@ async def test_complex_route(complex_route: Route):
 
 async def test_call_openai():
     lc = LocalClient()
-    oas_route = get_openapi_route(oas_config, routes=[], app_version="0.1.0")
+    oas = generate_oas([], oas_config, "0.1.0")
+
+    oas_route = get_openapi_route(oas, oas_config.OAS_PATH)
     ep = oas_route.get_endpoint("GET")
 
     res = await lc.call_endpoint(ep)
@@ -291,6 +293,7 @@ async def test_route_with_pydantic_schema():
 
     result = generate_op_from_ep(ep, {}, {}, "problems")
     assert result
+
 
 def test_json_schema_of_msgspec_and_pydantic():
     from lihil.plugins.auth.supabase import auth_types

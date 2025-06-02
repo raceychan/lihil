@@ -159,7 +159,6 @@ async def test_ep_with_struct_param_collection_with_default():
         await lc.make_endpoint(login)
 
 
-
 async def test_ep_with_struct_param_collection_with_union():
 
     class STCred(Struct):

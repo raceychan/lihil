@@ -22,7 +22,7 @@ class IAsyncPlugin(Protocol, Generic[P, R]):
     ) -> IAsyncFunc[P, R]: ...
 
 
-class ISyncPlugin(Protocol, Generic[P,R]):
+class ISyncPlugin(Protocol, Generic[P, R]):
     def __call__(
         self,
         graph: Graph,

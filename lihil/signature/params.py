@@ -132,7 +132,7 @@ def Param(
         alias=alias,
         decoder=decoder,
         constraint=constraint,
-        extra_meta=extra_meta or {}
+        extra_meta=extra_meta or {},
     )
     return meta
 

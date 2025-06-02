@@ -8,24 +8,19 @@ from typing import Any
 
 from lihil.config.app_config import IOASConfig
 from lihil.interface.problem import DetailBase
-from lihil.routing import EndpointProps, Route, RouteBase
+from lihil.routing import EndpointProps, Route
 from lihil.utils.json import encoder_factory
 from lihil.vendors import Response
 
 from .doc_ui import get_problem_ui_html, get_swagger_ui_html
-from .schema import generate_oas
 from .model import OpenAPI
 
 
-def get_openapi_route(
-    oas_config: IOASConfig, routes: list[RouteBase], app_version: str
-) -> Route:
-    oas_path = oas_config.OAS_PATH
+def get_openapi_route(oas: OpenAPI, oas_path: str) -> Route:
     encoder = encoder_factory(t=OpenAPI)
 
     async def openapi():
-        content = generate_oas(routes, oas_config, app_version)
-        return Response(encoder(content), media_type="application/json")
+        return Response(encoder(oas), media_type="application/json")
 
     openapi_route = Route(oas_path, props=EndpointProps(in_schema=False))
     openapi_route.get(openapi)

@@ -837,12 +837,11 @@ from msgspec import convert
 async def test_convert(): ...
 
 
-async def test_ep_requiring_upload_file_with_decoder(
-    rusers: Route, lc: LocalClient
-):
+async def test_ep_requiring_upload_file_with_decoder(rusers: Route, lc: LocalClient):
 
     async def get(
-        req: Request, myfile: Annotated[UploadFile, Form(max_files=0, decoder=lambda x: x)]
+        req: Request,
+        myfile: Annotated[UploadFile, Form(max_files=0, decoder=lambda x: x)],
     ) -> Annotated[str, status.OK]:
         assert isinstance(myfile, UploadFile)
         return ""
