@@ -32,7 +32,6 @@ def test_create_signin():
     assert isinstance(route, Route)
 
 
-@pytest.mark.debug
 async def test_setup_signin_route():
     route = signin_route_factory("login")
 

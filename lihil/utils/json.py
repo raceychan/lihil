@@ -1,19 +1,19 @@
 from functools import lru_cache
-from typing import Any, Callable, get_origin
+from typing import Any, Callable
 
+from msgspec import UNSET, UnsetType
 from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import Encoder as JsonEncoder
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
-from lihil.interface import MISSING, IDecoder, IEncoder, Maybe, R, T
-
-from lihil.utils.typing import lenient_issubclass
+from lihil.interface import IDecoder, IEncoder, R, T
+from lihil.utils.typing import should_use_pydantic
 
 
 @lru_cache(256)
 def decoder_factory(t: type[T], strict: bool = True) -> IDecoder[bytes, T]:
-    if lenient_issubclass(t, BaseModel):
-        return t.model_validate_json
+    if should_use_pydantic(t):
+        return TypeAdapter(t).validate_json
     return JsonDecoder(t, strict=strict).decode
 
 
@@ -23,18 +23,15 @@ def encode_model(content: BaseModel) -> bytes:
 
 @lru_cache(256)
 def encoder_factory(
-    t: Maybe[type[T]] = MISSING,
+    t: type[T] | UnsetType = UNSET,
     enc_hook: Callable[[Any], R] | None = None,
     content_type: str = "json",
 ) -> IEncoder:
     if content_type == "text":
         return _encode_text
 
-    origin_type = get_origin(t) or t
-
-    if isinstance(origin_type, type):
-        if issubclass(origin_type, BaseModel):
-            return encode_model
+    if should_use_pydantic(t):
+        return TypeAdapter(t).dump_json
 
     return JsonEncoder(enc_hook=enc_hook).encode
 

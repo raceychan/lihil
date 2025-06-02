@@ -11,6 +11,7 @@ from lihil.utils.typing import (
     is_text_type,
     is_union_type,
     lenient_issubclass,
+    should_use_pydantic,
 )
 
 T = TypeVar("T")
@@ -182,3 +183,25 @@ def test_lenient_issubclass():
     assert lenient_issubclass(str, str)
     assert lenient_issubclass(str, (str, object))
     assert not lenient_issubclass(5, str)
+
+
+@pytest.mark.debug
+def test_should_use_pydantic():
+    assert not should_use_pydantic(str)
+    assert not should_use_pydantic(int)
+    assert not should_use_pydantic(list[int])
+
+    from msgspec import Struct
+    from pydantic import BaseModel
+
+    class PydanticType(BaseModel):
+        name: str
+
+    class MsgspecType(Struct):
+        name: str
+
+    assert should_use_pydantic(PydanticType)
+    assert should_use_pydantic(list[PydanticType])
+    assert should_use_pydantic(dict[str, PydanticType])
+
+    assert not should_use_pydantic(MsgspecType)

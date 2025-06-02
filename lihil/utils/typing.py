@@ -15,7 +15,7 @@ from typing import (
 from typing import get_origin as ty_get_origin
 from typing import overload
 
-from msgspec import Struct
+from msgspec import UNSET, Struct, UnsetType
 from pydantic import BaseModel
 from typing_extensions import TypeAliasType, TypeGuard, is_typeddict
 
@@ -284,3 +284,17 @@ def all_subclasses(cls: type[T], ignore: set[type[Any]] | None = None) -> set[ty
             result.add(subclass)
             result.update(all_subclasses(subclass, ignore))
     return result
+
+
+def should_use_pydantic(t: type[T] | UnsetType = UNSET) -> TypeGuard[type[BaseModel]]:
+    if t is UNSET:
+        return False
+
+    type_origin, _ = get_origin_pro(t)
+
+    if type_args := get_args(type_origin):
+        return any(should_use_pydantic(arg) for arg in type_args)
+
+    type_origin = cast(type, type_origin)
+
+    return lenient_issubclass(type_origin, BaseModel)

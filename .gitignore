@@ -11,7 +11,7 @@ __pycache__/
 .Python
 build/
 docs/
-demo/
+demos/
 develop-eggs/
 dist/
 downloads/
