@@ -1204,3 +1204,31 @@ if __name__ == "__main__":
 
 - Refactor:
     - [x] change Lihil.routes to variadic arguments, e.g.: `Lihil(routes=[r1, r2])` changes to `Lihil(r1, r2)`
+
+## version 0.2.11
+
+
+Features:
+
+- [x] add `pydantic.BaseModel` as supported structured data types
+
+- [x] add `hash_password` and `verify_password` to `lihil.plugins.auth.utils`
+
+Improvements:
+
+- [x] now `supabase` plugin is easier to use
+
+```python
+from lihil.plugins.auth.supabase import SupabaseConfig, signin_route_factory
+
+
+async def lifespan(app: Lihil):
+    app.config = lhl_read_config(
+        ".env", config_type=SupabaseConfig
+    )  # read config from .env file as convert it to `ProjectConfig` object.
+    app.include_routes(signin_route_factory(route_path="/login"))
+    yield
+```
+
+Fixes:
+- [x] fix a bug where return value from `lihil.plugins.auth.supabase.signin_route_factory` can't be properly encoded as json.

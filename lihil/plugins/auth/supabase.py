@@ -7,10 +7,23 @@ from supabase import AsyncClient
 from typing_extensions import Unpack
 
 from lihil import use
+from lihil.config import AppConfig, lhl_get_config
 from lihil.interface import HTTP_METHODS
 from lihil.problems import HTTPException
 from lihil.routing import IEndpointProps, Route
 from lihil.signature.params import Form
+
+
+class SupabaseConfig(AppConfig, kw_only=True):
+    SUPABASE_URL: str
+    SUPABASE_API_KEY: str
+
+
+def supabase_factory() -> AsyncClient:
+    config = lhl_get_config(config_type=SupabaseConfig)
+    return AsyncClient(
+        supabase_url=config.SUPABASE_URL, supabase_key=config.SUPABASE_API_KEY
+    )
 
 
 def signup_route_factory(
@@ -27,7 +40,7 @@ def signup_route_factory(
 
     async def supabase_signup(
         singup_form: SignupForm,
-        client: Annotated[AsyncClient, use(AsyncClient, ignore="options")],
+        client: Annotated[AsyncClient, use(supabase_factory, ignore="options")],
     ) -> auth_types.User:
         try:
             resp: AuthResponse = await client.auth.sign_up(singup_form)
@@ -57,7 +70,7 @@ def signin_route_factory(
 
     async def supabase_signin(
         login_form: LoginForm,
-        client: Annotated[AsyncClient, use(AsyncClient, ignore="options")],
+        client: Annotated[AsyncClient, use(supabase_factory, ignore="options")],
     ) -> auth_types.User:
         match sign_in_with:
             case "email":
