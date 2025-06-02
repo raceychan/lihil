@@ -16,23 +16,29 @@ from typing import get_origin as ty_get_origin
 from typing import overload
 
 from msgspec import Struct
+from pydantic import BaseModel
 from typing_extensions import TypeAliasType, TypeGuard, is_typeddict
 
 T = TypeVar("T")
 
 
 @overload
-def lexient_issubclass(t: Any, cls_or_clses: type[T]) -> TypeGuard[type[T]]: ...
+def lenient_issubclass(t: Any, cls_or_clses: type[T]) -> TypeGuard[type[T]]: ...
 
 
 @overload
-def lexient_issubclass(t: Any, cls_or_clses: tuple[type, ...]) -> TypeGuard[type]: ...
+def lenient_issubclass(t: Any, cls_or_clses: tuple[type, ...]) -> TypeGuard[type]: ...
 
 
-def lexient_issubclass(
+def lenient_issubclass(
     t: Any, cls_or_clses: Union[type[T], tuple[type, ...]]
 ) -> TypeGuard[type[T]]:
-    return isinstance(t, type) and issubclass(t, cls_or_clses)
+    try:
+        return isinstance(t, type) and issubclass(t, cls_or_clses)
+    except TypeError:
+        if origin := ty_get_origin(t):
+            return lenient_issubclass(origin, cls_or_clses)
+        return False
 
 
 def union_types(subs: Sequence[type[Any]]) -> type | UnionType | GenericAlias | None:
@@ -99,7 +105,7 @@ def is_structured_type(
         return False
 
     return (
-        issubclass(qorigin, (Mapping, Struct))
+        issubclass(qorigin, (Mapping, Struct, BaseModel))
         or is_typeddict(qorigin)
         or is_dataclass(qorigin)
     )

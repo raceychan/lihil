@@ -6,7 +6,7 @@ from typing_extensions import Doc
 
 from lihil.config.app_config import ConfigBase
 from lihil.interface import MISSING, Record, StrDict, UnsetType, _Missed
-from lihil.utils.typing import get_origin_pro, is_union_type, lexient_issubclass
+from lihil.utils.typing import get_origin_pro, is_union_type, lenient_issubclass
 
 
 def format_nested_dict(flat_dict: StrDict) -> StrDict:
@@ -90,7 +90,7 @@ def generate_parser_actions(
         config_field = parse_field_type(field_info)
 
         field_type = config_field.field_type
-        if lexient_issubclass(field_type, ConfigBase):
+        if lenient_issubclass(field_type, ConfigBase):
             nested_actions = generate_parser_actions(field_type, full_field_name)
             actions.extend(nested_actions)
         else:

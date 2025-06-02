@@ -3,6 +3,7 @@ from typing import Any, Sequence, cast, get_args
 
 from msgspec import Struct
 from msgspec.json import schema_components
+from pydantic import BaseModel
 
 from lihil.config.app_config import IOASConfig
 from lihil.constant.status import phrase
@@ -17,8 +18,7 @@ from lihil.problems import (
 from lihil.routing import Endpoint, Route, RouteBase
 from lihil.signature import EndpointSignature, RequestParam
 from lihil.utils.string import to_kebab_case, trimdoc
-
-# from lihil.utils.json import encode_json
+from lihil.utils.typing import lenient_issubclass
 
 SchemasDict = dict[str, oasmodel.LenientSchema]
 SecurityDict = dict[str, oasmodel.SecurityScheme | oasmodel.Reference]
@@ -38,6 +38,8 @@ class ReferenceOutput(Struct):
 SchemaOutput = DefinitionOutput | ReferenceOutput
 """When component is not None result contains reference"""
 
+MSGSPEC_REF_TEMPLATE = "#/components/schemas/{name}"
+PYDANTIC_REF_TEMPLATE = "#/components/schemas/{model}"
 PROBLEM_CONTENTTYPE = "application/problem+json"
 
 
@@ -45,10 +47,38 @@ class OneOfOutput(Struct):
     oneOf: list[SchemaOutput]
 
 
+def pydantic_json_schema(t: type[BaseModel]) -> SchemaOutput:
+    if not lenient_issubclass(t, BaseModel):
+        raise NotImplementedError
+
+    # Full schema including $defs and root schema
+    full_schema = t.model_json_schema(ref_template=PYDANTIC_REF_TEMPLATE)
+
+    # Extract components ($defs)
+    defs = full_schema.pop("$defs", {})
+
+    # The root schema describes `t` itself
+    root_schema = full_schema
+
+    # Build component dictionary
+    comp_dict = {name: oasmodel.Schema(**schema) for name, schema in defs.items()}
+
+    # Add root schema under the model's name
+    comp_dict[t.__name__] = oasmodel.Schema(**root_schema)
+
+    # Reference to use in OpenAPI output
+    ref = oasmodel.Reference(ref=PYDANTIC_REF_TEMPLATE.format(model=t.__name__))
+
+    return ReferenceOutput(ref, cast(SchemasDict, comp_dict))
+
+
 def json_schema(types: RegularTypes) -> SchemaOutput:
+    if lenient_issubclass(types, BaseModel):
+        return pydantic_json_schema(types)
+
     (schema,), definitions = schema_components(
         (types,),
-        ref_template="#/components/schemas/{name}",
+        ref_template=MSGSPEC_REF_TEMPLATE,
     )
 
     if anyOf := schema.pop("anyOf", None):  # rename

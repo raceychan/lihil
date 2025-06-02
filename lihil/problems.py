@@ -21,7 +21,7 @@ from lihil.interface import ParamSource, Record, T
 from lihil.interface.problem import DetailBase, ProblemDetail
 from lihil.utils.json import encoder_factory
 from lihil.utils.string import to_kebab_case, trimdoc
-from lihil.utils.typing import all_subclasses, is_union_type, lexient_issubclass
+from lihil.utils.typing import all_subclasses, is_union_type, lenient_issubclass
 from lihil.vendors import Request, Response  # , WebSocket
 
 """
@@ -44,7 +44,7 @@ def parse_exception(
     exc_origin = get_origin(exc)
 
     if exc_origin is None:
-        if lexient_issubclass(exc, HTTPException):
+        if lenient_issubclass(exc, HTTPException):
             return exc
         elif http_status.is_status(exc):
             return http_status.code(exc)
@@ -66,7 +66,7 @@ def parse_exception(
         else:
             exc_local = exc
 
-        if lexient_issubclass(exc_origin, DetailBase) or lexient_issubclass(
+        if lenient_issubclass(exc_origin, DetailBase) or lenient_issubclass(
             exc_local, DetailBase
         ):
             # if exc is a subclass of DetailBase then tha
@@ -221,7 +221,7 @@ class HTTPException(Exception, DetailBase[T]):
 
 
 class ErrorResponse(Response, Generic[T]):
-    encoder = encoder_factory(None)
+    encoder = None
 
     def __init__(
         self,
@@ -230,7 +230,8 @@ class ErrorResponse(Response, Generic[T]):
         headers: Mapping[str, str] | None = None,
         media_type: str = "application/problem+json",
     ):
-
+        if self.encoder is None:
+            self.encoder = encoder_factory(type(detail))
         content = self.encoder(detail)
         super().__init__(
             content, status_code=status_code, headers=headers, media_type=media_type

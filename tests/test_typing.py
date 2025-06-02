@@ -10,7 +10,7 @@ from lihil.utils.typing import (
     is_nontextual_sequence,
     is_text_type,
     is_union_type,
-    lexient_issubclass,
+    lenient_issubclass,
 )
 
 T = TypeVar("T")
@@ -178,7 +178,7 @@ def test_get_generic_types():
     assert not metas
 
 
-def test_lexient_issubclass():
-    assert lexient_issubclass(str, str)
-    assert lexient_issubclass(str, (str, object))
-    assert not lexient_issubclass(5, str)
+def test_lenient_issubclass():
+    assert lenient_issubclass(str, str)
+    assert lenient_issubclass(str, (str, object))
+    assert not lenient_issubclass(5, str)

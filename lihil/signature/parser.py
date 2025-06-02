@@ -40,7 +40,7 @@ from lihil.utils.typing import (
     is_nontextual_sequence,
     is_structured_type,
     is_union_type,
-    lexient_issubclass,
+    lenient_issubclass,
 )
 from lihil.vendors import Request, UploadFile, WebSocket
 
@@ -150,7 +150,7 @@ def file_body_param(
 
 def lexient_get_fields(ptype: type[Any]):
     # msgspec.Struct
-    if lexient_issubclass(ptype, Struct):
+    if lenient_issubclass(ptype, Struct):
         return tuple(get_fields(ptype))
     # dataclass
     elif is_dataclass(ptype):
@@ -307,7 +307,7 @@ def is_lhl_primitive(param_type: Any) -> TypeGuard[type]:
             return is_lhl_primitive(type(param_type))
     else:
         type_origin = get_origin(param_type) or param_type
-        return param_type is IRequest or lexient_issubclass(
+        return param_type is IRequest or lenient_issubclass(
             type_origin, LIHIL_PRIMITIVES
         )
 
@@ -331,10 +331,13 @@ class EndpointParser:
         else:
             node = self.graph.analyze(node_type)
 
+        ignores = node_config.ignore if node_config else ()
+
         params: list[Any | DependentNode] = [node]
         for dep_name, dep in node.dependencies.items():
             ptype, default = dep.param_type, dep.default_
-            # TODO?: if param is Ignored then skip it for param analysis
+            if dep_name in ignores or ptype in ignores:
+                continue
             default = LIHIL_MISSING if default is IDIDI_MISSING else default
             sub_params = self.parse_param(dep_name, cast(type, ptype), default)
             for sp in sub_params:
@@ -542,7 +545,7 @@ class EndpointParser:
                     source=param_meta.source,
                 )
                 params.extend(fparams)
-        elif lexient_issubclass(type_, Struct):
+        elif lenient_issubclass(type_, Struct):
             for f in get_fields(type_):
                 fdefault = f.default if f.default is not NODEFAULT else LIHIL_MISSING
                 if f.default_factory is not NODEFAULT:

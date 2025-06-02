@@ -561,7 +561,6 @@ async def test_endpoint_with_invalid_param(param_parser: EndpointParser):
         ): ...
 
 
-@pytest.mark.debug
 async def test_parse_ep_with_path_key(param_parser: EndpointParser):
 
     async def get_user(user_id: list[str]): ...

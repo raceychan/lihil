@@ -4,12 +4,13 @@ import pytest
 from msgspec import Struct
 
 from lihil import Empty, HTTPException, Payload, Route, Text, status
-from lihil.plugins.auth.oauth import OAuth2PasswordFlow
 from lihil.config import OASConfig
 from lihil.interface import is_set
+from lihil.local_client import LocalClient
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.oas.doc_ui import get_problem_ui_html
 from lihil.oas.schema import (
+    json_schema,
     detail_base_to_content,
     generate_oas,
     generate_op_from_ep,
@@ -17,7 +18,7 @@ from lihil.oas.schema import (
     get_path_item_from_route,
     get_resp_schemas,
 )
-from lihil.local_client import LocalClient
+from lihil.plugins.auth.oauth import OAuth2PasswordFlow
 from lihil.problems import collect_problems
 from lihil.routing import EndpointProps
 
@@ -247,7 +248,9 @@ async def test_ep_with_auth():
 
 
 async def test_ep_with_mutliple_ret():
-    async def f() -> Annotated[str, status.OK] | Annotated[int | list[int], status.CREATED]: ...
+    async def f() -> (
+        Annotated[str, status.OK] | Annotated[int | list[int], status.CREATED]
+    ): ...
 
     lc = LocalClient()
 
@@ -257,9 +260,40 @@ async def test_ep_with_mutliple_ret():
 
 
 async def test_ep_with_auth_scheme():
-    async def f() -> Annotated[str, status.OK] | Annotated[int | list[int], status.CREATED]: ...
+    async def f() -> (
+        Annotated[str, status.OK] | Annotated[int | list[int], status.CREATED]
+    ): ...
 
     lc = LocalClient()
 
     ep = await lc.make_endpoint(f)
     get_resp_schemas(ep, {}, "")
+
+
+from pydantic import BaseModel
+
+
+class PydanticBody(BaseModel):
+    name: str
+    age: str
+
+
+class PydanticResp(BaseModel):
+    email: str
+
+
+async def test_route_with_pydantic_schema():
+
+    async def create_user(user: PydanticBody) -> PydanticResp: ...
+
+    lc = LocalClient()
+    ep = await lc.make_endpoint(create_user)
+
+    result = generate_op_from_ep(ep, {}, {}, "problems")
+    assert result
+
+def test_json_schema_of_msgspec_and_pydantic():
+    from lihil.plugins.auth.supabase import auth_types
+
+    result = json_schema(auth_types.User)
+    assert result

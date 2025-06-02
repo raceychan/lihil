@@ -17,7 +17,6 @@ def supabase_factory() -> AsyncClient:
         supabase_url=config.SUPABASE_URL, supabase_key=config.SUPABASE_API_KEY
     )
 
-from fastapi.openapi.utils
 
 async def lifespan(app: Lihil):
     app.config = lhl_read_config(

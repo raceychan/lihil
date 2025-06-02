@@ -1003,14 +1003,14 @@ wheels = [
 
 [[package]]
 name = "ididi"
-version = "1.6.2"
+version = "1.6.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cf/96/f7dd7514aaa62a672085c16eedc9be24d18b8891d09fcd2d6ea34fcf694e/ididi-1.6.2.tar.gz", hash = "sha256:f388244cdaac09c651594b177581069c6334bf6d0bd66b39213ee915a36578de", size = 262653 }
+sdist = { url = "https://files.pythonhosted.org/packages/09/4b/efb826d6c78e5468f8f80a177254cd8435b740753d82a4c1d49b7a0c61c3/ididi-1.6.3.tar.gz", hash = "sha256:1986767bf17aa13b2d977bc39f2869e1b8c383a83af10b98e1985b7cf8fa6199", size = 262651 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/90/73/27a53069cdc4a3e5997d34e61dfce59d3fcce148fd7fa0101d3488af40c0/ididi-1.6.2-py3-none-any.whl", hash = "sha256:01e9e053eea520ab3751a3f50baf283f0183146d325d14619d790f933e9a713c", size = 33885 },
+    { url = "https://files.pythonhosted.org/packages/78/d4/f1a1bc57acd5f025ca31e3daeb024234509dfa49860cec68b59f03a4fef6/ididi-1.6.3-py3-none-any.whl", hash = "sha256:89105d2a403045d070a5507c9da904981a1539817b82b889797c23f71f6d7431", size = 33906 },
 ]
 
 [[package]]
@@ -1138,6 +1138,7 @@ dependencies = [
     { name = "ididi" },
     { name = "msgspec" },
     { name = "premier" },
+    { name = "pydantic" },
     { name = "python-multipart" },
     { name = "starlette" },
     { name = "typing-extensions" },
@@ -1169,6 +1170,7 @@ dev = [
     { name = "mkdocs-mermaid2-plugin" },
     { name = "pre-commit" },
     { name = "py-spy" },
+    { name = "pydantic" },
     { name = "pyinstrument" },
     { name = "pyjwt" },
     { name = "pymdown-extensions" },
@@ -1185,9 +1187,10 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "bcrypt", marker = "extra == 'auth'", specifier = ">=4.3.0" },
-    { name = "ididi", specifier = ">=1.6.2" },
+    { name = "ididi", specifier = ">=1.6.3" },
     { name = "msgspec", specifier = ">=0.19.0" },
     { name = "premier", specifier = ">=0.4.1" },
+    { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pyjwt", marker = "extra == 'auth'", specifier = ">=2.10.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "starlette", specifier = ">=0.45.3" },
@@ -1211,6 +1214,7 @@ dev = [
     { name = "mkdocs-mermaid2-plugin", specifier = ">=1.2.1" },
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "py-spy", specifier = ">=0.4.0" },
+    { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pyinstrument", specifier = ">=5.0.1" },
     { name = "pyjwt", specifier = ">=2.10.1" },
     { name = "pymdown-extensions", specifier = ">=10.14.3" },

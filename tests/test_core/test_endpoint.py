@@ -645,7 +645,6 @@ async def test_endpoint_with_jwt_decode_fail(
     assert res.status_code == 401
 
 
-@pytest.mark.debug
 async def test_endpoint_login_and_validate(
     testroute: Route, lc: LocalClient, jwt_auth_plugin: JWTAuthPlugin
 ):

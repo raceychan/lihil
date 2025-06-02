@@ -3,10 +3,10 @@ from typing import Annotated, Literal
 from gotrue import AuthResponse
 from gotrue import types as auth_types
 from gotrue.errors import AuthError
-from ididi import use
 from supabase import AsyncClient
 from typing_extensions import Unpack
 
+from lihil import use
 from lihil.interface import HTTP_METHODS
 from lihil.problems import HTTPException
 from lihil.routing import IEndpointProps, Route
@@ -27,8 +27,8 @@ def signup_route_factory(
 
     async def supabase_signup(
         singup_form: SignupForm,
-        client: Annotated[AsyncClient, use(AsyncClient)],
-    ):
+        client: Annotated[AsyncClient, use(AsyncClient, ignore="options")],
+    ) -> auth_types.User:
         try:
             resp: AuthResponse = await client.auth.sign_up(singup_form)
         except AuthError as ae:
@@ -57,8 +57,8 @@ def signin_route_factory(
 
     async def supabase_signin(
         login_form: LoginForm,
-        client: Annotated[AsyncClient, use(AsyncClient)],
-    ):
+        client: Annotated[AsyncClient, use(AsyncClient, ignore="options")],
+    ) -> auth_types.User:
         match sign_in_with:
             case "email":
                 api = client.auth.sign_in_with_password(login_form)

@@ -21,9 +21,10 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "ididi>=1.6.2",
+  "ididi>=1.6.3",
   "msgspec>=0.19.0",
   "premier>=0.4.1",
+  "pydantic>=2.10.6",
   "python-multipart>=0.0.20",
   "starlette>=0.45.3",
   "typing-extensions>=4.12.2",
@@ -70,6 +71,7 @@ dev = [
   "sqlalchemy>=2.0.40",
   "dotenv>=0.9.9",
   "bcrypt>=4.3.0",
+  "pydantic>=2.10.6",
 ]
 
 [tool.pyright]

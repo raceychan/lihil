@@ -63,8 +63,9 @@ if __name__ == "__main__":
 
 - **Param Parsing & Validation**
 
-  Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints using `msgspec`, which is extremly performant, **12x faster** and **25x more memory efficient** than pydantic v2.
+  Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints. various model is supported including `msgspec.Struct`, `pydantic.BaseModel`, `dataclasses.dataclass`, ... etc.
 
+  By default, lihil uses `msgspec` to serialize/deserialize json data, which is extremly fast.
   see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
 
   - Param Parsing: Automatically parse parameters from query strings, path parameters, headers, cookies, and request bodies
@@ -119,4 +120,7 @@ lihil follows semantic versioning, where a version in x.y.z represents:
 - y: minor, feature updates
 - z: patch, bug fixes, typing updates
 
-Thecnically, **v1.0.0** will be the first stable major version. However, breaking changes from 0.4.x onwards is highly unlikely.
+Lihil will have at max 10 minor version, which means if lihil reach v0.9.x, then there will be no minor version before v1.0.0.
+
+
+<!-- Thecnically, **v1.0.0** will be the first stable major version. However, breaking changes from 0.4.x onwards is highly unlikely. -->

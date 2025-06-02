@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
+from pydantic import BaseModel
 from typing_extensions import Unpack
 
 from lihil.errors import LihilError
@@ -232,6 +233,8 @@ class LocalClient:
         if body is not None:
             if isinstance(body, bytes):
                 body_bytes = body
+            elif isinstance(body, BaseModel):
+                body_bytes = body.__pydantic_serializer__.to_json(body)
             else:
                 body_bytes = json_encode(body)
         else:
