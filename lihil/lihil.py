@@ -32,8 +32,8 @@ from lihil.errors import (
 )
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
-from lihil.oas.schema import generate_oas
 from lihil.oas.model import OpenAPI
+from lihil.oas.schema import generate_oas
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
 from lihil.routing import (
     ASGIBase,
@@ -187,16 +187,19 @@ class Lihil(ASGIBase):
         for route in self.routes:
             await route.setup(graph=self.graph, workers=self.workers)
 
-        self._generate_builtin_routes()
+        await self._generate_builtin_routes()
 
-    def _generate_builtin_routes(self):
+    async def _generate_builtin_routes(self):
         config = lhl_get_config()
         oas_config = config.oas
         openapi_route = get_openapi_route(self.genereate_oas(), oas_config.OAS_PATH)
         doc_route = get_doc_route(oas_config)
         problem_route = get_problem_route(oas_config, collect_problems())
 
-        self.include_routes(openapi_route, doc_route, problem_route)
+        builtin_routes = (openapi_route, doc_route, problem_route)
+        for route in builtin_routes:
+            await route.setup(self.graph, self.workers)
+        self.include_routes(*builtin_routes)
 
     def genereate_oas(self) -> OpenAPI:
         return generate_oas(

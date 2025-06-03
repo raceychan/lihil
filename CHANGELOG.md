@@ -1240,3 +1240,9 @@ Improvements
 
 - [x] supports more complicated pydantic type such as `list[BaseModel]`
 - [x] add `Lihil.generate_oas` to generate an openapi schema for current routes.
+
+## version 0.2.13
+
+Fixes:
+
+- [x] fix a bug introduced in 0.2.12 that would cause builtin routes(/docs, /problem_page) invisibile to users
