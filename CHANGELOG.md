@@ -1252,7 +1252,7 @@ Fixes:
 
 Improvements:
 
-- [x] add `audience` and `issuer` to `jwt_auth_plugin.decode_plugin`, now user need to call `jwt_auth_plugin.decode_plugin` like this:
+- [x] add `audience` and `issuer` to `jwt_auth_plugin.decode_plugin`, now user need to add `jwt_auth_plugin.decode_plugin` to plugin as `jwt_auth_plugin.decode_plugin()` :
 
 ```python
     @testroute.get(
