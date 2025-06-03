@@ -51,24 +51,12 @@ def pydantic_json_schema(t: type[BaseModel]) -> SchemaOutput:
     if not lenient_issubclass(t, BaseModel):
         raise NotImplementedError
 
-    # Full schema including $defs and root schema
     full_schema = t.model_json_schema(ref_template=PYDANTIC_REF_TEMPLATE)
-
-    # Extract components ($defs)
     defs = full_schema.pop("$defs", {})
-
-    # The root schema describes `t` itself
     root_schema = full_schema
-
-    # Build component dictionary
     comp_dict = {name: oasmodel.Schema(**schema) for name, schema in defs.items()}
-
-    # Add root schema under the model's name
     comp_dict[t.__name__] = oasmodel.Schema(**root_schema)
-
-    # Reference to use in OpenAPI output
     ref = oasmodel.Reference(ref=PYDANTIC_REF_TEMPLATE.format(model=t.__name__))
-
     return ReferenceOutput(ref, cast(SchemasDict, comp_dict))
 
 
@@ -177,7 +165,7 @@ def _single_field_schema(
     param_schema: dict[str, Any] = {
         "name": param.alias,
         "in_": param.source,
-        "required": True,
+        "required": param.required,
     }
     if output.component:  # reference
         schemas.update(output.component)
@@ -190,8 +178,13 @@ def param_schema(
     ep_deps: EndpointSignature[Any], schemas: SchemasDict
 ) -> list[oasmodel.Parameter | oasmodel.Reference]:
     parameters: list[oasmodel.Parameter | oasmodel.Reference] = []
+    single_value_param_group = (
+        ep_deps.query_params,
+        ep_deps.path_params,
+        ep_deps.header_params,
+    )
 
-    for group in (ep_deps.query_params, ep_deps.path_params, ep_deps.header_params):
+    for group in single_value_param_group:
         for p in group.values():
             ps = _single_field_schema(p, schemas)
             parameters.append(ps)
@@ -379,11 +372,15 @@ def get_ep_security(
     security_scopes: list[dict[str, list[str]]] = []
     auth_scheme = ep.props.auth_scheme
     if auth_scheme:
-        security_schemas[auth_scheme.scheme_name] = cast(
-            oasmodel.SecurityScheme, auth_scheme.model
-        )
+        scheme_name = auth_scheme.scheme_name
+        security_schemas[scheme_name] = cast(oasmodel.SecurityScheme, auth_scheme.model)
+        security: dict[str, list[str]] = {scheme_name: []}
+        if auth_scopes := auth_scheme.scopes:
+            for name, scope in auth_scopes.items():
+                security[name].append(scope)
 
-        security_scopes.append({auth_scheme.scheme_name: []})
+        security_scopes.append(security)
+    # TODO: http auth
     return security_scopes
 
 
@@ -458,10 +455,8 @@ def generate_oas(
     "Return application/json response"
     paths: dict[str, oasmodel.PathItem] = {}
     components: ComponentsDict = {}
-    components["schemas"] = schemas = {}
-    components["securitySchemes"] = security_schemas = {}
-    security_schemas: SecurityDict
-    schemas: dict[str, Any]
+    schemas: dict[str, Any] = {}
+    security_schemas: SecurityDict = {}
 
     for route in routes:
         if not isinstance(route, Route) or not route.props.in_schema:
@@ -472,6 +467,11 @@ def generate_oas(
             security_schemas=security_schemas,
             problem_path=oas_config.PROBLEM_PATH,
         )
+    if schemas:
+        components["schemas"] = schemas
+
+    if security_schemas:
+        components["securitySchemes"] = security_schemas
 
     comp = oasmodel.Components(**components)
     info = oasmodel.Info(title=oas_config.TITLE, version=app_version)

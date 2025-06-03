@@ -1,17 +1,20 @@
 from time import time
-from types import UnionType
-from typing import Annotated, Any, Literal, Sequence, TypedDict
+
+# from types import UnionType
+from typing import Annotated, Any, Sequence, TypedDict, cast
 from uuid import uuid4
 
 from ididi import Graph
 from msgspec import convert
 from msgspec.structs import asdict as struct_asdict
-from typing_extensions import Required, Unpack
+from typing_extensions import Unpack
 
 from lihil.config.app_config import AppConfig, Doc, IAppConfig
-from lihil.interface import UNSET, Base, IAsyncFunc, P, R, Struct, Unset
+from lihil.interface import IAsyncFunc, P, R, Struct
+from lihil.plugins.auth.oauth import OAuth2Token
 from lihil.problems import InvalidAuthError
 from lihil.signature import EndpointSignature, Param
+from lihil.signature.params import HeaderParam
 from lihil.utils.json import encoder_factory
 
 
@@ -37,17 +40,6 @@ class JWTConfig(AppConfig, kw_only=True):
     ]
 
 
-class JWTClaims(TypedDict, total=False):
-    """
-    exp_in: expire in x seconds
-
-    """
-
-    expires_in: Required[int]
-    iss: str
-    aud: str
-
-
 class JWTOptions(TypedDict, total=False):
     verify_signature: bool
     verify_exp: bool
@@ -58,16 +50,6 @@ class JWTOptions(TypedDict, total=False):
     verify_sub: bool
     verify_jti: bool
     require: list[Any]
-
-
-class OAuth2Token(Base):
-    "https://www.oauth.com/oauth2-servers/access-tokens/access-token-response/"
-
-    access_token: str
-    expires_in: int
-    token_type: Literal["Bearer"] = "Bearer"
-    refresh_token: Unset[str] = UNSET
-    scope: Unset[str] = UNSET
 
 
 try:
@@ -90,17 +72,63 @@ else:
                 [jwt_algorithms] if isinstance(jwt_algorithms, str) else jwt_algorithms
             )
             self.options = options
-            self.jwt = PyJWT(options=options)
-            self.jws = PyJWS(algorithms=self.jwt_algorithms, options=options)
+            _options = cast(dict[str, Any], options)
+            self.jwt = PyJWT(options=_options)
+            self.jws = PyJWS(algorithms=self.jwt_algorithms, options=_options)
 
         def decode_plugin(
-            self, graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
-        ) -> IAsyncFunc[P, R]:
-            for _, param in sig.header_params.items():
-                if param.source == "header" and param.alias == "Authorization":
-                    param.decoder = self.jwt_decode_factory(param.type_)
+            self,
+            audience: str | Sequence[str] | None = None,
+            issuer: str | Sequence[str] | None = None,
+        ):
+            def search_auth_param(
+                header_params: dict[str, HeaderParam[Any]],
+            ) -> str | None:
+                for _, param in header_params.items():
+                    if param.source == "header" and param.alias == "Authorization":
+                        return param.name
 
-            return func
+            def inner(
+                _: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
+            ) -> IAsyncFunc[P, R]:
+                param_name = search_auth_param(sig.header_params)
+                if param_name is None:
+                    return func
+
+                auth_param = sig.header_params[param_name]
+
+                payload_type = auth_param.type_
+
+                def decode_jwt(content: str | list[str]):
+                    if isinstance(content, list):
+                        raise InvalidAuthError(
+                            "Multiple authorization headers are not allowed"
+                        )
+
+                    try:
+                        scheme, _, token = content.partition(" ")
+                        if scheme.lower() != "bearer":
+                            raise InvalidAuthError(
+                                f"Invalid authorization scheme {scheme}"
+                            )
+
+                        decoded: dict[str, Any] = self.jwt.decode(
+                            token,
+                            key=self.jwt_secret,
+                            algorithms=self.jwt_algorithms,
+                            audience=audience,
+                            issuer=issuer,
+                        )
+                        if payload_type is str:
+                            return decoded["sub"]
+                        return convert(decoded, payload_type)
+                    except InvalidTokenError:
+                        raise InvalidAuthError("Unable to validate your credential")
+
+                auth_param.decoder = decode_jwt
+                return func
+
+            return inner
 
         def encode_plugin(
             self,
@@ -160,35 +188,15 @@ else:
 
             return jwt_encoder_factory
 
-        def jwt_decode_factory(self, payload_type: type | UnionType):
-            def decode_jwt(content: str | list[str]):
-                if isinstance(content, list):
-                    raise InvalidAuthError(
-                        "Multiple authorization headers are not allowed"
-                    )
-
-                try:
-                    scheme, _, token = content.partition(" ")
-                    if scheme.lower() != "bearer":
-                        raise InvalidAuthError(f"Invalid authorization scheme {scheme}")
-
-                    decoded: dict[str, Any] = self.jwt.decode(
-                        token, key=self.jwt_secret, algorithms=self.jwt_algorithms
-                    )
-                    if payload_type is str:
-                        return decoded["sub"]
-                    return convert(decoded, payload_type)
-                except InvalidTokenError:
-                    raise InvalidAuthError("Unable to validate your credential")
-
-            return decode_jwt
-
-
-"""
-async def login(user_profile: Annotated[UserProfile, Param("header", alias="Authorization")]) -> OAuth2Token:
-"""
 
 JWTAuthParam = Param("header", alias="Authorization", extra_meta=dict(skip_unpack=True))
-# JWTCookieParam = Param(
-#     "cookie", alias="access_token", extra_meta=dict(skip_unpack=True)
-# )
+"""
+An alias for Param("header", alias="Authorization"), set extra_meta `dict(skip_unpack=True)` so that when used with structured type, this param won't be unpacked.
+
+Usage:
+```python
+@me.get(auth_scheme=OAuth2PasswordFlow(token_url=token_url), plugins=[jwt_plugin.jwt_decode_factory(secret, algorithm)])
+async def current_user(user_profile: Annotated[UserProfile, JWTAuthParam]) -> OAuth2Token:
+    ...
+```
+"""

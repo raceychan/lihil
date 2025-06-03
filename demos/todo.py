@@ -1,31 +1,29 @@
-from pydantic import BaseModel
+from lihil import Annotated, Lihil, Param, Route
+from lihil.plugins.auth.jwt import JWTAuthParam
+from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuth2Token, OAuthLoginForm
 
-from lihil import Lihil, Route
-from lihil.config import lhl_read_config
-from lihil.plugins.auth.supabase import SupabaseConfig, signin_route_factory
+tokens = Route("/token")
+me = Route("/users/me")
 
 
-async def lifespan(app: Lihil):
-    app.config = lhl_read_config(
-        ".env", config_type=SupabaseConfig
-    )  # read config from .env file as convert it to `ProjectConfig` object.
-    app.include_routes(signin_route_factory(route_path="/login"))
+@tokens.post
+async def login_get_token(form: OAuthLoginForm):
+    return OAuth2Token("123", 123)
+
+
+@me.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))
+async def get_user(
+    auth: Annotated[str | None, Param("header", alias="authorization")] = "",
+):
+    breakpoint()
+
+
+async def debug(app):
     yield
 
 
-class Profile(BaseModel):
-    name: str
-    age: int
-
-
-root = Route()
-
-
-@root.post
-async def create_profile(p: Profile): ...
-
-
-lhl = Lihil(root, lifespan=lifespan)
+lhl = Lihil(lifespan=debug)
+lhl.include_routes(tokens, me)
 
 if __name__ == "__main__":
     lhl.run(__file__)

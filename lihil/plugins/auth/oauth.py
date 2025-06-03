@@ -1,10 +1,20 @@
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Literal
 
 from msgspec import field
 
-from lihil.interface import UNSET, Payload, UnsetType
+from lihil.interface import UNSET, Base, Payload, UnsetType, Unset
 from lihil.oas.model import AuthModel, OAuth2, OAuthFlowPassword, OAuthFlows
 from lihil.signature.params import Form
+
+
+class OAuth2Token(Base):
+    "https://www.oauth.com/oauth2-servers/access-tokens/access-token-response/"
+
+    access_token: str
+    expires_in: int
+    token_type: Literal["Bearer"] = "Bearer"
+    refresh_token: Unset[str] = UNSET
+    scope: Unset[str] = UNSET
 
 
 class OAuthLogin(Payload):
@@ -34,9 +44,12 @@ OAuthLoginForm = Annotated[OAuthLogin, Form()]
 class AuthBase:
     "A base class for all auth schemes"
 
-    def __init__(self, model: AuthModel, scheme_name: str):
+    def __init__(
+        self, model: AuthModel, scheme_name: str, scopes: dict[str, str] | None = None
+    ):
         self.model = model
         self.scheme_name = scheme_name
+        self.scopes = scopes
 
 
 class OAuth2Base(AuthBase):
@@ -48,6 +61,7 @@ class OAuth2Base(AuthBase):
         auto_error: bool = True,
         flows: OAuthFlows | None = None,
         scheme_name: str | None = None,
+        scopes: dict[str, str] | None = None,
     ):
         self.description = description
         self.auto_error = auto_error
@@ -57,6 +71,7 @@ class OAuth2Base(AuthBase):
         super().__init__(
             model=OAuth2(flows=flows or OAuthFlows(), description=self.description),
             scheme_name=scheme_name or self.scheme_name,
+            scopes=scopes,
         )
 
 
@@ -74,11 +89,12 @@ class OAuth2PasswordFlow(OAuth2Base):
         scopes: dict[str, str] | None = None,
     ):
 
-        password_flow = OAuthFlowPassword(tokenUrl=token_url, scopes=scopes or {})
+        password_flow = OAuthFlowPassword(tokenUrl=token_url, scopes=(scopes or {}))
         flows = OAuthFlows(password=password_flow)
         super().__init__(
             flows=flows,
             description=description,
             auto_error=auto_error,
             scheme_name=scheme_name,
+            scopes=scopes,
         )

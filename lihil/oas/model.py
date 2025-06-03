@@ -49,7 +49,7 @@ class APIKey(AuthModel, kw_only=True):
 
 class HTTPBase(AuthModel, kw_only=True):
     type_: SecuritySchemeTypes = field(default="http", name="type")
-    scheme: str
+    scheme: Literal["bearer", "digest", "basic"]
 
 
 class HTTPBearer(HTTPBase):
@@ -310,7 +310,9 @@ class Operation(OASB, kw_only=True):
     parameters: Unset[list[Union[Parameter, Reference]]] = UNSET
     requestBody: Unset[Union[RequestBody, Reference]] = UNSET
     # Using Any for Specification Extensions
-    responses: dict[str, Union[Response, Any]] = field(default_factory=dict)
+    responses: dict[str, Union[Response, Any]] = field(
+        default_factory=dict[str, Union[Response, Any]]
+    )
     callbacks: Unset[dict[str, Union[dict[str, "PathItem"], Reference]]] = UNSET
     deprecated: Unset[bool] = UNSET
     security: Unset[list[dict[str, list[str]]]] = UNSET

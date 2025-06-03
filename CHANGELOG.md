@@ -1246,3 +1246,29 @@ Improvements
 Fixes:
 
 - [x] fix a bug introduced in 0.2.12 that would cause builtin routes(/docs, /problem_page) invisibile to users
+
+
+## version 0.2.14
+
+Improvements:
+
+- [x] add `audience` and `issuer` to `jwt_auth_plugin.decode_plugin`, now user need to call `jwt_auth_plugin.decode_plugin` like this:
+
+```python
+    @testroute.get(
+        auth_scheme=OAuth2PasswordFlow(token_url="token"),
+        plugins=[jwt_auth_plugin.decode_plugin()],
+    )
+    async def get_me(
+        token: Annotated[UserProfile, JWTAuthParam],
+    ) -> Annotated[Text, status.OK]:
+        assert token.user_id == "1" and token.user_name == "2"
+        return "ok"
+```
+
+
+Fixes:
+
+- [x] fix a bug where swagger ui would show `Authorize` button even when there is no securitySchemes
+
+- [x] fix a bug where swagger ui would always show single value param as required

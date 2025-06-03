@@ -635,7 +635,7 @@ async def test_endpoint_with_jwt_decode_fail(
 
     testroute.get(
         auth_scheme=OAuth2PasswordFlow(token_url="token"),
-        plugins=[jwt_auth_plugin.decode_plugin],
+        plugins=[jwt_auth_plugin.decode_plugin()],
     )(get_me)
 
     ep = testroute.get_endpoint(get_me)
@@ -650,7 +650,7 @@ async def test_endpoint_login_and_validate(
 ):
     @testroute.get(
         auth_scheme=OAuth2PasswordFlow(token_url="token"),
-        plugins=[jwt_auth_plugin.decode_plugin],
+        plugins=[jwt_auth_plugin.decode_plugin()],
     )
     async def get_me(
         token: Annotated[UserProfile, JWTAuthParam],

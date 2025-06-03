@@ -3,20 +3,20 @@ from typing import Annotated, Union
 import pytest
 from msgspec import Struct
 
-from lihil import Empty, HTTPException, Payload, Route, Text, status
+from lihil import Empty, HTTPException, Param, Payload, Route, Text, status
 from lihil.config import OASConfig
 from lihil.interface import is_set
 from lihil.local_client import LocalClient
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.oas.doc_ui import get_problem_ui_html
 from lihil.oas.schema import (
-    json_schema,
     detail_base_to_content,
     generate_oas,
     generate_op_from_ep,
     get_ep_security,
     get_path_item_from_route,
     get_resp_schemas,
+    json_schema,
 )
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow
 from lihil.problems import collect_problems
@@ -300,3 +300,21 @@ def test_json_schema_of_msgspec_and_pydantic():
 
     result = json_schema(auth_types.User)
     assert result
+
+
+async def test_single_value_param_not_required():
+    "before 0.2.14 we set in lihil.oas.schema._single_field_schema that param required is always true"
+
+    lc = LocalClient()
+
+    async def create_user(
+        age: int,
+        user_id: str | None = None,
+        address: Annotated[str, Param("header", alias="address")] = "",
+    ): ...
+
+    ep = await lc.make_endpoint(create_user)
+
+    assert not ep.sig.query_params["user_id"].required
+    assert ep.sig.query_params["age"].required
+    assert not ep.sig.header_params["address"].required
