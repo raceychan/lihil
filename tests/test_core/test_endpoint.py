@@ -388,7 +388,7 @@ async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
 
     rusers.get(get)
     with pytest.raises(InvalidParamError):
-         rusers._setup()
+        rusers._setup()
 
 
 async def test_ep_requiring_form_sequence_type(rusers: Route, lc: LocalClient):
@@ -629,7 +629,6 @@ async def test_endpoint_login_and_validate(
     async def login_get_token(login_form: OAuthLoginForm) -> UserProfile:
         return UserProfile(user_id="1", user_name="2")
 
-
     login_ep = testroute.get_endpoint(login_get_token)
 
     res = await lc.submit_form(
@@ -796,12 +795,6 @@ async def test_ep_with_multiple_value_header():
     assert resp.status_code == 200
 
 
-from msgspec import convert
-
-
-async def test_convert(): ...
-
-
 async def test_ep_requiring_upload_file_with_decoder(rusers: Route, lc: LocalClient):
 
     async def get(
@@ -812,3 +805,12 @@ async def test_ep_requiring_upload_file_with_decoder(rusers: Route, lc: LocalCli
         return ""
 
     await lc.make_endpoint(get)
+
+
+async def test_ep_with_props_encoder(rusers: Route, lc: LocalClient):
+    async def get(req: Request) -> Annotated[str, status.OK]: ...
+
+    dummy = lambda x: ""
+
+    ep = await lc.make_endpoint(get, encoder=dummy)
+    assert ep.encoder is dummy

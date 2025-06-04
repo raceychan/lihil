@@ -30,6 +30,7 @@ from lihil.interface import (
     HTTP_METHODS,
     ASGIApp,
     Func,
+    IEncoder,
     IReceive,
     IScope,
     ISend,
@@ -67,6 +68,8 @@ class IEndpointProps(TypedDict, total=False):
     "Auth Scheme for access control"
     tags: Sequence[str] | None
     "OAS tag, endpoints with the same tag will be grouped together"
+    encoder: IEncoder
+    "Return Encoder"
     plugins: list[IPlugin]
     "Decorators to decorate the endpoint function"
 
@@ -78,6 +81,7 @@ class EndpointProps(Record, kw_only=True):
     scoped: Literal[True] | None = None
     auth_scheme: AuthBase | None = None
     tags: Sequence[str] | None = None
+    encoder: IEncoder | None = None
     plugins: list[IPlugin] = field(default_factory=list[IPlugin])
 
     @classmethod
@@ -176,7 +180,7 @@ class Endpoint(Generic[R]):
         self._static = sig.static
         self._status_code = sig.status_code
         self._scoped: bool = sig.scoped or self._props.scoped is True
-        self._encoder = sig.encoder
+        self._encoder = self._props.encoder or sig.encoder
 
         self._media_type = sig.media_type
 
