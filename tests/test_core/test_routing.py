@@ -380,14 +380,6 @@ async def test_route_decorator_style():
     assert await get_response.text() == "GET response"
 
 
-async def test_route_redirect_not_implemented():
-    route = Route("/test")
-
-    # Test the redirect method which is not implemented
-    with pytest.raises(NotImplementedError):
-        route.redirect(route.__call__, id="123")
-
-
 async def test_route_repr():
     route = Route("/test")
 

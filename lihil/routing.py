@@ -1,7 +1,7 @@
 from concurrent.futures.thread import ThreadPoolExecutor
 from functools import partial
 from inspect import isasyncgen, isgenerator
-from types import MappingProxyType, MethodType
+from types import MappingProxyType
 from typing import (
     Any,
     Awaitable,
@@ -113,11 +113,11 @@ class Endpoint(Generic[R]):
         return f"{self.__class__.__name__}({self._method}: {self._route.path!r} {self._func})"
 
     @property
-    def route(self):
+    def route(self) -> "Route":
         return self._route
 
     @property
-    def props(self):
+    def props(self) -> EndpointProps:
         return self._props
 
     @property
@@ -141,7 +141,7 @@ class Endpoint(Generic[R]):
         return self._scoped
 
     @property
-    def encoder(self):
+    def encoder(self) -> Callable[[Any], bytes]:
         return self._encoder
 
     @property
@@ -258,7 +258,7 @@ class Endpoint(Generic[R]):
 
 
 class RouteBase(ASGIBase):
-    def __init__(  # type: ignore
+    def __init__(
         self,
         path: str = "",
         *,
@@ -331,7 +331,7 @@ class RouteBase(ASGIBase):
 
     def _setup(
         self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
-    ):
+    ) -> None:
         self._graph = graph or self._graph
         self._workers = workers
 
@@ -362,14 +362,14 @@ class Route(RouteBase):
         self._is_setup: bool = False
 
     @property
-    def endpoints(self):
+    def endpoints(self) -> MappingProxyType[HTTP_METHODS, Endpoint[Any]]:
         return MappingProxyType(self._endpoints)
 
     @property
     def props(self) -> EndpointProps:
         return self._props
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         endpoints_repr = "".join(
             f", {method}: {endpoint.unwrapped_func}"
             for method, endpoint in self._endpoints.items()
@@ -382,7 +382,7 @@ class Route(RouteBase):
 
     def _setup(
         self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
-    ):
+    ) -> None:
         super()._setup(workers=workers, graph=graph)
         self.endpoint_parser = EndpointParser(self._graph, self._path)
 
@@ -437,10 +437,6 @@ class Route(RouteBase):
             for sub_sub in sub_subs:
                 new_sub.include_subroutes(sub_sub, parent_prefix=sub._path)
             self._subroutes.append(new_sub)
-
-    def redirect(self, method: MethodType, **path_params: str) -> None:
-        # owner = method.__self__
-        raise NotImplementedError
 
     def add_endpoint(
         self,

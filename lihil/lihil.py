@@ -103,11 +103,9 @@ class Lihil(ASGIBase):
     ):
         super().__init__(middlewares)
         if app_config is not None:
-            lhl_set_config(app_config)
-        else:
-            loaded_config = lhl_read_config()
-            if loaded_config is not None:
-                lhl_set_config(loaded_config)
+            self.config = app_config
+        elif loaded_config := lhl_read_config():
+            self.config = loaded_config
 
         self._workers = ThreadPoolExecutor(max_workers=max_thread_workers)
         self._graph = graph or Graph(
@@ -125,7 +123,7 @@ class Lihil(ASGIBase):
         self._err_registry = LIHIL_ERRESP_REGISTRY
         self._is_setup: bool = False
 
-    def _init_routes(self, routes: tuple[RouteBase, ...]):
+    def _init_routes(self, routes: tuple[RouteBase, ...]) -> None:
         if not routes:
             self._root = Route(graph=self._graph)
             self._routes.insert(0, self._root)
@@ -316,7 +314,7 @@ class Lihil(ASGIBase):
             self._routes.append(route)
         return route
 
-    def run(self, file_path: str, runner: Callable[..., None] = uvi_run):
+    def run(self, file_path: str, runner: Callable[..., None] = uvi_run) -> None:
         """
         ```python
         app = Lihil()
