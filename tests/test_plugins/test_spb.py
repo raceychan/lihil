@@ -34,5 +34,5 @@ def test_create_signin():
 
 async def test_setup_signin_route():
     route = signin_route_factory("login")
-
-    await route.setup()
+    route._setup()
+    assert route.get_endpoint("POST")

@@ -5,7 +5,7 @@ from lihil.routing import EndpointProps
 async def test_route_merge_endpoint_plugin():
     called: list[str] = []
 
-    async def dummy_plugin(*args):
+    def dummy_plugin(*args):
         called.append("plugin called")
 
     route = Route(props=EndpointProps(plugins=[dummy_plugin]))
@@ -13,8 +13,6 @@ async def test_route_merge_endpoint_plugin():
     async def dummy_handler(): ...
 
     route.get(dummy_handler, plugins=[dummy_plugin])
-
-    await route.setup()
 
     ep = route.get_endpoint(dummy_handler)
 

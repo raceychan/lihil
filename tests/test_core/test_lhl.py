@@ -472,8 +472,8 @@ async def test_static_with_callable():
         return "hello world"
 
     app.static("/test-callable", get_content)
-    assert "/test-callable" in app.static_route.static_cache
-    header, body = app.static_route.static_cache["/test-callable"]
+    assert "/test-callable" in app._static_route.static_cache
+    header, body = app._static_route.static_cache["/test-callable"]
     assert body["body"] == b"hello world"
 
 
@@ -483,8 +483,8 @@ async def test_static_with_json_content():
     data = {"message": "hello world"}
 
     app.static("/test-json", data, content_type="application/json")
-    assert "/test-json" in app.static_route.static_cache
-    header, body = app.static_route.static_cache["/test-json"]
+    assert "/test-json" in app._static_route.static_cache
+    header, body = app._static_route.static_cache["/test-json"]
     assert json.loads(body["body"].decode()) == data
     assert header["headers"][1][1].startswith(b"application/json")
 
@@ -934,3 +934,13 @@ async def test_lhl_add_seen_subroute():
     lhl = Lihil()
 
     lhl.include_routes(parent_route, sub_route, ssub)
+
+    assert lhl.get_route("/sub") is sub_route
+
+
+def test_genereate_oas_from_lhl():
+    from lihil.oas import OpenAPI
+
+    lhl = Lihil()
+    oas = lhl.genereate_oas()
+    assert isinstance(oas, OpenAPI)

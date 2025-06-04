@@ -73,7 +73,7 @@ class StaticRoute(RouteBase):
         # TODO: make this a response instead of a route, cancel static route
         # as route gets more complicated this is hard to maintain.
         self.static_cache: StaticCache = {}
-        self.path = "_static_route_"
+        self._path = "_static_route_"
         self.config = EndpointProps(in_schema=False)
 
     def match(self, scope: IScope):
@@ -109,46 +109,59 @@ class Lihil(ASGIBase):
             if loaded_config is not None:
                 lhl_set_config(loaded_config)
 
-        self.config = lhl_get_config()
-
-        self.workers = ThreadPoolExecutor(max_workers=max_thread_workers)
-        self.graph = graph or Graph(
-            self_inject=True, workers=self.workers, ignore=LIHIL_PRIMITIVES
+        self._workers = ThreadPoolExecutor(max_workers=max_thread_workers)
+        self._graph = graph or Graph(
+            self_inject=True, workers=self._workers, ignore=LIHIL_PRIMITIVES
         )
-        self.graph.register_singleton(self.config, IAppConfig)
+        self._graph.register_singleton(self.config, IAppConfig)
         # =========== keep above order ============
-        self.routes: list[RouteBase] = []
-
-        if not routes:
-            self.root = Route(graph=self.graph)
-            self.routes.insert(0, self.root)
-        else:
-            for route in routes:
-                if route.path == "/":
-                    self.root = route
-                    self.routes.insert(0, self.root)
-
-            self.include_routes(*routes)
+        self._routes: list[RouteBase] = []
+        self._init_routes(routes)
 
         self._userls = lifespan_wrapper(lifespan)
 
-        self.static_route: StaticRoute | None = None
-        self.call_stack: ASGIApp
-        self.err_registry = LIHIL_ERRESP_REGISTRY
+        self._static_route: StaticRoute | None = None
+        self._call_stack: ASGIApp
+        self._err_registry = LIHIL_ERRESP_REGISTRY
+        self._is_setup: bool = False
+
+    def _init_routes(self, routes: tuple[RouteBase, ...]):
+        if not routes:
+            self._root = Route(graph=self._graph)
+            self._routes.insert(0, self._root)
+        else:
+            for route in routes:
+                if route.path == "/":
+                    self._root = route
+                    self._routes.insert(0, self._root)
+
+            self.include_routes(*routes)
 
     def __repr__(self) -> str:
         config = lhl_get_config()
         conn_info = f"({config.server.HOST}:{config.server.PORT})"
         lhl_repr = f"{self.__class__.__name__}{conn_info}[\n  "
-        routes_repr = "\n  ".join(r.__repr__() for r in self.routes)
+        routes_repr = "\n  ".join(r.__repr__() for r in self._routes)
         return lhl_repr + routes_repr + "\n]"
+
+    @property
+    def root(self) -> RouteBase:
+        return self._root
+
+    @property
+    def graph(self) -> Graph:
+        return self._graph
+
+    @property
+    def routes(self) -> list[RouteBase]:
+        return self._routes
 
     @property
     def config(self) -> IAppConfig:
         return lhl_get_config()
 
     @config.setter
-    def config(self, config_val: IAppConfig | None):
+    def config(self, config_val: IAppConfig | None) -> None:
         if config_val is None:
             raise AppConfiguringError(f"Invalid app config {config_val}")
         lhl_set_config(config_val)
@@ -156,11 +169,11 @@ class Lihil(ASGIBase):
     @asynccontextmanager
     async def _lifespan(self):
         if self._userls is None:
-            await self._setup()
+            self._setup()
             yield
         else:
             async with self._userls(self):
-                await self._setup()
+                self._setup()
                 yield
 
     async def _on_lifespan(self, scope: IScope, receive: IReceive, send: ISend) -> None:
@@ -181,46 +194,63 @@ class Lihil(ASGIBase):
         await receive()  # receive {'type': 'lifespan.shutdown'}
         await event_handler(ls.__aexit__(None, None, None), "shutdown")
 
-    async def _setup(self) -> None:
-        self.call_stack = self.chainup_middlewares(self.call_route)
+    async def _call_route(self, scope: IScope, receive: IReceive, send: ISend) -> None:
+        for route in self._routes:
+            if route.match(scope):
+                return await route(scope, receive, send)
+        else:
+            return await NOT_FOUND_RESP(scope, receive, send)
 
-        for route in self.routes:
-            await route.setup(graph=self.graph, workers=self.workers)
+    def _setup(self) -> None:
+        self._call_stack = self.chainup_middlewares(self._call_route)
+        self._routes.extend(self._generate_builtin_routes())
 
-        await self._generate_builtin_routes()
+        for route in self._routes:
+            route._setup(graph=self._graph, workers=self._workers)  # type: ignore
 
-    async def _generate_builtin_routes(self):
-        config = lhl_get_config()
-        oas_config = config.oas
-        openapi_route = get_openapi_route(self.genereate_oas(), oas_config.OAS_PATH)
+        self._is_setup = True
+
+    def _generate_builtin_routes(self) -> tuple[RouteBase, ...]:
+        app_config = lhl_get_config()
+        oas_config = app_config.oas
+
+        openapi_route = get_openapi_route(
+            routes=self._routes,
+            oas_config=oas_config,
+            app_version=app_config.VERSION,
+        )
         doc_route = get_doc_route(oas_config)
         problem_route = get_problem_route(oas_config, collect_problems())
 
-        builtin_routes = (openapi_route, doc_route, problem_route)
-        for route in builtin_routes:
-            await route.setup(self.graph, self.workers)
-        self.include_routes(*builtin_routes)
+        return (openapi_route, doc_route, problem_route)
+
+    def get_route(self, path: str) -> RouteBase | None:
+        for route in self._routes:
+            if route.path == path:
+                return route
 
     def genereate_oas(self) -> OpenAPI:
+        if not self._is_setup:
+            self._setup()
         return generate_oas(
-            routes=self.routes,
+            routes=self._routes,
             oas_config=self.config.oas,
             app_version=self.config.VERSION,
         )
 
-    def include_routes(self, *routes: RouteBase):
+    def include_routes(self, *routes: RouteBase) -> None:
         for route in routes:
-            if route in self.routes:
+            if route in self._routes:
                 continue
 
-            self.graph.merge(route.graph)
-            if route.path == "/" and route is not self.root:
-                if isinstance(self.root, Route) and self.root.endpoints:
-                    raise DuplicatedRouteError(route, self.root)
-                root_idx = self.routes.index(self.root)
-                self.root = self.routes[root_idx] = route
+            self._graph.merge(route.graph)
+            if route.path == "/" and route is not self._root:
+                if isinstance(self._root, Route) and self._root.endpoints:
+                    raise DuplicatedRouteError(route, self._root)
+                root_idx = self._routes.index(self._root)
+                self._root = self._routes[root_idx] = route
             else:
-                self.routes.append(route)
+                self._routes.append(route)
 
             for sub in route.subroutes:
                 self.include_routes(sub)
@@ -251,17 +281,10 @@ class Lihil(ASGIBase):
                 encoded = encoder_factory()(static_content)  # type: ignore
 
         content_resp = uvicorn_static_resp(encoded, 200, content_type, charset)
-        if self.static_route is None:
-            self.static_route = StaticRoute()
-            self.routes.insert(1, self.static_route)
-        self.static_route.add_cache(path, content_resp)
-
-    async def call_route(self, scope: IScope, receive: IReceive, send: ISend) -> None:
-        for route in self.routes:
-            if route.match(scope):
-                return await route(scope, receive, send)
-        else:
-            return await NOT_FOUND_RESP(scope, receive, send)
+        if self._static_route is None:
+            self._static_route = StaticRoute()
+            self._routes.insert(1, self._static_route)
+        self._static_route.add_cache(path, content_resp)
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         """
@@ -281,16 +304,16 @@ class Lihil(ASGIBase):
             await send(message)
 
         try:
-            await self.call_stack(scope, receive, _send)  # type: ignore
+            await self._call_stack(scope, receive, _send)  # type: ignore
         except Exception:
             if not response_started:
                 await InternalErrorResp(scope, receive, send)
             raise
 
     def sub(self, path: str) -> "RouteBase":
-        route = self.root.sub(path)
-        if route not in self.routes:
-            self.routes.append(route)
+        route = self._root.sub(path)
+        if route not in self._routes:
+            self._routes.append(route)
         return route
 
     def run(self, file_path: str, runner: Callable[..., None] = uvi_run):
@@ -342,8 +365,8 @@ class Lihil(ASGIBase):
     def get(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R] | Callable[[Func[P, R]], Func[P, R]]:
-        assert isinstance(self.root, Route)
-        return self.root.get(func, **epconfig)
+        assert isinstance(self._root, Route)
+        return self._root.get(func, **epconfig)
 
     @overload
     def put(
@@ -356,8 +379,8 @@ class Lihil(ASGIBase):
     def put(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        assert isinstance(self.root, Route)
-        return self.root.put(func, **epconfig)
+        assert isinstance(self._root, Route)
+        return self._root.put(func, **epconfig)
 
     @overload
     def post(
@@ -370,7 +393,7 @@ class Lihil(ASGIBase):
     def post(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return cast(Route, self.root).post(func, **epconfig)
+        return cast(Route, self._root).post(func, **epconfig)
 
     @overload
     def delete(
@@ -383,7 +406,7 @@ class Lihil(ASGIBase):
     def delete(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return cast(Route, self.root).delete(func, **epconfig)
+        return cast(Route, self._root).delete(func, **epconfig)
 
     @overload
     def patch(
@@ -396,7 +419,7 @@ class Lihil(ASGIBase):
     def patch(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return cast(Route, self.root).patch(func, **epconfig)
+        return cast(Route, self._root).patch(func, **epconfig)
 
     @overload
     def head(
@@ -409,7 +432,7 @@ class Lihil(ASGIBase):
     def head(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return cast(Route, self.root).head(func, **epconfig)
+        return cast(Route, self._root).head(func, **epconfig)
 
     @overload
     def options(
@@ -422,7 +445,7 @@ class Lihil(ASGIBase):
     def options(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return cast(Route, self.root).options(func, **epconfig)
+        return cast(Route, self._root).options(func, **epconfig)
 
     @overload
     def trace(
@@ -435,7 +458,7 @@ class Lihil(ASGIBase):
     def trace(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return cast(Route, self.root).trace(func, **epconfig)
+        return cast(Route, self._root).trace(func, **epconfig)
 
     @overload
     def connect(
@@ -448,4 +471,4 @@ class Lihil(ASGIBase):
     def connect(
         self, func: Func[P, R] | None = None, **epconfig: Unpack[IEndpointProps]
     ) -> Func[P, R]:
-        return cast(Route, self.root).connect(func, **epconfig)
+        return cast(Route, self._root).connect(func, **epconfig)

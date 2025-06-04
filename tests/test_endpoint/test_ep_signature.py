@@ -54,7 +54,7 @@ async def test_non_use_dep(route: Route):
     async def get_todo(p: str, service: Annotated[UserService, use(UserService)]): ...
 
     ep = route.get_endpoint(get_todo)
-    await route.setup()
+    route._setup()
     deps = ep.sig.dependencies
 
     assert len(deps) == 1  # only service not engine

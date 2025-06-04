@@ -1,7 +1,14 @@
 from typing import Any, Sequence
 
 from lihil.errors import MiddlewareBuildError
-from lihil.interface.asgi import ASGIApp, MiddlewareFactory, TApp
+from lihil.interface.asgi import (
+    ASGIApp,
+    IReceive,
+    IScope,
+    ISend,
+    MiddlewareFactory,
+    TApp,
+)
 
 
 class ASGIBase:
@@ -35,3 +42,6 @@ class ASGIBase:
             current = prev
 
         return current
+
+    async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
+        raise NotImplementedError

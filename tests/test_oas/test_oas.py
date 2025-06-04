@@ -36,7 +36,6 @@ class Order(Payload, tag=True):
 @pytest.fixture
 async def user_route():
     route = Route("/user/{user_id}/order/{order_id}")
-    await route.setup()
     return route
 
 
@@ -54,8 +53,7 @@ async def test_get_order_schema(user_route: Route):
 
     user_route.post(errors=OrderNotFound)(get_order)
 
-    current_ep = user_route.endpoints["POST"]
-    await user_route.setup()
+    current_ep = user_route.get_endpoint("POST")
     ep_rt = current_ep.sig.return_params[200]
     ep_rt.type_ == Union[Order, User]
     components = {"schemas": {}}
@@ -71,7 +69,6 @@ async def test_get_hello_return(user_route: Route):
     ) -> Annotated[Text, status.OK]: ...
 
     current_ep = user_route.get_endpoint(get_hello)
-    await user_route.setup()
     ep_rt = current_ep.sig.return_params[200]
     assert ep_rt.type_ == bytes
 
@@ -117,7 +114,7 @@ async def test_complex_route(complex_route: Route):
     complex_route.add_endpoint(
         "GET", func=get_user, errors=[UserNotFoundError, UserNotHappyError]
     )
-    await complex_route.setup()
+    complex_route._setup()
 
     oas = generate_oas([complex_route], oas_config, "0.1.0")
     assert oas
@@ -125,9 +122,8 @@ async def test_complex_route(complex_route: Route):
 
 async def test_call_openai():
     lc = LocalClient()
-    oas = generate_oas([], oas_config, "0.1.0")
 
-    oas_route = get_openapi_route(oas, oas_config.OAS_PATH)
+    oas_route = get_openapi_route([], oas_config, "0.1.0")
     ep = oas_route.get_endpoint("GET")
 
     res = await lc.call_endpoint(ep)
@@ -161,7 +157,6 @@ async def test_ep_with_empty_resp():
     route.get(empty_ep)
 
     ep = route.get_endpoint("GET")
-    await route.setup()
     schema = get_resp_schemas(ep, {}, "")
     assert schema["200"].description == "No Content"
 
@@ -178,7 +173,6 @@ async def test_ep_with_annotated_resp():
     route.get(empty_ep)
 
     ep = route.get_endpoint("GET")
-    await route.setup()
     schema = get_resp_schemas(ep, {}, "")
     assert schema
 
@@ -218,7 +212,6 @@ async def test_ep_with_status_larger_than_300():
     route = Route()
     route.post(create_user)
     ep = route.get_endpoint(create_user)
-    await route.setup()
 
     get_resp_schemas(ep, {}, "")
 
@@ -229,7 +222,6 @@ async def test_ep_without_ret():
     route = Route()
     route.post(create_user)
     ep = route.get_endpoint(create_user)
-    await route.setup()
 
     get_resp_schemas(ep, {}, "")
 
@@ -242,7 +234,6 @@ async def test_ep_with_auth():
     route.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_user)
 
     ep = route.get_endpoint("GET")
-    await route.setup()
 
     sc = {}
     get_ep_security(ep, sc)

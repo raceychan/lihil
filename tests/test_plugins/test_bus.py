@@ -33,7 +33,6 @@ async def listen_twice(created: TodoCreated, _: Any):
 @pytest.fixture
 async def bus_route():
     route = Route("/bus")
-    await route.setup()
     return route
 
 
@@ -53,7 +52,6 @@ async def test_bus_is_singleton(bus_route: Route):
     bus_route.post(create_todo)
 
     ep = bus_route.get_endpoint("POST")
-    await bus_route.setup()
     assert ep.sig.plugins
     assert get_origin(ep.sig.plugins["bus"].type_) is EventBus
 
@@ -66,7 +64,6 @@ async def test_call_ep_invoke_bus(bus_route: Route, registry: MessageRegistry[Ev
 
     bus_route.post(create_todo, plugins=[BusPlugin(BusTerminal(registry)).decorate])
     ep = bus_route.get_endpoint("POST")
-    await bus_route.setup()
     client = LocalClient()
     resp = await client.call_endpoint(ep, query_params=dict(name="1", content="2"))
 

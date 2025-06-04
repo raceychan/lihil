@@ -1,5 +1,4 @@
 from lihil import Annotated, Lihil, Param, Route
-from lihil.plugins.auth.jwt import JWTAuthParam
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuth2Token, OAuthLoginForm
 
 tokens = Route("/token")

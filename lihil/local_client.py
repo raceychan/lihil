@@ -368,7 +368,7 @@ class LocalClient:
         """
 
         if not ep.is_setup:
-            await ep.route.setup()
+            ep.route._setup()
 
         resp = await self.request(
             app=ep,
@@ -398,12 +398,12 @@ class LocalClient:
         4. reset route.graph to old graph
         """
 
-        await route.setup()
+        route._setup()
 
         resp = await self.request(
             app=route,
             method=method,
-            path=route.path,
+            path=route._path,
             path_params=path_params,
             query_params=query_params,
             headers=headers,
@@ -513,5 +513,4 @@ class LocalClient:
     ) -> Endpoint[R]:
         route = Route(path)
         route.add_endpoint(method, func=f, **props)
-        await route.setup()
         return route.get_endpoint(method)

@@ -108,9 +108,7 @@ build:
 
 pypi-release:
 	@echo "Publishing to PyPI with skip-existing flag..."
-	@twine upload dist/*
-	@git branch -d $(BRANCH)
-	@git push origin --delete $(BRANCH)
+	@twine upload dist/* --skip-existing
 
 # Branch management
 delete-branch:

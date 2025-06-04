@@ -1272,3 +1272,13 @@ Fixes:
 - [x] fix a bug where swagger ui would show `Authorize` button even when there is no securitySchemes
 
 - [x] fix a bug where swagger ui would always show single value param as required
+
+
+
+## version 0.2.15
+
+## Refactor
+
+- [x] now only accept sync function as plugin factory.
+
+- [x] better encapsulation for Route

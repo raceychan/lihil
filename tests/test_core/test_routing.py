@@ -277,13 +277,11 @@ async def test_route_build_stack():
     route.get(handler)
 
     # Initially call_stacks should be empty
-    assert not route.call_stacks
+    assert not route._is_setup
 
-    # Build the stack
-    await route.setup()
-
+    route._setup()
     # Now call_stacks should have the GET method
-    assert "GET" in route.call_stacks
+    assert route.get_endpoint("GET")
 
 
 async def test_route_add_nodes():
@@ -425,7 +423,7 @@ async def test_route_call_with_existing_call_stack():
     assert response2.status_code == 200
 
     # Verify call_stacks has the GET method
-    assert "GET" in route.call_stacks
+    assert route.get_endpoint("GET")
 
 
 async def test_route_get_endpoint_not_found():
@@ -545,8 +543,8 @@ async def test_route_on_lifespan():
     async def get(): ...
 
     route.get(get)
-    await route.setup()
-    assert route.call_stacks["GET"]
+    route._setup()
+    assert route.get_endpoint("GET")
 
 
 def test_get_endpoint_with_sync_func_fail():
@@ -660,7 +658,7 @@ async def test_route_with_literal_resp():
     async def post_empty() -> Literal[None]: ...
 
     route.post(post_empty)
-    await route.setup()
+    route._setup()
 
     route.endpoints["POST"].sig.return_params[200]
 

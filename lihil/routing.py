@@ -1,7 +1,7 @@
 from concurrent.futures.thread import ThreadPoolExecutor
 from functools import partial
-from inspect import isasyncgen, iscoroutinefunction, isgenerator
-from types import MethodType
+from inspect import isasyncgen, isgenerator
+from types import MappingProxyType, MethodType
 from typing import (
     Any,
     Awaitable,
@@ -107,7 +107,7 @@ class Endpoint(Generic[R]):
         self._func = async_wrapper(func, threaded=props.to_thread, workers=workers)
         self._props = props
         self._name = func.__name__
-        self.__is_setup: bool = False
+        self._is_setup: bool = False
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._method}: {self._route.path!r} {self._func})"
@@ -150,30 +150,27 @@ class Endpoint(Generic[R]):
 
     @property
     def is_setup(self) -> bool:
-        return self.__is_setup
+        return self._is_setup
 
-    async def chainup_plugins(
+    def chainup_plugins(
         self, func: Callable[..., Awaitable[R]], sig: EndpointSignature[R]
     ) -> Callable[..., Awaitable[R]]:
         seen: set[int] = set()
         for decor in self._props.plugins:
             if (decor_id := id(decor)) in seen:
                 continue
-            if iscoroutinefunction(decor):
-                wrapped = await decor(self._route.graph, func, sig)
-            else:
-                wrapped = decor(self._route.graph, func, sig)
+            wrapped = decor(self._route.graph, func, sig)
             func = cast(Callable[..., Awaitable[R]], wrapped)
             seen.add(decor_id)
         return func
 
-    async def setup(self, sig: EndpointSignature[R]) -> None:
-        if self.__is_setup:
+    def setup(self, sig: EndpointSignature[R], graph: Graph) -> None:
+        if self._is_setup:
             raise Exception(f"`setup` is called more than once in {self}")
 
-        self._graph = self._route.graph
         self._sig = sig
-        self._func = await self.chainup_plugins(self._func, self._sig)
+        self._graph = graph
+        self._func = self.chainup_plugins(self._func, self._sig)
         self._injector = Injector(self._sig)
 
         self._static = sig.static
@@ -183,7 +180,7 @@ class Endpoint(Generic[R]):
 
         self._media_type = sig.media_type
 
-        self.__is_setup = True
+        self._is_setup = True
 
     async def make_static_call(
         self, scope: IScope, receive: IReceive, send: ISend
@@ -269,43 +266,57 @@ class RouteBase(ASGIBase):
         middlewares: list[MiddlewareFactory[Any]] | None = None,
     ):
         super().__init__(middlewares)
-        self.path = trim_path(path)
-        self.path_regex: Pattern[str] = build_path_regex(self.path)
-        self.graph = graph or Graph(self_inject=False)
-        self.workers = None
-        self.subroutes: list[Self] = []
+        self._path = trim_path(path)
+        self._path_regex: Pattern[str] = build_path_regex(self._path)
+        self._graph = graph or Graph(self_inject=False)
+        self._workers = None
+        self._subroutes: list[Self] = []
+
+    @property
+    def graph(self) -> Graph:
+        return self._graph
+
+    @property
+    def subroutes(self) -> list[Self]:
+        return self._subroutes
+
+    @property
+    def path(self) -> str:
+        return self._path
+
+    @property
+    def path_regex(self) -> Pattern[str]:
+        return self._path_regex
 
     def __truediv__(self, path: str) -> "Self":
         return self.sub(path)
 
-    async def __call__(self, scope: IScope, receive: IReceive, send: ISend): ...
-
     def is_direct_child_of(self, other_path: "Route | str") -> bool:
         if isinstance(other_path, Route):
-            return self.is_direct_child_of(other_path.path)
+            return self.is_direct_child_of(other_path._path)
 
-        if not self.path.startswith(other_path):
+        if not self._path.startswith(other_path):
             return False
-        rest = self.path.removeprefix(other_path)
+        rest = self._path.removeprefix(other_path)
         return rest.count("/") < 2
 
     def sub(self, path: str) -> Self:
         sub_path = trim_path(path)
-        merged_path = merge_path(self.path, sub_path)
-        for sub in self.subroutes:
-            if sub.path == merged_path:
+        merged_path = merge_path(self._path, sub_path)
+        for sub in self._subroutes:
+            if sub._path == merged_path:
                 return sub
         sub = self.__class__(
             path=merged_path,
-            graph=self.graph,
+            graph=self._graph,
             middlewares=self.middle_factories,
         )
-        self.subroutes.append(sub)
+        self._subroutes.append(sub)
         return sub
 
     def match(self, scope: IScope) -> bool:
         path = scope["path"]
-        if not self.path_regex or not (m := self.path_regex.match(path)):
+        if not self._path_regex or not (m := self._path_regex.match(path)):
             return False
         scope["path_params"] = m.groupdict()
         return True
@@ -313,23 +324,20 @@ class RouteBase(ASGIBase):
     def add_nodes(
         self, *nodes: Union[IDependent[T], tuple[IDependent[T], INodeConfig]]
     ) -> None:
-        self.graph.add_nodes(*nodes)
+        self._graph.add_nodes(*nodes)
 
     def factory(self, node: Callable[..., R], **node_config: Unpack[INodeConfig]):
-        return self.graph.node(node, **node_config)
+        return self._graph.node(node, **node_config)
 
-    async def setup(
-        self,
-        graph: Graph | None = None,
-        workers: ThreadPoolExecutor | None = None,
+    def _setup(
+        self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
     ):
-        self.graph = graph or self.graph
-        self.workers = workers
+        self._graph = graph or self._graph
+        self._workers = workers
 
 
 class Route(RouteBase):
-
-    def __init__(  # type: ignore
+    def __init__(
         self,
         path: str = "",
         *,
@@ -342,50 +350,62 @@ class Route(RouteBase):
             graph=graph,
             middlewares=middlewares,
         )
-        self.endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
-        self.call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
+        self._endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
+        self._call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
         if props is not None:
             if props.tags is None:
-                props = props.replace(tags=generate_route_tag(self.path))
-            self.props = props
+                props = props.replace(tags=generate_route_tag(self._path))
+            self._props = props
         else:
-            self.props = EndpointProps(tags=[generate_route_tag(self.path)])
+            self._props = EndpointProps(tags=[generate_route_tag(self._path)])
+
+        self._is_setup: bool = False
+
+    @property
+    def endpoints(self):
+        return MappingProxyType(self._endpoints)
+
+    @property
+    def props(self) -> EndpointProps:
+        return self._props
 
     def __repr__(self):
         endpoints_repr = "".join(
             f", {method}: {endpoint.unwrapped_func}"
-            for method, endpoint in self.endpoints.items()
+            for method, endpoint in self._endpoints.items()
         )
-        return f"{self.__class__.__name__}({self.path!r}{endpoints_repr})"
+        return f"{self.__class__.__name__}({self._path!r}{endpoints_repr})"
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
-        endpoint = self.call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
+        endpoint = self._call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
         await endpoint(scope, receive, send)
 
-    async def setup(
+    def _setup(
         self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
     ):
-        await super().setup(workers=workers, graph=graph)
-        self.endpoint_parser = EndpointParser(self.graph, self.path)
+        super()._setup(workers=workers, graph=graph)
+        self.endpoint_parser = EndpointParser(self._graph, self._path)
 
-        for method, ep in self.endpoints.items():
+        for method, ep in self._endpoints.items():
             if ep.is_setup:
                 continue
             ep_sig = self.endpoint_parser.parse(ep.unwrapped_func)
-            await ep.setup(ep_sig)
-            self.call_stacks[method] = self.chainup_middlewares(ep)
+            ep.setup(ep_sig, self._graph)
+            self._call_stacks[method] = self.chainup_middlewares(ep)
 
-    def parse_endpoint(self, func: Callable[..., R]) -> EndpointSignature[R]:
-        return self.endpoint_parser.parse(func)
+        self._is_setup = True
 
     def get_endpoint(
         self, method_func: HTTP_METHODS | Callable[..., Any]
     ) -> Endpoint[Any]:
+        if not self._is_setup:
+            self._setup()
+
         if isinstance(method_func, str):
             methodname = cast(HTTP_METHODS, method_func.upper())
-            return self.endpoints[methodname]
+            return self._endpoints[methodname]
 
-        for ep in self.endpoints.values():
+        for ep in self._endpoints.values():
             if ep.unwrapped_func is method_func:
                 return ep
         else:
@@ -399,24 +419,24 @@ class Route(RouteBase):
         NOTE: This method is NOT idempotent
         """
         for sub in subs:
-            self.graph.merge(sub.graph)
+            self._graph.merge(sub._graph)
             if parent_prefix:
-                sub_path = sub.path.removeprefix(parent_prefix)
+                sub_path = sub._path.removeprefix(parent_prefix)
             else:
-                sub_path = sub.path
-            merged_path = merge_path(self.path, sub_path)
-            sub_subs = sub.subroutes
+                sub_path = sub._path
+            merged_path = merge_path(self._path, sub_path)
+            sub_subs = sub._subroutes
             new_sub = self.__class__(
                 path=merged_path,
-                graph=self.graph,
+                graph=self._graph,
                 middlewares=sub.middle_factories,
-                props=sub.props,
+                props=sub._props,
             )
-            for method, ep in sub.endpoints.items():
+            for method, ep in sub._endpoints.items():
                 new_sub.add_endpoint(method, func=ep.unwrapped_func, **ep.props)
             for sub_sub in sub_subs:
-                new_sub.include_subroutes(sub_sub, parent_prefix=sub.path)
-            self.subroutes.append(new_sub)
+                new_sub.include_subroutes(sub_sub, parent_prefix=sub._path)
+            self._subroutes.append(new_sub)
 
     def redirect(self, method: MethodType, **path_params: str) -> None:
         # owner = method.__self__
@@ -431,15 +451,15 @@ class Route(RouteBase):
 
         if endpoint_props:
             new_props = EndpointProps.from_unpack(**endpoint_props)
-            props = self.props.merge(new_props)
+            props = self._props.merge(new_props)
         else:
-            props = self.props
+            props = self._props
 
         for method in methods:
             endpoint = Endpoint(
-                self, method=method, func=func, props=props, workers=self.workers
+                self, method=method, func=func, props=props, workers=self._workers
             )
-            self.endpoints[method] = endpoint
+            self._endpoints[method] = endpoint
 
         return func
 

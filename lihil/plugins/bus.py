@@ -749,7 +749,7 @@ class BusPlugin:
     def __init__(self, busterm: BusTerminal[Any]):
         self.busterm = busterm
 
-    async def decorate(
+    def decorate(
         self, graph: Graph, func: Callable[P, Awaitable[R]], sig: EndpointSignature[Any]
     ) -> Callable[P, Awaitable[R]]:
         for name, param in sig.plugins.items():

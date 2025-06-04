@@ -73,7 +73,6 @@ async def test_return_status(rusers: Route):
         return User(id=user.id, name=user.name, email=user.email)
 
     rusers.post(create_user)
-    await rusers.setup()
     ep = rusers.get_endpoint(create_user)
     assert "q" in ep.sig.query_params
     assert "func_dep" in ep.sig.dependencies
@@ -93,7 +92,7 @@ async def test_status_conflict(rusers: Route):
     rusers.get(get_user)
     with pytest.raises(StatusConflictError):
         rusers.get_endpoint(get_user)
-        await rusers.setup()
+        rusers.setup()
 
 
 async def test_annotated_generic(rusers: Route):
@@ -102,7 +101,6 @@ async def test_annotated_generic(rusers: Route):
 
     rusers.put(update_user)
     ep = rusers.get_endpoint(update_user)
-    await rusers.setup()
     repr(ep)
     assert ep.sig.return_params[200].type_ == dict[str, str]
 
@@ -206,7 +204,6 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
         return "asdf"
 
     rusers.get(get)
-    await rusers.setup()
     ep = rusers.get_endpoint("GET")
 
     res = await lc.call_endpoint(ep)
@@ -378,32 +375,8 @@ async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
         return "ok"
 
     rusers.get(get)
-    ep = rusers.get_endpoint("GET")
-
-    boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
-
-    # Correctly formatted multipart body
-    multipart_data = (
-        f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="username"\r\n\r\n'
-        f"john_doe\r\n"
-        f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="email"\r\n\r\n'
-        f"john.doe@example.com\r\n"
-        f"--{boundary}--\r\n"
-    ).encode(
-        "utf-8"
-    )  # Convert to bytes
-
-    # Content-Type header
-    content_type = f"multipart/form-data; boundary={boundary}"
-
     with pytest.raises(InvalidParamError):
-        await lc.call_endpoint(
-            ep,
-            body=multipart_data,
-            headers={f"content-type": content_type},
-        )
+        ep = rusers.get_endpoint("GET")
 
 
 async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
@@ -415,7 +388,7 @@ async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
 
     rusers.get(get)
     with pytest.raises(InvalidParamError):
-        await rusers.setup()
+         rusers._setup()
 
 
 async def test_ep_requiring_form_sequence_type(rusers: Route, lc: LocalClient):
@@ -445,7 +418,6 @@ async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
-    await rusers.setup()
     assert ep.sig.query_params
     assert not ep.sig.path_params
 
@@ -458,7 +430,6 @@ async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
-    await rusers.setup()
     assert ep.sig.query_params
     assert "aloha" in ep.sig.query_params
     assert ep.sig.query_params["aloha"].type_ is int
@@ -472,7 +443,6 @@ async def test_ep_with_random_annoated_path1(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
-    await rusers.setup()
     assert ep.sig.path_params
     assert "user_id" in ep.sig.path_params
     assert ep.sig.path_params["user_id"].type_ is int
@@ -489,7 +459,6 @@ async def test_ep_with_random_annoated_path2(rusers: Route, lc: LocalClient):
     rusers.get(get)
 
     ep = rusers.get_endpoint("GET")
-    await rusers.setup()
     assert ep.sig.body_param
     assert ep.sig.body_param[1].type_ is UserInfo
 
@@ -612,7 +581,6 @@ async def test_oauth2_not_plugin():
     route.get(auth_scheme=OAuth2PasswordFlow(token_url="token"))(get_user)
 
     ep = route.get_endpoint("GET")
-    await route.setup()
 
     assert ep.sig.header_params
 
@@ -639,7 +607,6 @@ async def test_endpoint_with_jwt_decode_fail(
     )(get_me)
 
     ep = testroute.get_endpoint(get_me)
-    await testroute.setup()
 
     res = await lc(ep, headers={"Authorization": "adsfjaklsdjfklajsdfkjaklsdfj"})
     assert res.status_code == 401
@@ -662,7 +629,6 @@ async def test_endpoint_login_and_validate(
     async def login_get_token(login_form: OAuthLoginForm) -> UserProfile:
         return UserProfile(user_id="1", user_name="2")
 
-    await testroute.setup()
 
     login_ep = testroute.get_endpoint(login_get_token)
 
@@ -695,7 +661,6 @@ async def test_ep_is_scoped(testroute: Route):
 
     testroute.get(func)
     ep = testroute.get_endpoint(func)
-    await testroute.setup()
 
     assert ep.scoped
 

@@ -57,15 +57,15 @@ class EndpointSignature(Base, Generic[R]):
     return_params: dict[int, EndpointReturn[R]]
 
     @property
-    def default_return(self):
+    def default_return(self) -> EndpointReturn[R]:
         return next(iter(self.return_params.values()))
 
     @property
-    def status_code(self):
+    def status_code(self) -> int:
         return self.default_return.status
 
     @property
-    def encoder(self):
+    def encoder(self) -> Callable[[Any], bytes]:
         return self.default_return.encoder
 
     @property
@@ -83,9 +83,7 @@ class EndpointSignature(Base, Generic[R]):
 
     @property
     def media_type(self) -> str:
-        default = "application/json"
-        first_return = next(iter(self.return_params.values()))
-        return first_return.content_type or default
+        return self.default_return.content_type or "application/json"
 
 
 class Injector(Generic[R]):

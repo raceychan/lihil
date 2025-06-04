@@ -120,7 +120,14 @@ lihil follows semantic versioning, where a version in x.y.z represents:
 - y: minor, feature updates
 - z: patch, bug fixes, typing updates
 
-Lihil will have at max 10 minor version, which means if lihil reach v0.9.x, then there will be no minor version before v1.0.0.
+Lihil will have at max 10 minor version(most likely just 3), which means if lihil reach v0.9.x, then there will be no minor version before v1.0.0.
 
+## Contributions & Roadmap
 
-<!-- Thecnically, **v1.0.0** will be the first stable major version. However, breaking changes from 0.4.x onwards is highly unlikely. -->
+All contributions are welcome
+
+- [x] v0.1.x: Feature parity
+
+- [ ] v0.2.x: Official Plugins
+
+- [ ] v0.3.x: Performance boost
