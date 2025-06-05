@@ -102,11 +102,8 @@ class Lihil(ASGIBase):
         lifespan: LifeSpan | None = None,
     ):
         super().__init__(middlewares)
-        if app_config is not None:
-            self.config = app_config
-        elif loaded_config := lhl_read_config():
-            self.config = loaded_config
-
+        _config = app_config or lhl_read_config() or lhl_get_config()
+        lhl_set_config(_config)
         self._workers = ThreadPoolExecutor(max_workers=max_thread_workers)
         self._graph = graph or Graph(
             self_inject=True, workers=self._workers, ignore=LIHIL_PRIMITIVES
@@ -115,9 +112,7 @@ class Lihil(ASGIBase):
         # =========== keep above order ============
         self._routes: list[RouteBase] = []
         self._init_routes(routes)
-
         self._userls = lifespan_wrapper(lifespan)
-
         self._static_route: StaticRoute | None = None
         self._call_stack: ASGIApp
         self._err_registry = LIHIL_ERRESP_REGISTRY
@@ -230,10 +225,12 @@ class Lihil(ASGIBase):
     def genereate_oas(self) -> OpenAPI:
         if not self._is_setup:
             self._setup()
+
+        config = self.config
         return generate_oas(
             routes=self._routes,
-            oas_config=self.config.oas,
-            app_version=self.config.VERSION,
+            oas_config=config.oas,
+            app_version=config.VERSION,
         )
 
     def include_routes(self, *routes: RouteBase) -> None:
