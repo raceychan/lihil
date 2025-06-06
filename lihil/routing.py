@@ -27,6 +27,7 @@ from lihil.asgi import ASGIBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.ds.resp import StaticResponse
 from lihil.interface import (
+    IAsyncFunc,
     HTTP_METHODS,
     ASGIApp,
     Func,
@@ -96,6 +97,12 @@ class EndpointProps(Record, kw_only=True):
         return cls(**iconfig)  # type: ignore
 
 
+class EndpointInfo(Record, Generic[P, R]):
+    graph: Graph
+    func: IAsyncFunc[P, R]
+    sig: EndpointSignature[R]
+
+
 class Endpoint(Generic[R]):
     def __init__(
         self,
@@ -163,8 +170,9 @@ class Endpoint(Generic[R]):
         for decor in self._props.plugins:
             if (decor_id := id(decor)) in seen:
                 continue
-            wrapped = decor(self._route.graph, func, sig)
-            func = cast(Callable[..., Awaitable[R]], wrapped)
+
+            ep_info = EndpointInfo(self._route.graph, func, sig)
+            func = decor(ep_info)
             seen.add(decor_id)
         return func
 

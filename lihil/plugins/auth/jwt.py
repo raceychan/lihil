@@ -1,19 +1,17 @@
 from time import time
-
-# from types import UnionType
 from typing import Annotated, Any, Sequence, TypedDict, cast
 from uuid import uuid4
 
-from ididi import Graph
 from msgspec import convert
 from msgspec.structs import asdict as struct_asdict
 from typing_extensions import Unpack
 
 from lihil.config.app_config import AppConfig, Doc, IAppConfig
 from lihil.interface import IAsyncFunc, P, R, Struct
+from lihil.plugins import IEndpointInfo
 from lihil.plugins.auth.oauth import OAuth2Token
 from lihil.problems import InvalidAuthError
-from lihil.signature import EndpointSignature, Param
+from lihil.signature import Param
 from lihil.signature.params import HeaderParam
 from lihil.utils.json import encoder_factory
 
@@ -88,12 +86,11 @@ else:
                     if param.source == "header" and param.alias == "Authorization":
                         return param.name
 
-            def inner(
-                _: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
-            ) -> IAsyncFunc[P, R]:
+            def inner(ep_info: IEndpointInfo[P, R]) -> IAsyncFunc[P, R]:
+                sig = ep_info.sig
                 param_name = search_auth_param(sig.header_params)
                 if param_name is None:
-                    return func
+                    return ep_info.func
 
                 auth_param = sig.header_params[param_name]
 
@@ -126,7 +123,7 @@ else:
                         raise InvalidAuthError("Unable to validate your credential")
 
                 auth_param.decoder = decode_jwt
-                return func
+                return ep_info.func
 
             return inner
 
@@ -154,9 +151,7 @@ else:
                     "expires_in_s must be greater than 0, got {expires_in_s}"
                 )
 
-            def jwt_encoder_factory(
-                graph: Graph, func: IAsyncFunc[P, R], sig: EndpointSignature[Any]
-            ) -> IAsyncFunc[P, R]:
+            def jwt_encoder_factory(ep_info: IEndpointInfo[P, R]) -> IAsyncFunc[P, R]:
                 encoder = encoder_factory()
 
                 def encode_jwt(content: Struct | str) -> bytes:
@@ -182,9 +177,9 @@ else:
                     resp = encoder(token_resp)
                     return resp
 
-                sig.default_return.encoder = encode_jwt
+                ep_info.sig.default_return.encoder = encode_jwt
 
-                return func
+                return ep_info.func
 
             return jwt_encoder_factory
 

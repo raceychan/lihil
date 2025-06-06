@@ -8,7 +8,7 @@ from typing_extensions import Self, Unpack
 
 from lihil.errors import NotSupportedError
 from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
-from lihil.routing import EndpointProps, IEndpointProps, RouteBase
+from lihil.routing import EndpointInfo, EndpointProps, IEndpointProps, RouteBase
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.utils.string import merge_path
 from lihil.vendors import WebSocket
@@ -41,8 +41,9 @@ class WebSocketEndpoint:  # TODO:  endpoint base
         for decor in self._props.plugins:
             if (decor_id := id(decor)) in seen:
                 continue
-            wrapped = decor(self._route.graph, func, sig)
-            func = cast(Callable[..., Awaitable[None]], wrapped)
+
+            ep_info = EndpointInfo(self._route.graph, func, sig)
+            func = decor(ep_info)
             seen.add(decor_id)
         return func
 

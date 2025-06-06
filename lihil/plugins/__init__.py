@@ -4,22 +4,5 @@ mostly simple wrappers to third-party dependencies.
 if not, likely to be a standalone lib
 """
 
-from typing import Any, Generic, Protocol
-
-from ididi import Graph
-
-from lihil.interface import IAsyncFunc, P, R
-from lihil.signature import EndpointSignature
-
-
-class ISyncPlugin(Protocol, Generic[P, R]):
-    def __call__(
-        self,
-        graph: Graph,
-        func: IAsyncFunc[P, R],
-        sig: EndpointSignature[Any],
-        /,
-    ) -> IAsyncFunc[P, R]: ...
-
-
-IPlugin = ISyncPlugin[..., Any]
+from lihil.plugins.interface import IEndpointInfo as IEndpointInfo
+from lihil.plugins.interface import IPlugin as IPlugin

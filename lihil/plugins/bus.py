@@ -24,7 +24,8 @@ from ididi import Graph, Resolver
 from ididi.interfaces import GraphIgnore
 
 from lihil.interface import MISSING, Maybe, P, R, Struct
-from lihil.signature import EndpointSignature, Param
+from lihil.plugins import IEndpointInfo
+from lihil.signature import Param
 from lihil.utils.typing import all_subclasses, get_origin_pro
 
 UNION_META = (UnionType, Union)
@@ -749,9 +750,10 @@ class BusPlugin:
     def __init__(self, busterm: BusTerminal[Any]):
         self.busterm = busterm
 
-    def decorate(
-        self, graph: Graph, func: Callable[P, Awaitable[R]], sig: EndpointSignature[Any]
-    ) -> Callable[P, Awaitable[R]]:
+    def decorate(self, ep_info: IEndpointInfo[P, R]) -> Callable[P, Awaitable[R]]:
+        sig = ep_info.sig
+        func = ep_info.func
+
         for name, param in sig.plugins.items():
             param_type, _ = get_origin_pro(param.type_)
             param_type = ty_get_origin(param_type) or param_type
@@ -762,7 +764,7 @@ class BusPlugin:
 
         @wraps(func)
         async def f(*args: P.args, **kwargs: P.kwargs) -> R:
-            kwargs[name] = self.busterm.create_event_bus(graph)
+            kwargs[name] = self.busterm.create_event_bus(ep_info.graph)
             return await func(*args, **kwargs)
 
         return f

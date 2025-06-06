@@ -20,7 +20,25 @@ def config_registry():
     _app_config: IAppConfig = DEFAULT_CONFIG
 
     def _set_config(app_config: IAppConfig | None = None) -> None:
-        "Set app config, if no config provided, reset to DEFAULT_CONFIG"
+        """
+        ## Set Configuration
+
+        Sets the current application configuration.
+
+        ### Parameters
+        - `app_config` (Optional[`IAppConfig`]):
+            - If provided, sets the application configuration to the given instance.
+            - If `None`, resets the configuration to the default (`DEFAULT_CONFIG`).
+
+        ### Example
+        ```python
+        lhl_set_config(AppConfig(...))   # Set a custom config
+        lhl_set_config()                 # Reset to default
+        ```
+
+        ---
+        """
+
         nonlocal _app_config
         if app_config is None:
             _app_config = DEFAULT_CONFIG
@@ -30,9 +48,33 @@ def config_registry():
     def _read_config(
         *config_files: str | Path, config_type: type[TConfig] = AppConfig
     ) -> TConfig | None:
-        """Read config from config file as well as from command line arguments
-        Read Order
-        files -> env vars -> cli args"""
+        """
+        ## Read Configuration
+
+        Reads configuration from one or more files and merges them, followed by parsing CLI arguments.
+
+        ### Parameters
+        - `*config_files` (str | Path):
+            One or more config file paths. If multiple files are passed, later ones override earlier ones.
+        - `config_type` (type[`TConfig`]):
+            The type of configuration class to parse and return. Defaults to `AppConfig`.
+
+        ### Priority Order
+        1. Config files (merged in order)
+        2. Command-line arguments
+
+        ### Returns
+        - An instance of the parsed configuration (`TConfig`), or `None` if loading fails.
+
+        ### Example
+        ```python
+        config = lhl_read_config("dev.env", "prod.env", config_type=MyAppConfig)
+        ```
+
+        ---
+        """
+        # TODO: read from environtment variable then file then cli args
+
         loader = ConfigLoader()
         _app_config = loader.load_config(*config_files, config_type=config_type)
         return _app_config
@@ -45,7 +87,26 @@ def config_registry():
     def _get_config(
         config_type: Ignore[type[TConfig] | None] = None,
     ) -> TConfig | IAppConfig:
-        "Get current config, low overhead"
+        """
+        ## Get Configuration
+
+        Retrieves the current application configuration.
+
+        ### Parameters
+        - `config_type` (Optional[type[`TConfig`]]):
+            Used for typing only. The actual stored config is cast to this type if provided.
+
+        ### Returns
+        - The current configuration instance (`TConfig` or `IAppConfig`).
+
+        ### Example
+        ```python
+        config: IAppConfig = lhl_get_config()
+        typed_config: MyAppConfig = lhl_get_config(MyAppConfig)
+        ```
+
+        ---
+        """
         return cast(TConfig, _app_config)
 
     return _set_config, _read_config, _get_config
