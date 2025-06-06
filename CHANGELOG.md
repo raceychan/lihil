@@ -1277,8 +1277,50 @@ Fixes:
 
 ## version 0.2.15
 
-## Refactor
+Features
+
+- [x] now route & endpoint takes encoder as props.
+if set, it would override any other encoder.
+
+Refactors
 
 - [x] now only accept sync function as plugin factory.
 
 - [x] better encapsulation for Route
+
+- [x] refactor interface for Plugins
+
+```python
+from typing import Generic, Protocol
+
+from ididi import Graph
+
+from lihil.interface import IAsyncFunc, P, R
+from lihil.signature import EndpointSignature
+
+
+class IEndpointInfo(Protocol, Generic[P, R]):
+    @property
+    def graph(self) -> Graph: ...
+    @property
+    def func(self) -> IAsyncFunc[P, R]: ...
+    @property
+    def sig(self) -> EndpointSignature[R]: ...
+
+
+class IPlugin(Protocol):
+    def __call__(self, endpint_info: IEndpointInfo[P, R]) -> IAsyncFunc[P, R]: ...
+```
+
+NOTE:
+
+If you have written custom plugins for lihil, this could be a breaking change,
+you can, however, add a wrap to your custom plugin to solve this
+
+```python
+def your_plugin(graph, func, sig):
+
+
+def wrapper(ep_info):
+    return your_plugin(ep_info.graph, ep_info.func, ep_info.sig)
+```

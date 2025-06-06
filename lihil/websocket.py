@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from inspect import iscoroutinefunction
-from typing import Any, Awaitable, Callable, cast
+from typing import Any, Awaitable, Callable
 
 from ididi import Graph, Resolver
 from starlette.responses import Response
