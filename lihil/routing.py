@@ -27,10 +27,10 @@ from lihil.asgi import ASGIBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.ds.resp import StaticResponse
 from lihil.interface import (
-    IAsyncFunc,
     HTTP_METHODS,
     ASGIApp,
     Func,
+    IAsyncFunc,
     IEncoder,
     IReceive,
     IScope,
@@ -163,7 +163,7 @@ class Endpoint(Generic[R]):
     def is_setup(self) -> bool:
         return self._is_setup
 
-    def chainup_plugins(
+    def _chainup_plugins(
         self, func: Callable[..., Awaitable[R]], sig: EndpointSignature[R]
     ) -> Callable[..., Awaitable[R]]:
         seen: set[int] = set()
@@ -182,7 +182,7 @@ class Endpoint(Generic[R]):
 
         self._sig = sig
         self._graph = graph
-        self._func = self.chainup_plugins(self._func, self._sig)
+        self._func = self._chainup_plugins(self._func, self._sig)
         self._injector = Injector(self._sig)
 
         self._static = sig.static
