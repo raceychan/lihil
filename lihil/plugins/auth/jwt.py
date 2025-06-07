@@ -50,6 +50,12 @@ class JWTOptions(TypedDict, total=False):
     require: list[Any]
 
 
+"""
+@defineif(jwt)
+class JWTAuthPlugin:
+    ...
+"""
+
 try:
     from jwt import PyJWT
     from jwt.api_jws import PyJWS
@@ -151,6 +157,8 @@ else:
                     "expires_in_s must be greater than 0, got {expires_in_s}"
                 )
 
+            expires_in = expires_in_s * 1000
+
             def jwt_encoder_factory(ep_info: IEndpointInfo[P, R]) -> IAsyncFunc[P, R]:
                 encoder = encoder_factory()
 
@@ -162,7 +170,7 @@ else:
 
                     payload_dict["iat"] = now_ = jwt_timeclaim()
                     payload_dict["jti"] = uuid_factory()
-                    payload_dict["exp"] = now_ + expires_in_s
+                    payload_dict["exp"] = now_ + expires_in
 
                     if iss is not None:
                         payload_dict["iss"] = iss
@@ -173,11 +181,12 @@ else:
 
                     payload_bytes = encoder(content)
                     jwt = self.jws.encode(payload_bytes, key=self.jwt_secret)
-                    token_resp = scheme_type(access_token=jwt, expires_in=expires_in_s)
+                    token_resp = scheme_type(access_token=jwt, expires_in=expires_in)
                     resp = encoder(token_resp)
                     return resp
 
                 ep_info.sig.default_return.encoder = encode_jwt
+                ep_info.sig.default_return.type_ = scheme_type
 
                 return ep_info.func
 

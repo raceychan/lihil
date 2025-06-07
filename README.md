@@ -114,20 +114,29 @@ Check our detailed tutorials at https://lihil.cc, covering
 
 ## Versioning
 
-lihil follows semantic versioning, where a version in x.y.z represents:
+lihil follows semantic versioning after v1.0.0, where a version in x.y.z represents:
 
 - x: major, breaking change
 - y: minor, feature updates
 - z: patch, bug fixes, typing updates
 
-Lihil will have at max 10 minor version(most likely just 3), which means if lihil reach v0.9.x, then there will be no minor version before v1.0.0.
 
 ## Contributions & Roadmap
 
 All contributions are welcome
 
-- [x] v0.1.x: Feature parity
+Road Map before v1.0.0
 
-- [ ] v0.2.x: Official Plugins
+- [x] v0.1.x: Feature parity (alpha stage)
 
-- [ ] v0.3.x: Performance boost
+Implementing core functionalities of lihil, feature parity with fastapi
+
+- [ ] v0.2.x: Official Plugins (beta stage)
+
+We will be getting ready for production usage before v0.3.0, adding offical plugins to extend the abilitiy of lihil.
+
+by the end of v0.2.x, we will freeze api design change and no more breaking change beyond this point.
+
+- [ ] v0.3.x: Performance boost (stable stage)
+
+we will attempt to out-perform go, nodejs and java by implementing some of the hot-spot in c without introducing breaking changes.

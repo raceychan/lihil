@@ -207,5 +207,5 @@ class ConfigLoader:
             deep_update(config_dict, cli_config)
         if not config_dict:
             return None
-        config = convert(config_dict, config_type)
+        config = convert(config_dict, config_type, strict=False)
         return config
