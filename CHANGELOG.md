@@ -1327,3 +1327,12 @@ def wrapper(ep_info):
 
 
 ## version 0.2.16
+
+Fixes
+
+- Fix a bug where value that is treated as False in bool will be rejected
+```python
+async def get_users(limit: int):
+    ...
+```
+Here if client send limit as 0 it would be treated as if `limit` is not provided

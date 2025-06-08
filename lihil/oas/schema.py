@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from lihil.config.app_config import IOASConfig
 from lihil.constant.status import phrase
-from lihil.interface import RegularTypes, is_provided, is_set
+from lihil.interface import RegularTypes, is_present, is_set
 from lihil.oas import model as oasmodel
 from lihil.problems import (
     DetailBase,
@@ -340,7 +340,7 @@ def get_resp_schemas(
 
         status = str(status)
 
-        if not is_provided(return_type):
+        if not is_present(return_type):
             # TODO: show no return type here
             return resps
         else:

@@ -8,7 +8,14 @@ from msgspec import ValidationError, field
 from starlette.datastructures import FormData
 
 from lihil.errors import InvalidParamSourceError, NotSupportedError
-from lihil.interface import BodyContentType, ParamBase, ParamSource, T, is_provided
+from lihil.interface import (
+    MISSING,
+    BodyContentType,
+    ParamBase,
+    ParamSource,
+    T,
+    is_present,
+)
 from lihil.interface.struct import Base, IBodyDecoder, IDecoder, ITextualDecoder
 from lihil.problems import (
     CustomDecodeErrorMessage,
@@ -158,14 +165,14 @@ class Decodable(ParamBase[T], Generic[D, T], kw_only=True):
     def validate(self, raw: D) -> "ParamResult[T]":
         try:
             value = self.decode(raw)
-            return value, None
+            return value, MISSING
         except ValidationError as mve:
             error = InvalidDataType(self.source, self.name, str(mve))
         except DecodeError:
             error = InvalidJsonReceived(self.source, self.name)
         except CustomValidationError as cve:  # type: ignore
             error = CustomDecodeErrorMessage(self.source, self.name, cve.detail)
-        return None, error
+        return MISSING, error
 
 
 class PathParam(Decodable[str, T], Generic[T], kw_only=True):
@@ -182,7 +189,7 @@ class PathParam(Decodable[str, T], Generic[T], kw_only=True):
         try:
             raw = params[self.alias]
         except KeyError:
-            return (None, MissingRequestParam(self.source, self.alias))
+            return (MISSING, MissingRequestParam(self.source, self.alias))
 
         return self.validate(raw)
 
@@ -201,18 +208,19 @@ class QueryParam(Decodable[str | list[str], T], kw_only=True):
         alias = self.alias
         is_multivals = self.multivals
         if is_multivals:
-            raw = queries.getlist(alias)
+            val = queries.getlist(alias) or MISSING
         else:
-            raw = queries.get(alias)
+            val = queries.get(alias, MISSING)
 
-        if raw is None:
-            if is_provided(default := self.default):
-                if is_multivals:
-                    return (deepcopy(default), None)
-                return (default, None)
-            else:
-                return (None, MissingRequestParam(self.source, alias))
-        return self.validate(raw)
+        if is_present(val):
+            return self.validate(val)
+
+        if is_present(default := self.default):
+            if is_multivals:
+                return (deepcopy(default), MISSING)
+            return (default, MISSING)
+        else:
+            return (MISSING, MissingRequestParam(self.source, alias))
 
 
 class HeaderParam(QueryParam[T]):
@@ -236,12 +244,12 @@ class BodyParam(Decodable[B, T], kw_only=True):
 
     def extract(self, body: B) -> "ParamResult[T]":
         if body == b"":
-            if is_provided(default := self.default):
+            if is_present(default := self.default):
                 val = default
-                return (val, None)
+                return (val, MISSING)
             else:
                 error = MissingRequestParam(self.source, self.alias)
-                return (None, error)
+                return (MISSING, error)
 
         return self.validate(body)
 
@@ -252,12 +260,12 @@ class FormParam(BodyParam[FormData, T], kw_only=True):
 
     def extract(self, body: FormData) -> "ParamResult[T]":
         if len(body) == 0:
-            if is_provided(default := self.default):
+            if is_present(default := self.default):
                 val = default
-                return (val, None)
+                return (val, MISSING)
             else:
                 error = MissingRequestParam(self.source, self.alias)
-                return (None, error)
+                return (MISSING, error)
 
         return self.validate(body)
 
@@ -266,7 +274,7 @@ RequestParam = Union[PathParam[T], QueryParam[T], HeaderParam[T], CookieParam[T]
 ParsedParam = (
     RequestParam[T] | BodyParam[bytes, T] | FormParam[T] | DependentNode | PluginParam
 )
-ParamResult = tuple[T, None] | tuple[None, ValidationProblem]
+ParamResult = tuple[T, MISSING] | tuple[MISSING, ValidationProblem]
 ParamMap = dict[str, T]
 
 

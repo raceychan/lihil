@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Generic
 from ididi import DependentNode, Resolver
 from msgspec import Struct
 
-from lihil.interface import Base, R, Record
+from lihil.interface import MISSING, Base, R, Record
 from lihil.problems import InvalidFormError, InvalidRequestErrors, ValidationProblem
 from lihil.vendors import (
     FormData,
@@ -115,7 +115,7 @@ class Injector(Generic[R]):
                 else:
                     val, error = param.extract(headers)
 
-                if val:
+                if val is not MISSING:
                     params[name] = val
                 else:
                     verrors.append(error)
@@ -124,7 +124,7 @@ class Injector(Generic[R]):
             paths = conn.path_params
             for name, param in self.path_params:
                 val, error = param.extract(paths)
-                if val:
+                if val is not MISSING:
                     params[name] = val
                 else:
                     verrors.append(error)
@@ -133,7 +133,7 @@ class Injector(Generic[R]):
             queries = conn.query_params
             for name, param in self.query_params:
                 val, error = param.extract(queries)
-                if val:
+                if val is not MISSING:
                     params[name] = val
                 else:
                     verrors.append(error)
@@ -185,7 +185,7 @@ class Injector(Generic[R]):
                 body = await req.body()
 
             val, error = param.extract(body)
-            if val:
+            if val is not MISSING:
                 params[name] = val
             else:
                 errors.append(error)  # type: ignore

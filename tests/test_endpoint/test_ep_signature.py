@@ -243,4 +243,16 @@ async def test_query_with_default():
     lc = LocalClient()
 
     resp = await lc.call_endpoint(await lc.make_endpoint(func))
+    assert resp.status_code == 200
     await resp.body()
+
+
+async def test_query_with_value_could_be_false():
+    async def func(age: int) -> int:
+        return age
+
+    lc = LocalClient()
+
+    resp = await lc.call_endpoint(await lc.make_endpoint(func), query_params={"age": 0})
+    assert resp.status_code == 200
+    assert await resp.json() == 0

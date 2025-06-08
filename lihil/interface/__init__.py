@@ -67,7 +67,7 @@ def get_maybe_vars(m: T | "_Missed") -> T | None:
     return None
 
 
-def is_provided(t: T | "_Missed") -> TypeGuard[T]:
+def is_present(t: T | "_Missed") -> TypeGuard[T]:
     return t is not MISSING
 
 
@@ -100,7 +100,7 @@ class ParamBase(Base, Generic[T]):
     type_: type[T] | UnionType
     annotation: Any
     alias: str = ""
-    default: T | _Missed = MISSING
+    default: Maybe[T] = MISSING
     required: bool = False
 
     @property

@@ -7,7 +7,7 @@ from msgspec import convert
 from lihil.config.app_config import AppConfig
 from lihil.config.parser import build_parser, format_nested_dict
 from lihil.errors import AppConfiguringError
-from lihil.interface import StrDict, is_provided
+from lihil.interface import StrDict, is_present
 from lihil.utils.algorithms import deep_update
 
 TConfig = TypeVar("TConfig", bound=AppConfig)
@@ -168,7 +168,7 @@ def load_from_cli(
     parsed_args = known_args.__dict__
 
     # Filter out _provided flags and keep only provided values
-    cli_args: StrDict = {k: v for k, v in parsed_args.items() if is_provided(v)}
+    cli_args: StrDict = {k: v for k, v in parsed_args.items() if is_present(v)}
 
     if not cli_args:
         return None

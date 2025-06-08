@@ -15,7 +15,7 @@ from lihil.interface import (
     Maybe,
     RegularTypes,
     T,
-    is_provided,
+    is_present,
 )
 from lihil.interface.marks import ResponseMark, extract_resp_type
 from lihil.utils.json import encoder_factory
@@ -59,7 +59,7 @@ def is_empty_return(t: Any):
 
 
 def is_annotated(annt: Any) -> TypeGuard[RegularTypes]:
-    return is_provided(annt) and annt is not Parameter.empty
+    return is_present(annt) and annt is not Parameter.empty
 
 
 class EndpointReturn(Base, Generic[T]):

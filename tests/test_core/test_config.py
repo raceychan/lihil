@@ -23,7 +23,7 @@ from lihil.config.parser import (
     parse_field_type,
 )
 from lihil.errors import AppConfiguringError
-from lihil.interface import MISSING, Maybe, is_provided
+from lihil.interface import MISSING, Maybe, is_present
 from lihil.plugins.bus import EventBus
 from lihil.signature.parser import is_lhl_primitive
 
@@ -272,14 +272,14 @@ def test_config_from_cli_fix():
     args_dict = vars(mock_args)
 
     # Current implementation (problematic)
-    current_result = {k: v for k, v in args_dict.items() if is_provided(v)}
+    current_result = {k: v for k, v in args_dict.items() if is_present(v)}
     assert "is_prod_provided" in current_result  # This will cause validation errors
 
     # Fixed implementation
     fixed_result = {
         k: v
         for k, v in args_dict.items()
-        if is_provided(v) and not k.endswith("_provided")
+        if is_present(v) and not k.endswith("_provided")
     }
     assert "is_prod" in fixed_result
     assert "is_prod_provided" not in fixed_result  # This is what we want

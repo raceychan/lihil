@@ -30,7 +30,7 @@ from typing_extensions import NotRequired, TypeAliasType, is_typeddict
 
 from lihil.errors import InvalidParamError, InvalidParamPackError
 from lihil.interface import MISSING as LIHIL_MISSING
-from lihil.interface import IRequest, Maybe, R, T, is_provided
+from lihil.interface import IRequest, Maybe, R, T, is_present
 from lihil.interface.marks import Struct
 from lihil.interface.struct import IBodyDecoder, IDecoder, IFormDecoder, ITextualDecoder
 from lihil.utils.json import decoder_factory
@@ -521,7 +521,7 @@ class EndpointParser:
 
         type_ = cast(type[Any], type_)
 
-        if is_provided(default):
+        if is_present(default):
             raise InvalidParamPackError(
                 f"param pack {name}: {annotation} should not have a default value"
             )
