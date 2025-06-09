@@ -150,7 +150,7 @@ def test_load_config_toml():
         )
         tmp.flush()
 
-        config = ConfigLoader().load_config(tmp.name)
+        config = ConfigLoader().load_config(tmp.name, raise_on_not_found=True)
 
         assert config.IS_PROD is True
         assert config.VERSION == "1.0.0"
@@ -174,7 +174,7 @@ def test_load_config_toml_alternative_format():
         )
         tmp.flush()
 
-        config = ConfigLoader().load_config(tmp.name)
+        config = ConfigLoader().load_config(tmp.name, raise_on_not_found=True)
 
         assert config.IS_PROD is True
         assert config.VERSION == "1.0.0"
@@ -183,8 +183,8 @@ def test_load_config_toml_alternative_format():
 
 def test_load_config_nonexistent():
     """Test error when config file doesn't exist"""
-    with pytest.raises(AppConfiguringError, match="not exist"):
-        ConfigLoader().load_config("nonexistent_file.toml")
+    with pytest.raises(FileNotFoundError, match="not found"):
+        ConfigLoader().load_config("nonexistent_file.toml", raise_on_not_found=True)
 
 
 def test_load_config_unsupported_format():

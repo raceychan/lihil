@@ -191,7 +191,7 @@ async def test_ep_not_include_schema():
 
 
 async def test_route_not_include_schema():
-    route = Route(props=EndpointProps(in_schema=False))
+    route = Route(in_schema=False)
     res = generate_oas([route], oas_config, "")
     assert not res.paths
 

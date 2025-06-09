@@ -1336,3 +1336,18 @@ async def get_users(limit: int):
     ...
 ```
 Here if client send limit as 0 it would be treated as if `limit` is not provided
+
+
+## version 0.2.17
+
+- [x] add `deps` in `EndpointProps`
+- [x] support unpacked endpont props in route
+```python
+class UserService: ...
+
+route = Route(deps=[UserService])
+
+@route.get
+async def get_user(service: UserService, names: bytes): ...
+```
+- [x] add "raise_on_not_found" to lhl_read_config, default to True

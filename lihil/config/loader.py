@@ -186,22 +186,30 @@ class ConfigLoader:
     def __repr__(self):
         return f"{self.__class__.__name__}(work_dir={self.work_dir})"
 
-    def load_files(self, *files: str | Path) -> StrDict:
+    def load_files(self, *files: str | Path, raise_on_not_found: bool) -> StrDict:
         result: StrDict = {}
         for f in files:
             f = Path(f) if isinstance(f, str) else f
-            if not f.exists():
-                raise AppConfiguringError(
-                    f"path {f} not exist in current dir {self.work_dir}"
-                )
-            data = self.loader.handle(f)
+
+            try:
+                data = self.loader.handle(f)
+            except FileNotFoundError as fe:
+                if raise_on_not_found:
+                    raise
+                continue
+
             deep_update(result, data)
         return result
 
     def load_config(
-        self, *config_files: Path | str, config_type: type[TConfig] = AppConfig
+        self,
+        *config_files: Path | str,
+        config_type: type[TConfig] = AppConfig,
+        raise_on_not_found: bool = True,
     ) -> TConfig | None:
-        config_dict = self.load_files(*config_files)
+        config_dict = self.load_files(
+            *config_files, raise_on_not_found=raise_on_not_found
+        )
         cli_config = load_from_cli(config_type=config_type)
         if cli_config:
             deep_update(config_dict, cli_config)

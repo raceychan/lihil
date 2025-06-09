@@ -18,6 +18,7 @@ TConfig = TypeVar("TConfig", bound=AppConfig)
 
 def config_registry():
     _app_config: IAppConfig = DEFAULT_CONFIG
+    _loader = ConfigLoader()
 
     def _set_config(app_config: IAppConfig | None = None) -> None:
         """
@@ -46,7 +47,9 @@ def config_registry():
             _app_config = app_config
 
     def _read_config(
-        *config_files: str | Path, config_type: type[TConfig] = AppConfig
+        *config_files: str | Path,
+        config_type: type[TConfig] = AppConfig,
+        raise_on_not_found: bool = True,
     ) -> TConfig | None:
         """
         ## Read Configuration
@@ -75,8 +78,11 @@ def config_registry():
         """
         # TODO: read from environtment variable then file then cli args
 
-        loader = ConfigLoader()
-        _app_config = loader.load_config(*config_files, config_type=config_type)
+        _app_config = _loader.load_config(
+            *config_files,
+            config_type=config_type,
+            raise_on_not_found=raise_on_not_found,
+        )
         return _app_config
 
     @overload

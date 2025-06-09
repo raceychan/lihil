@@ -1,9 +1,11 @@
 from typing import Annotated, Literal
+from lihil.config import lhl_read_config
+from lihil.errors import AppConfiguringError
 
 import pytest
 
 from lihil import Graph, Param, Text, status
-from lihil.ds.event import Event
+# from lihil.ds.event import Event
 
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend
@@ -722,3 +724,29 @@ async def test_routing_query_with_bytes():
         ep, method="GET", path="test", query_string=b"names=a&names=b&names=c"
     )
     assert resp.status_code == 200
+
+
+async def test_route_with_deps_as_props():
+
+    class UserService: ...
+
+    route = Route(deps=[UserService])
+
+    @route.get
+    async def get_user(service: UserService, names: bytes): ...
+
+    route._setup()
+
+    ep = route.get_endpoint("GET")
+
+    svr = ep.sig.dependencies["service"]
+    assert svr.dependent is UserService
+
+
+async def test_config_raise_on_not_found():
+    random_file = "random_file.toml"
+    with pytest.raises(FileNotFoundError):
+        lhl_read_config(random_file)
+
+
+    lhl_read_config(random_file, raise_on_not_found=False)

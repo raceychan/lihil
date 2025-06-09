@@ -55,6 +55,8 @@ from lihil.utils.string import (
 from lihil.utils.threading import async_wrapper
 from lihil.vendors import Request, Response
 
+DepNode = Union[IDependent[Any], tuple[IDependent[Any], INodeConfig]]
+
 
 class IEndpointProps(TypedDict, total=False):
     errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
@@ -69,10 +71,12 @@ class IEndpointProps(TypedDict, total=False):
     "Auth Scheme for access control"
     tags: Sequence[str] | None
     "OAS tag, endpoints with the same tag will be grouped together"
-    encoder: IEncoder
+    encoder: IEncoder | None
     "Return Encoder"
     plugins: list[IPlugin]
     "Decorators to decorate the endpoint function"
+    deps: list[DepNode] | None
+    "Dependencies that might be used in "
 
 
 class EndpointProps(Record, kw_only=True):
@@ -84,6 +88,7 @@ class EndpointProps(Record, kw_only=True):
     tags: Sequence[str] | None = None
     encoder: IEncoder | None = None
     plugins: list[IPlugin] = field(default_factory=list[IPlugin])
+    deps: list[DepNode] | None = None
 
     @classmethod
     def from_unpack(cls, **iconfig: Unpack[IEndpointProps]):
@@ -176,7 +181,7 @@ class Endpoint(Generic[R]):
             seen.add(decor_id)
         return func
 
-    def setup(self, sig: EndpointSignature[R], graph: Graph) -> None:
+    def _setup(self, sig: EndpointSignature[R], graph: Graph) -> None:
         if self._is_setup:
             raise Exception(f"`setup` is called more than once in {self}")
 
@@ -352,10 +357,9 @@ class Route(RouteBase):
     def __init__(
         self,
         path: str = "",
-        *,
         graph: Graph | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
-        props: EndpointProps | None = None,
+        **iprops: Unpack[IEndpointProps],
     ):
         super().__init__(
             path,
@@ -364,12 +368,16 @@ class Route(RouteBase):
         )
         self._endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self._call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
-        if props is not None:
+        if iprops:
+            props = EndpointProps.from_unpack(**iprops)
             if props.tags is None:
                 props = props.replace(tags=generate_route_tag(self._path))
             self._props = props
         else:
             self._props = EndpointProps(tags=[generate_route_tag(self._path)])
+
+        if self._props.deps:
+            self._graph.add_nodes(*self._props.deps)
 
         self._is_setup: bool = False
 
@@ -402,7 +410,7 @@ class Route(RouteBase):
             if ep.is_setup:
                 continue
             ep_sig = self.endpoint_parser.parse(ep.unwrapped_func)
-            ep.setup(ep_sig, self._graph)
+            ep._setup(ep_sig, self._graph)
             self._call_stacks[method] = self.chainup_middlewares(ep)
 
         self._is_setup = True
@@ -442,7 +450,7 @@ class Route(RouteBase):
                 path=merged_path,
                 graph=self._graph,
                 middlewares=sub.middle_factories,
-                props=sub._props,
+                **sub._props,
             )
             for method, ep in sub._endpoints.items():
                 new_sub.add_endpoint(method, func=ep.unwrapped_func, **ep.props)

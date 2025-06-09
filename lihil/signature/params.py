@@ -215,12 +215,12 @@ class QueryParam(Decodable[str | list[str], T], kw_only=True):
         if is_present(val):
             return self.validate(val)
 
-        if is_present(default := self.default):
-            if is_multivals:
-                return (deepcopy(default), MISSING)
-            return (default, MISSING)
-        else:
+        if not is_present(default := self.default):
             return (MISSING, MissingRequestParam(self.source, alias))
+
+        if is_multivals:
+            return (deepcopy(default), MISSING)
+        return (default, MISSING)
 
 
 class HeaderParam(QueryParam[T]):
@@ -243,15 +243,15 @@ class BodyParam(Decodable[B, T], kw_only=True):
         return f"{self.__class__.__name__}<{self.content_type}>({self.name}: {self.type_repr})"
 
     def extract(self, body: B) -> "ParamResult[T]":
-        if body == b"":
-            if is_present(default := self.default):
-                val = default
-                return (val, MISSING)
-            else:
-                error = MissingRequestParam(self.source, self.alias)
-                return (MISSING, error)
+        if body != b"":
+            return self.validate(body)
 
-        return self.validate(body)
+        if not is_present(default := self.default):
+            error = MissingRequestParam(self.source, self.alias)
+            return (MISSING, error)
+
+        val = default
+        return (val, MISSING)
 
 
 class FormParam(BodyParam[FormData, T], kw_only=True):
