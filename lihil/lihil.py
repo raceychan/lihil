@@ -48,19 +48,19 @@ from lihil.utils.json import encoder_factory
 from lihil.utils.string import is_plain_path
 
 LifeSpan = Callable[["Lihil"], AsyncContextManager[None] | AsyncGenerator[None, None]]
-WrappedLifSpan = Callable[["Lihil"], AsyncContextManager[None]]
+WrappedLifeSpan = Callable[["Lihil"], AsyncContextManager[None]]
 
 
 EMPTY_APP_STATE: Mapping[str, Any] = MappingProxyType({})
 
 
-def lifespan_wrapper(ls: LifeSpan | None) -> WrappedLifSpan | None:
+def lifespan_wrapper(ls: LifeSpan | None) -> WrappedLifeSpan | None:
     if ls is None:
         return None
     if isasyncgenfunction(ls):
         return asynccontextmanager(ls)
     elif (wrapped := getattr(ls, "__wrapped__", None)) and isasyncgenfunction(wrapped):
-        return cast(WrappedLifSpan, ls)
+        return cast(WrappedLifeSpan, ls)
     else:
         raise InvalidLifeSpanError(f"expecting an AsyncContextManager")
 
@@ -90,7 +90,7 @@ class StaticRoute(RouteBase):
 
 @final
 class Lihil(ASGIBase):
-    _userls: WrappedLifSpan | None
+    _userls: WrappedLifeSpan | None
 
     def __init__(
         self,
