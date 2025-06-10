@@ -16,7 +16,7 @@ from typing_extensions import Self, dataclass_transform
 
 from lihil.interface import UNSET
 from lihil.interface.marks import EMPTY_RETURN_MARK
-from lihil.utils.algorithms import deep_merge
+from lihil.utils.algorithms import deep_merge, deep_update
 from lihil.vendors import FormData
 
 I = TypeVar("I")
@@ -83,11 +83,16 @@ class Base(Struct):
     def replace(self, /, **changes: Any) -> Self:
         return struct_replace(self, **changes)
 
-    def merge(self, other: Self) -> Self:
+    def merge(self, other: Self, deduplicate: bool = False) -> Self:
         "merge other props with current props, return a new props without modiying current props"
         vals = other.asdict(skip_defaults=True)
-        merged = deep_merge(self.asdict(), vals)
+        merged = deep_merge(self.asdict(), vals, deduplicate=deduplicate)
         return self.__class__(**merged)
+
+    def update(self, other: Self) -> Self:
+        vals = other.asdict(skip_defaults=True)
+        updated = deep_update(self.asdict(), vals)
+        return self.__class__(**updated)
 
 
 @dataclass_transform(frozen_default=True)

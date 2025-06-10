@@ -1351,3 +1351,20 @@ route = Route(deps=[UserService])
 async def get_user(service: UserService, names: bytes): ...
 ```
 - [x] add "raise_on_not_found" to lhl_read_config, default to True
+
+
+## version 0.2.18
+
+Now when merging route props and endpoint props, deduplicate props element
+
+As a result, following bugs are fixed
+
+Fixes:
+
+- [x] Fix a bug where ep would generate repeated oas tags
+- [x] Fix a bug where when route has props and endpoint does not, ep.tags would be treated as a list of str.
+
+
+Refactor:
+
+rename `props.errors` to `props.problems`

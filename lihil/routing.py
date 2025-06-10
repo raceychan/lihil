@@ -59,7 +59,7 @@ DepNode = Union[IDependent[Any], tuple[IDependent[Any], INodeConfig]]
 
 
 class IEndpointProps(TypedDict, total=False):
-    errors: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
+    problems: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
     "Errors that might be raised from the current `endpoint`. These will be treated as responses and displayed in OpenAPI documentation."
     in_schema: bool
     "Whether to include this endpoint inside openapi docs"
@@ -69,7 +69,7 @@ class IEndpointProps(TypedDict, total=False):
     "Whether current endpoint should be scoped"
     auth_scheme: AuthBase | None
     "Auth Scheme for access control"
-    tags: Sequence[str] | None
+    tags: list[str] | None
     "OAS tag, endpoints with the same tag will be grouped together"
     encoder: IEncoder | None
     "Return Encoder"
@@ -80,25 +80,25 @@ class IEndpointProps(TypedDict, total=False):
 
 
 class EndpointProps(Record, kw_only=True):
-    errors: tuple[type[DetailBase[Any]], ...] = field(default_factory=tuple)
+    problems: list[type[DetailBase[Any]]] = field(
+        default_factory=list[type[DetailBase[Any]]]
+    )
     to_thread: bool = True
     in_schema: bool = True
     scoped: Literal[True] | None = None
     auth_scheme: AuthBase | None = None
-    tags: Sequence[str] | None = None
+    tags: list[str] | None = None
     encoder: IEncoder | None = None
     plugins: list[IPlugin] = field(default_factory=list[IPlugin])
     deps: list[DepNode] | None = None
 
     @classmethod
     def from_unpack(cls, **iconfig: Unpack[IEndpointProps]):
-        if raw_errors := iconfig.get("errors"):
-            if not isinstance(raw_errors, Sequence):
-                errors = (raw_errors,)
-            else:
-                errors = tuple(raw_errors)
+        if problems := iconfig.get("problems"):
+            if not isinstance(problems, Sequence):
+                problems = [problems]
 
-            iconfig["errors"] = errors
+            iconfig["problems"] = problems
         return cls(**iconfig)  # type: ignore
 
 
@@ -467,7 +467,7 @@ class Route(RouteBase):
 
         if endpoint_props:
             new_props = EndpointProps.from_unpack(**endpoint_props)
-            props = self._props.merge(new_props)
+            props = self._props.merge(new_props, deduplicate=True)
         else:
             props = self._props
 

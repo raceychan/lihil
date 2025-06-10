@@ -100,6 +100,13 @@ There will also be tutorials on how to develop your own AI agent/chatbot using l
   - Lihil is ASGI copatible and works well with uvicorn and other ASGI servers.
   - ASGI middlewares that works for any ASGIApp should also work with lihil, including those from Starlette.
 
+## Lihil Admin & Full stack template
+
+[lihil-fullstack-solopreneur-template](https://github.com/raceychan/fullstack-solopreneur-template)
+
+A production-ready full stack template that uses react and lihil,
+covering real world usage & best practices of lihil.
+
 ## Tutorials
 
 Check our detailed tutorials at https://lihil.cc, covering
@@ -120,7 +127,6 @@ lihil follows semantic versioning after v1.0.0, where a version in x.y.z represe
 - y: minor, feature updates
 - z: patch, bug fixes, typing updates
 
-
 ## Contributions & Roadmap
 
 All contributions are welcome
@@ -135,7 +141,6 @@ Implementing core functionalities of lihil, feature parity with fastapi
 
 We will be getting ready for production usage before v0.3.0, adding offical plugins to extend the abilitiy of lihil.
 
-by the end of v0.2.x, we will freeze api design change and no more breaking change beyond this point.
 
 - [ ] v0.3.x: Performance boost (stable stage)
 

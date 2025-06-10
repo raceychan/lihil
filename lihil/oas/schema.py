@@ -238,8 +238,8 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
 
     resps: dict[str, oasmodel.Response] = {}
 
-    if user_provid_errors := ep.props.errors:
-        errors = user_provid_errors + (InvalidRequestErrors,)
+    if user_provid_errors := ep.props.problems:
+        errors = user_provid_errors + [InvalidRequestErrors]
     else:
         errors = (InvalidRequestErrors,)
 
@@ -390,7 +390,7 @@ def generate_op_from_ep(
     security_schemas: SecurityDict,
     problem_path: str,
 ) -> oasmodel.Operation:
-    tags = list(ep.props.tags or ())
+    tags = ep.props.tags
     summary = ep.name.replace("_", " ").title()
     description = trimdoc(ep.unwrapped_func.__doc__) or "Missing Description"
     operationId = generate_unique_id(ep)

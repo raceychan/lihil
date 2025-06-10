@@ -3,7 +3,7 @@ from typing import Annotated, Union
 import pytest
 from msgspec import Struct
 
-from lihil import Empty, HTTPException, Param, Payload, Route, Text, status
+from lihil import Empty, HTTPException, Lihil, Param, Payload, Route, Text, status, use
 from lihil.config import OASConfig
 from lihil.interface import is_set
 from lihil.local_client import LocalClient
@@ -51,7 +51,7 @@ async def test_get_order_schema(user_route: Route):
         user_id: str | int, order_id: str, q: int | str, l: str, u: User
     ) -> Order | User: ...
 
-    user_route.post(errors=OrderNotFound)(get_order)
+    user_route.post(problems=OrderNotFound)(get_order)
 
     current_ep = user_route.get_endpoint("POST")
     ep_rt = current_ep.sig.return_params[200]
@@ -112,7 +112,7 @@ async def test_complex_route(complex_route: Route):
         return "aloha"
 
     complex_route.add_endpoint(
-        "GET", func=get_user, errors=[UserNotFoundError, UserNotHappyError]
+        "GET", func=get_user, problems=[UserNotFoundError, UserNotHappyError]
     )
     complex_route._setup()
 
@@ -309,3 +309,29 @@ async def test_single_value_param_not_required():
     assert not ep.sig.query_params["user_id"].required
     assert ep.sig.query_params["age"].required
     assert not ep.sig.header_params["address"].required
+
+
+@pytest.mark.debug
+def test_generate_tasg():
+    class UserProfileDTO(Payload): ...
+
+    class ProfileService:
+        async def list_profiles(self, limit, offset) -> list[UserProfileDTO]: ...
+
+    profiles = Route("profiles", deps=[ProfileService])
+
+    @profiles.get
+    async def get_profiles(
+        service: ProfileService,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> list[UserProfileDTO]:
+        return await service.list_profiles(limit, offset)
+
+    lhl = Lihil(profiles)
+
+    oas = lhl.genereate_oas()
+
+    for path, itm in oas.paths.items():
+        assert itm.get.tags == "profiles"
+        break

@@ -24,7 +24,9 @@ def deep_update(original: AnyDict, update_data: AnyDict) -> AnyDict:
     return original
 
 
-def deep_merge(original: AnyDict, tobe_merged: AnyDict) -> AnyDict:
+def deep_merge(
+    original: AnyDict, tobe_merged: AnyDict, deduplicate: bool = False
+) -> AnyDict:
     """
     Recursively merge two dictionary, if a key exists in both dicts, merge two values if both are containers, else update.
     """
@@ -37,7 +39,12 @@ def deep_merge(original: AnyDict, tobe_merged: AnyDict) -> AnyDict:
             if both_instance(ori_val, value, dict):
                 deep_merge(ori_val, value)
             elif both_instance(ori_val, value, list, tuple):
-                original[key] = ori_val + value
+                new_val = ori_val + value
+                if deduplicate:
+                    constructor = ori_val.__class__
+                    new_val = constructor(dict.fromkeys(new_val))
+
+                original[key] = new_val
             elif both_instance(ori_val, value, set):
                 original[key] = ori_val.union(value)
             else:
