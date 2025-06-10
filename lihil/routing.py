@@ -368,13 +368,11 @@ class Route(RouteBase):
         )
         self._endpoints: dict[HTTP_METHODS, Endpoint[Any]] = {}
         self._call_stacks: dict[HTTP_METHODS, ASGIApp] = {}
+
         if iprops:
-            props = EndpointProps.from_unpack(**iprops)
-            if props.tags is None:
-                props = props.replace(tags=generate_route_tag(self._path))
-            self._props = props
+            self._props = EndpointProps.from_unpack(**iprops)
         else:
-            self._props = EndpointProps(tags=[generate_route_tag(self._path)])
+            self._props = EndpointProps()
 
         if self._props.deps:
             self._graph.add_nodes(*self._props.deps)
@@ -470,6 +468,9 @@ class Route(RouteBase):
             props = self._props.merge(new_props, deduplicate=True)
         else:
             props = self._props
+
+        if not props.tags:
+            props = props.replace(tags=[generate_route_tag(self._path)])
 
         for method in methods:
             endpoint = Endpoint(
