@@ -15,17 +15,19 @@
 
 # Lihil
 
-🌐 Choose your language：
-
-- 🇨🇳 [中文README](README_CN.md)
-
 ## 📚 Docs: https://lihil.cc
 
 Lihil is
 
 - **Productive**: ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
-- **Professional**: Lihil comes with middlewares that are essential for enterprise development—such as authentication, authorization, event publishing, etc. Ensure productivity from day zero. Catered to modern development styles and architectures, including TDD and DDD.
-- **Performant**: Blazing fast across tasks and conditions—Lihil ranks among the fastest Python web frameworks, outperforming comparable ASGI frameworks by 50%–100%, see [lihil benchmarks](https://github.com/raceychan/lhl_bench), [independent benchmarks](https://web-frameworks-benchmark.netlify.app/result?l=python)
+- **Professional**: Lihil comes with production-ready components that works with distributed systems.
+
+  - **authentication**,
+  - **APi resilience tools**: throttling, cache, retry, timeout, etc.
+  - **event publishing**
+  - ... and more
+
+- **Performant**: Blazing fast across tasks and conditions—Lihil ranks among the fastest Python web frameworks, outperforming other webframeworks by 50%–100%, see [lihil benchmarks](https://github.com/raceychan/lhl_bench), [independent benchmarks](https://web-frameworks-benchmark.netlify.app/result?l=python)
 
 ## Install
 
@@ -137,11 +139,13 @@ Road Map before v1.0.0
 
 Implementing core functionalities of lihil, feature parity with fastapi
 
-- [ ] v0.2.x: Official Plugins (beta stage)
+- [x] v0.2.x: Official Plugins (current stage)
 
-We will be getting ready for production usage before v0.3.0, adding offical plugins to extend the abilitiy of lihil.
+We would keep adding new features & plugins to lihil without making breaking changes.
+This might be the last minor versions before v1.0.0.
 
+- [ ] v0.3.x: Performance boost
 
-- [ ] v0.3.x: Performance boost (stable stage)
+The plan is to rewrite some components in c, roll out a server in c, or other performance optimizations in 0.3.x.
 
-we will attempt to out-perform go, nodejs and java by implementing some of the hot-spot in c without introducing breaking changes.
+If we can do this without affect current implementations in 0.2.0 at all, 0.3.x may never occur and we would go stright to v1.0.0 from v0.2.x

@@ -1362,9 +1362,12 @@ As a result, following bugs are fixed
 Fixes:
 
 - [x] Fix a bug where ep would generate repeated oas tags
-- [x] Fix a bug where when route has props and endpoint does not, ep.tags would be treated as a list of str.
 
 
 Refactor:
 
 rename `props.errors` to `props.problems`
+
+## version 0.2.19
+
+- [x] Fix a bug where when route has props and endpoint does not, ep.tags would be treated as a list of str.

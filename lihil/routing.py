@@ -231,34 +231,34 @@ class Endpoint(Generic[R]):
     def return_to_response(self, raw_return: Any) -> Response:
         if isinstance(raw_return, Response):
             return raw_return
+
+        if isasyncgen(raw_return):
+            encode_wrapper = agen_encode_wrapper(raw_return, self._encoder)
+            resp = StreamingResponse(
+                encode_wrapper,
+                media_type="text/event-stream",
+                status_code=self._status_code,
+            )
+        elif isgenerator(raw_return):
+            encode_wrapper = syncgen_encode_wrapper(raw_return, self._encoder)
+            resp = StreamingResponse(
+                encode_wrapper,
+                media_type="text/event-stream",
+                status_code=self._status_code,
+            )
+        elif self._static:
+            resp = StaticResponse(
+                self._encoder(raw_return),
+                media_type=self._media_type,
+                status_code=self._status_code,
+            )
         else:
-            if isasyncgen(raw_return):
-                encode_wrapper = agen_encode_wrapper(raw_return, self._encoder)
-                resp = StreamingResponse(
-                    encode_wrapper,
-                    media_type="text/event-stream",
-                    status_code=self._status_code,
-                )
-            elif isgenerator(raw_return):
-                encode_wrapper = syncgen_encode_wrapper(raw_return, self._encoder)
-                resp = StreamingResponse(
-                    encode_wrapper,
-                    media_type="text/event-stream",
-                    status_code=self._status_code,
-                )
-            elif self._static:
-                resp = StaticResponse(
-                    self._encoder(raw_return),
-                    media_type=self._media_type,
-                    status_code=self._status_code,
-                )
-            else:
-                resp = Response(
-                    content=self._encoder(raw_return),
-                    media_type=self._media_type,
-                    status_code=self._status_code,
-                )
-            return resp
+            resp = Response(
+                content=self._encoder(raw_return),
+                media_type=self._media_type,
+                status_code=self._status_code,
+            )
+        return resp
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         if self._scoped:
