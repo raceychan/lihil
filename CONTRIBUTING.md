@@ -1,6 +1,6 @@
 # Contributing
 
-No contribution is trivial and every contribution is appreciated, but we do have different focus and goals on different statge of this project
+No contribution is trivial and every contribution is appreciated, but we do have different focus and goals on different stages of this project
 
 ## RoadMap
 

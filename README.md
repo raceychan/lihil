@@ -94,7 +94,7 @@ if __name__ == "__main__":
 
   - [x] SSE
   - [ ] MCP
-  - [ ] Rmote Handler
+  - [ ] Remote Handler
 
 There will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
