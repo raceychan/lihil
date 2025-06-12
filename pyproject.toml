@@ -1,5 +1,5 @@
 [project]
-authors = [{name = "raceychan", email = "raceychan@gmail.com"}]
+authors = [{ name = "raceychan", email = "raceychan@gmail.com" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Information Technology",
@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
   "ididi>=1.6.3",
   "msgspec>=0.19.0",
-  "premier>=0.4.1",
+  "premier==0.4.1",
   "pydantic>=2.10.6",
   "python-multipart>=0.0.20",
   "starlette>=0.45.3",
@@ -36,7 +36,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
-standard = ["uvicorn[standard]>=0.34.0","tomli>=2.2.1"]
+standard = ["uvicorn[standard]>=0.34.0", "tomli>=2.2.1"]
 auth = ["pyjwt>=2.10.1", "bcrypt>=4.3.0"]
 supabase = ["supabase>=2.15.1"]
 
@@ -95,7 +95,12 @@ markers = [
 testpaths = ["tests"]
 
 [tool.coverage.run]
-omit = ["lihil/plugins/*", "lihil/utils/typing.py", "lihil/config/loader.py", "lihil/local_client.py"]
+omit = [
+  "lihil/plugins/*",
+  "lihil/utils/typing.py",
+  "lihil/config/loader.py",
+  "lihil/local_client.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [
