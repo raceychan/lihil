@@ -19,14 +19,14 @@
 
 Lihil is
 
-- **Productive**: ergonomic API with strong typing support and built-in solutions for common problems — along with beloved features like openapi docs generation — empowers users to build their apps swiftly without sacrificing extensibility.
 - **Professional**: Lihil comes with production-ready components that works with distributed systems.
 
-  - **authentication**,
-  - **APi resilience tools**: throttling, cache, retry, timeout, etc.
-  - **event publishing**
+  - **Authentication**,
+  - **API resilience tools**: throttling, cache, retry, timeout, etc.
+  - **Event Publishing**
   - ... and more
 
+- **Productive**: Lihil provides as much typing information as possible to deliver best developer experience, complemented by extremly detailed error messages and docsstrings to let you debug at ease
 - **Performant**: Blazing fast across tasks and conditions—Lihil ranks among the fastest Python web frameworks, outperforming other webframeworks by 50%–100%, see [lihil benchmarks](https://github.com/raceychan/lhl_bench), [independent benchmarks](https://web-frameworks-benchmark.netlify.app/result?l=python)
 
 ## Install
