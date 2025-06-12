@@ -1189,7 +1189,7 @@ requires-dist = [
     { name = "bcrypt", marker = "extra == 'auth'", specifier = ">=4.3.0" },
     { name = "ididi", specifier = ">=1.6.3" },
     { name = "msgspec", specifier = ">=0.19.0" },
-    { name = "premier", specifier = "==0.4.1" },
+    { name = "premier", specifier = "==0.4.3" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pyjwt", marker = "extra == 'auth'", specifier = ">=2.10.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
@@ -1748,11 +1748,14 @@ wheels = [
 
 [[package]]
 name = "premier"
-version = "0.4.1"
+version = "0.4.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/fd/a6/445c3f88c7786c27b948bc022716b5523773452e6f68593c2921b788084e/premier-0.4.1.tar.gz", hash = "sha256:4b90036dce709f85b7a0dfddefc59a34b4be744602e4cae3e889f184a66bac26", size = 58982 }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/18/d7cfda47eb70903e44e375a540ed7c6b20fbf53a9db32129b470250b4964/premier-0.4.3.tar.gz", hash = "sha256:77851e44bb6af754fc6c374419fa7f3c3a93d875e6a5c05cf850a45692848ac8", size = 74168 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cd/a1/9a03fd359cdf8bc7dc4112c322b571105c9de31435c25e9dd9e6f2979f75/premier-0.4.1-py3-none-any.whl", hash = "sha256:832e59989c219b52969fd3e29fba0276ac1d5ff745d898f90147937c828ad3ae", size = 14256 },
+    { url = "https://files.pythonhosted.org/packages/5d/68/628db13badfdd63d7dedc049d54f0ba2c428b2ca3e7ea51d70fec9c4c809/premier-0.4.3-py3-none-any.whl", hash = "sha256:35be1714708a5a7d72917020f3b2a002389af94ab7818503ab25523cb0f7c762", size = 19449 },
 ]
 
 [[package]]
@@ -2540,11 +2543,11 @@ wheels = [
 
 [[package]]
 name = "typing-extensions"
-version = "4.12.2"
+version = "4.14.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/df/db/f35a00659bc03fec321ba8bce9420de607a1d37f8342eee1863174c69557/typing_extensions-4.12.2.tar.gz", hash = "sha256:1a7ead55c7e559dd4dee8856e3a88b41225abfe1ce8df57b7c13915fe121ffb8", size = 85321 }
+sdist = { url = "https://files.pythonhosted.org/packages/d1/bc/51647cd02527e87d05cb083ccc402f93e441606ff1f01739a62c8ad09ba5/typing_extensions-4.14.0.tar.gz", hash = "sha256:8676b788e32f02ab42d9e7c61324048ae4c6d844a399eebace3d4979d75ceef4", size = 107423 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/9f/ad63fc0248c5379346306f8668cda6e2e2e9c95e01216d2b8ffd9ff037d0/typing_extensions-4.12.2-py3-none-any.whl", hash = "sha256:04e5ca0351e0f3f85c6853954072df659d0d13fac324d0072316b67d7794700d", size = 37438 },
+    { url = "https://files.pythonhosted.org/packages/69/e0/552843e0d356fbb5256d21449fa957fa4eff3bbc135a74a691ee70c7c5da/typing_extensions-4.14.0-py3-none-any.whl", hash = "sha256:a1514509136dd0b477638fc68d6a91497af5076466ad0fa6c338e44e359944af", size = 43839 },
 ]
 
 [[package]]

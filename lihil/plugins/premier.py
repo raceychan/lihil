@@ -1,9 +1,8 @@
 from typing import Callable
 
 from premier import Throttler
-from premier import throttler as throttler
-from premier.handler import AsyncDefaultHandler as AsyncDefaultHandler
-from premier.interface import AsyncThrottleHandler as AsyncThrottleHandler
+from premier.throttler.handler import AsyncDefaultHandler as AsyncDefaultHandler
+from premier.throttler.interface import AsyncThrottleHandler as AsyncThrottleHandler
 
 from lihil.interface import IAsyncFunc, P, R
 from lihil.plugins import IEndpointInfo

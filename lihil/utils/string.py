@@ -1,8 +1,6 @@
 import re
 from re import Pattern
 
-# from typing import Any, Literal, TypeVar, get_args, get_origin
-# from lihil.errors import NotSupportedError
 from starlette.routing import compile_path
 
 RE_PATH_KEYS = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
@@ -67,17 +65,6 @@ def trim_path(path: str) -> str:
     if not path.startswith("/"):
         return f"/{path}"
     return path
-
-
-# def get_parent_path(path: str) -> str:
-#     # Remove trailing slash if present
-#     if path.endswith("/"):
-#         return path[:-1]
-
-#     # Find the last slash and return everything before it
-#     last_slash_index = path.rindex("/")
-#     parent = path[:last_slash_index]
-#     return trim_path(parent)
 
 
 def merge_path(parent_path: str, sub_path: str) -> str:

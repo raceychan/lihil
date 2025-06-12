@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
   "ididi>=1.6.3",
   "msgspec>=0.19.0",
-  "premier==0.4.1",
+  "premier==0.4.3",
   "pydantic>=2.10.6",
   "python-multipart>=0.0.20",
   "starlette>=0.45.3",

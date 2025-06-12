@@ -1,9 +1,8 @@
 import pytest
-from premier.handler import AsyncDefaultHandler
-from premier.errors import QuotaExceedsError
+from premier.throttler.errors import QuotaExceedsError
 
-from lihil.plugins.premier import PremierPlugin, throttler
 from lihil.local_client import LocalClient
+from lihil.plugins.premier import PremierPlugin, Throttler
 
 
 async def test_throttling():
@@ -13,7 +12,7 @@ async def test_throttling():
 
     lc = LocalClient()
 
-    throttler.config(aiohandler=AsyncDefaultHandler())
+    throttler = Throttler()
 
     plugin = PremierPlugin(throttler)
 
