@@ -23,8 +23,12 @@ I = TypeVar("I")
 T = TypeVar("T")
 
 
-class IDecoder(Protocol, Generic[I, T]):
-    def __call__(self, content: I, /) -> T: ...
+DI = TypeVar("DI", contravariant=True)
+DT = TypeVar("DT", covariant=True)
+
+
+class IDecoder(Protocol, Generic[DI, DT]):
+    def __call__(self, content: DI, /) -> DT: ...
 
 
 class IEncoder(Protocol):

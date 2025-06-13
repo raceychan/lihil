@@ -1,15 +1,5 @@
 from copy import deepcopy
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Generic,
-    Literal,
-    Mapping,
-    TypeVar,
-    Union,
-    overload,
-)
+from typing import Any, ClassVar, Generic, Literal, Mapping, TypeVar, Union, overload
 
 from ididi import DependentNode
 from msgspec import DecodeError
@@ -114,10 +104,34 @@ def Param(
 
 @overload
 def Param(
-    source: Literal["path", "query", "header", "cookie"] | None = None,
+    source: Literal["path", "query", "header", "cookie"],
     *,
     alias: Union[str, None] = None,
-    decoder: Union[ITextualDecoder[Any], None] = None,
+    decoder: Union[IDecoder[str, Any], IDecoder[list[str], Any], None] = None,
+    gt: Union[int, float, None] = None,
+    ge: Union[int, float, None] = None,
+    lt: Union[int, float, None] = None,
+    le: Union[int, float, None] = None,
+    multiple_of: Union[int, float, None] = None,
+    pattern: Union[str, None] = None,
+    min_length: Union[int, None] = None,
+    max_length: Union[int, None] = None,
+    tz: Union[bool, None] = None,
+    title: Union[str, None] = None,
+    description: Union[str, None] = None,
+    examples: Union[list[Any], None] = None,
+    extra_json_schema: Union[dict[str, Any], None] = None,
+    schema_extra: Union[dict[str, Any], None] = None,
+    extra_meta: Union[dict[str, Any], None] = None,
+) -> ParamMeta: ...
+
+
+@overload
+def Param(
+    source: None = None,
+    *,
+    alias: Union[str, None] = None,
+    decoder: Union[IDecoder[str, Any], IDecoder[list[str], Any], None] = None,
     gt: Union[int, float, None] = None,
     ge: Union[int, float, None] = None,
     lt: Union[int, float, None] = None,
@@ -260,7 +274,7 @@ class PathParam(Decodable[str, T], Generic[T], kw_only=True):
 
 class QueryParam(Decodable[str | list[str], T], kw_only=True):
     source: ClassVar[ParamSource] = "query"
-    decoder: ITextualDecoder[T]
+    decoder: IDecoder[str | list[str], T]
     multivals: bool = False
 
     def __post_init__(self):

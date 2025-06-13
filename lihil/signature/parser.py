@@ -387,7 +387,7 @@ class EndpointParser:
                 )
                 return cast(FormParam[T], body_param)
 
-            req_param = BodyParam(
+            req_param = BodyParam[bytes, T](
                 name=name,
                 alias=name,
                 annotation=annotation,
