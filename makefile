@@ -108,7 +108,7 @@ build:
 
 pypi-release:
 	@echo "Publishing to PyPI with skip-existing flag..."
-	@twine upload dist/* --skip-existing
+	@uv run twine upload dist/* --skip-existing
 
 # Branch management
 delete-branch:

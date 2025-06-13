@@ -1378,3 +1378,61 @@ rename `props.errors` to `props.problems`
 Features:
 
 - [x] PremierPlugin now has `retry`, `timeout` and `cache` functionalities with both in memory and redis backend.
+
+
+### Usage
+
+you can use them as decorator for random function, or as plugins in your endpoint with endpoint props like `@route.get(plugins=[...])`
+
+#### PremierPlugin.cache
+
+```python
+@plugin.cache(expire_s=300)  # 5-minute cache
+async def expensive_computation():
+    return "computed result"
+
+@plugin.cache(cache_key=lambda user_id: f"user:{user_id}")
+async def get_user(user_id: str):
+    return {"id": user_id, "name": "John"}
+
+@plugin.cache(expire_s=600, encoder=json.dumps)
+async def get_complex_data():
+    return {"data": [1, 2, 3]}
+```
+#### PremierPlugin.retry
+
+```python
+@plugin.retry(max_attempts=3, wait=1)  # Fixed 1s delay
+async def flaky_service():
+    return "result"
+
+@plugin.retry(max_attempts=4, wait=[1, 2, 4, 8])  # Exponential backoff
+async def unreliable_api():
+    return "api result"
+
+@plugin.retry(exceptions=(ConnectionError, TimeoutError))
+async def network_call():
+    return "network result"
+
+async def log_failure(*args, **kwargs):
+    print(f"Failed with args: {args}, kwargs: {kwargs}")
+
+@plugin.retry(max_attempts=3, on_fail=log_failure)
+async def monitored_service():
+    return "monitored result"
+```
+#### PremierPlugin.timeout
+
+
+```python
+@plugin.timeout(30)  # 30-second timeout
+async def slow_operation():
+    return "result"
+
+import logging
+logger = logging.getLogger(__name__)
+
+@plugin.timeout(10, logger=logger)
+async def monitored_operation():
+    return "result"
+```
