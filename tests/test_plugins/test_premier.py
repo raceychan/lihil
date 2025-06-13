@@ -39,6 +39,7 @@ async def test_throttling():
 
 async def test_fixed_window():
     """Test fixed window rate limiting"""
+
     async def api_call():
         return "success"
 
@@ -99,7 +100,9 @@ async def test_cache_with_ttl():
     plugin = PremierPlugin(throttler)
 
     # Use very short TTL for testing
-    ep = await lc.make_endpoint(time_sensitive_operation, plugins=[plugin.cache(expire_s=1)])
+    ep = await lc.make_endpoint(
+        time_sensitive_operation, plugins=[plugin.cache(expire_s=1)]
+    )
 
     # First call
     result1 = await lc(ep)
@@ -131,7 +134,7 @@ async def test_cache_with_custom_key():
     # Use custom key function
     ep = await lc.make_endpoint(
         user_operation,
-        plugins=[plugin.cache(cache_key=lambda user_id: f"user:{user_id}")]
+        plugins=[plugin.cache(cache_key=lambda user_id: f"user:{user_id}")],
     )
 
     # Calls with same user_id should be cached
@@ -162,8 +165,7 @@ async def test_retry_basic():
     plugin = PremierPlugin(throttler)
 
     ep = await lc.make_endpoint(
-        flaky_service,
-        plugins=[plugin.retry(max_attempts=3, wait=0.1)]
+        flaky_service, plugins=[plugin.retry(max_attempts=3, wait=0.1)]
     )
 
     result = await lc(ep)
@@ -189,8 +191,7 @@ async def test_retry_with_exponential_backoff():
     plugin = PremierPlugin(throttler)
 
     ep = await lc.make_endpoint(
-        unreliable_service,
-        plugins=[plugin.retry(max_attempts=3, wait=[0.1, 0.2])]
+        unreliable_service, plugins=[plugin.retry(max_attempts=3, wait=[0.1, 0.2])]
     )
 
     result = await lc(ep)
@@ -222,7 +223,7 @@ async def test_retry_specific_exceptions():
 
     ep = await lc.make_endpoint(
         service_with_different_errors,
-        plugins=[plugin.retry(max_attempts=3, exceptions=(ConnectionError,), wait=0.1)]
+        plugins=[plugin.retry(max_attempts=3, exceptions=(ConnectionError,), wait=0.1)],
     )
 
     # Should fail on ValueError without retrying
@@ -251,7 +252,7 @@ async def test_retry_with_on_fail_callback():
 
     ep = await lc.make_endpoint(
         always_failing_service,
-        plugins=[plugin.retry(max_attempts=3, wait=0.1, on_fail=log_failure)]
+        plugins=[plugin.retry(max_attempts=3, wait=0.1, on_fail=log_failure)],
     )
 
     with pytest.raises(RuntimeError):
@@ -263,6 +264,7 @@ async def test_retry_with_on_fail_callback():
 
 async def test_timeout():
     """Test timeout functionality"""
+
     async def slow_operation():
         await asyncio.sleep(2)
         return "completed"
@@ -272,8 +274,7 @@ async def test_timeout():
     plugin = PremierPlugin(throttler)
 
     ep = await lc.make_endpoint(
-        slow_operation,
-        plugins=[plugin.timeout(1)]  # 1 second timeout
+        slow_operation, plugins=[plugin.timeout(1)]  # 1 second timeout
     )
 
     with pytest.raises(asyncio.TimeoutError):
@@ -282,10 +283,10 @@ async def test_timeout():
 
 async def test_timeout_with_logger():
     """Test timeout with logging"""
-    logged_messages = []
+    logged_messages: list[str] = []
 
     class MockLogger:
-        def exception(self, msg):
+        def exception(self, msg: str):
             logged_messages.append(msg)
 
         def info(self, msg):
@@ -301,8 +302,7 @@ async def test_timeout_with_logger():
     mock_logger = MockLogger()
 
     ep = await lc.make_endpoint(
-        slow_operation,
-        plugins=[plugin.timeout(1, logger=mock_logger)]
+        slow_operation, plugins=[plugin.timeout(1, logger=mock_logger)]
     )
 
     # Test that timeout works with logger parameter (even if logging doesn't work as expected)
@@ -368,8 +368,8 @@ async def test_combined_features():
             plugin.timeout(2),  # 2 second timeout
             plugin.retry(max_attempts=2, wait=0.05),  # Retry once with short delay
             plugin.cache(expire_s=1),  # 1 second cache
-            plugin.fixed_window(5, 1)  # 5 requests per second
-        ]
+            plugin.fixed_window(5, 1),  # 5 requests per second
+        ],
     )
 
     # First call should succeed after retry
@@ -386,6 +386,7 @@ async def test_combined_features():
 
 async def test_backward_compatibility():
     """Test that fix_window alias still works"""
+
     async def hello():
         return "hello"
 

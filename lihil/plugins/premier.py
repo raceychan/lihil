@@ -207,7 +207,7 @@ class PremierPlugin:
         self,
         expire_s: int | None = None,
         cache_key: str | Callable[..., str] | None = None,
-        encoder: Callable[[R], any] | None = None,
+        encoder: Callable[[R], bytes] | None = None,
     ):
         """
         Apply caching to an endpoint.
