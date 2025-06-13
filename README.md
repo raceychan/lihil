@@ -44,17 +44,23 @@ This includes uvicorn and pyjwt
 ## Qucik Start
 
 ```python
-from lihil import Lihil, Route, Text
+from lihil import Lihil, Route, Stream
+from openai import OpenAI
+from openai.types.chat import ChatCompletionChunk as Chunk
+from openai.types.chat import ChatCompletionUserMessageParam as MessageIn
 
-root = Route()
+gpt = Route("/gpt", deps=[OpenAPI])
 
-@root.get
-def hello(world: str = "world") -> Annotated[Text, 200]:
-    return f"hello, {world}!"
+def message_encoder(chunk: Any) -> bytes:
+    if not chunk.choices:
+        return b""
+	return chunk.choices[0].delta.content.encode() or b""
 
-if __name__ == "__main__":
-    lhl = Lihil(root)
-    lhl.run(__file__)
+@gpt.sub("/messages").post(encoder=message_encoder)
+async def add_new_message(client: OpenAPI, question: MessageIn, model: str) -> Stream[Chunk]:
+	chat_iter = client.responses.create(messages=[question], model=model, stream=True)
+	async for chunk in chat_iter:
+    	yield chunk
 ```
 
 ## Features
