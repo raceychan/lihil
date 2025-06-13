@@ -1,5 +1,15 @@
 from copy import deepcopy
-from typing import Any, ClassVar, Generic, Literal, Mapping, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Literal,
+    Mapping,
+    TypeVar,
+    Union,
+    overload,
+)
 
 from ididi import DependentNode
 from msgspec import DecodeError
@@ -16,7 +26,13 @@ from lihil.interface import (
     T,
     is_present,
 )
-from lihil.interface.struct import Base, IBodyDecoder, IDecoder, ITextualDecoder
+from lihil.interface.struct import (
+    Base,
+    IBodyDecoder,
+    IDecoder,
+    IFormDecoder,
+    ITextualDecoder,
+)
 from lihil.problems import (
     CustomDecodeErrorMessage,
     CustomValidationError,
@@ -55,7 +71,7 @@ class FormMeta(BodyMeta, kw_only=True):
 
 
 def Form(
-    decoder: Union[Any, None] = None,
+    decoder: Union[IFormDecoder[Any], None] = None,
     content_type: BodyContentType | None = None,
     max_files: int | float = 1000,
     max_fields: int | float = 1000,
@@ -72,11 +88,59 @@ def Form(
     )
 
 
+@overload
+def Param(
+    source: Literal["body"],
+    *,
+    alias: Union[str, None] = None,
+    decoder: Union[IBodyDecoder[Any], None] = None,
+    gt: Union[int, float, None] = None,
+    ge: Union[int, float, None] = None,
+    lt: Union[int, float, None] = None,
+    le: Union[int, float, None] = None,
+    multiple_of: Union[int, float, None] = None,
+    pattern: Union[str, None] = None,
+    min_length: Union[int, None] = None,
+    max_length: Union[int, None] = None,
+    tz: Union[bool, None] = None,
+    title: Union[str, None] = None,
+    description: Union[str, None] = None,
+    examples: Union[list[Any], None] = None,
+    extra_json_schema: Union[dict[str, Any], None] = None,
+    schema_extra: Union[dict[str, Any], None] = None,
+    extra_meta: Union[dict[str, Any], None] = None,
+) -> ParamMeta: ...
+
+
+@overload
+def Param(
+    source: Literal["path", "query", "header", "cookie"] | None = None,
+    *,
+    alias: Union[str, None] = None,
+    decoder: Union[ITextualDecoder[Any], None] = None,
+    gt: Union[int, float, None] = None,
+    ge: Union[int, float, None] = None,
+    lt: Union[int, float, None] = None,
+    le: Union[int, float, None] = None,
+    multiple_of: Union[int, float, None] = None,
+    pattern: Union[str, None] = None,
+    min_length: Union[int, None] = None,
+    max_length: Union[int, None] = None,
+    tz: Union[bool, None] = None,
+    title: Union[str, None] = None,
+    description: Union[str, None] = None,
+    examples: Union[list[Any], None] = None,
+    extra_json_schema: Union[dict[str, Any], None] = None,
+    schema_extra: Union[dict[str, Any], None] = None,
+    extra_meta: Union[dict[str, Any], None] = None,
+) -> ParamMeta: ...
+
+
 def Param(
     source: Union[ParamSource, None] = None,
     *,
     alias: Union[str, None] = None,
-    decoder: Union[Any, None] = None,
+    decoder: Union[IDecoder[Any, Any], None] = None,
     gt: Union[int, float, None] = None,
     ge: Union[int, float, None] = None,
     lt: Union[int, float, None] = None,
