@@ -73,12 +73,18 @@ class PremierPlugin:
     """
 
     def __init__(
-        self, throttler_: Throttler, cache_provider: AsyncCacheProvider | None = None
+        self,
+        *,
+        cache_provider: AsyncCacheProvider | None = None,
+        throttler: Throttler | None = None,
+        cache: Cache | None = None,
     ):
-        self.throttler_ = throttler_
+
         if cache_provider is None:
             cache_provider = AsyncInMemoryCache()
-        self.cache_ = Cache(cache_provider)
+
+        self.throttler_ = throttler or Throttler()
+        self.cache_ = cache or Cache(cache_provider)
 
     def fixed_window(
         self, quota: int, duration: int, keymaker: Callable[..., str] | None = None

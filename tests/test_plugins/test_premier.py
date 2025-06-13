@@ -26,7 +26,7 @@ async def test_throttling():
 
     throttler = Throttler()
 
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin(throttler=throttler)
 
     ep = await lc.make_endpoint(hello, plugins=[plugin.fix_window(1, 1)])
 
@@ -44,8 +44,7 @@ async def test_fixed_window():
         return "success"
 
     lc = LocalClient()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin()
 
     ep = await lc.make_endpoint(api_call, plugins=[plugin.fixed_window(2, 1)])
 
@@ -70,8 +69,7 @@ async def test_cache_basic():
         return f"computed_{call_count}"
 
     lc = LocalClient()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin()
 
     ep = await lc.make_endpoint(expensive_operation, plugins=[plugin.cache(expire_s=1)])
 
@@ -96,8 +94,7 @@ async def test_cache_with_ttl():
         return f"result_{call_count}"
 
     lc = LocalClient()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin()
 
     # Use very short TTL for testing
     ep = await lc.make_endpoint(
@@ -128,8 +125,7 @@ async def test_cache_with_custom_key():
         return f"user_{user_id}_data_{call_count}"
 
     lc = LocalClient()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin()
 
     # Use custom key function
     ep = await lc.make_endpoint(
@@ -161,8 +157,7 @@ async def test_retry_basic():
         return "success"
 
     lc = LocalClient()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin()
 
     ep = await lc.make_endpoint(
         flaky_service, plugins=[plugin.retry(max_attempts=3, wait=0.1)]
@@ -187,8 +182,7 @@ async def test_retry_with_exponential_backoff():
         return "recovered"
 
     lc = LocalClient()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin()
 
     ep = await lc.make_endpoint(
         unreliable_service, plugins=[plugin.retry(max_attempts=3, wait=[0.1, 0.2])]
@@ -218,8 +212,7 @@ async def test_retry_specific_exceptions():
         return "success"
 
     lc = LocalClient()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin()
 
     ep = await lc.make_endpoint(
         service_with_different_errors,
@@ -247,8 +240,7 @@ async def test_retry_with_on_fail_callback():
         raise RuntimeError("Always fails")
 
     lc = LocalClient()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin()
 
     ep = await lc.make_endpoint(
         always_failing_service,
@@ -271,7 +263,7 @@ async def test_timeout():
 
     lc = LocalClient()
     throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin(throttler=throttler)
 
     ep = await lc.make_endpoint(
         slow_operation, plugins=[plugin.timeout(1)]  # 1 second timeout
@@ -298,7 +290,7 @@ async def test_timeout_with_logger():
 
     lc = LocalClient()
     throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin(throttler=throttler)
     mock_logger = MockLogger()
 
     ep = await lc.make_endpoint(
@@ -316,8 +308,7 @@ async def test_timeout_with_logger():
 async def test_custom_cache_provider():
     """Test plugin with custom cache provider"""
     custom_cache = AsyncInMemoryCache()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler, cache_provider=custom_cache)
+    plugin = PremierPlugin(cache_provider=custom_cache)
 
     call_count = 0
 
@@ -358,8 +349,7 @@ async def test_combined_features():
         return f"processed_{data}_{call_count}"
 
     lc = LocalClient()
-    throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin()
 
     # Combine timeout, retry, cache, and throttling
     ep = await lc.make_endpoint(
@@ -392,7 +382,7 @@ async def test_backward_compatibility():
 
     lc = LocalClient()
     throttler = Throttler()
-    plugin = PremierPlugin(throttler)
+    plugin = PremierPlugin(throttler=throttler)
 
     # Test the old fix_window method still works
     ep = await lc.make_endpoint(hello, plugins=[plugin.fix_window(1, 1)])
