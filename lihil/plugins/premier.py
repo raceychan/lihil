@@ -2,8 +2,8 @@ from typing import Awaitable, Callable
 
 from premier import Throttler
 from premier.cache import Cache
-from premier.providers import AsyncInMemoryCache
-from premier.retry.retry import retry
+from premier.providers import AsyncCacheProvider, AsyncInMemoryCache
+from premier.retry import retry
 from premier.throttler.handler import AsyncDefaultHandler as AsyncDefaultHandler
 from premier.throttler.interface import AsyncThrottleHandler as AsyncThrottleHandler
 from premier.timer.timer import ILogger, timeout
@@ -72,7 +72,9 @@ class PremierPlugin:
         ```
     """
 
-    def __init__(self, throttler_: Throttler, cache_provider=None):
+    def __init__(
+        self, throttler_: Throttler, cache_provider: AsyncCacheProvider | None = None
+    ):
         self.throttler_ = throttler_
         if cache_provider is None:
             cache_provider = AsyncInMemoryCache()

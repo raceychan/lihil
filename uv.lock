@@ -1189,7 +1189,7 @@ requires-dist = [
     { name = "bcrypt", marker = "extra == 'auth'", specifier = ">=4.3.0" },
     { name = "ididi", specifier = ">=1.6.3" },
     { name = "msgspec", specifier = ">=0.19.0" },
-    { name = "premier", specifier = "==0.4.4" },
+    { name = "premier", specifier = "==0.4.5" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pyjwt", marker = "extra == 'auth'", specifier = ">=2.10.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
@@ -1748,14 +1748,14 @@ wheels = [
 
 [[package]]
 name = "premier"
-version = "0.4.4"
+version = "0.4.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/55/7066da428b235ea7492f54e2ec74e2434a68afccf34df6c995dd1f1eaf61/premier-0.4.4.tar.gz", hash = "sha256:6bdba4b5e167b4db246305c0704bfb410d2582ff12aef89c9c9e878d7ca42cfc", size = 74174, upload-time = "2025-06-13T08:56:40.866Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/31/83/bb92a460edf5a252bb2fa78467094d8d55abb9a0b911795d38405dc1c050/premier-0.4.5.tar.gz", hash = "sha256:d2893049059f8897f75ca724249f94d42a4d97186088b0efa57d102e3599e968", size = 74340, upload-time = "2025-06-13T09:54:31.437Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/65/b6/09ac5ba6178425366e5455914471f126e8708cc9cf592a81414f807ff68b/premier-0.4.4-py3-none-any.whl", hash = "sha256:9a33c8799875b0651340fa86da054eee1a90c6ba294808cceff82009acc72298", size = 20271, upload-time = "2025-06-13T08:56:39.227Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/b6/f2fe8cc982d81a61e53b47c7803f0eb47055dbcef1d78d16acb7d5d84365/premier-0.4.5-py3-none-any.whl", hash = "sha256:d568abfbc9fb4b9efcde6a051866422bcd6e57aa1f27c7f8498d9282119e9df3", size = 20958, upload-time = "2025-06-13T09:54:30.207Z" },
 ]
 
 [[package]]
