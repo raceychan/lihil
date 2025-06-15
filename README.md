@@ -51,13 +51,15 @@ from openai.types.chat import ChatCompletionUserMessageParam as MessageIn
 
 gpt = Route("/gpt", deps=[OpenAPI])
 
-def message_encoder(chunk: Any) -> bytes:
+def message_encoder(chunk: Chunk) -> bytes:
     if not chunk.choices:
         return b""
 	return chunk.choices[0].delta.content.encode() or b""
 
 @gpt.sub("/messages").post(encoder=message_encoder)
-async def add_new_message(client: OpenAPI, question: MessageIn, model: str) -> Stream[Chunk]:
+async def add_new_message(
+	client: OpenAPI, question: MessageIn, model: str
+) -> Stream[Chunk]:
 	chat_iter = client.responses.create(messages=[question], model=model, stream=True)
 		async for chunk in chat_iter:
     		yield chunk
@@ -71,7 +73,11 @@ async def add_new_message(client: OpenAPI, question: MessageIn, model: str) -> S
 
 - **Param Parsing & Validation**
 
-  Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints. various model is supported including `msgspec.Struct`, `pydantic.BaseModel`, `dataclasses.dataclass`, ... etc.
+  Lihil provides a high level abstraction for parsing request, validating rquest data against endpoint type hints. various model is supported including
+  	- `msgspec.Struct`,
+	- `pydantic.BaseModel`,
+	- `dataclasses.dataclass`,
+	- `typing.TypedDict`
 
   By default, lihil uses `msgspec` to serialize/deserialize json data, which is extremly fast.
   see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
@@ -89,18 +95,11 @@ async def add_new_message(client: OpenAPI, question: MessageIn, model: str) -> S
 - **OpenAPI docs & Error Response Generator**
   Lihil creates smart & accurate openapi schemas based on your routes/endpoints, union types, `oneOf` responses, all supported.
 
-- **Bettery included**:
-  Lihil comes with authentification & authorization, throttling, messaging and other plugins.
-
-- **Low memory Usage**
-  lihil is deeply optimized for memory usage, significantly reduce GC overhead, making your services more robust and resilient under load.
+- **Powerful Plugin System**:
+  Lihil features a sophisticated plugin architecture that allows seamless integration of external libraries as if they were built-in components. Create custom plugins to extend functionality or integrate third-party services effortlessly.
 
 - **Strong support for AI featuers**:
   lihil takes AI as a main usecase, AI related features such as SSE, MCP, remote handler will be implemented in the next few patches
-
-  - [x] SSE
-  - [ ] MCP
-  - [ ] Remote Handler
 
 There will also be tutorials on how to develop your own AI agent/chatbot using lihil.
 
@@ -108,12 +107,70 @@ There will also be tutorials on how to develop your own AI agent/chatbot using l
   - Lihil is ASGI copatible and works well with uvicorn and other ASGI servers.
   - ASGI middlewares that works for any ASGIApp should also work with lihil, including those from Starlette.
 
-## Lihil Admin & Full stack template
 
-[lihil-fullstack-solopreneur-template](https://github.com/raceychan/fullstack-solopreneur-template)
 
-A production-ready full stack template that uses react and lihil,
-covering real world usage & best practices of lihil.
+## Plugin System
+
+Lihil's plugin system enables you to integrate external libraries seamlessly into your application as if they were built-in features. Any plugin that implements the `IPlugin` protocol can access endpoint information and wrap functionality around your endpoints.
+
+### Creating a Custom Plugin
+
+A plugin is anything that implements the `IPlugin` protocol - either a callable or a class with a `decorate` method:
+
+```python
+from lihil.plugins.interface import IPlugin, IEndpointInfo
+from lihil.interface import IAsyncFunc, P, R
+from typing import Callable, Awaitable
+
+class MyCustomPlugin:
+    """Plugin that integrates external libraries with lihil endpoints"""
+
+    def __init__(self, external_service):
+        self.service = external_service
+
+    def decorate(self, ep_info: IEndpointInfo[P, R]) -> Callable[P, Awaitable[R]]:
+        """
+        Access endpoint info and wrap functionality around it.
+        ep_info contains:
+        - ep_info.func: The original endpoint function
+        - ep_info.sig: Parsed signature with type information
+        - ep_info.graph: Dependency injection graph
+        """
+        original_func = ep_info.func
+
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            # Pre-processing with external library
+            await self.service.before_request(ep_info.sig)
+
+            try:
+                result = await original_func(*args, **kwargs)
+                # Post-processing with external library
+                return await self.service.process_result(result)
+            except Exception as e:
+                # Error handling with external library
+                await self.service.handle_error(e)
+                raise
+
+        return wrapper
+
+# Usage - integrate any external library
+from some_external_lib import ExternalService
+
+plugin = MyCustomPlugin(ExternalService())
+
+@app.sub("/api/data").get(plugins=[plugin.decorate])
+async def get_data() -> dict:
+    return {"data": "value"}
+```
+
+
+This architecture allows you to:
+- **Integrate any external library** as if it were built-in to lihil
+- **Access full endpoint context** - signatures, types, dependency graphs
+- **Wrap functionality** around endpoints with full control
+- **Compose multiple plugins** for complex integrations
+- **Zero configuration** - plugins work automatically based on decorators
+
 
 ## Tutorials
 
@@ -126,6 +183,15 @@ Check our detailed tutorials at https://lihil.cc, covering
 - Type-Based Message System, Event listeners, atomic event handling, etc.
 - Error Handling
 - ...and much more
+
+## Lihil Admin & Full stack template
+
+See how lihil works here, a production-ready full stack template that uses react and lihil,
+
+[lihil-fullstack-solopreneur-template](https://github.com/raceychan/fullstack-solopreneur-template)
+
+covering real world usage & best practices of lihil.
+A fullstack template for my fellow solopreneur, uses shadcn+tailwindcss+react+lihil+sqlalchemy+supabase+vercel+cloudlfare to end modern slavery
 
 ## Versioning
 
