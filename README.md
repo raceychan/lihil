@@ -58,9 +58,9 @@ def message_encoder(chunk: Any) -> bytes:
 
 @gpt.sub("/messages").post(encoder=message_encoder)
 async def add_new_message(client: OpenAPI, question: MessageIn, model: str) -> Stream[Chunk]:
-    chat_iter = client.responses.create(messages=[question], model=model, stream=True)
-	  async for chunk in chat_iter:
-    	  yield chunk
+	chat_iter = client.responses.create(messages=[question], model=model, stream=True)
+		async for chunk in chat_iter:
+    		yield chunk
 ```
 
 ## Features
