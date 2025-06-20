@@ -50,7 +50,6 @@ path = "lihil/__init__.py"
 [dependency-groups]
 dev = [
   "pytest>=8.3.4",
-  "fastapi>=0.115.8",
   "httptools>=0.6.4",
   "pyinstrument>=5.0.1",
   "py-spy>=0.4.0",
