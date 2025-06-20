@@ -39,7 +39,7 @@ lihil requires python>=3.10
 pip install "lihil[standard]"
 ```
 
-This includes uvicorn and pyjwt
+The standard version comes with uvicorn
 
 ## Qucik Start
 

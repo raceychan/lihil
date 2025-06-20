@@ -128,6 +128,14 @@ def Param(
 
 @overload
 def Param(
+    source: Literal["plugin"],
+    *,
+    extra_meta: Union[dict[str, Any], None] = None,
+) -> ParamMeta: ...
+
+
+@overload
+def Param(
     source: None = None,
     *,
     alias: Union[str, None] = None,
