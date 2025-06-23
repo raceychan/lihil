@@ -829,7 +829,6 @@ async def test_lihil_run():
 
 
 async def test_lihil_run_with_workers():
-
     config = AppConfig(server=ServerConfig(WORKERS=2))
 
     lhl = Lihil(app_config=config)
@@ -860,7 +859,6 @@ def test_static_resp():
 
 
 async def test_init_lihil_add_middleware_error():
-
     def m1(app: ASGIApp) -> ASGIApp:
         async def m11(a, b, c):
             pass
@@ -873,7 +871,6 @@ async def test_init_lihil_add_middleware_error():
 
 
 async def test_init_lihil_with_middlewares():
-
     se = []
 
     def m1(app: ASGIApp) -> ASGIApp:

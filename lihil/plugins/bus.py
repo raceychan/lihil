@@ -57,7 +57,6 @@ async def default_publish(message: Any, context: Any, listeners: Any) -> None:
 
 
 class IGuard(Protocol):
-
     @property
     def next_guard(self) -> Any: ...
 
@@ -70,7 +69,6 @@ class IGuard(Protocol):
 
 
 class IEventSink(Protocol):
-
     async def sink(self, event: Any):
         """
         sink an event or a sequence of events to corresponding event sink
@@ -566,7 +564,6 @@ class MessageRegistry(Generic[E]):
         pre_hanldes: Any = None,
         post_handles: Any = None,
     ) -> None:
-
         for handler in handlers:
             if inspect.isclass(handler):
                 if issubclass(handler, BaseGuard):
@@ -583,7 +580,6 @@ class MessageRegistry(Generic[E]):
                 self.post_handle(post_handle)
 
     def get_guardtarget(self, func: Any) -> set[Any]:
-
         if inspect.isclass(func):
             func_params = list(inspect.signature(func.__call__).parameters.values())[1:]
         elif inspect.isfunction(func):
@@ -741,7 +737,6 @@ class BusTerminal(Generic[E]):
         resolver: Resolver,
         context: Any = None,
     ) -> Any:
-
         handler = await self._handler_manager.resolve_handler(type(msg), resolver)
         return await self._sender(msg, context, handler)
 

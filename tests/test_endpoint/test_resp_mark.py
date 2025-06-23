@@ -31,6 +31,5 @@ async def test_endpoint_deps():
 
 
 def test_resp_param_mark_idenpotent():
-
     ret_mark = resp_mark("test")
     assert resp_mark(ret_mark) is ret_mark

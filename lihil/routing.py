@@ -462,7 +462,6 @@ class Route(RouteBase):
         func: Func[P, R],
         **endpoint_props: Unpack[IEndpointProps],
     ) -> Func[P, R]:
-
         if endpoint_props:
             new_props = EndpointProps.from_unpack(**endpoint_props)
             props = self._props.merge(new_props, deduplicate=True)

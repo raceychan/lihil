@@ -15,7 +15,7 @@ def test_props_merge2():
     p2 = EndpointProps(in_schema=False)
 
     p3 = p1.merge(p2, deduplicate=True)
-    assert p3.in_schema == False
+    assert not p3.in_schema
 
 
 def test_props_update():

@@ -19,12 +19,12 @@ def utc_now() -> datetime:
 
 @dataclass_transform(frozen_default=True)
 class Event(Record, tag_field="typeid", omit_defaults=True):
-
     # TODO: generate a event page to inspect source, perhaps asyncapi
     # https://www.asyncapi.com/
     """
     Description: Identifies the context in which an event happened. Often this will include information such as the type of the event source, the organization publishing the event or the process that produced the event. The exact syntax and semantics behind the data encoded in the URI is defined by the event producer.
     """
+
     version: ClassVar[str] = "1"
 
 

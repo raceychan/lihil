@@ -7,7 +7,6 @@ from lihil.problems import InvalidAuthError, parse_exception, problem_solver
 
 
 async def test_random_problem_solver():
-
     def solve(req: Request, exc: Annotated[str, "aloha"]): ...
 
     with pytest.raises(TypeError):

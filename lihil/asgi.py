@@ -12,7 +12,6 @@ from lihil.interface.asgi import (
 
 
 class ASGIBase:
-
     def __init__(self, middlewares: list[MiddlewareFactory[Any]] | None):
         self.middle_factories: list[MiddlewareFactory[Any]] = middlewares or []
 

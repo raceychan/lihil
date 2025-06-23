@@ -237,7 +237,6 @@ def req_param_factory(
     param_meta: ParamMeta | None = None,
     source: Literal["path", "query", "header", "cookie"] = "query",
 ) -> "RequestParam[T]":
-
     if source in ("path", "query") and is_structured_type(param_type):
         raise InvalidParamError(
             f"Structured type, or a union that contains a structured type is not supported for {source} param, received: {param_type}"
@@ -419,7 +418,6 @@ class EndpointParser:
         default: Maybe[T],
         param_meta: ParamMeta,
     ) -> "ParsedParam[T]":
-
         req_param = req_param_factory(
             name=name,
             alias=header_key,

@@ -29,7 +29,6 @@ def test_collect_problems():
 
 
 def test_problem_solver_with_literal():
-
     @problem_solver
     def handle_404(req: Request, exc: Literal[404]) -> Response:
         return Response("resource not found", status_code=404)
@@ -40,7 +39,6 @@ def test_problem_solver_with_literal():
 
 
 def test_problem_solver_with_status():
-
     @problem_solver
     def handle_418(req: Request, exc: http_status.IM_A_TEAPOT) -> Response:
         return Response("resource not found", status_code=404)
@@ -51,7 +49,6 @@ def test_problem_solver_with_status():
 
 
 def test_problem_solver_with_exc():
-
     @problem_solver
     def handle_422(
         req: Request, exc: CurentProblem | http_status.UNSUPPORTED_MEDIA_TYPE

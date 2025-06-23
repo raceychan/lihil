@@ -74,6 +74,12 @@ dev = [
   "pydantic>=2.10.6",
 ]
 
+[tool.ruff.lint]
+# https://docs.astral.sh/ruff/linter/#rule-selection
+select = ["E"]
+# Use `ruff rule E501` to see a rule explanation
+ignore = ["E501", "E741", "E402", "E721", "E731"]
+
 [tool.pyright]
 exclude = ["tests"]
 include = ["lihil/*.py"]

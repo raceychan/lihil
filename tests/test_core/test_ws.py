@@ -17,7 +17,6 @@ from lihil.vendors import TestClient
 
 
 async def test_ws():
-
     ws_route = WebSocketRoute("web_socket")
 
     async def test_ws(ws: WebSocket):
@@ -38,7 +37,6 @@ async def test_ws():
 
 
 async def test_ws_with_body_fail():
-
     ws_route = WebSocketRoute("web_socket")
 
     class WebPayload(Payload):
@@ -91,7 +89,6 @@ async def test_ws_full_fledge():
 
 
 async def test_ws_repr():
-
     ws_route = WebSocketRoute("web_socket/{session_id}")
 
     async def ws_handler(
@@ -109,7 +106,6 @@ async def test_ws_repr():
 
 
 async def test_ws_error():
-
     ws_route = WebSocketRoute("rt_error")
 
     with pytest.raises(RuntimeError):

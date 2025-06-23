@@ -107,7 +107,6 @@ def test_to_kebab_case():
 
 
 def test_deep_merge():
-
     dict1 = {"a": 1, "b": {"c": 2, "d": 3}}
     dict2 = {"b": {"c": 4}, "e": 5}
 

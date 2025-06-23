@@ -131,7 +131,6 @@ Pair = tuple[K, V]
 
 
 def test_get_origin_pro_with_generic_alias():
-
     ptype, _ = get_origin_pro(dict[str, str])
     assert ptype == dict[str, str]
 
@@ -157,7 +156,6 @@ def test_get_origin_pro_with_unset():
 
 
 def test_get_auth_header():
-
     ptype, metas = get_origin_pro(
         Annotated[str, Param("header", alias="Authorization")]
     )
@@ -173,7 +171,6 @@ TAlias: TypeAlias = T1[K, V]
 
 
 def test_get_generic_types():
-
     ptype, metas = get_origin_pro(TAlias[str, int])
     assert ptype == T1[str, int]
     assert not metas

@@ -581,7 +581,6 @@ def test_route_add_endpint_with_config():
 
 
 async def test_init_route_with_middlewares():
-
     se = []
 
     def m1(app: ASGIApp) -> ASGIApp:
@@ -727,7 +726,6 @@ async def test_routing_query_with_bytes():
 
 
 async def test_route_with_deps_as_props():
-
     class UserService: ...
 
     route = Route(deps=[UserService])
@@ -747,6 +745,5 @@ async def test_config_raise_on_not_found():
     random_file = "random_file.toml"
     with pytest.raises(FileNotFoundError):
         lhl_read_config(random_file)
-
 
     lhl_read_config(random_file, raise_on_not_found=False)

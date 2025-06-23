@@ -10,7 +10,6 @@ from lihil.plugins.auth.supabase import (
 
 
 def test_validate_typeddict():
-
     data = {"provider": "google", "token": "asdfadsf"}
 
     result = convert(data, auth_types.SignInWithIdTokenCredentials)

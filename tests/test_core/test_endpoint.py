@@ -83,7 +83,6 @@ async def test_return_status(rusers: Route):
 
 
 async def test_status_conflict(rusers: Route):
-
     async def get_user(
         user_id: str,
     ) -> Annotated[Annotated[str, status.NO_CONTENT], "hello"]:
@@ -96,7 +95,6 @@ async def test_status_conflict(rusers: Route):
 
 
 async def test_annotated_generic(rusers: Route):
-
     async def update_user(user_id: str) -> Annotated[dict[str, str], "aloha"]: ...
 
     rusers.put(update_user)
@@ -199,7 +197,6 @@ async def test_scoped_endpoint(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_drop_body(rusers: Route, lc: LocalClient):
-
     async def get() -> Annotated[Empty, status.BAD_REQUEST]:
         return "asdf"
 
@@ -213,7 +210,6 @@ async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
-
     class UserInfo(Payload):
         username: str
         email: str
@@ -237,9 +233,7 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
         f'Content-Disposition: form-data; name="email"\r\n\r\n'
         f"john.doe@example.com\r\n"
         f"--{boundary}--\r\n"
-    ).encode(
-        "utf-8"
-    )  # Convert to bytes
+    ).encode("utf-8")  # Convert to bytes
 
     # Content-Type header
     content_type = f"multipart/form-data; boundary={boundary}"
@@ -254,7 +248,6 @@ async def test_ep_requiring_form(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_requiring_missing_Param(rusers: Route, lc: LocalClient):
-
     class UserInfo(Payload):
         username: str
         email: str
@@ -275,9 +268,7 @@ async def test_ep_requiring_missing_Param(rusers: Route, lc: LocalClient):
         f'Content-Disposition: form-data; name="username"\r\n\r\n'
         f"john_doe\r\n"
         f"--{boundary}--\r\n"
-    ).encode(
-        "utf-8"
-    )  # Convert to bytes
+    ).encode("utf-8")  # Convert to bytes
 
     # Content-Type header
     content_type = f"multipart/form-data; boundary={boundary}"
@@ -293,7 +284,6 @@ async def test_ep_requiring_missing_Param(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_requiring_upload_file(rusers: Route, lc: LocalClient):
-
     async def get(
         req: Request, myfile: Annotated[UploadFile, Form()]
     ) -> Annotated[str, status.OK]:
@@ -325,7 +315,6 @@ async def test_ep_requiring_upload_file(rusers: Route, lc: LocalClient):
 async def test_ep_requiring_upload_file_exceed_max_files(
     rusers: Route, lc: LocalClient
 ):
-
     async def get(
         req: Request, myfile: Annotated[UploadFile, Form(max_files=0)]
     ) -> Annotated[str, status.OK]:
@@ -423,7 +412,6 @@ async def test_ep_mark_override_others(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
-
     async def get(aloha: Annotated[int, "aloha"]) -> Annotated[Text, status.OK]:
         return "ok"
 
@@ -436,7 +424,6 @@ async def test_ep_with_random_annoated_query(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_with_random_annoated_path1(rusers: Route, lc: LocalClient):
-
     async def get(user_id: Annotated[int, "aloha"]) -> Annotated[Text, status.OK]:
         return "ok"
 
@@ -464,7 +451,6 @@ async def test_ep_with_random_annoated_path2(rusers: Route, lc: LocalClient):
 
 
 async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
-
     side_effect: list[int] = []
 
     async def call_back() -> Ignore[None]:
@@ -525,7 +511,6 @@ GET_RESP = Annotated[Text, status.OK]
 
 
 async def test_endpoint_with_resp_alias(rusers: Route, lc: LocalClient):
-
     async def get(user_id: str) -> GET_RESP:
         return "ok"
 
@@ -539,7 +524,6 @@ async def test_endpoint_with_resp_alias(rusers: Route, lc: LocalClient):
 
 
 class UserProfile(Base):
-
     user_id: str = field(name="sub")
     user_name: str
 
@@ -572,7 +556,6 @@ class UserProfile(Base):
 
 
 async def test_oauth2_not_plugin():
-
     async def get_user(
         token: Annotated[str, Param("header", alias="Authorization")],
     ): ...
@@ -796,7 +779,6 @@ async def test_ep_with_multiple_value_header():
 
 
 async def test_ep_requiring_upload_file_with_decoder(rusers: Route, lc: LocalClient):
-
     async def get(
         req: Request,
         myfile: Annotated[UploadFile, Form(max_files=0, decoder=lambda x: x)],
