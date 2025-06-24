@@ -49,7 +49,7 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionChunk as Chunk
 from openai.types.chat import ChatCompletionUserMessageParam as MessageIn
 
-gpt = Route("/gpt", deps=[OpenAPI])
+gpt = Route("/gpt", deps=[OpenAI])
 
 def message_encoder(chunk: Chunk) -> bytes:
     if not chunk.choices:
@@ -60,9 +60,9 @@ def message_encoder(chunk: Chunk) -> bytes:
 async def add_new_message(
 	client: OpenAPI, question: MessageIn, model: str
 ) -> Stream[Chunk]:
-	chat_iter = client.responses.create(messages=[question], model=model, stream=True)
-		async for chunk in chat_iter:
-    		yield chunk
+    chat_iter = client.responses.create(messages=[question], model=model, stream=True)
+    async for chunk in chat_iter:
+        yield chunk
 ```
 
 ## Features
