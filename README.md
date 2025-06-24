@@ -54,7 +54,7 @@ gpt = Route("/gpt", deps=[OpenAI])
 def message_encoder(chunk: Chunk) -> bytes:
     if not chunk.choices:
         return b""
-	return chunk.choices[0].delta.content.encode() or b""
+    return chunk.choices[0].delta.content.encode() or b""
 
 @gpt.sub("/messages").post(encoder=message_encoder)
 async def add_new_message(
@@ -79,7 +79,7 @@ async def add_new_message(
 	- `dataclasses.dataclass`,
 	- `typing.TypedDict`
 
-  By default, lihil uses `msgspec` to serialize/deserialize json data, which is extremly fast.
+  By default, lihil uses `msgspec` to serialize/deserialize json data, which is extremly fast, we maintain first-class support for `pydantic.BaseModel` as well, no plugin required.
   see [benchmarks](https://jcristharif.com/msgspec/benchmarks.html),
 
   - Param Parsing: Automatically parse parameters from query strings, path parameters, headers, cookies, and request bodies
