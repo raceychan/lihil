@@ -99,7 +99,6 @@ def complex_route():
 
 
 async def test_complex_route(complex_route: Route):
-
     class UserNotFoundError(HTTPException[str]):
         "You can't see me"
 
@@ -149,7 +148,6 @@ async def test_call_problempage():
 
 
 async def test_ep_with_empty_resp():
-
     route = Route()
 
     def empty_ep() -> Empty: ...
@@ -165,7 +163,6 @@ MyAlias = Annotated[Annotated[str, "hha"], "aloha"]
 
 
 async def test_ep_with_annotated_resp():
-
     route = Route()
 
     def empty_ep() -> MyAlias: ...
@@ -178,7 +175,6 @@ async def test_ep_with_annotated_resp():
 
 
 async def test_ep_not_include_schema():
-
     route = Route()
 
     def empty_ep() -> MyAlias: ...
@@ -227,7 +223,6 @@ async def test_ep_without_ret():
 
 
 async def test_ep_with_auth():
-
     async def get_user(token: str): ...
 
     route = Route()
@@ -276,7 +271,6 @@ class PydanticResp(BaseModel):
 
 
 async def test_route_with_pydantic_schema():
-
     async def create_user(user: PydanticBody) -> PydanticResp: ...
 
     lc = LocalClient()

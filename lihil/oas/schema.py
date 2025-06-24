@@ -422,7 +422,6 @@ def get_path_item_from_route(
     security_schemas: SecurityDict,
     problem_path: str,
 ) -> oasmodel.PathItem:
-
     # 1 pathitem = 1 route
     # 1 operation = 1 endpoint
 

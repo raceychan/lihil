@@ -221,7 +221,6 @@ async def test_path_keys_not_consumed():
 
 
 async def test_prepare_params_with_custom_validation_error():
-
     def decoder_with_error(content: str):
         raise CustomValidationError("aloha")
 

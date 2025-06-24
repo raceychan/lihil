@@ -11,7 +11,6 @@ from lihil.errors import InvalidParamPackError
 
 
 async def test_ep_with_dict():
-
     async def login(creds: Annotated[dict[str, str], Param("header")]): ...
 
     lc = LocalClient()
@@ -119,7 +118,6 @@ async def test_ep_with_struct_param_collection_and_factory():
 
 
 async def test_ep_with_struct_param_collection_and_different_source():
-
     class STCred(Struct):
         name: str
         age: int
@@ -144,7 +142,6 @@ async def test_ep_with_struct_param_collection_and_different_source():
 
 
 async def test_ep_with_struct_param_collection_with_default():
-
     class STCred(Struct):
         name: str
         age: int
@@ -160,7 +157,6 @@ async def test_ep_with_struct_param_collection_with_default():
 
 
 async def test_ep_with_struct_param_collection_with_union():
-
     class STCred(Struct):
         name: str
         age: int

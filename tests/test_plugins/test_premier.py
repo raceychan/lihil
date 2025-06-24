@@ -266,7 +266,8 @@ async def test_timeout():
     plugin = PremierPlugin(throttler=throttler)
 
     ep = await lc.make_endpoint(
-        slow_operation, plugins=[plugin.timeout(1)]  # 1 second timeout
+        slow_operation,
+        plugins=[plugin.timeout(1)],  # 1 second timeout
     )
 
     with pytest.raises(asyncio.TimeoutError):

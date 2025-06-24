@@ -8,7 +8,6 @@ try:
 
     class SQLDebugger:
         def __init__(self, engine: sa.Engine, echo: bool = True):
-
             self.engine = engine
             self.inspector = sa.inspect(engine)
             self._console = Console(color_system="truecolor")
@@ -65,7 +64,6 @@ try:
             return results
 
         def interactive(self) -> None:
-
             while True:
                 sql_caluse = Prompt.ask("sql> ")
                 self.show_sql(sql_caluse)

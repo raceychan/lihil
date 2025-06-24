@@ -73,7 +73,6 @@ def is_present(t: T | "_Missed") -> TypeGuard[T]:
 
 @dataclass(frozen=True, repr=False)
 class _Missed:
-
     __slots__ = ()
 
     __name__ = "liihl.MISSING"

@@ -79,7 +79,6 @@ class PremierPlugin:
         throttler: Throttler | None = None,
         cache: Cache | None = None,
     ):
-
         if cache_provider is None:
             cache_provider = AsyncInMemoryCache()
 

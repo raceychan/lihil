@@ -155,7 +155,6 @@ class LocalClient:
         query_params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> RequestResult:
-
         boundary = f"----WebKitFormBoundary{uuid4().hex}"
         content_type = f"multipart/form-data; boundary={boundary}"
         # Prepare headers

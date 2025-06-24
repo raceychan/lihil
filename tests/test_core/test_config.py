@@ -292,7 +292,6 @@ def test_filed_type():
 
 
 def test_build_parser_with_bool():
-
     class NestedConfig(ConfigBase):
         name: str
 

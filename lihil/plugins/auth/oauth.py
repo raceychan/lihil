@@ -88,7 +88,6 @@ class OAuth2PasswordFlow(OAuth2Base):
         scheme_name: str | None = None,
         scopes: dict[str, str] | None = None,
     ):
-
         password_flow = OAuthFlowPassword(tokenUrl=token_url, scopes=(scopes or {}))
         flows = OAuthFlows(password=password_flow)
         super().__init__(

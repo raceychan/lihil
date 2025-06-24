@@ -151,7 +151,6 @@ def parse_returns(
 
         resp_cnt = 0
         for _, ret_meta in temp_union:
-
             if not ret_meta:
                 continue
             if any(is_status(meta) for meta in ret_meta):

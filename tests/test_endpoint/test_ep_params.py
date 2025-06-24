@@ -140,7 +140,6 @@ def test_analyze_param_path(param_parser: EndpointParser):
 
 # Test analyze_param for payload
 def test_analyze_param_payload(param_parser: EndpointParser):
-
     result = param_parser.parse_param("data", SamplePayload, MISSING)
 
     assert len(result) == 1
@@ -388,7 +387,6 @@ def test_path_param_with_default_fail(param_parser: EndpointParser):
 
 
 def test_multiple_body_is_not_suuported(param_parser: EndpointParser):
-
     def invalid_ep(
         user_data: Annotated[str, Param("body")],
         order_data: Annotated[str, Param("body")],
@@ -493,13 +491,11 @@ def test_constraint_dt(param_parser: EndpointParser):
 
 
 def test_param_with_bytes_in_union(param_parser: EndpointParser):
-
     with pytest.raises(InvalidParamError):
         res = param_parser.parse_param("n", int | bytes)
 
 
 def test_parse_cookie(param_parser: EndpointParser):
-
     t, meta = get_origin_pro(Annotated[str, Param("header", alias="ads_id")])
     assert t == str and meta[0].alias == "ads_id"
 
@@ -532,7 +528,6 @@ async def test_endpoint_with_body_decoder(param_parser: EndpointParser):
 
 
 async def test_endpoint_with_header_key(param_parser: EndpointParser):
-
     async def with_header_key(
         user_agen: Annotated[str, Param("header", alias="User-Agent")],
     ): ...
@@ -552,7 +547,6 @@ async def test_parse_ep_with_path_key(param_parser: EndpointParser):
 
 
 async def test_endpoint_with_invalid_param(param_parser: EndpointParser):
-
     with pytest.raises(InvalidParamSourceError):
 
         async def with_header_key(
@@ -561,7 +555,6 @@ async def test_endpoint_with_invalid_param(param_parser: EndpointParser):
 
 
 async def test_parse_ep_with_path_key(param_parser: EndpointParser):
-
     async def get_user(user_id: list[str]): ...
 
     sig = param_parser.parse(get_user)
