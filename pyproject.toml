@@ -39,6 +39,7 @@ requires-python = ">=3.10"
 standard = ["uvicorn[standard]>=0.34.0", "tomli>=2.2.1"]
 auth = ["pyjwt>=2.10.1", "bcrypt>=4.3.0"]
 supabase = ["supabase>=2.15.1"]
+mcp = ["mcp>=1.8.1"]
 
 [build-system]
 build-backend = "hatchling.build"
