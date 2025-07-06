@@ -47,17 +47,7 @@ from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encoder_factory
 from lihil.utils.string import is_plain_path
 
-# MCP imports (optional)
-try:
-    from lihil.plugins.mcp import MCPConfig, LihilMCP
-    from lihil.plugins.mcp.transport import LihilMCPTransport, MCPMiddleware
-    MCP_AVAILABLE = True
-except ImportError:
-    MCP_AVAILABLE = False
-    MCPConfig = None
-    LihilMCP = None
-    LihilMCPTransport = None
-    MCPMiddleware = None
+
 
 LifeSpan = Callable[["Lihil"], AsyncContextManager[None] | AsyncGenerator[None, None]]
 WrappedLifeSpan = Callable[["Lihil"], AsyncContextManager[None]]
@@ -112,7 +102,6 @@ class Lihil(ASGIBase):
         max_thread_workers: int | None = None,
         graph: Graph | None = None,
         lifespan: LifeSpan | None = None,
-        mcp_config: "MCPConfig | None" = None,
     ):
         super().__init__(middlewares)
         _config = app_config or lhl_read_config() or lhl_get_config()
@@ -131,12 +120,6 @@ class Lihil(ASGIBase):
         self._err_registry = LIHIL_ERRESP_REGISTRY
         self._is_setup: bool = False
 
-        # MCP-related attributes
-        self._mcp_server: "LihilMCP | None" = None
-        self._mcp_transport: "LihilMCPTransport | None" = None
-        if mcp_config and mcp_config.enabled and MCP_AVAILABLE:
-            self._mcp_server = LihilMCP(self, mcp_config)
-            self._mcp_transport = LihilMCPTransport(self._mcp_server)
 
     def _init_routes(self, routes: tuple[RouteBase, ...]) -> None:
         if not routes:
@@ -179,71 +162,6 @@ class Lihil(ASGIBase):
             raise AppConfiguringError(f"Invalid app config {config_val}")
         lhl_set_config(config_val)
 
-    # MCP-related methods
-    def enable_mcp(self, config: "MCPConfig | None" = None) -> "LihilMCP":
-        """Enable MCP functionality for this application.
-
-        Args:
-            config: MCP configuration. If None, uses default configuration.
-
-        Returns:
-            The MCP server instance.
-
-        Raises:
-            ImportError: If MCP dependencies are not installed.
-            RuntimeError: If application is already set up.
-        """
-        if not MCP_AVAILABLE:
-            raise ImportError(
-                "MCP functionality requires the 'mcp' package. "
-                "Install it with: pip install 'lihil[mcp]' or pip install mcp"
-            )
-
-        if self._is_setup:
-            raise RuntimeError("Cannot enable MCP after application setup is complete")
-
-        config = config or MCPConfig(enabled=True)
-
-        if not self._mcp_server:
-            self._mcp_server = LihilMCP(self, config)
-            self._mcp_transport = LihilMCPTransport(self._mcp_server)
-
-        return self._mcp_server
-
-    def disable_mcp(self) -> None:
-        """Disable MCP functionality."""
-        if self._is_setup:
-            raise RuntimeError("Cannot disable MCP after application setup is complete")
-
-        self._mcp_server = None
-        self._mcp_transport = None
-
-    @property
-    def mcp_server(self) -> "LihilMCP | None":
-        """Get the MCP server instance if enabled."""
-        return self._mcp_server
-
-    def mcp_tool(self, **kwargs):
-        """Decorator to mark root route endpoints as MCP tools."""
-        if not MCP_AVAILABLE:
-            raise ImportError(
-                "MCP functionality requires the 'mcp' package. "
-                "Install it with: pip install 'lihil[mcp]' or pip install mcp"
-            )
-
-        from lihil.plugins.mcp.decorators import mcp_tool
-        return mcp_tool(**kwargs)
-
-    def mcp_resource(self, uri_template: str, **kwargs):
-        """Decorator to mark root route endpoints as MCP resources."""
-        if not MCP_AVAILABLE:
-            raise ImportError(
-                "MCP functionality requires the 'mcp' package. "
-                "Install it with: pip install 'lihil[mcp]' or pip install mcp"
-            )
-
-        from lihil.plugins.mcp.decorators import mcp_resource
-        return mcp_resource(uri_template, **kwargs)
 
     @asynccontextmanager
     async def _lifespan(self):
@@ -376,10 +294,6 @@ class Lihil(ASGIBase):
             await self._on_lifespan(scope, receive, send)
             return
 
-        # Handle MCP requests if MCP is enabled
-        if self._mcp_transport and self._mcp_transport._is_mcp_request(scope):
-            await self._mcp_transport(scope, receive, send)
-            return
 
         response_started = False
 
