@@ -1436,3 +1436,29 @@ logger = logging.getLogger(__name__)
 async def monitored_operation():
     return "result"
 ```
+
+## version 0.2.21
+
+### Improvements
+
+- New `UnserializableResponseError` error that would be raised when an endpoint returns
+unserializable object, example:
+
+```python
+class DIYClass: ...
+
+
+async def test_ep_with_random_return():
+    async def func() -> DIYClass:
+        return DIYClass()
+
+    lc = LocalClient()
+
+    with pytest.raises(UnserializableResponseError):
+        await lc.call_endpoint(await lc.make_endpoint(func))
+```
+
+This is a fatal error and would be treated as server internal error when requests arrive.
+
+
+- Better typing for `Param`

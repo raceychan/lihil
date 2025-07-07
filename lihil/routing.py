@@ -25,7 +25,7 @@ from typing_extensions import Self, Unpack
 
 from lihil.asgi import ASGIBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
-from lihil.ds.resp import StaticResponse
+from lihil.errors import UnserializableResponseError
 from lihil.interface import (
     HTTP_METHODS,
     ASGIApp,
@@ -246,15 +246,13 @@ class Endpoint(Generic[R]):
                 media_type="text/event-stream",
                 status_code=self._status_code,
             )
-        elif self._static:
-            resp = StaticResponse(
-                self._encoder(raw_return),
-                media_type=self._media_type,
-                status_code=self._status_code,
-            )
         else:
+            try:
+                content = self._encoder(raw_return)
+            except TypeError as exc:
+                raise UnserializableResponseError(raw_return) from exc
             resp = Response(
-                content=self._encoder(raw_return),
+                content=content,
                 media_type=self._media_type,
                 status_code=self._status_code,
             )

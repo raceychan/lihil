@@ -4,6 +4,7 @@ import pytest
 from starlette.requests import Request
 
 from lihil import Empty, Param, Payload, Route, Text, use
+from lihil.errors import UnserializableResponseError
 from lihil.local_client import LocalClient
 from lihil.problems import CustomValidationError
 from lihil.utils.json import encoder_factory
@@ -256,3 +257,18 @@ async def test_query_with_value_could_be_false():
     resp = await lc.call_endpoint(await lc.make_endpoint(func), query_params={"age": 0})
     assert resp.status_code == 200
     assert await resp.json() == 0
+
+
+class DIYClass: ...
+
+
+async def test_ep_with_random_return():
+    async def func(age: int) -> DIYClass:
+        return DIYClass()
+
+    lc = LocalClient()
+
+    with pytest.raises(UnserializableResponseError):
+        await lc.call_endpoint(
+            await lc.make_endpoint(func), query_params={"age": 0}
+        )

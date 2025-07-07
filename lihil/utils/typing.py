@@ -296,5 +296,4 @@ def should_use_pydantic(t: type[T] | UnsetType = UNSET) -> TypeGuard[type[BaseMo
         return any(should_use_pydantic(arg) for arg in type_args)
 
     type_origin = cast(type, type_origin)
-
     return lenient_issubclass(type_origin, BaseModel)
