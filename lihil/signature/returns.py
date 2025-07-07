@@ -79,7 +79,7 @@ class EndpointReturn(Base, Generic[T]):
         return f"Return<{self.annotation}, {self.status}>"
 
 
-DEFAULT_RETURN = EndpointReturn(
+DEFAULT_RETURN = EndpointReturn[Any](
     type_=MISSING, status=200, encoder=encoder_factory(), annotation=MISSING
 )
 

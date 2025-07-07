@@ -47,6 +47,11 @@ class InvalidParamError(LihilError): ...
 class InvalidParamPackError(InvalidParamError): ...
 
 
+class UnserializableResponseError(LihilError):
+    def __init__(self, ret: Any):
+        super().__init__(f"Cannot serialize response of type: {type(ret)}")
+
+
 class MissingDependencyError(LihilError):
     def __init__(self, dep_name: str) -> None:
         super().__init__(f"{dep_name} is required but not provided")
