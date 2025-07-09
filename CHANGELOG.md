@@ -1462,3 +1462,36 @@ This is a fatal error and would be treated as server internal error when request
 
 
 - Better typing for `Param`
+
+## version 0.2.22
+
+### ⚠️ BREAKING CHANGES
+
+**HTTPException constructor parameter changes:**
+- `problem_detail` parameter has been removed from `HTTPException` constructor
+- `problem_type` parameter behavior may have changed
+- `problem_status` parameter is kept for backward compatibility, but `status` parameter is now preferred
+- If you were using `problem_detail` or `problem_type` parameters in your HTTPException instantiation, you will need to update your code
+
+**Migration guide:**
+```python
+# Before (v0.2.21 and earlier)
+HTTPException(detail="error", problem_detail_type="custom-error")
+
+# After (v0.2.22)
+HTTPException(detail="error", problem_type="custom-error", status=422)
+```
+
+### Improvements
+
+- Enhanced error handling system with better HTTPException constructor
+- Optimized timeout tests for improved reliability
+- Updated README.md with clearer "Lihil is" and "Lihil is not" sections highlighting framework's design principles
+- Improved OpenAPI schema generation for problem details
+- Better documentation UI integration
+
+### Fixes
+
+- Fixed HTTPException constructor to handle problem details more consistently
+- Updated related tests to reflect HTTPException constructor changes
+- Improved error response formatting in OpenAPI documentation
