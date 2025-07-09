@@ -108,7 +108,6 @@ There will also be tutorials on how to develop your own AI agent/chatbot using l
   - ASGI middlewares that works for any ASGIApp should also work with lihil, including those from Starlette.
 
 
-
 ## Plugin System
 
 Lihil's plugin system enables you to integrate external libraries seamlessly into your application as if they were built-in features. Any plugin that implements the `IPlugin` protocol can access endpoint information and wrap functionality around your endpoints.
@@ -171,6 +170,175 @@ This architecture allows you to:
 - **Compose multiple plugins** for complex integrations
 - **Zero configuration** - plugins work automatically based on decorators
 
+## Error Handling with HTTPException
+
+Lihil provides a powerful and flexible error handling system based on RFC 9457 Problem Details specification. The `HTTPException` class extends `DetailBase` and allows you to create structured, consistent error responses with rich metadata.
+
+### Basic Usage
+
+By default, Lihil automatically generates problem details from your exception class:
+
+```python
+from lihil import HTTPException
+
+class UserNotFound(HTTPException[str]):
+    """The user you are looking for does not exist"""
+    __status__ = 404
+
+# Usage in endpoint
+@app.sub("/users/{user_id}").get
+async def get_user(user_id: str):
+    if not user_exists(user_id):
+        raise UserNotFound(f"User with ID {user_id} not found")
+    return get_user_data(user_id)
+```
+
+This will produce a JSON response like:
+```json
+{
+  "type": "user-not-found",
+  "title": "The user you are looking for does not exist",
+  "status": 404,
+  "detail": "User with ID 123 not found",
+  "instance": "/users/123"
+}
+```
+
+### Customizing Problem Details
+
+#### 1. Default Behavior
+- **Problem Type**: Automatically generated from class name in kebab-case (`UserNotFound` → `user-not-found`)
+- **Problem Title**: Taken from the class docstring
+- **Status Code**: Set via `__status__` class attribute (defaults to 422)
+
+#### 2. Custom Problem Type and Title
+
+You can customize the problem type and title using class attributes:
+
+```python
+class UserNotFound(HTTPException[str]):
+    """The user you are looking for does not exist"""
+    __status__ = 404
+    __problem_type__ = "user-lookup-failed"
+    __problem_title__ = "User Lookup Failed"
+```
+
+#### 3. Runtime Customization
+
+You can also override problem details at runtime:
+
+```python
+@app.sub("/users/{user_id}").get
+async def get_user(user_id: str):
+    if not user_exists(user_id):
+        raise UserNotFound(
+            detail=f"User with ID {user_id} not found",
+            problem_type="custom-user-error",
+            problem_title="Custom User Error",
+            status=404
+        )
+    return get_user_data(user_id)
+```
+
+### Advanced Customization
+
+#### 1. Override `__problem_detail__` Method
+
+For fine-grained control over how your exception transforms into a `ProblemDetail` object:
+
+```python
+from lihil.interface.problem import ProblemDetail
+
+class ValidationError(HTTPException[dict]):
+    """Request validation failed"""
+    __status__ = 400
+
+    def __problem_detail__(self, instance: str) -> ProblemDetail[dict]:
+        return ProblemDetail(
+            type_="validation-error",
+            title="Request Validation Failed",
+            status=400,
+            detail=self.detail,
+            instance=f"users/{instance}",
+        )
+
+# Usage
+@app.sub("/users/{user_id}").post
+async def update_user(user_data: UserUpdate):
+    validation_errors = validate_user_data(user_data)
+    if validation_errors:
+        raise ValidationError(title="Updating user failed")
+    return create_user_in_db(user_data)
+```
+
+#### 2. Override `__json_example__` Method
+
+Customize how your exceptions appear in OpenAPI documentation:
+
+```python
+class UserNotFound(HTTPException[str]):
+    """The user you are looking for does not exist"""
+    __status__ = 404
+
+    @classmethod
+    def __json_example__(cls) -> ProblemDetail[str]:
+        return ProblemDetail(
+            type_="user-not-found",
+            title="User Not Found",
+            status=404,
+            detail="User with ID 'user123' was not found in the system",
+            instance="/api/v1/users/user123"
+        )
+```
+
+This is especially useful for providing realistic examples in your API documentation, including specific `detail` and `instance` values that Lihil cannot automatically resolve from class attributes.
+
+### Complex Error Scenarios
+
+#### Generic Error with Type Information
+
+```python
+from typing import Generic, TypeVar
+
+T = TypeVar('T')
+
+class ResourceNotFound(HTTPException[T], Generic[T]):
+    """The requested resource was not found"""
+    __status__ = 404
+
+    def __init__(self, detail: T, resource_type: str):
+        super().__init__(detail)
+        self.resource_type = resource_type
+
+    def __problem_detail__(self, instance: str) -> ProblemDetail[T]:
+        return ProblemDetail(
+            type_=f"{self.resource_type}-not-found",
+            title=f"{self.resource_type.title()} Not Found",
+            status=404,
+            detail=self.detail,
+            instance=instance
+        )
+
+# Usage
+@app.sub("/posts/{post_id}").get
+async def get_post(post_id: str):
+    if not post_exists(post_id):
+        raise ResourceNotFound(
+            detail=f"Post {post_id} does not exist",
+            resource_type="post"
+        )
+    return get_post_data(post_id)
+```
+
+### Benefits
+
+- **Consistency**: All error responses follow RFC 9457 Problem Details specification
+- **Developer Experience**: Rich type information and clear error messages
+- **Documentation**: Automatic OpenAPI schema generation with examples
+- **Flexibility**: Multiple levels of customization from simple to advanced
+- **Traceability**: Built-in problem page links in OpenAPI docs for debugging
+
+The error handling system integrates seamlessly with Lihil's OpenAPI documentation generation, providing developers with comprehensive error schemas and examples in the generated API docs.
 
 ## Tutorials
 

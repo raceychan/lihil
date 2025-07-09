@@ -4,7 +4,6 @@ from types import MappingProxyType
 from typing import (
     Any,
     Callable,
-    ClassVar,
     Generic,
     Literal,
     Mapping,
@@ -172,15 +171,15 @@ class HTTPException(Exception, DetailBase[T]):
         headers: dict[str, str] | None = None,
         status: TypeAliasType | http_status.Status | None = None,
         problem_status: TypeAliasType | http_status.Status | None = None,
-        detail_type: str | None = None,
-        detail_title: str | None = None,
+        problem_type: str | None = None,
+        problem_title: str | None = None,
     ):
         self.detail = detail
         self.headers = headers
-        if detail_type is not None:
-            self.__problem_type__ = detail_type
-        if detail_type is not None:
-            self.__problem_title__ = detail_title
+        if problem_type is not None:
+            self.__problem_type__ = problem_type
+        if problem_type is not None:
+            self.__problem_title__ = problem_title
 
         status = status or problem_status
         if status:

@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Generic, cast
+from typing import Annotated, Generic, cast
 
 from msgspec import Meta
 
@@ -68,7 +68,7 @@ class DetailBase(Generic[T]):
         raise NotImplementedError
 
     @classmethod
-    def __json_example__(cls) -> dict[str, Any]:
+    def __json_example__(cls) -> ProblemDetail[T]:
         type_ = cls.__problem_type__ or to_kebab_case(cls.__name__)
         title = cls.__problem_title__ or trimdoc(cls.__doc__) or "Missing"
         status = cls.__status__
@@ -78,4 +78,4 @@ class DetailBase(Generic[T]):
             status=status,
             detail=cast(T, "Example detail for this error type"),
             instance="Example Instance for this error type",
-        ).asdict()
+        )

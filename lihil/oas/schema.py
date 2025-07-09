@@ -138,12 +138,18 @@ def detail_base_to_content(
 
     example = err_type.__json_example__()
     # Add a link to the problems page for this error type
-    problem_type = example["type_"]
+    problem_type = example.type_
     problem_link = f"/problems?search={problem_type}"
+
+    # Get schema from ProblemDetail using json_schema
+    schema_output = json_schema(type(example))
+    if schema_output.component:
+        schemas.update(schema_output.component)
+
     schemas[err_name] = oasmodel.Schema(
         type="object",
         properties=properties,
-        examples=[example],
+        examples=[example.asdict()],
         description=trimdoc(err_type.__doc__) or f"{err_name}",
         externalDocs=oasmodel.ExternalDocumentation(
             description=f"Learn more about {err_name}", url=problem_link
@@ -198,19 +204,19 @@ def example_from_detail_base(
     err_name = err_type.__name__
 
     # Create a schema for this specific error type
-    problem_type = example["type_"]
+    problem_type = example.type_
     problem_url = f"{problem_path}/search?{problem_type}"
     error_schema = oasmodel.Schema(
         type="object",
         title=err_name,  # Add title to make it show up in Swagger UI
         properties={
-            "type": oasmodel.Schema(type="string", examples=[example["type_"]]),
-            "title": oasmodel.Schema(type="string", examples=[example["title"]]),
-            "status": oasmodel.Schema(type="integer", examples=[example["status"]]),
-            "detail": oasmodel.Schema(type="string", examples=["Example detail"]),
-            "instance": oasmodel.Schema(type="string", examples=["Example instance"]),
+            "type": oasmodel.Schema(type="string", examples=[example.type_]),
+            "title": oasmodel.Schema(type="string", examples=[example.title]),
+            "status": oasmodel.Schema(type="integer", examples=[example.status]),
+            "detail": oasmodel.Schema(type="string", examples=[example.detail]),
+            "instance": oasmodel.Schema(type="string", examples=[example.instance]),
         },
-        examples=[example],
+        examples=[example.asdict()],
         description=trimdoc(err_type.__doc__) or err_name,
         externalDocs=oasmodel.ExternalDocumentation(
             description=f"Learn more about {err_name}", url=problem_url
@@ -403,7 +409,7 @@ def generate_op_from_ep(
     resps.update(err_resps)
 
     op = oasmodel.Operation(
-        tags=tags,
+        tags=tags or oasmodel.UNSET,
         summary=summary,
         description=description,
         operationId=operationId,

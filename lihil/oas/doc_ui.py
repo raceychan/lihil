@@ -204,9 +204,9 @@ def get_problem_ui_html(
         example = problem_class.__json_example__()
         problem_examples.append(
             {
-                "type": example["type_"],
-                "title": example["title"],
-                "status": example["status"],
+                "type": example.type_,
+                "title": example.title,
+                "status": example.status,
                 "detail": "Example detail for this error type",
                 "instance": "Example instance for this error type",
                 "description": problem_class.__doc__

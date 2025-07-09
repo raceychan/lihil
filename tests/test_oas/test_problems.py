@@ -213,8 +213,8 @@ def test_call_httpexcpt__problem_detail__():
     exc = HTTPException(
         "Custom error",
         status=http_status.BAD_REQUEST,
-        detail_type="custom-error",
-        detail_title="Custom Error Title",
+        problem_type="custom-error",
+        problem_title="Custom Error Title",
     )
     detail = exc.__problem_detail__("/custom")
 
