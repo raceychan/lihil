@@ -17,17 +17,19 @@
 
 ## 📚 Docs: https://lihil.cc
 
-Lihil is
+## Lihil is
 
-- **Professional**: Lihil comes with production-ready components that works with distributed systems.
-
-  - **Authentication**,
-  - **API resilience tools**: throttling, cache, retry, timeout, etc.
-  - **Event Publishing**
-  - ... and more
-
-- **Productive**: Lihil provides as much typing information as possible to deliver best developer experience, complemented by extremly detailed error messages and docsstrings to let you debug at ease
+- **Designed to be tested**: Built with testability in mind, providing comprehensive testing utilities and patterns
+- **Built for large scale applications**: Architected to handle enterprise-level applications with robust dependency injection and modular design
 - **Performant**: Blazing fast across tasks and conditions—Lihil ranks among the fastest Python web frameworks, outperforming other webframeworks by 50%–100%, see [lihil benchmarks](https://github.com/raceychan/lhl_bench), [independent benchmarks](https://web-frameworks-benchmark.netlify.app/result?l=python)
+- **AI-centric**: While usable as a generic web framework, Lihil is optimized for AI applications with specialized features for AI/ML workloads
+- **Productive**: Provides extensive typing information for superior developer experience, complemented by detailed error messages and docstrings for effortless debugging
+
+## Lihil is not
+
+- **Not a microframework**: Lihil has an ever-growing and prosperous ecosystem that provides industrial, enterprise-ready features such as throttler, timeout, auth, and more
+- **Not a one-man project**: Lihil is open-minded and contributions are always welcome.you can safely assume that your PR will be carefully reviewed
+- **Not experimental**: Lihil optimizes based on real-world use cases rather than benchmarks
 
 ## Install
 

@@ -37,15 +37,6 @@ class DependentService:
         self.dep = dep
 
 
-# Test CustomDecoder
-# def test_custom_decoder():
-#     def decode_int(value: str) -> int:
-#         return int(value)
-
-#     decoder = CustomDecoder(decode=decode_int)
-#     assert decoder.decode("42") == 42
-
-
 # Test RequestParamBase and RequestParam
 def test_request_Param():
     # Test with default value
