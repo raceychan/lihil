@@ -1,14 +1,13 @@
-from typing import Annotated, Any, ClassVar, cast, Generic
+from typing import Annotated, Any, Generic, cast
 
 from msgspec import Meta
 
 from lihil.constant import status as http_status
-from lihil.interface.struct import Record
 from lihil.interface import T
+from lihil.interface.struct import Record
 from lihil.utils.string import to_kebab_case, trimdoc
 
 
-# =========
 class ProblemDetail(Record, Generic[T]):  # user can inherit this and extend it
     """
     ## Specification:
@@ -59,9 +58,9 @@ class ProblemDetail(Record, Generic[T]):  # user can inherit this and extend it
 
 class DetailBase(Generic[T]):
     __slots__: tuple[str, ...] = ()
-    __status__: ClassVar[http_status.Status]
-    __problem_type__: ClassVar[str | None] = None
-    __problem_title__: ClassVar[str | None] = None
+    __status__: http_status.Status
+    __problem_type__: str | None = None
+    __problem_title__: str | None = None
 
     detail: T
 

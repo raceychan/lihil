@@ -269,6 +269,4 @@ async def test_ep_with_random_return():
     lc = LocalClient()
 
     with pytest.raises(UnserializableResponseError):
-        await lc.call_endpoint(
-            await lc.make_endpoint(func), query_params={"age": 0}
-        )
+        await lc.call_endpoint(await lc.make_endpoint(func), query_params={"age": 0})

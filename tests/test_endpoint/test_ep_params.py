@@ -445,7 +445,7 @@ def test_param_decoder_override(param_parser: EndpointParser):
 def test_http_excp_with_typealis():
     from lihil import HTTPException, status
 
-    err = HTTPException(problem_status=status.NOT_FOUND)
+    err = HTTPException(status=status.NOT_FOUND)
     assert err.status == 404
 
 

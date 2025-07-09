@@ -163,53 +163,45 @@ class HTTPException(Exception, DetailBase[T]):
     Something Wrong with the client request.
     """
 
-    __status__: ClassVar[http_status.Status] = http_status.code(
-        http_status.UNPROCESSABLE_ENTITY
-    )
-    # TODO: let user provide example in classvar and display it in oas schema
+    __status__: http_status.Status = 422
 
     def __init__(
         self,
         detail: T = "MISSING",
         *,
         headers: dict[str, str] | None = None,
+        status: TypeAliasType | http_status.Status | None = None,
         problem_status: TypeAliasType | http_status.Status | None = None,
-        problem_detail_type: str | None = None,
-        problem_detail_title: str | None = None,
+        detail_type: str | None = None,
+        detail_title: str | None = None,
     ):
         self.detail = detail
         self.headers = headers
-        self._problem_type = problem_detail_type
-        self._problem_title = problem_detail_title
-        if problem_status:
-            if isinstance(problem_status, int):
-                self._problem_status: http_status.Status = problem_status
+        if detail_type is not None:
+            self.__problem_type__ = detail_type
+        if detail_type is not None:
+            self.__problem_title__ = detail_title
+
+        status = status or problem_status
+        if status:
+            if isinstance(status, int):
+                self.__status__: http_status.Status = status
             else:
-                self._problem_status = http_status.code(problem_status)
-        else:
-            self._problem_status = self.__status__
+                self.__status__ = http_status.code(status)
+
         super().__init__(detail)
 
     @property
     def status(self) -> int:
-        return self._problem_status
+        return self.__status__
 
     def __problem_detail__(self, instance: str) -> ProblemDetail[T]:
         """
         User can override this to extend problem detail
         """
-        problem_type = (
-            self._problem_type
-            or self.__problem_type__
-            or to_kebab_case(self.__class__.__name__)
-        )
-        problem_title = (
-            self._problem_title
-            or trimdoc(self.__doc__)
-            or self.__problem_title__
-            or "Missing"
-        )
-        problem_status = self._problem_status or self.__status__
+        problem_type = self.__problem_type__ or to_kebab_case(self.__class__.__name__)
+        problem_title = self.__problem_title__ or trimdoc(self.__doc__) or "Missing"
+        problem_status = self.__status__
 
         return ProblemDetail[T](
             type_=problem_type,
