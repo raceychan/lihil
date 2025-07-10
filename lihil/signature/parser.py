@@ -620,7 +620,6 @@ class EndpointParser:
                 param_meta=param_meta,
             )
         elif param_source == "plugin":
-            type_ = type_ or type_
             return PluginParam(
                 type_=type_, annotation=annotation, name=name, default=default
             )
