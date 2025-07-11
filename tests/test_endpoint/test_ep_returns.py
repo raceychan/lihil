@@ -5,10 +5,10 @@ import pytest
 
 from lihil import Payload, status
 from lihil.errors import InvalidStatusError, StatusConflictError
+from lihil.interface import CustomEncoder
 from lihil.interface.marks import HTML, Json, Stream, Text
 from lihil.signature.returns import (
     DEFAULT_RETURN,
-    CustomEncoder,
     EndpointReturn,
     agen_encode_wrapper,
     parse_returns,

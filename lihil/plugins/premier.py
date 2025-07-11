@@ -6,7 +6,8 @@ from premier.providers import AsyncCacheProvider, AsyncInMemoryCache
 from premier.retry import retry
 from premier.throttler.handler import AsyncDefaultHandler as AsyncDefaultHandler
 from premier.throttler.interface import AsyncThrottleHandler as AsyncThrottleHandler
-from premier.timer.timer import ILogger, timeout
+from premier.timer.interface import ILogger
+from premier.timer.timer import timeout
 
 from lihil.interface import IAsyncFunc, P, R
 from lihil.plugins import IEndpointInfo
