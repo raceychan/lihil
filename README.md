@@ -63,7 +63,7 @@ def message_encoder(chunk: Chunk) -> bytes:
 
 @gpt.sub("/messages").post(encoder=message_encoder)
 async def add_new_message(
-	client: OpenAPI, question: MessageIn, model: str
+    client: OpenAPI, question: MessageIn, model: str
 ) -> Stream[Chunk]:
     chat_iter = client.responses.create(messages=[question], model=model, stream=True)
     async for chunk in chat_iter:
@@ -71,10 +71,6 @@ async def add_new_message(
 ```
 
 ## Features
-
-- **Performance**
-
-  Lihil is on average 50%-100% faster than other ASGI web frameworks, and is the fastest webframework in python running on uvicorn, see benchmarks [lhl benchmarks](https://github.com/raceychan/lhl_bench)
 
 - **Param Parsing & Validation**
 
