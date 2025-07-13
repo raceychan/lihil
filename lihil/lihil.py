@@ -47,8 +47,6 @@ from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encoder_factory
 from lihil.utils.string import is_plain_path
 
-
-
 LifeSpan = Callable[["Lihil"], AsyncContextManager[None] | AsyncGenerator[None, None]]
 WrappedLifeSpan = Callable[["Lihil"], AsyncContextManager[None]]
 
@@ -120,7 +118,6 @@ class Lihil(ASGIBase):
         self._err_registry = LIHIL_ERRESP_REGISTRY
         self._is_setup: bool = False
 
-
     def _init_routes(self, routes: tuple[RouteBase, ...]) -> None:
         if not routes:
             self._root = Route(graph=self._graph)
@@ -129,6 +126,7 @@ class Lihil(ASGIBase):
             for route in routes:
                 if route.path == "/":
                     self._root = route
+                    self.include_routes(route)
                     self._routes.insert(0, self._root)
 
             self.include_routes(*routes)
@@ -161,7 +159,6 @@ class Lihil(ASGIBase):
         if config_val is None:
             raise AppConfiguringError(f"Invalid app config {config_val}")
         lhl_set_config(config_val)
-
 
     @asynccontextmanager
     async def _lifespan(self):
@@ -293,7 +290,6 @@ class Lihil(ASGIBase):
         if scope["type"] == "lifespan":
             await self._on_lifespan(scope, receive, send)
             return
-
 
         response_started = False
 
