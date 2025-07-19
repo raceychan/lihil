@@ -26,6 +26,7 @@
 - **Designed to be tested**: Built with testability in mind, making it easy for users to write unit, integration, and e2e tests. Lihil supports Starlette's TestClient and provides LocalClient that allows testing at different levels: endpoint, route, middleware, and application.
 - **Built for large scale applications**: Architected to handle enterprise-level applications with robust dependency injection and modular design
 - **AI-centric**: While usable as a generic web framework, Lihil is optimized for AI applications with specialized features for AI/ML workloads
+- **AI Agent Friendly**: Designed to work seamlessly with AI coding assistants - see [LIHIL_COPILOT.md](LIHIL_COPILOT.md) for comprehensive guidance on using Lihil with AI agents
 - **Productive**: Provides extensive typing information for superior developer experience, complemented by detailed error messages and docstrings for effortless debugging
 
 ## Lihil is not
@@ -118,37 +119,38 @@ Lihil's plugin system enables you to integrate external libraries seamlessly int
 When you apply multiple plugins like `@app.sub("/api/data").get(plugins=[plugin1.dec, plugin2.dec])`, here's how they execute:
 
 ```
-📦 Plugin Application (Setup Time - Left to Right)
+
+Plugin Application (Setup Time - Left to Right)
 ┌─────────────────────────────────────────────────────────────┐
-│  original_func → plugin1(ep_info) → plugin2(ep_info)       │
+│  original_func → plugin1(ep_info) → plugin2(ep_info)        │
 │                                                             │
-│  Result: plugin2(plugin1(original_func))                   │
+│  Result: plugin2(plugin1(original_func))                    │
 └─────────────────────────────────────────────────────────────┘
 
-🚀 Request Execution (Runtime - Nested/Onion Pattern)
-┌─────────────────────────────────────────────────────────────┐
-│                                                             │
-│  📨 Request                                                │
+Request Execution (Runtime - Nested/Onion Pattern)
+┌────────────────────────────────────────────────────────────┐
+│                                                            │
+│   Request                                                  │
 │       │                                                    │
 │       ▼                                                    │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │ Plugin2 (Outermost)                                │   │
+│  │ Plugin2 (Outermost)                                 │   │
 │  │ ┌─────────────────────────────────────────────────┐ │   │
-│  │ │ Plugin1 (Middle)                               │ │   │
+│  │ │ Plugin1 (Middle)                                │ │   │
 │  │ │ ┌─────────────────────────────────────────────┐ │ │   │
-│  │ │ │ Original Function (Core)                   │ │ │   │
-│  │ │ │                                            │ │ │   │
-│  │ │ │ async def get_data():                      │ │ │   │
-│  │ │ │     return {"data": "value"}               │ │ │   │
-│  │ │ │                                            │ │ │   │
+│  │ │ │ Original Function (Core)                    │ │ │   │
+│  │ │ │                                             │ │ │   │
+│  │ │ │ async def get_data():                       │ │ │   │
+│  │ │ │     return {"data": "value"}                │ │ │   │
+│  │ │ │                                             │ │ │   │
 │  │ │ └─────────────────────────────────────────────┘ │ │   │
 │  │ └─────────────────────────────────────────────────┘ │   │
 │  └─────────────────────────────────────────────────────┘   │
 │       │                                                    │
 │       ▼                                                    │
-│  📤 Response                                               │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+│   Response                                                 │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
 
 🔄 Execution Order:
    Request → Plugin2 → Plugin1 → get_data() → Plugin1 → Plugin2 → Response
@@ -390,6 +392,18 @@ async def get_post(post_id: str):
 - **Traceability**: Built-in problem page links in OpenAPI docs for debugging
 
 The error handling system integrates seamlessly with Lihil's OpenAPI documentation generation, providing developers with comprehensive error schemas and examples in the generated API docs.
+
+## AI Agent Support
+
+**Using AI coding assistants with Lihil?** Check out [LIHIL_COPILOT.md](LIHIL_COPILOT.md) for:
+
+- **AI Agent Best Practices** - Comprehensive guide for AI assistants working with Lihil
+- **Common Mistakes & Solutions** - Learn from real AI agent errors and how to avoid them
+- **Complete Templates** - Ready-to-use patterns that AI agents can follow
+- **Lihil vs FastAPI Differences** - Critical syntax differences AI agents must know
+- **How to Use as Prompt** - Instructions for Claude Code, Cursor, ChatGPT, and GitHub Copilot
+
+**Quick Setup:** Copy the entire LIHIL_COPILOT.md content and paste it as system context in your AI tool. This ensures your AI assistant understands Lihil's unique syntax and avoids FastAPI assumptions.
 
 ## Tutorials
 
