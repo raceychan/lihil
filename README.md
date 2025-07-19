@@ -151,19 +151,23 @@ Request Execution (Runtime - Nested/Onion Pattern)
 │   Response                                                 │
 │                                                            │
 └────────────────────────────────────────────────────────────┘
+```
 
-🔄 Execution Order:
+
+#### Execution Order:
    Request → Plugin2 → Plugin1 → get_data() → Plugin1 → Plugin2 → Response
 
-📋 Real Example with Premier Plugins:
+#### Real Example with Premier Plugins:
+
+```python
    @app.sub("/api").get(plugins=[
        plugin.timeout(5),           # Applied 1st → Executes Outermost
        plugin.retry(max_attempts=3), # Applied 2nd → Executes Middle
        plugin.cache(expire_s=60),   # Applied 3rd → Executes Innermost
    ])
-
-   Flow: Request → timeout → retry → cache → endpoint → cache → retry → timeout → Response
 ```
+
+Flow: Request → timeout → retry → cache → endpoint → cache → retry → timeout → Response
 
 ### Creating a Custom Plugin
 
