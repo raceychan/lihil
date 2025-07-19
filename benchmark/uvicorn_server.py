@@ -25,7 +25,7 @@ async def app(
 
     # res = endpoint(body)
     res = "hello, world".encode()
-    content_lengh = str(len(res)).encode()
+    content_length = str(len(res)).encode()
 
     # Send response headers
     await send(
@@ -34,7 +34,7 @@ async def app(
             "status": 200,
             "headers": (
                 (b"content-type", b"application/json"),
-                (b"content-length", content_lengh),
+                (b"content-length", content_length),
             ),
         }
     )
