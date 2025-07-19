@@ -253,29 +253,6 @@ async def get_user(user_id: str):
     return {}
 ```
 
-### Mistake 4: Incorrect Parameter Handling
-```python
-# Wrong - Missing proper annotations
-from pydantic import BaseModel
-
-class User(BaseModel):  # Don't use BaseModel
-    name: str
-
-@app.sub("/users").post
-async def create_user(user: User):  # Won't work correctly
-    return user
-
-# Correct - Use Payload
-from lihil import Payload
-
-class UserData(Payload):  # Use Payload instead
-    name: str
-
-@app.sub("/users").post
-async def create_user(user: UserData):
-    return user
-```
-
 ## Complete Example Template
 
 Here's a complete template AI agents should follow:
@@ -397,7 +374,7 @@ When working with Lihil, AI agents should:
 
 1. **Never use `@app.get("/path")` syntax** - Use `@app.sub("/path").get` instead
 2. **Create Route objects first** - Then apply HTTP method decorators
-3. **Use Payload for request bodies** - Not BaseModel or plain dicts
+3. **Use Payload for request bodies** - Note that BaseModel, dataclasses,typeddict are supported
 4. **Check existing patterns** - Look at how the codebase structures routes
 5. **Include routes properly** - Use `app.include_routes()` or pass to constructor
 6. **Handle path parameters correctly** - They're extracted automatically
