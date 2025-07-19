@@ -49,4 +49,4 @@ def test_jwt_missing():
             del sys.modules["lihil.plugins.auth.jwt"]
 
         with pytest.raises(ImportError):
-            from lihil.plugins.auth.jwt import jwt_decoder_factory
+            from lihil.plugins.auth.jwt import jwt_decoder_factory  # type: ignore
