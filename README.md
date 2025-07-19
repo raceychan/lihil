@@ -113,6 +113,56 @@ There will also be tutorials on how to develop your own AI agent/chatbot using l
 
 Lihil's plugin system enables you to integrate external libraries seamlessly into your application as if they were built-in features. Any plugin that implements the `IPlugin` protocol can access endpoint information and wrap functionality around your endpoints.
 
+### Plugin Execution Flow
+
+When you apply multiple plugins like `@app.sub("/api/data").get(plugins=[plugin1.dec, plugin2.dec])`, here's how they execute:
+
+```
+📦 Plugin Application (Setup Time - Left to Right)
+┌─────────────────────────────────────────────────────────────┐
+│  original_func → plugin1(ep_info) → plugin2(ep_info)       │
+│                                                             │
+│  Result: plugin2(plugin1(original_func))                   │
+└─────────────────────────────────────────────────────────────┘
+
+🚀 Request Execution (Runtime - Nested/Onion Pattern)
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  📨 Request                                                │
+│       │                                                    │
+│       ▼                                                    │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ Plugin2 (Outermost)                                │   │
+│  │ ┌─────────────────────────────────────────────────┐ │   │
+│  │ │ Plugin1 (Middle)                               │ │   │
+│  │ │ ┌─────────────────────────────────────────────┐ │ │   │
+│  │ │ │ Original Function (Core)                   │ │ │   │
+│  │ │ │                                            │ │ │   │
+│  │ │ │ async def get_data():                      │ │ │   │
+│  │ │ │     return {"data": "value"}               │ │ │   │
+│  │ │ │                                            │ │ │   │
+│  │ │ └─────────────────────────────────────────────┘ │ │   │
+│  │ └─────────────────────────────────────────────────┘ │   │
+│  └─────────────────────────────────────────────────────┘   │
+│       │                                                    │
+│       ▼                                                    │
+│  📤 Response                                               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+🔄 Execution Order:
+   Request → Plugin2 → Plugin1 → get_data() → Plugin1 → Plugin2 → Response
+
+📋 Real Example with Premier Plugins:
+   @app.sub("/api").get(plugins=[
+       plugin.timeout(5),           # Applied 1st → Executes Outermost
+       plugin.retry(max_attempts=3), # Applied 2nd → Executes Middle
+       plugin.cache(expire_s=60),   # Applied 3rd → Executes Innermost
+   ])
+
+   Flow: Request → timeout → retry → cache → endpoint → cache → retry → timeout → Response
+```
+
 ### Creating a Custom Plugin
 
 A plugin is anything that implements the `IPlugin` protocol - either a callable or a class with a `decorate` method:
@@ -370,23 +420,35 @@ lihil follows semantic versioning after v1.0.0, where a version in x.y.z represe
 - y: minor, feature updates
 - z: patch, bug fixes, typing updates
 
-## Contributions & Roadmap
+## Contributing
 
-All contributions are welcome
+We welcome all contributions! Whether you're fixing bugs, adding features, improving documentation, or enhancing tests - every contribution matters.
 
-Road Map before v1.0.0
+### Quick Start for Contributors
 
-- [x] v0.1.x: Feature parity (alpha stage)
+1. **Fork & Clone**: Fork the repository and clone your fork
+2. **Find Latest Branch**: Use `git branch -r | grep "version/"` to find the latest development branch (e.g., `version/0.2.23`)
+3. **Create Feature Branch**: Branch from the latest version branch
+4. **Make Changes**: Follow existing code conventions and add tests
+5. **Submit PR**: Target your PR to the latest development branch
+
+For detailed contributing guidelines, workflow, and project conventions, see our [Contributing Guide](.github/CONTRIBUTING.md).
+
+## Roadmap
+
+### Road Map before v1.0.0
+
+- [x] **v0.1.x: Feature parity** (alpha stage)
 
 Implementing core functionalities of lihil, feature parity with fastapi
 
-- [x] v0.2.x: Official Plugins (current stage)
+- [x] **v0.2.x: Official Plugins** (current stage)
 
 We would keep adding new features & plugins to lihil without making breaking changes.
 This might be the last minor versions before v1.0.0.
 
-- [ ] v0.3.x: Performance boost
+- [ ] **v0.3.x: Performance boost**
 
 The plan is to rewrite some components in c, roll out a server in c, or other performance optimizations in 0.3.x.
 
-If we can do this without affect current implementations in 0.2.0 at all, 0.3.x may never occur and we would go stright to v1.0.0 from v0.2.x
+If we can do this without affect current implementations in 0.2.0 at all, 0.3.x may never occur and we would go straight to v1.0.0 from v0.2.x

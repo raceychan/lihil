@@ -1495,3 +1495,33 @@ HTTPException(detail="error", problem_type="custom-error", status=422)
 - Fixed HTTPException constructor to handle problem details more consistently
 - Updated related tests to reflect HTTPException constructor changes
 - Improved error response formatting in OpenAPI documentation
+
+## version 0.2.23
+
+### Improvements
+
+- **Contributing Guidelines Enhancement**: Moved CONTRIBUTING.md to .github folder with comprehensive fork/PR workflow instructions
+- **Plugin System Documentation**: Added detailed ASCII diagram illustrating plugin execution flow and architecture
+- **README.md Updates**:
+  - Separated Contributing and Roadmap sections for better organization
+  - Enhanced plugin system documentation with visual execution flow diagram
+  - Added step-by-step contributor guide with branch management instructions
+- **Release Process**: Integrated remote master changes and resolved merge conflicts
+
+### Features
+
+- **Enhanced Fork Workflow**: Added detailed instructions for finding latest development branches using `git branch -r | grep "version/"`
+- **Plugin Execution Visualization**: Created comprehensive ASCII diagram showing setup-time vs runtime plugin execution patterns
+- **Contributor Experience**: Improved onboarding with clear branch naming conventions and PR targeting guidelines
+
+### Documentation
+
+- **Plugin System**: Added visual representation of nested/onion pattern execution flow
+- **Contributing**: Enhanced with practical examples using Premier plugins (timeout, retry, cache)
+- **Branch Management**: Clear guidance on working with version/x.x.x development branches
+
+### Fixes
+
+- **Remote Sync**: Successfully merged changes from remote master branch
+- **Version Management**: Corrected release versioning from 0.2.24 to 0.2.23
+- **Git Conflicts**: Resolved merge conflicts in version tracking
