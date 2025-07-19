@@ -2,6 +2,56 @@
 
 No contribution is trivial and every contribution is appreciated, but we do have different focus and goals on different stages of this project
 
+## How to Contribute
+
+### Fork and Pull Request Workflow
+
+1. **Find the Latest Development Branch**
+   ```bash
+   # Clone the repository
+   git clone https://github.com/YOUR_USERNAME/lihil.git
+   cd lihil
+
+   # List all branches to find the latest version branch
+   git branch -r | grep "version/"
+   ```
+   Look for the highest version number in the format `version/x.x.x` (e.g., `version/0.2.23`)
+
+2. **Fork and Create Branch**
+   - Fork the repository on GitHub
+   - Clone your fork locally
+   - Create a new branch from the latest development branch:
+   ```bash
+   # Switch to the latest version branch (replace with actual latest version)
+   git checkout origin/version/0.2.23
+
+   # Create your feature branch
+   git checkout -b your-feature-name
+   ```
+
+3. **Make Changes**
+   - Make your changes following the project conventions
+   - Run tests to ensure everything works: `make test`
+   - Run pre-commit hooks: `pre-commit run --all-files`
+
+4. **Commit and Push**
+   ```bash
+   git add .
+   git commit -m "feat: your descriptive commit message"
+   git push origin your-feature-name
+   ```
+
+5. **Create Pull Request**
+   - Open a PR from your feature branch to the latest development branch (`version/x.x.x`)
+   - This allows us to directly merge into the current development version
+   - Provide a clear description of your changes
+
+### Branch Naming Convention
+Our main development happens on branches named `version/x.x.x`. When contributing:
+- Target the **latest** `version/x.x.x` branch, not `main`
+- Create feature branches from the latest version branch
+- This ensures your changes can be directly merged into active development
+
 ## RoadMap
 
 ### v0.1.x: Feature Cath
