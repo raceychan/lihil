@@ -371,6 +371,9 @@ class EndpointParser:
                 type_=type_, annotation=annotation, name=name, default=default
             )
             return plugins
+        elif param_type in self.graph.nodes:
+            nodes = self._parse_node(param_type)
+            return nodes
         elif is_body_param(param_type):
             if param_meta and param_meta.decoder:
                 decoder = cast(IBodyDecoder[T] | IFormDecoder[T], param_meta.decoder)
@@ -395,9 +398,6 @@ class EndpointParser:
                 default=default,
                 decoder=cast(IBodyDecoder[T], decoder),
             )
-        elif param_type in self.graph.nodes:
-            nodes = self._parse_node(param_type)
-            return nodes
         else:  # default case
             req_param = req_param_factory(
                 name=name,

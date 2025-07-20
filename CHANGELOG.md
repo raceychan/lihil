@@ -1498,30 +1498,40 @@ HTTPException(detail="error", problem_type="custom-error", status=422)
 
 ## version 0.2.23
 
-### Improvements
+### Fixes
 
-- **Contributing Guidelines Enhancement**: Moved CONTRIBUTING.md to .github folder with comprehensive fork/PR workflow instructions
-- **Plugin System Documentation**: Added detailed ASCII diagram illustrating plugin execution flow and architecture
-- **README.md Updates**:
-  - Separated Contributing and Roadmap sections for better organization
-  - Enhanced plugin system documentation with visual execution flow diagram
-  - Added step-by-step contributor guide with branch management instructions
-- **Release Process**: Integrated remote master changes and resolved merge conflicts
+- Fix a bug where if a route provided to `Lihil` as the root route, its subroutes won't be included.
 
-### Features
+```python
+from lihil import Lihil, Route
+from lihil.vendors import Response
 
-- **Enhanced Fork Workflow**: Added detailed instructions for finding latest development branches using `git branch -r | grep "version/"`
-- **Plugin Execution Visualization**: Created comprehensive ASCII diagram showing setup-time vs runtime plugin execution patterns
-- **Contributor Experience**: Improved onboarding with clear branch naming conventions and PR targeting guidelines
+root = Route()
+user_route = root / "user"
+
+
+@root.get
+async def homepage():
+    return Response(media_type="text/plain")
+
+
+@user_route.post
+async def userinfo():
+    return Response(media_type="text/plain")
+
+
+@user_route.sub("/{user_id}").get
+async def get_user(user_id: str):
+    return Response(content=user_id.encode(), media_type="text/plain")
+
+
+app = Lihil(root)
+```
+
+before version 0.2.23, user_route and `user_route/"user"` won't be included as routes into `Lihil`
 
 ### Documentation
 
 - **Plugin System**: Added visual representation of nested/onion pattern execution flow
 - **Contributing**: Enhanced with practical examples using Premier plugins (timeout, retry, cache)
 - **Branch Management**: Clear guidance on working with version/x.x.x development branches
-
-### Fixes
-
-- **Remote Sync**: Successfully merged changes from remote master branch
-- **Version Management**: Corrected release versioning from 0.2.24 to 0.2.23
-- **Git Conflicts**: Resolved merge conflicts in version tracking
