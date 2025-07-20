@@ -354,6 +354,24 @@ class EndpointParser:
         default: Maybe[T],
         param_meta: ParamMeta | None = None,
     ) -> "ParsedParam[T] | list[ParsedParam[T]]":
+        """
+        Parse parameter based on automatic rules and priority order.
+
+        Priority order (highest to lowest):
+        1. Path parameters (if name matches route path keys)
+        2. Lihil primitives (Request, WebSocket, Resolver)
+        3. **Dependency injection** (types registered in dependency graph)
+        4. Body parameters (structured types like Payload, Struct, dataclass)
+        5. Query parameters (default fallback)
+
+        Note: Dependency injection has higher priority than body parameter parsing.
+        This means that if a structured type (e.g., Payload, Struct, dataclass) is
+        registered in the dependency graph, it will be treated as a dependency
+        rather than a body parameter, even though it could serve as both.
+
+        This behavior is useful for configuration objects and other structured
+        dependencies that need to be injected rather than parsed from request body.
+        """
         if name in self.path_keys:  # simplest case
             self.seen_path.discard(name)
             req_param = req_param_factory(
@@ -372,6 +390,9 @@ class EndpointParser:
             )
             return plugins
         elif param_type in self.graph.nodes:
+            # IMPORTANT: Dependency injection has higher priority than body param parsing.
+            # If a type is registered in the dependency graph, treat it as a dependency
+            # even if it's a structured type that could be used as a body parameter.
             nodes = self._parse_node(param_type)
             return nodes
         elif is_body_param(param_type):

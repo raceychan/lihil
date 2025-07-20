@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## version 0.2.25
+
+### Improvements
+
+- **Dependency parsing now has higher priority than body parameter parsing**: When a structured type (e.g., `Payload`, `Struct`, `dataclass`) is registered in the dependency graph, it will be parsed as a dependency injection parameter rather than a body parameter. This enables configuration objects and other structured dependencies to be properly injected instead of being parsed from the request body.
+
 ## version 0.1.1
 
 This is the very first version of lihil, but we already have a working version that users can play around with.
