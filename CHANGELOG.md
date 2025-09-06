@@ -1541,3 +1541,64 @@ before version 0.2.23, user_route and `user_route/"user"` won't be included as r
 - **Plugin System**: Added visual representation of nested/onion pattern execution flow
 - **Contributing**: Enhanced with practical examples using Premier plugins (timeout, retry, cache)
 - **Branch Management**: Clear guidance on working with version/x.x.x development branches
+
+## version 0.2.24
+
+### Improvements
+
+**Dependency parsing now has higher priority than body parameter parsing**
+
+When a structured type (e.g., `Payload`, `Struct`, `dataclass`) is registered in the dependency graph, it will be parsed as a dependency injection parameter rather than a body parameter. This enables configuration objects and other structured dependencies to be properly injected instead of being parsed from the request body.
+
+**Example:**
+
+```python
+from lihil import Lihil, Payload, Route
+from msgspec import Struct
+from dataclasses import dataclass
+
+# Configuration objects
+class DatabaseConfig(Payload):
+    url: str
+    max_connections: int = 10
+
+class ApiConfig(Struct):
+    api_key: str
+    timeout: int = 30
+
+@dataclass
+class ServiceConfig:
+    debug: bool = False
+    log_level: str = "INFO"
+
+# Before v0.2.24: All structured types become body parameters
+# After v0.2.24: Dependency registration takes priority
+
+app = Lihil()
+
+# Register configs as dependencies
+app.graph.node(DatabaseConfig, lambda: DatabaseConfig(url="postgresql://localhost/db"))
+app.graph.node(ApiConfig, lambda: ApiConfig(api_key="secret-key"))
+# ServiceConfig not registered - will be body param
+
+api_route = Route("/api")
+
+@api_route.post
+async def create_user(
+    db_config: DatabaseConfig,     # ✅ Injected as dependency (registered)
+    api_config: ApiConfig,         # ✅ Injected as dependency (registered)
+    service_config: ServiceConfig, # ✅ Parsed from request body (not registered)
+    user_data: dict[str, str]      # ✅ Parsed from request body
+):
+    # db_config and api_config are injected from dependency graph
+    # service_config and user_data come from request JSON body
+    return {"status": "created"}
+
+app.include_routes(api_route)
+```
+
+**Technical Details:**
+- Modified `lihil/signature/parser.py` to check dependency graph before body parameter parsing
+- Added comprehensive test coverage with 10+ test cases covering all structured types
+- Maintains backward compatibility - types not in dependency graph still become body parameters
+- Explicit `Param` annotations continue to take precedence over dependency detection

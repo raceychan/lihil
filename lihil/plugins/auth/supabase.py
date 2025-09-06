@@ -1,8 +1,17 @@
 from typing import Annotated, Literal
 
-from gotrue import AuthResponse
-from gotrue import types as auth_types
-from gotrue.errors import AuthError
+try:
+    from gotrue import AuthResponse
+    from gotrue import types as auth_types
+    from gotrue.errors import AuthError
+except ImportError:
+    # gotrue is automatically installed with supabase
+    # If this fails, supabase is likely not installed
+    raise ImportError(
+        "Supabase plugin requires 'supabase' package. "
+        "Install with: pip install 'lihil[supabase]'"
+    ) from None
+
 from supabase import AsyncClient
 from typing_extensions import Unpack
 
