@@ -34,5 +34,5 @@ from .websocket import WebSocketRoute as WebSocketRoute
 
 # from .server.runner import run as run
 
-VERSION = "0.2.24"
+VERSION = "0.2.25"
 __version__ = VERSION

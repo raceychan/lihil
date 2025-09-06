@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## version 0.2.25
+
+### Changes
+
+- Remove Supabase-related tests and references. Supabase plugin is no longer supported by the project going forward.
+- OAS tests no longer import Supabase types; they use local msgspec structs instead.
+
 ## version 0.2.24
 
 ### Improvements
