@@ -287,9 +287,11 @@ async def test_route_with_pydantic_schema():
 
 
 def test_json_schema_of_msgspec_and_pydantic():
-    from lihil.plugins.auth.supabase import auth_types
+    class MSUser(Struct):
+        id: str
+        email: str
 
-    result = json_schema(auth_types.User)
+    result = json_schema(MSUser)
     assert result
 
 
