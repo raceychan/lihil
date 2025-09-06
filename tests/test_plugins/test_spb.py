@@ -1,6 +1,11 @@
 import pytest
 from msgspec import ValidationError, convert
 
+# Skip these tests if the optional Supabase dependency is not installed
+pytest.importorskip(
+    "supabase", reason="Supabase extra not installed; skipping plugin tests."
+)
+
 from lihil import Lihil, Route
 from lihil.plugins.auth.supabase import (
     auth_types,
