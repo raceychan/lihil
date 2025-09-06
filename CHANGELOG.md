@@ -1,17 +1,5 @@
 # CHANGELOG
 
-## version 0.2.25
-
-### Changes
-
-- Remove Supabase-related tests and references. Supabase plugin is no longer supported by the project going forward.
-- OAS tests no longer import Supabase types; they use local msgspec structs instead.
-
-## version 0.2.24
-
-### Improvements
-
-- **Dependency parsing now has higher priority than body parameter parsing**: When a structured type (e.g., `Payload`, `Struct`, `dataclass`) is registered in the dependency graph, it will be parsed as a dependency injection parameter rather than a body parameter. This enables configuration objects and other structured dependencies to be properly injected instead of being parsed from the request body.
 
 ## version 0.1.1
 
@@ -1609,3 +1597,11 @@ app.include_routes(api_route)
 - Added comprehensive test coverage with 10+ test cases covering all structured types
 - Maintains backward compatibility - types not in dependency graph still become body parameters
 - Explicit `Param` annotations continue to take precedence over dependency detection
+
+
+## version 0.2.25
+
+### Changes
+
+- Remove Supabase-related tests and references. Supabase plugin is no longer supported by the project going forward.
+- OAS tests no longer import Supabase types; they use local msgspec structs instead.

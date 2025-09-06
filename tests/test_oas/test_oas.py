@@ -3,7 +3,7 @@ from typing import Annotated, Union
 import pytest
 from msgspec import Struct
 
-from lihil import Empty, HTTPException, Lihil, Param, Payload, Route, Text, status, use
+from lihil import Empty, HTTPException, Lihil, Param, Payload, Route, Text, status
 from lihil.config import OASConfig
 from lihil.interface import is_set
 from lihil.local_client import LocalClient
@@ -20,7 +20,6 @@ from lihil.oas.schema import (
 )
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow
 from lihil.problems import collect_problems
-from lihil.routing import EndpointProps
 
 
 class User(Payload, tag=True):
