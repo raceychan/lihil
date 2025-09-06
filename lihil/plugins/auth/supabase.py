@@ -1,18 +1,59 @@
 from typing import Annotated, Literal
 
-try:
-    from gotrue import AuthResponse
-    from gotrue import types as auth_types
-    from gotrue.errors import AuthError
-except ImportError:
-    # gotrue is automatically installed with supabase
-    # If this fails, supabase is likely not installed
-    raise ImportError(
-        "Supabase plugin requires 'supabase' package. "
-        "Install with: pip install 'lihil[supabase]'"
-    ) from None
+# Optional imports: allow the module to be imported without supabase installed
+_HAS_GOTRUE = True
+_HAS_SUPABASE = True
 
-from supabase import AsyncClient
+try:  # gotrue comes with supabase
+    from gotrue import AuthResponse  # type: ignore
+    from gotrue import types as auth_types  # type: ignore
+    from gotrue.errors import AuthError  # type: ignore
+except Exception:  # pragma: no cover - fallback only when missing
+    _HAS_GOTRUE = False
+
+    from typing_extensions import TypedDict
+
+    class _AuthTypes:
+        class SignUpWithEmailAndPasswordCredentials(TypedDict):
+            email: str
+            password: str
+
+        class SignUpWithPhoneAndPasswordCredentials(TypedDict):
+            phone: str
+            password: str
+
+        class SignInWithEmailAndPasswordCredentials(TypedDict):
+            email: str
+            password: str
+
+        class SignInWithPhoneAndPasswordCredentials(TypedDict):
+            phone: str
+            password: str
+
+        class SignInWithIdTokenCredentials(TypedDict):
+            provider: str
+            token: str
+
+        class User(TypedDict, total=False):
+            id: str
+
+    auth_types = _AuthTypes()  # type: ignore[assignment]
+
+    class AuthError(Exception):  # pragma: no cover
+        pass
+
+    class AuthResponse:  # pragma: no cover
+        def __init__(self, user=None) -> None:
+            self.user = user
+
+try:
+    from supabase import AsyncClient  # type: ignore
+except Exception:  # pragma: no cover - fallback only when missing
+    _HAS_SUPABASE = False
+
+    class AsyncClient:  # type: ignore[misc,override]
+        ...
+
 from typing_extensions import Unpack
 
 from lihil import use
@@ -29,6 +70,13 @@ class SupabaseConfig(AppConfig, kw_only=True):
 
 
 def supabase_factory() -> AsyncClient:
+    if not _HAS_SUPABASE:
+        # Defer the error until the factory is actually used
+        raise ImportError(
+            "Supabase plugin requires 'supabase' package. "
+            "Install with: pip install 'lihil[supabase]'"
+        )
+
     config = lhl_get_config(config_type=SupabaseConfig)
     return AsyncClient(
         supabase_url=config.SUPABASE_URL, supabase_key=config.SUPABASE_API_KEY
