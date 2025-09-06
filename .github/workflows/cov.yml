@@ -21,10 +21,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install package dependencies
-        run: pip install .[standard,supabase]
+        run: pip install .[standard,auth]
 
       - name: Install test dependencies
-        run: pip install pytest pytest-cov pytest-asyncio typing_extensions
+        run: pip install pytest pytest-cov pytest-asyncio typing_extensions httpx
 
       - name: Run tests
         run: python -m pytest tests/ --cov=lihil --cov-report html
