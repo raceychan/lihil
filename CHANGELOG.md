@@ -1605,3 +1605,38 @@ app.include_routes(api_route)
 
 - Remove Supabase-related tests and references. Supabase plugin is no longer supported by the project going forward.
 - OAS tests no longer import Supabase types; they use local msgspec structs instead.
+
+## version 0.2.26
+
+(TODO)
+
+### Improvements
+
+Deprecate default argument style `dep: Dep = use(get_dep)` style DI.
+
+Raise error when user use `use(factory)` as default argument, like this:
+
+```python
+def get_engine() -> AsyncEngine: ...
+
+def get_repo(engine: AsyncEngine = use(get_engine)):
+    ...
+```
+
+instead, user should do this
+
+```python
+def get_repo(engine: Annotated[AsysncEngine, use(get_engine)]):
+    ...
+```
+
+we will deprecate this usage in lihil, then in ididi as well.
+
+
+the main reason is that, while `= use(factory)` avoids importing `typing.Annotated`,
+it is semantically wrong.
+
+1. It changes the semantic of default argument in python.
+2. It leaves no place for the actual default argument.
+3. It does not work well with type checker
+4. It has to be placed after positional argument.

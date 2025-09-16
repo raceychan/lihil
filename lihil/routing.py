@@ -263,7 +263,7 @@ class Endpoint(Generic[R]):
             async with self._graph.ascope() as resolver:
                 raw_return = await self.make_call(scope, receive, send, resolver)
                 response = self.return_to_response(raw_return)
-            return await response(scope, receive, send)
+                return await response(scope, receive, send)
         if self._static:  # when there is no params at all
             raw_return = await self.make_static_call(scope, receive, send)
         else:

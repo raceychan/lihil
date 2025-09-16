@@ -557,3 +557,14 @@ async def test_parse_ep_with_path_key(param_parser: EndpointParser):
 
     sig = param_parser.parse(get_user)
     assert sig.query_params["user_id"]
+
+
+def test_param_with_default_value(param_parser: EndpointParser):
+    class Ten: ...
+
+    def get_ten() -> Ten:
+        return Ten()
+
+    res = param_parser.parse_param(
+        "count", Annotated[int, Param("query")], use(get_ten)
+    )[0]

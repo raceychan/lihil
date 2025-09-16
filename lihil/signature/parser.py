@@ -666,6 +666,7 @@ class EndpointParser:
         parsed_type, parsed_metas = get_origin_pro(annotation)
         parsed_type = cast(type[T], parsed_type)
         param_meta: ParamMeta | None = None
+        # TODO: parse default
         if parsed_metas:
             for idx, meta in enumerate(parsed_metas):
                 if isinstance(meta, (ParamMeta, BodyMeta)):
