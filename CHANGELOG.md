@@ -1608,35 +1608,16 @@ app.include_routes(api_route)
 
 ## version 0.2.26
 
-(TODO)
-
-### Improvements
-
-Deprecate default argument style `dep: Dep = use(get_dep)` style DI.
-
-Raise error when user use `use(factory)` as default argument, like this:
+### Fixes
 
 ```python
-def get_engine() -> AsyncEngine: ...
-
-def get_repo(engine: AsyncEngine = use(get_engine)):
-    ...
+class Endpoint:
+    async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
+        if self._scoped:
+            async with self._graph.ascope() as resolver:
+                raw_return = await self.make_call(scope, receive, send, resolver)
+                response = self.return_to_response(raw_return)
+                return await response(scope, receive, send)
 ```
 
-instead, user should do this
-
-```python
-def get_repo(engine: Annotated[AsysncEngine, use(get_engine)]):
-    ...
-```
-
-we will deprecate this usage in lihil, then in ididi as well.
-
-
-the main reason is that, while `= use(factory)` avoids importing `typing.Annotated`,
-it is semantically wrong.
-
-1. It changes the semantic of default argument in python.
-2. It leaves no place for the actual default argument.
-3. It does not work well with type checker
-4. It has to be placed after positional argument.
+return response before leaving resource scope
