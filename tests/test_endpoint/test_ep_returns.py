@@ -1,5 +1,5 @@
 from inspect import Parameter
-from typing import Annotated
+from typing import Annotated, Union
 
 import pytest
 

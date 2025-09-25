@@ -282,7 +282,7 @@ class RouteBase(ASGIBase):
     ):
         super().__init__(middlewares)
         self._path = trim_path(path)
-        self._path_regex: Pattern[str] = build_path_regex(self._path)
+        self._path_regex: Pattern[str] = build_path_regex(path=self._path)
         self._graph = graph or Graph(self_inject=False)
         self._workers = None
         self._subroutes: list[Self] = []

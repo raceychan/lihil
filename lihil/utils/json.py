@@ -7,7 +7,7 @@ from msgspec.json import Encoder as JsonEncoder
 from pydantic import BaseModel, TypeAdapter
 
 from lihil.interface import IDecoder, IEncoder, R, T
-from lihil.utils.typing import should_use_pydantic
+from lihil.utils.typing import is_text_type, should_use_pydantic
 
 
 @lru_cache(256)
@@ -28,7 +28,8 @@ def encoder_factory(
     content_type: str = "json",
 ) -> IEncoder:
     if content_type == "text":
-        return _encode_text
+        if t is UNSET or is_text_type(t):
+            return _encode_text
 
     if should_use_pydantic(t):
         return TypeAdapter(t).dump_json

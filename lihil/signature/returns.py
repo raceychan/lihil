@@ -19,7 +19,7 @@ from lihil.interface import (
 )
 from lihil.interface.marks import ResponseMark, extract_resp_type
 from lihil.utils.json import encoder_factory
-from lihil.utils.typing import get_origin_pro, is_union_type
+from lihil.utils.typing import get_origin_pro, is_text_type, is_union_type
 
 # from lihil.config import AppConfig
 
@@ -62,6 +62,13 @@ def is_annotated(annt: Any) -> TypeGuard[RegularTypes]:
     return is_present(annt) and annt is not Parameter.empty
 
 
+def get_ret_type_from_stream(annt: Any) -> Any:
+    non_stream_type = get_args(annt)[0]
+    async_gen = get_args(non_stream_type)[0]
+    async_gen_ret = get_args(async_gen)[0]
+    return async_gen_ret
+
+
 class EndpointReturn(Base, Generic[T]):
     type_: Maybe[type[T] | UnionType | GenericAlias | TypeAliasType | None]
     status: int
@@ -99,30 +106,32 @@ def parse_return_pro(
     status = 200
     mark_type = "json"
     content_type = "application/json"
+
     for idx, meta in enumerate(metas):
         if isinstance(meta, CustomEncoder):
             encoder = meta.encode
         elif resp_type := extract_resp_type(meta):
             mark_type = resp_type
-            if resp_type == "empty":
+            if mark_type == "empty":
                 content_type = None
             else:
-                if resp_type == "stream":
-                    ret_type = get_args(annotation)[0]
                 content_type = metas[idx + 1]
+                if mark_type == "stream":  # content_type = "text/event-stream"
+                    ret_type = get_ret_type_from_stream(annotation)
         elif is_status(meta):
             status = get_status_code(meta)
         else:
             continue
 
     content, _ = content_type.split("/") if content_type else (None, None)
-    if content == "text":
-        if encoder is None:
-            encoder = encoder_factory(content_type=content)
+
+    if encoder is None:
+        encoder = encoder_factory(ret_type, content_type=content)
+
+    if content == "text" and is_text_type(ret_type):
+        # for text return type, it is usually Union[str, bytes]
+        # but since msgspec does not accept Union[str, bytes], as they are the same type to msgspec, we convert it to bytes
         ret_type = bytes
-    else:
-        if encoder is None:
-            encoder = encoder_factory(ret_type)
 
     ret = EndpointReturn(
         type_=ret_type,
