@@ -37,19 +37,12 @@ def async_wrapper(
         # Native coroutine functions are already awaitable.
         return func
 
-    if isasyncgenfunction(func):
-        # Async generator functions should not be executed in a thread.
-        # We wrap them in an async function so callers can `await` to obtain
-        # the async generator object, and then stream from it.
-        @wraps(func)
-        async def agen_wrapper(**params: Any) -> T:
-            return func(**params)
-
-        return agen_wrapper
-
     @wraps(func)
     async def dummy(**params: Any) -> T:
         return func(**params)
+
+    if isasyncgenfunction(func):
+        return dummy
 
     @wraps(func)
     async def inner(**params: Any) -> T:
@@ -69,6 +62,7 @@ def async_wrapper(
     except RuntimeError:
         has_loop = False
 
-    if not has_loop:
-        return dummy
-    return inner if threaded else dummy
+    if has_loop and threaded:
+        return inner
+
+    return dummy
