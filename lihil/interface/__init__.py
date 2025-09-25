@@ -36,9 +36,11 @@ from lihil.interface.marks import HTML as HTML
 from lihil.interface.marks import Json as Json
 from lihil.interface.marks import Stream as Stream
 from lihil.interface.marks import Text as Text
+from lihil.interface.struct import SSE as SSE
 from lihil.interface.struct import Base as Base
 from lihil.interface.struct import CustomEncoder as CustomEncoder
 from lihil.interface.struct import Empty as Empty
+from lihil.interface.struct import EventStream as EventStream
 from lihil.interface.struct import IDecoder as IDecoder
 from lihil.interface.struct import IEncoder as IEncoder
 from lihil.interface.struct import Payload as Payload

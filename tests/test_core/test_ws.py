@@ -1,7 +1,7 @@
 import pytest
 from ididi.interfaces import AsyncResource
 
-from lihil import (  # AppState,
+from lihil import (
     Annotated,
     Graph,
     Ignore,
@@ -13,10 +13,9 @@ from lihil import (  # AppState,
 )
 from lihil.errors import NotSupportedError
 from lihil.plugins.bus import BusPlugin, BusTerminal, PEventBus
-from lihil.vendors import TestClient
 
 
-async def test_ws():
+async def test_ws(test_client):
 
     ws_route = WebSocketRoute("web_socket")
 
@@ -30,14 +29,14 @@ async def test_ws():
     lhl = Lihil()
     lhl.include_routes(ws_route)
 
-    client = TestClient(lhl)
-    client.__enter__()
-    with client.websocket_connect("/web_socket") as websocket:
-        data = websocket.receive_text()
-        assert data == "Hello, world!"
+    client = test_client(lhl)
+    with client:
+        with client.websocket_connect("/web_socket") as websocket:
+            data = websocket.receive_text()
+            assert data == "Hello, world!"
 
 
-async def test_ws_with_body_fail():
+async def test_ws_with_body_fail(test_client):
 
     ws_route = WebSocketRoute("web_socket")
 
@@ -54,13 +53,13 @@ async def test_ws_with_body_fail():
     lhl = Lihil()
     lhl.include_routes(ws_route)
 
-    client = TestClient(lhl)
+    client = test_client(lhl)
 
     with pytest.raises(NotSupportedError):
         client.__enter__()
 
 
-async def test_ws_full_fledge():
+async def test_ws_full_fledge(test_client):
     ws_route = WebSocketRoute("web_socket/{session_id}")
 
     async def ws_factory(ws: WebSocket) -> Ignore[AsyncResource[WebSocket]]:
@@ -81,7 +80,7 @@ async def test_ws_full_fledge():
     lhl = Lihil()
     lhl.include_routes(ws_route)
 
-    client = TestClient(lhl)
+    client = test_client(lhl)
     with client:
         with client.websocket_connect(
             "/web_socket/session123?max_users=5"
@@ -90,7 +89,7 @@ async def test_ws_full_fledge():
             assert data == "Hello, world!"
 
 
-async def test_ws_repr():
+async def test_ws_repr(test_client):
 
     ws_route = WebSocketRoute("web_socket/{session_id}")
 
@@ -108,7 +107,7 @@ async def test_ws_repr():
     repr(ws_route.endpoint)
 
 
-async def test_ws_error():
+async def test_ws_error(test_client):
 
     ws_route = WebSocketRoute("rt_error")
 
@@ -116,7 +115,7 @@ async def test_ws_error():
         await ws_route(1, 2, 3)
 
 
-async def test_ws_plugins():
+async def test_ws_plugins(test_client):
     ws_route = WebSocketRoute("test/{session_id}")
 
     async def ws_handler(
@@ -136,13 +135,13 @@ async def test_ws_plugins():
     lhl = Lihil()
     lhl.include_routes(ws_route)
 
-    client = TestClient(lhl)
+    client = test_client(lhl)
     with client:
         with client.websocket_connect("/test/session123?max_users=5") as websocket:
             websocket.receive_text()
 
 
-async def test_ws_close_on_exc():
+async def test_ws_close_on_exc(test_client):
     ws_route = WebSocketRoute("error/{session_id}")
 
     async def ws_handler(
@@ -159,7 +158,7 @@ async def test_ws_close_on_exc():
     lhl = Lihil()
     lhl.include_routes(ws_route)
 
-    client = TestClient(lhl)
+    client = test_client(lhl)
     with client:
         with pytest.raises(Exception):
             with client.websocket_connect("/error/session123?max_users=5") as websocket:

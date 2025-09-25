@@ -18,6 +18,8 @@ from .interface import Empty as Empty
 from .interface import Json as Json
 from .interface import Payload as Payload
 from .interface import Stream as Stream
+from .interface import SSE as SSE
+from .interface import EventStream as EventStream
 from .interface import Text as Text
 from .lihil import Lihil as Lihil
 from .local_client import LocalClient as LocalClient
