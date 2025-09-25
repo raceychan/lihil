@@ -1621,3 +1621,85 @@ class Endpoint:
 ```
 
 return response before leaving resource scope
+
+
+## version 0.2.27
+
+### Fixes
+
+Fix cross-event-loop error in async_wrapper when using TestClient and streaming endpoints.
+
+Background: the async_wrapper previously captured the running event loop at wrapper creation time. Under Starlette's TestClient (which runs the app in an anyio BlockingPortal with its own loop), this could raise:
+
+    RuntimeError: ... got Future <Future ...> attached to a different loop
+
+Changes:
+- Resolve the running loop at call time instead of capture-time.
+- Do not thread-execute async generator functions; return them from a lightweight async wrapper so they can be streamed safely.
+
+Impact: SSE/streaming endpoints now work reliably under TestClient and in mixed async environments.
+
+
+### Features
+
+- Native SSE and EventStream support
+
+You can now easily build Server-Sent Events and stream them from endpoints.
+
+1) Build SSE messages
+
+```python
+from lihil import SSE
+from lihil.interface.struct import encode_sse
+
+sse = SSE(data={"message": "Hello"}, event="start", id="1", retry=5000)
+raw: bytes = encode_sse(sse)  # 'text/event-stream' payload
+print(raw.decode())
+# event: start\n
+# id: 1\n
+# retry: 5000\n
+# data: {"message":"Hello"}\n
+# \n
+```
+
+Notes:
+- Non-string payloads are JSON-encoded (compact) automatically.
+- Multiline strings are split into multiple `data:` lines.
+- Every message ends with a blank line (\n\n).
+
+2) Stream events from an endpoint
+
+```python
+from lihil import SSE, EventStream, Lihil, Route
+
+async def sse_endpoint() -> EventStream:
+    yield SSE(data={"message": "Hello, SSE!"}, event="start")
+    for i in range(3):
+        yield SSE(data={"count": i}, event="update", id=str(i))
+    yield SSE(data={"message": "Goodbye!"}, event="close", id="final")
+
+route = Route("/sse")
+route.get(sse_endpoint)
+app = Lihil(route)
+```
+
+The framework wraps generator returns into a StreamingResponse with media type `text/event-stream`.
+
+3) Test with Starlette TestClient
+
+```python
+from starlette.testclient import TestClient
+
+client = TestClient(app)
+response = client.get("/sse")
+assert response.status_code == 200
+assert response.headers["content-type"] == "text/event-stream"
+
+lines = [line.decode() for line in response.iter_lines() if line]
+message = "\n".join(lines) + "\n\n"
+
+assert "event: start" in message
+assert 'data: {"message":"Hello, SSE!"}' in message
+```
+
+See tests/test_features/test_v0_2_27.py for more examples, including validation helpers and multiline payload handling.
