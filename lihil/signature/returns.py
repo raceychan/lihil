@@ -25,7 +25,7 @@ from lihil.utils.typing import get_origin_pro, is_text_type, is_union_type
 
 
 def parse_status(status: Any) -> int:
-    status_type = type(status)
+    status_type = type(status)  # type: ignore
 
     try:
         if status_type is int:
@@ -115,9 +115,11 @@ def parse_return_pro(
             if mark_type == "empty":
                 content_type = None
             else:
-                content_type = metas[idx + 1]
-                if mark_type == "stream":  # content_type = "text/event-stream"
+                if mark_type == "stream":
+                    content_type = "text/event-stream"
                     ret_type = get_ret_type_from_stream(annotation)
+                else:
+                    content_type = metas[idx + 1]
         elif is_status(meta):
             status = get_status_code(meta)
         else:
@@ -129,8 +131,7 @@ def parse_return_pro(
         encoder = encoder_factory(ret_type, content_type=content)
 
     if content == "text" and is_text_type(ret_type):
-        # for text return type, it is usually Union[str, bytes]
-        # but since msgspec does not accept Union[str, bytes], as they are the same type to msgspec, we convert it to bytes
+        # for msgspec oas generation, we had to convert Union[str, bytes] to bytes
         ret_type = bytes
 
     ret = EndpointReturn(

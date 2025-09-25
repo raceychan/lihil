@@ -51,9 +51,6 @@ LifeSpan = Callable[["Lihil"], AsyncContextManager[None] | AsyncGenerator[None, 
 WrappedLifeSpan = Callable[["Lihil"], AsyncContextManager[None]]
 
 
-EMPTY_APP_STATE: Mapping[str, Any] = MappingProxyType({})
-
-
 def lifespan_wrapper(ls: LifeSpan | None) -> WrappedLifeSpan | None:
     if ls is None:
         return None

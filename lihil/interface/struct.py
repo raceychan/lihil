@@ -9,13 +9,13 @@ from typing import (
     TypeVar,
 )
 
-from msgspec import Struct
+from msgspec import UNSET, Struct, UnsetType
+from msgspec.json import encode as json_encode
 from msgspec.structs import asdict as struct_asdict
 from msgspec.structs import replace as struct_replace
 from typing_extensions import Self, dataclass_transform
 
-from lihil.interface import UNSET
-from lihil.interface.marks import EMPTY_RETURN_MARK
+from lihil.interface.marks import EMPTY_RETURN_MARK, Stream
 from lihil.utils.algorithms import deep_merge, deep_update
 from lihil.vendors import FormData
 
@@ -118,4 +118,45 @@ def empty_encoder(param: Any) -> bytes:
     return b""
 
 
+class SSE(Record, kw_only=True):
+    """
+    Server-Sent Events (SSE) record type.
+    """
+
+    event: UnsetType | str = UNSET
+    data: Any
+    id: UnsetType | str = UNSET
+    retry: UnsetType | int = UNSET
+
+
+def encode_sse(sse: SSE, enc_hook: Callable[[Any], Any] | None = None) -> bytes:
+    """
+    Encode the SSE record to a string format.
+    """
+
+    lines: list[str] = []
+    if sse.event is not UNSET:
+        lines.append(f"event: {sse.event}")
+    if sse.id is not UNSET:
+        lines.append(f"id: {sse.id}")
+    if sse.retry is not UNSET:
+        lines.append(f"retry: {sse.retry}")
+
+    # Ensure data is a string (JSON encode if not already a string)
+    payload = (
+        sse.data
+        if isinstance(sse.data, str)
+        else json_encode(sse.data, enc_hook=enc_hook).decode()
+    )
+
+    payload_lines = payload.splitlines()
+    for line in payload_lines:
+        lines.append(f"data: {line}")
+
+    content = "\n".join(lines) + "\n\n"
+    return content.encode()
+
+
 Empty = Annotated[Literal[None], CustomEncoder(empty_encoder), EMPTY_RETURN_MARK]
+
+EventStream = Annotated[Stream[SSE], CustomEncoder(encode_sse)]

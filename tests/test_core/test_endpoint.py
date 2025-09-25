@@ -500,6 +500,7 @@ async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
         return "ok"
 
     rusers.get(get)
+
     res = await lc.call_endpoint(
         rusers.get_endpoint("GET"), path_params={"user_id": "123"}
     )
