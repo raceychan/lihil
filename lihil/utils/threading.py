@@ -34,7 +34,6 @@ def async_wrapper(
     workers: ThreadPoolExecutor | None = None,
 ) -> Callable[..., Awaitable[T]]:
     if iscoroutinefunction(func):
-        # Native coroutine functions are already awaitable.
         return func
 
     @wraps(func)
@@ -54,14 +53,13 @@ def async_wrapper(
         res = await loop.run_in_executor(workers, func_call)
         return cast(T, res)
 
-    # If there is no running loop at wrapper creation (e.g. created in sync context),
-    # prefer the non-threaded dummy; otherwise choose based on `threaded` flag.
     try:
         get_running_loop()
         has_loop = True
     except RuntimeError:
         has_loop = False
 
+    # standard scene, created in async context and user set threaded flag to true
     if has_loop and threaded:
         return inner
 

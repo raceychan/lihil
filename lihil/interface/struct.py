@@ -118,13 +118,16 @@ def empty_encoder(param: Any) -> bytes:
     return b""
 
 
+Empty = Annotated[Literal[None], CustomEncoder(empty_encoder), EMPTY_RETURN_MARK]
+
+
 class SSE(Record, kw_only=True):
     """
     Server-Sent Events (SSE) record type.
     """
 
     event: UnsetType | str = UNSET
-    data: Any
+    data: Any = ""
     id: UnsetType | str = UNSET
     retry: UnsetType | int = UNSET
 
@@ -143,11 +146,11 @@ def encode_sse(sse: SSE, enc_hook: Callable[[Any], Any] | None = None) -> bytes:
         lines.append(f"retry: {sse.retry}")
 
     # Ensure data is a string (JSON encode if not already a string)
-    payload = (
-        sse.data
-        if isinstance(sse.data, str)
-        else json_encode(sse.data, enc_hook=enc_hook).decode()
-    )
+    data = sse.data
+    if isinstance(data, str):
+        payload = data
+    else:
+        payload = json_encode(data, enc_hook=enc_hook).decode()
 
     payload_lines = payload.splitlines()
     for line in payload_lines:
@@ -156,7 +159,5 @@ def encode_sse(sse: SSE, enc_hook: Callable[[Any], Any] | None = None) -> bytes:
     content = "\n".join(lines) + "\n\n"
     return content.encode()
 
-
-Empty = Annotated[Literal[None], CustomEncoder(empty_encoder), EMPTY_RETURN_MARK]
 
 EventStream = Annotated[Stream[SSE], CustomEncoder(encode_sse)]

@@ -50,25 +50,46 @@ The standard version comes with uvicorn
 ## Qucik Start
 
 ```python
-from lihil import Lihil, Route, Stream
+from lihil import Lihil, Route, EventStream, SSE
 from openai import OpenAI
 from openai.types.chat import ChatCompletionChunk as Chunk
 from openai.types.chat import ChatCompletionUserMessageParam as MessageIn
 
 gpt = Route("/gpt", deps=[OpenAI])
 
-def message_encoder(chunk: Chunk) -> bytes:
+def chunk_to_str(chunk: Chunk) -> str:
     if not chunk.choices:
-        return b""
-    return chunk.choices[0].delta.content.encode() or b""
+        return ""
+    return chunk.choices[0].delta.content or ""
 
-@gpt.sub("/messages").post(encoder=message_encoder)
+@gpt.sub("/messages").post
 async def add_new_message(
     client: OpenAPI, question: MessageIn, model: str
 ) -> Stream[Chunk]:
+    yield SSE(event="open")
+
     chat_iter = client.responses.create(messages=[question], model=model, stream=True)
     async for chunk in chat_iter:
-        yield chunk
+        yield SSE(event="token", data={"text": chunk_to_str(chunk)})
+
+    yield SSE(event="close")
+```
+
+what frontend would receive
+
+```text
+event: open
+
+event: token
+data: {"text":"Hello"}
+
+event: token
+data: {"text":" world"}
+
+event: token
+data: {"text":"!"}
+
+event: close
 ```
 
 ## Features
@@ -218,6 +239,54 @@ async def get_data() -> dict:
     return {"data": "value"}
 ```
 
+Interface
+```python
+class IEndpointInfo(Protocol, Generic[P, R]):
+    @property
+    def graph(self) -> Graph: ...
+    @property
+    def func(self) -> IAsyncFunc[P, R]: ...
+    @property
+    def sig(self) -> EndpointSignature[R]: ...
+
+class EndpointSignature(Base, Generic[R]):
+    route_path: str
+
+    query_params: ParamMap[QueryParam[Any]]
+    path_params: ParamMap[PathParam[Any]]
+    header_params: ParamMap[HeaderParam[Any] | CookieParam[Any]]
+    body_param: tuple[str, BodyParam[bytes | FormData, Struct]] | None
+
+    dependencies: ParamMap[DependentNode]
+    transitive_params: set[str]
+    """
+    Transitive params are parameters required by dependencies, but not directly required by the endpoint function.
+    """
+    plugins: ParamMap[PluginParam]
+
+    scoped: bool
+    form_meta: FormMeta | None
+
+    return_params: dict[int, EndpointReturn[R]]
+
+    @property
+    def default_return(self) -> EndpointReturn[R]:
+        ...
+
+    @property
+    def status_code(self) -> int: ...
+
+    @property
+    def encoder(self) -> Callable[[Any], bytes]:
+        ...
+
+    @property
+    def static(self) -> bool: ...
+
+    @property
+    def media_type(self) -> str: ...
+
+```
 
 This architecture allows you to:
 - **Integrate any external library** as if it were built-in to lihil
