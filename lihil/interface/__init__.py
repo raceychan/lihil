@@ -45,6 +45,7 @@ from lihil.interface.struct import IDecoder as IDecoder
 from lihil.interface.struct import IEncoder as IEncoder
 from lihil.interface.struct import Payload as Payload
 from lihil.interface.struct import Record as Record
+from lihil.vendors import URL, FormData
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -119,9 +120,6 @@ class ParamBase(Base, Generic[T]):
         if not self.alias:
             self.alias = self.name
         self.required = self.default is MISSING
-
-
-from starlette.datastructures import URL, FormData
 
 
 class IAddress(Protocol):

@@ -5,7 +5,6 @@ from ididi import DependentNode
 from msgspec import DecodeError
 from msgspec import Meta as Constraint
 from msgspec import ValidationError, field
-from starlette.datastructures import FormData
 
 from lihil.errors import InvalidParamSourceError, NotSupportedError
 from lihil.interface import (

@@ -3,7 +3,6 @@ from inspect import iscoroutinefunction
 from typing import Any, Awaitable, Callable
 
 from ididi import Graph, Resolver
-from starlette.responses import Response
 from typing_extensions import Self, Unpack
 
 from lihil.errors import NotSupportedError
@@ -11,7 +10,7 @@ from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
 from lihil.routing import EndpointInfo, EndpointProps, IEndpointProps, RouteBase
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.utils.string import merge_path
-from lihil.vendors import WebSocket
+from lihil.vendors import Response, WebSocket
 
 
 class WebSocketEndpoint:  # TODO:  endpoint base

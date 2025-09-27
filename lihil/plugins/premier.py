@@ -1,16 +1,20 @@
 from typing import Awaitable, Callable
 
-from premier import Throttler
-from premier.cache import Cache
-from premier.providers import AsyncCacheProvider, AsyncInMemoryCache
-from premier.retry import retry
-from premier.throttler.handler import AsyncDefaultHandler as AsyncDefaultHandler
-from premier.throttler.interface import AsyncThrottleHandler as AsyncThrottleHandler
-from premier.timer.interface import ILogger
-from premier.timer.timer import timeout
-
+from lihil.errors import MissingDependencyError
 from lihil.interface import IAsyncFunc, P, R
 from lihil.plugins import IEndpointInfo
+
+try:
+    from premier import Throttler
+    from premier.cache import Cache
+    from premier.providers import AsyncCacheProvider, AsyncInMemoryCache
+    from premier.retry import retry
+    from premier.throttler.handler import AsyncDefaultHandler as AsyncDefaultHandler
+    from premier.throttler.interface import AsyncThrottleHandler as AsyncThrottleHandler
+    from premier.timer.interface import ILogger
+    from premier.timer.timer import timeout
+except ImportError:
+    raise MissingDependencyError("premier")
 
 
 class PremierPlugin:

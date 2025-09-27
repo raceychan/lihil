@@ -1,13 +1,16 @@
 from typing import Any
 
-from starlette.responses import PlainTextResponse
-
-from lihil.constant.status import METHOD_NOT_ALLOWED, NOT_FOUND, STATUS_CODE
+from lihil.constant.status import METHOD_NOT_ALLOWED, NOT_FOUND, code
 from lihil.interface.asgi import IReceive, IScope, ISend
+from lihil.vendors import Response
 
-NOT_FOUND_RESP = PlainTextResponse("Not Found", status_code=STATUS_CODE[NOT_FOUND])
-METHOD_NOT_ALLOWED_RESP = PlainTextResponse(
-    "Method Not Allowed", status_code=STATUS_CODE[METHOD_NOT_ALLOWED]
+NOT_FOUND_RESP = Response(
+    "Not Found", media_type="text/plain", status_code=code(NOT_FOUND)
+)
+METHOD_NOT_ALLOWED_RESP = Response(
+    "Method Not Allowed",
+    media_type="text/plain",
+    status_code=code(METHOD_NOT_ALLOWED),
 )
 
 

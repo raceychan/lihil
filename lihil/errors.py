@@ -53,8 +53,11 @@ class UnserializableResponseError(LihilError):
 
 
 class MissingDependencyError(LihilError):
-    def __init__(self, dep_name: str) -> None:
-        super().__init__(f"{dep_name} is required but not provided")
+    def __init__(self, dep_name: str, instruction: str = "") -> None:
+        msg = f"{dep_name} is required but not provided"
+        if instruction:
+            msg += f", {instruction}"
+        super().__init__(msg)
 
 
 class InvalidParamSourceError(LihilError):

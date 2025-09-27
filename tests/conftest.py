@@ -5,10 +5,10 @@ Shared pytest fixtures for tests.
 from typing import Callable, Generator
 
 import pytest
-from starlette.testclient import TestClient
 
 from lihil import Graph, Lihil
 from lihil.signature.parser import EndpointParser
+from lihil.vendors import TestClient
 
 
 @pytest.fixture

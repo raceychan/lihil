@@ -25,7 +25,6 @@ from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from msgspec import Struct, convert
 from msgspec.structs import NODEFAULT, FieldInfo
 from msgspec.structs import fields as get_fields
-from starlette.datastructures import FormData
 from typing_extensions import NotRequired, TypeAliasType, is_typeddict
 
 from lihil.errors import InvalidParamError, InvalidParamPackError
@@ -42,7 +41,7 @@ from lihil.utils.typing import (
     is_union_type,
     lenient_issubclass,
 )
-from lihil.vendors import Request, UploadFile, WebSocket
+from lihil.vendors import FormData, Request, UploadFile, WebSocket
 
 from .params import (
     BodyMeta,

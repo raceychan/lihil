@@ -20,7 +20,6 @@ from ididi import Graph, INodeConfig
 from ididi.graph import Resolver
 from ididi.interfaces import IDependent
 from msgspec import field
-from starlette.responses import StreamingResponse
 from typing_extensions import Self, Unpack
 
 from lihil.asgi import ASGIBase
@@ -53,7 +52,7 @@ from lihil.utils.string import (
     trim_path,
 )
 from lihil.utils.threading import async_wrapper
-from lihil.vendors import Request, Response
+from lihil.vendors import Request, Response, StreamingResponse
 
 DepNode = Union[IDependent[Any], tuple[IDependent[Any], INodeConfig]]
 

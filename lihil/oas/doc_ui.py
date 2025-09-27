@@ -1,9 +1,8 @@
 from typing import Any
 
-from starlette.responses import HTMLResponse
-
 from lihil.interface.problem import DetailBase
 from lihil.utils.json import encoder_factory
+from lihil.vendors import Response
 
 problem_ui_default_parameters: dict[str, Any] = {
     "dom_id": "#problem-ui",
@@ -31,7 +30,7 @@ def get_swagger_ui_html(
     oauth2_redirect_url: str | None = None,
     init_oauth: dict[str, Any] | None = None,
     swagger_ui_parameters: dict[str, Any] | None = None,
-) -> HTMLResponse:
+) -> Response:
     current_swagger_ui_parameters = swagger_ui_default_parameters.copy()
     if swagger_ui_parameters:
         current_swagger_ui_parameters.update(swagger_ui_parameters)
@@ -78,10 +77,10 @@ def get_swagger_ui_html(
     </body>
     </html>
     """
-    return HTMLResponse(html)
+    return Response(html, media_type="text/html")
 
 
-def get_swagger_ui_oauth2_redirect_html() -> HTMLResponse:
+def get_swagger_ui_oauth2_redirect_html() -> Response:
     # copied from https://github.com/swagger-api/swagger-ui/blob/v4.14.0/dist/oauth2-redirect.html
     html = """
     <!doctype html>
@@ -164,7 +163,7 @@ def get_swagger_ui_oauth2_redirect_html() -> HTMLResponse:
     </body>
     </html>
         """
-    return HTMLResponse(content=html)
+    return Response(content=html, media_type="text/html")
 
 
 def get_problem_ui_html(
@@ -176,7 +175,7 @@ def get_problem_ui_html(
     bootstrap_js_url: str = "https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js",
     problem_favicon_url: str = "",
     problem_ui_parameters: dict[str, Any] | None = None,
-) -> HTMLResponse:
+) -> Response:
     current_problem_ui_parameters = problem_ui_default_parameters.copy()
     if problem_ui_parameters:
         current_problem_ui_parameters.update(problem_ui_parameters)
@@ -495,4 +494,4 @@ def get_problem_ui_html(
         </body>
         </html>
         """
-    return HTMLResponse(html)
+    return Response(html, media_type="text/html")

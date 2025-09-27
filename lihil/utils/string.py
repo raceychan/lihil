@@ -1,7 +1,7 @@
 import re
 from re import Pattern
 
-from starlette.routing import compile_path
+from lihil.vendors import compile_path
 
 RE_PATH_KEYS = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 "Must be a valid python variable name?"
@@ -111,7 +111,9 @@ def generate_route_tag(path: str) -> str:
 
 
 def build_path_regex(path: str, path_params: None = None) -> Pattern[str]:
-    # TODO: write our own compile function to support more complex type in path
+    """we actully don't need this complex compile_path function from starlette
+    ,the main reason being that we don't validate types through regex, we validate type through msgspec
+    """
     path_regex, _, _ = compile_path(path)
     return path_regex
 
