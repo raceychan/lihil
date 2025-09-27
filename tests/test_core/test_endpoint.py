@@ -488,7 +488,6 @@ async def test_ep_require_resolver(rusers: Route, lc: LocalClient):
     assert side_effect == [1]
 
 
-@pytest.mark.debug
 async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
     class Engine: ...
 

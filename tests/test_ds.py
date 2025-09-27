@@ -59,18 +59,7 @@ class EP:
     def __init__(self, user: Annotated[User, use(get_user, reuse=False)]): ...
 
 
-# @pytest.mark.debug
-# async def test_resolve_func():
-#     dg = Graph()
 
-#     res = []
-
-
-#     # dg.analyze(get_user, config=NodeConfig(reuse=False))
-
-#     dg.analyze(EP)
-
-#     breakpoint()
 
 
 from starlette.datastructures import QueryParams

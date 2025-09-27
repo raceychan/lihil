@@ -185,7 +185,7 @@ def test_lenient_issubclass():
     assert not lenient_issubclass(5, str)
 
 
-@pytest.mark.debug
+@pytest.mark.requires_pydantic
 def test_is_pydantic_model():
     assert not is_pydantic_model(str)
     assert not is_pydantic_model(int)

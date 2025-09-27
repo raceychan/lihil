@@ -29,7 +29,6 @@ async def test_route_with_pydantic_return():
     assert data == {"name": "1", "age": 2}
 
 
-@pytest.mark.debug
 async def test_route_with_pydantic_body():
     User = _user_model()
     async def create_user(user: User) -> User:

@@ -103,7 +103,6 @@ def test_sse_invalid_unknown_field():
     assert not is_valid_sse(invalid)
 
 
-@pytest.mark.debug
 async def test_endpoint_with_sse(test_client: Callable[[Lihil], TestClient]):
 
     async def sse_endpoint() -> EventStream:

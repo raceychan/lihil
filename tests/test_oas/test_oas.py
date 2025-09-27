@@ -274,7 +274,9 @@ async def test_route_with_pydantic_schema():
         email: str
 
     lc = LocalClient()
+
     async def create_user(user: PydanticBody) -> PydanticResp: ...
+
     ep = await lc.make_endpoint(create_user)
 
     result = generate_op_from_ep(ep, {}, {}, "problems")
@@ -308,7 +310,6 @@ async def test_single_value_param_not_required():
     assert not ep.sig.header_params["address"].required
 
 
-@pytest.mark.debug
 def test_generate_tasg():
     class UserProfileDTO(Payload): ...
 
