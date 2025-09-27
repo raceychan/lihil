@@ -25,7 +25,6 @@
 
 - **Designed to be tested**: Built with testability in mind, making it easy for users to write unit, integration, and e2e tests. Lihil supports Starlette's TestClient and provides LocalClient that allows testing at different levels: endpoint, route, middleware, and application.
 - **Built for large scale applications**: Architected to handle enterprise-level applications with robust dependency injection and modular design
-- **AI-centric**: While usable as a generic web framework, Lihil is optimized for AI applications with specialized features for AI/ML workloads
 - **AI Agent Friendly**: Designed to work seamlessly with AI coding assistants - see [LIHIL_COPILOT.md](LIHIL_COPILOT.md) for comprehensive guidance on using Lihil with AI agents
 - **Productive**: Provides extensive typing information for superior developer experience, complemented by detailed error messages and docstrings for effortless debugging
 
