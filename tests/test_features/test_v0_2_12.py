@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+import pytest
 
 from lihil import LocalClient
 
@@ -20,6 +21,7 @@ async def test_route_with_pydantic_return():
     assert data == {"name": "1", "age": 2}
 
 
+@pytest.mark.debug
 async def test_route_with_pydantic_body():
     async def create_user(user: User) -> User:
         return user

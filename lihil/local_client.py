@@ -14,12 +14,13 @@ from uuid import uuid4
 
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
-from pydantic import BaseModel, TypeAdapter
 from typing_extensions import Unpack
 
 from lihil.errors import LihilError
 from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload, R
 from lihil.routing import Endpoint, IEndpointProps, Route
+from lihil.utils.json import encoder_factory
+from lihil.utils.typing import is_structured_type
 
 
 class Timer:
@@ -233,10 +234,9 @@ class LocalClient:
         if body is not None:
             if isinstance(body, bytes):
                 body_bytes = body
-            elif isinstance(body, BaseModel):
-                body_bytes = TypeAdapter(type(body)).dump_json(body)
             else:
-                body_bytes = json_encode(body)
+                encoder = encoder_factory(body.__class__)
+                body_bytes = encoder(body)
         else:
             body_bytes = b""
 

@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import is_dataclass
+from functools import lru_cache
 from types import GenericAlias, UnionType
 from typing import (
     Annotated,
@@ -16,10 +17,30 @@ from typing import get_origin as ty_get_origin
 from typing import overload
 
 from msgspec import UNSET, Struct, UnsetType
-from pydantic import BaseModel
 from typing_extensions import TypeAliasType, TypeGuard, is_typeddict
 
 T = TypeVar("T")
+
+try:
+    from pydantic import BaseModel
+
+except ImportError:
+    is_pydantic_model = lambda _: False
+else:
+
+    def is_pydantic_model(
+        t: type[T] | UnsetType | UnionType | GenericAlias | TypeAliasType,
+    ) -> TypeGuard[type[BaseModel]]:
+        if t is UNSET:
+            return False
+
+        type_origin, _ = get_origin_pro(t)
+
+        if type_args := get_args(type_origin):
+            return any(is_pydantic_model(arg) for arg in type_args)
+
+        type_origin = cast(type, type_origin)
+        return lenient_issubclass(type_origin, BaseModel)
 
 
 @overload
@@ -105,7 +126,8 @@ def is_structured_type(
         return False
 
     return (
-        issubclass(qorigin, (Mapping, Struct, BaseModel))
+        issubclass(qorigin, (Mapping, Struct))
+        or is_pydantic_model(qorigin)
         or is_typeddict(qorigin)
         or is_dataclass(qorigin)
     )
@@ -284,16 +306,3 @@ def all_subclasses(cls: type[T], ignore: set[type[Any]] | None = None) -> set[ty
             result.add(subclass)
             result.update(all_subclasses(subclass, ignore))
     return result
-
-
-def should_use_pydantic(t: type[T] | UnsetType = UNSET) -> TypeGuard[type[BaseModel]]:
-    if t is UNSET:
-        return False
-
-    type_origin, _ = get_origin_pro(t)
-
-    if type_args := get_args(type_origin):
-        return any(should_use_pydantic(arg) for arg in type_args)
-
-    type_origin = cast(type, type_origin)
-    return lenient_issubclass(type_origin, BaseModel)

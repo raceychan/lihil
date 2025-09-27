@@ -6,7 +6,7 @@ from unittest.mock import patch, Mock
 import asyncio
 from typing import Any
 from lihil.utils.threading import async_wrapper
-from lihil.utils.json import should_use_pydantic
+from lihil.utils.json import is_pydantic_model
 
 
 class TestThreadingUtils:
@@ -64,18 +64,18 @@ class TestVendorsCoverage:
 class TestJsonUtilsCoverage:
     """Test JSON utilities coverage."""
 
-    def test_should_use_pydantic_fallback(self):
-        """Test should_use_pydantic function with various types."""
+    def test_is_pydantic_model_fallback(self):
+        """Test is_pydantic_model function with various types."""
         # Test with a type that should NOT use pydantic
-        result = should_use_pydantic(dict)
+        result = is_pydantic_model(dict)
         assert isinstance(result, bool)  # Function returns bool
 
         # Test with basic types
-        result = should_use_pydantic(str)
+        result = is_pydantic_model(str)
         assert isinstance(result, bool)
 
-        result = should_use_pydantic(int)
+        result = is_pydantic_model(int)
         assert isinstance(result, bool)
 
-        result = should_use_pydantic(list)
+        result = is_pydantic_model(list)
         assert isinstance(result, bool)

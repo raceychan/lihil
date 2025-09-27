@@ -3,7 +3,6 @@ from typing import Any, Sequence, cast, get_args
 
 from msgspec import Struct
 from msgspec.json import schema_components
-from pydantic import BaseModel
 
 from lihil.config.app_config import IOASConfig
 from lihil.constant.status import phrase
@@ -18,7 +17,7 @@ from lihil.problems import (
 from lihil.routing import Endpoint, Route, RouteBase
 from lihil.signature import EndpointSignature, RequestParam
 from lihil.utils.string import to_kebab_case, trimdoc
-from lihil.utils.typing import lenient_issubclass
+from lihil.utils.typing import is_pydantic_model
 
 SchemasDict = dict[str, oasmodel.LenientSchema]
 SecurityDict = dict[str, oasmodel.SecurityScheme | oasmodel.Reference]
@@ -39,7 +38,9 @@ SchemaOutput = DefinitionOutput | ReferenceOutput
 """When component is not None result contains reference"""
 
 MSGSPEC_REF_TEMPLATE = "#/components/schemas/{name}"
-PYDANTIC_REF_TEMPLATE = "#/components/schemas/{model}"
+PYDANTIC_REF_TEMPLATE = (
+    "#/components/schemas/{model}"  # pydantic json schema would use this internally
+)
 PROBLEM_CONTENTTYPE = "application/problem+json"
 
 
@@ -47,21 +48,24 @@ class OneOfOutput(Struct):
     oneOf: list[SchemaOutput]
 
 
-def pydantic_json_schema(t: type[BaseModel]) -> SchemaOutput:
-    if not lenient_issubclass(t, BaseModel):
-        raise NotImplementedError
+try:
+    from pydantic import BaseModel
+except ImportError:
+    ...
+else:
 
-    full_schema = t.model_json_schema(ref_template=PYDANTIC_REF_TEMPLATE)
-    defs = full_schema.pop("$defs", {})
-    root_schema = full_schema
-    comp_dict = {name: oasmodel.Schema(**schema) for name, schema in defs.items()}
-    comp_dict[t.__name__] = oasmodel.Schema(**root_schema)
-    ref = oasmodel.Reference(ref=PYDANTIC_REF_TEMPLATE.format(model=t.__name__))
-    return ReferenceOutput(ref, cast(SchemasDict, comp_dict))
+    def pydantic_json_schema(t: type[BaseModel]) -> SchemaOutput:
+        full_schema = t.model_json_schema(ref_template=PYDANTIC_REF_TEMPLATE)
+        defs = full_schema.pop("$defs", {})
+        root_schema = full_schema
+        comp_dict = {name: oasmodel.Schema(**schema) for name, schema in defs.items()}
+        comp_dict[t.__name__] = oasmodel.Schema(**root_schema)
+        ref = oasmodel.Reference(ref=PYDANTIC_REF_TEMPLATE.format(model=t.__name__))
+        return ReferenceOutput(ref, cast(SchemasDict, comp_dict))
 
 
 def json_schema(types: RegularTypes) -> SchemaOutput:
-    if lenient_issubclass(types, BaseModel):
+    if is_pydantic_model(types):
         return pydantic_json_schema(types)
 
     (schema,), definitions = schema_components(
