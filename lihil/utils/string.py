@@ -110,7 +110,7 @@ def generate_route_tag(path: str) -> str:
     return tag
 
 
-def build_path_regex(path: str, path_params: None = None) -> Pattern[str]:
+def build_path_regex(path: str) -> Pattern[str]:
     """we actully don't need this complex compile_path function from starlette
     ,the main reason being that we don't validate types through regex, we validate type through msgspec
     """

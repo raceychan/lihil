@@ -1703,3 +1703,32 @@ assert 'data: {"message":"Hello, SSE!"}' in message
 ```
 
 See tests/test_features/test_v0_2_27.py for more examples, including validation helpers and multiline payload handling.
+
+## version 0.2.28
+
+### Changes
+
+- Make two previously implicit dependencies optional:
+  - pydantic: supported for request/response models but no longer required to run core; tests that exercise pydantic are marked and only run when installed.
+  - premier: plugin remains supported via `lihil.plugins.premier`, but the package is optional; tests only run when available.
+
+### Testing
+
+- Added pytest markers to gate optional-dependency tests:
+  - `requires_pydantic`
+  - `requires_premier`
+  - `requires_auth` (for auth extras like `pyjwt`, `bcrypt`)
+- Updated tests to import optional libs within marked tests and to skip cleanly when not present.
+- Refactored Premier plugin tests to use `RequestResult.json()`/`text()` helpers from `LocalClient` instead of custom decoding helpers.
+
+### CI
+
+- GitHub Actions coverage workflow updated to a matrix over Python versions and install options:
+  - `extras`: none, standard, auth, standard+auth
+  - `with-pydantic`: true/false
+  - Tests are selected with `-m` to exclude markers for dependencies not installed in a given matrix row.
+  - Upgraded to `actions/setup-python@v5`.
+
+### Notes
+
+- No breaking API changes. Projects using pydantic or premier should keep those dependencies in their own requirements or install the corresponding extras where applicable.

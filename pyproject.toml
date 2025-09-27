@@ -21,10 +21,10 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "ididi>=1.6.3",
+  "ididi>=1.6.4",
   "msgspec>=0.19.0",
   "python-multipart>=0.0.20",
-  "starlette>=0.45.3",
+  "starlette>=0.48.0",
   "typing-extensions>=4.12.2",
 ]
 description = "async python framework offering high level development, low level performance."
@@ -35,7 +35,7 @@ requires-python = ">=3.10"
 
 [project.optional-dependencies]
 standard = ["uvicorn[standard]>=0.34.0", "tomli>=2.2.1"]
-auth = ["pyjwt>=2.10.1", "bcrypt>=4.3.0"]
+auth = ["pyjwt>=2.10.1"]
 
 [build-system]
 build-backend = "hatchling.build"
