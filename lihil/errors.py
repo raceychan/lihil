@@ -56,7 +56,7 @@ class MissingDependencyError(LihilError):
     def __init__(self, dep_name: str, instruction: str = "") -> None:
         msg = f"{dep_name} is required but not provided"
         if instruction:
-            msg += f", {instruction}"
+            msg += f", {instruction}."
         super().__init__(msg)
 
 
