@@ -42,7 +42,26 @@ jobs:
         run: python -m pip install pydantic
 
       - name: Run tests
-        run: python -m pytest tests/ --cov=lihil --cov-report html
+        run: |
+          set -euxo pipefail
+          AUTH=false
+          if [[ "${{ matrix.extras }}" == *auth* ]]; then AUTH=true; fi
+          PDM="${{ matrix.with-pydantic }}"
+          SKIPS=""
+          if [ "$AUTH" != "true" ]; then
+            SKIPS="not requires_auth"
+          fi
+          if [ "$PDM" != "true" ]; then
+            SKIPS="${SKIPS:+$SKIPS and }not requires_pydantic"
+          fi
+          # Premier is not installed by default in this matrix
+          SKIPS="${SKIPS:+$SKIPS and }not requires_premier"
+
+          if [ -n "$SKIPS" ]; then
+            python -m pytest -m "$SKIPS" tests/ --cov=lihil --cov-report html
+          else
+            python -m pytest tests/ --cov=lihil --cov-report html
+          fi
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4

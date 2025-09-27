@@ -1,23 +1,18 @@
 import asyncio
-import json
-import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
-from premier.providers import AsyncInMemoryCache
-from premier.throttler.errors import QuotaExceedsError
+
+pytestmark = pytest.mark.requires_premier
 
 from lihil.local_client import LocalClient
-from lihil.plugins.premier import PremierPlugin, Throttler
-
-
-async def get_body_str(result):
-    """Helper to get string body from result"""
-    body_bytes = await result.body()
-    return json.loads(body_bytes.decode())
 
 
 async def test_throttling():
+    from premier.throttler.errors import QuotaExceedsError
+
+    from lihil.plugins.premier import PremierPlugin, Throttler
+
     async def hello():
         print("called the hello func")
         return "hello"
@@ -39,6 +34,9 @@ async def test_throttling():
 
 async def test_fixed_window():
     """Test fixed window rate limiting"""
+    from premier.throttler.errors import QuotaExceedsError
+
+    from lihil.plugins.premier import PremierPlugin
 
     async def api_call():
         return "success"
@@ -51,8 +49,8 @@ async def test_fixed_window():
     # First two calls should succeed
     result1 = await lc(ep)
     result2 = await lc(ep)
-    assert await get_body_str(result1) == "success"
-    assert await get_body_str(result2) == "success"
+    assert await result1.json() == "success"
+    assert await result2.json() == "success"
 
     # Third call should be throttled
     with pytest.raises(QuotaExceedsError):
@@ -61,6 +59,8 @@ async def test_fixed_window():
 
 async def test_cache_basic():
     """Test basic caching functionality"""
+    from lihil.plugins.premier import PremierPlugin
+
     call_count = 0
 
     async def expensive_operation():
@@ -75,17 +75,21 @@ async def test_cache_basic():
 
     # First call should execute the function
     result1 = await lc(ep)
-    assert await get_body_str(result1) == "computed_1"
+    assert await result1.json() == "computed_1"
     assert call_count == 1
 
     # Second call should return cached result
     result2 = await lc(ep)
-    assert await get_body_str(result2) == "computed_1"  # Same result, from cache
+    assert await result2.json() == "computed_1"  # Same result, from cache
     assert call_count == 1  # Function not called again
 
 
 async def test_cache_with_ttl():
     """Test cache with TTL expiration"""
+    from premier.providers import AsyncInMemoryCache
+
+    from lihil.plugins.premier import PremierPlugin
+
     call_count = 0
     mock_time = [1000.0]  # Use list to make it mutable
 
@@ -109,12 +113,12 @@ async def test_cache_with_ttl():
 
     # First call
     result1 = await lc(ep)
-    assert await get_body_str(result1) == "result_1"
+    assert await result1.json() == "result_1"
     assert call_count == 1
 
     # Second call should use cache (same time)
     result2 = await lc(ep)
-    assert await get_body_str(result2) == "result_1"
+    assert await result2.json() == "result_1"
     assert call_count == 1
 
     # Simulate time passing beyond cache expiry
@@ -122,12 +126,14 @@ async def test_cache_with_ttl():
 
     # Third call should execute function again due to cache expiry
     result3 = await lc(ep)
-    assert await get_body_str(result3) == "result_2"
+    assert await result3.json() == "result_2"
     assert call_count == 2
 
 
 async def test_cache_with_custom_key():
     """Test cache with custom key generation"""
+    from lihil.plugins.premier import PremierPlugin
+
     call_count = 0
 
     async def user_operation(user_id: str):
@@ -147,17 +153,19 @@ async def test_cache_with_custom_key():
     # Calls with same user_id should be cached
     result1 = await lc(ep, query_params={"user_id": "123"})
     result2 = await lc(ep, query_params={"user_id": "123"})
-    assert await get_body_str(result1) == await get_body_str(result2)
+    assert await result1.json() == await result2.json()
     assert call_count == 1
 
     # Call with different user_id should execute function
     result3 = await lc(ep, query_params={"user_id": "456"})
-    assert await get_body_str(result3) != await get_body_str(result1)
+    assert await result3.json() != await result1.json()
     assert call_count == 2
 
 
 async def test_retry_basic():
     """Test basic retry functionality"""
+    from lihil.plugins.premier import PremierPlugin
+
     attempt_count = 0
 
     async def flaky_service():
@@ -175,12 +183,14 @@ async def test_retry_basic():
     )
 
     result = await lc(ep)
-    assert await get_body_str(result) == "success"
+    assert await result.json() == "success"
     assert attempt_count == 3
 
 
 async def test_retry_with_exponential_backoff():
     """Test retry with exponential backoff"""
+    from lihil.plugins.premier import PremierPlugin
+
     attempt_count = 0
 
     async def unreliable_service():
@@ -199,12 +209,14 @@ async def test_retry_with_exponential_backoff():
     )
 
     result = await lc(ep)
-    assert await get_body_str(result) == "recovered"
+    assert await result.json() == "recovered"
     assert attempt_count == 3
 
 
 async def test_retry_specific_exceptions():
     """Test retry with specific exception types"""
+    from lihil.plugins.premier import PremierPlugin
+
     attempt_count = 0
 
     async def service_with_different_errors():
@@ -221,7 +233,9 @@ async def test_retry_specific_exceptions():
 
     ep = await lc.make_endpoint(
         service_with_different_errors,
-        plugins=[plugin.retry(max_attempts=3, exceptions=(ConnectionError,), wait=0.001)],
+        plugins=[
+            plugin.retry(max_attempts=3, exceptions=(ConnectionError,), wait=0.001)
+        ],
     )
 
     # Should fail on ValueError without retrying
@@ -233,6 +247,8 @@ async def test_retry_specific_exceptions():
 
 async def test_retry_with_on_fail_callback():
     """Test retry with failure callback"""
+    from lihil.plugins.premier import PremierPlugin
+
     attempt_count = 0
     failure_logs = []
 
@@ -261,6 +277,7 @@ async def test_retry_with_on_fail_callback():
 
 async def test_timeout():
     """Test timeout functionality"""
+    from lihil.plugins.premier import PremierPlugin, Throttler
 
     async def slow_operation():
         # Mock slow operation that would timeout
@@ -272,7 +289,7 @@ async def test_timeout():
     plugin = PremierPlugin(throttler=throttler)
 
     # Mock the timer module's await_for function
-    with patch('premier.timer.timer.await_for') as mock_await_for:
+    with patch("premier.timer.timer.await_for") as mock_await_for:
         mock_await_for.side_effect = asyncio.TimeoutError()
 
         ep = await lc.make_endpoint(
@@ -285,6 +302,8 @@ async def test_timeout():
 
 async def test_timeout_with_logger():
     """Test timeout with logging"""
+    from lihil.plugins.premier import PremierPlugin, Throttler
+
     logged_messages: list[str] = []
 
     class MockLogger:
@@ -305,7 +324,7 @@ async def test_timeout_with_logger():
     mock_logger = MockLogger()
 
     # Mock the timer module's await_for function
-    with patch('premier.timer.timer.await_for') as mock_await_for:
+    with patch("premier.timer.timer.await_for") as mock_await_for:
         mock_await_for.side_effect = asyncio.TimeoutError()
 
         ep = await lc.make_endpoint(
@@ -322,6 +341,10 @@ async def test_timeout_with_logger():
 
 async def test_custom_cache_provider():
     """Test plugin with custom cache provider"""
+    from premier.providers import AsyncInMemoryCache
+
+    from lihil.plugins.premier import PremierPlugin
+
     custom_cache = AsyncInMemoryCache()
     plugin = PremierPlugin(cache_provider=custom_cache)
 
@@ -337,17 +360,19 @@ async def test_custom_cache_provider():
 
     # First call should execute
     result1 = await lc(ep)
-    assert await get_body_str(result1) == "result_1"
+    assert await result1.json() == "result_1"
     assert call_count == 1
 
     # Second call should use cache
     result2 = await lc(ep)
-    assert await get_body_str(result2) == "result_1"
+    assert await result2.json() == "result_1"
     assert call_count == 1
 
 
 async def test_combined_features():
     """Test combining multiple plugin features"""
+    from lihil.plugins.premier import PremierPlugin
+
     call_count = 0
     attempt_count = 0
 
@@ -379,18 +404,21 @@ async def test_combined_features():
 
     # First call should succeed after retry
     result1 = await lc(ep, query_params={"data": "test"})
-    assert await get_body_str(result1) == "processed_test_1"
+    assert await result1.json() == "processed_test_1"
     assert attempt_count == 2  # Failed once, then succeeded
     assert call_count == 1
 
     # Second call should use cache (same function not called again)
     result2 = await lc(ep, query_params={"data": "test"})
-    assert await get_body_str(result2) == "processed_test_1"  # Same cached result
+    assert await result2.json() == "processed_test_1"  # Same cached result
     assert call_count == 1  # Function not called again
 
 
 async def test_backward_compatibility():
     """Test that fix_window alias still works"""
+    from premier.throttler.errors import QuotaExceedsError
+
+    from lihil.plugins.premier import PremierPlugin, Throttler
 
     async def hello():
         return "hello"
@@ -403,7 +431,7 @@ async def test_backward_compatibility():
     ep = await lc.make_endpoint(hello, plugins=[plugin.fix_window(1, 1)])
 
     result = await lc(ep)
-    assert await get_body_str(result) == "hello"
+    assert await result.json() == "hello"
 
     # Should be throttled on second call
     with pytest.raises(QuotaExceedsError):

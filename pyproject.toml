@@ -87,6 +87,9 @@ markers = [
   "integration_test: marks tests as slow integration tests (deselect with '-m \"not integration_test\"')",
   "debug: marks tests as debug tests (deselect with '-m \"not debug\"')",
   "benchmark: marks tests as benchmark tests (deselect with '-m \"not benchmark\"')",
+  "requires_auth: tests that require auth extras (pyjwt/bcrypt)",
+  "requires_premier: tests that require 'premier' optional dependency",
+  "requires_pydantic: tests that require pydantic",
 ]
 testpaths = ["tests"]
 

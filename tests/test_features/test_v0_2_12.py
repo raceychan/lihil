@@ -1,15 +1,23 @@
-from pydantic import BaseModel
 import pytest
 
 from lihil import LocalClient
 
+# These tests require pydantic; mark for selection in CI
+pytestmark = pytest.mark.requires_pydantic
 
-class User(BaseModel):
-    name: str
-    age: int
+
+def _user_model():
+    from pydantic import BaseModel
+
+    class User(BaseModel):
+        name: str
+        age: int
+
+    return User
 
 
 async def test_route_with_pydantic_return():
+    User = _user_model()
     async def create_user() -> User:
         return User(name="1", age=2)
 
@@ -23,6 +31,7 @@ async def test_route_with_pydantic_return():
 
 @pytest.mark.debug
 async def test_route_with_pydantic_body():
+    User = _user_model()
     async def create_user(user: User) -> User:
         return user
 
@@ -37,6 +46,7 @@ async def test_route_with_pydantic_body():
 
 
 async def test_route_with_generic_pydantic_body():
+    User = _user_model()
     async def create_user(user: User) -> list[User]:
         return [user]
 

@@ -262,23 +262,19 @@ async def test_ep_with_auth_scheme():
     get_resp_schemas(ep, {}, "")
 
 
-from pydantic import BaseModel
-
-
-class PydanticBody(BaseModel):
-    name: str
-    age: str
-
-
-class PydanticResp(BaseModel):
-    email: str
-
-
+@pytest.mark.requires_pydantic
 async def test_route_with_pydantic_schema():
+    from pydantic import BaseModel
 
-    async def create_user(user: PydanticBody) -> PydanticResp: ...
+    class PydanticBody(BaseModel):
+        name: str
+        age: str
+
+    class PydanticResp(BaseModel):
+        email: str
 
     lc = LocalClient()
+    async def create_user(user: PydanticBody) -> PydanticResp: ...
     ep = await lc.make_endpoint(create_user)
 
     result = generate_op_from_ep(ep, {}, {}, "problems")

@@ -23,7 +23,7 @@ from lihil.config import DEFAULT_CONFIG, lhl_set_config
 from lihil.errors import InvalidParamError, StatusConflictError
 from lihil.interface import Base
 from lihil.local_client import LocalClient
-from lihil.plugins.auth.jwt import JWTAuthParam, JWTAuthPlugin, JWTConfig
+from lihil.plugins.auth.jwt import JWTAuthParam, JWTConfig
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.signature.parser import EndpointParser
 from lihil.utils.threading import async_wrapper
@@ -589,11 +589,15 @@ async def test_oauth2_not_plugin():
 
 @pytest.fixture
 def jwt_auth_plugin():
+    # Import lazily to avoid errors when auth extras are not installed
+    from lihil.plugins.auth.jwt import JWTAuthPlugin
+
     return JWTAuthPlugin(jwt_secret="mysecret", jwt_algorithms="HS256")
 
 
+@pytest.mark.requires_auth
 async def test_endpoint_with_jwt_decode_fail(
-    testroute: Route, lc: LocalClient, jwt_auth_plugin: JWTAuthPlugin
+    testroute: Route, lc: LocalClient, jwt_auth_plugin
 ):
     async def get_me(
         token: Annotated[
@@ -614,8 +618,9 @@ async def test_endpoint_with_jwt_decode_fail(
     assert res.status_code == 401
 
 
+@pytest.mark.requires_auth
 async def test_endpoint_login_and_validate(
-    testroute: Route, lc: LocalClient, jwt_auth_plugin: JWTAuthPlugin
+    testroute: Route, lc: LocalClient, jwt_auth_plugin
 ):
     @testroute.get(
         auth_scheme=OAuth2PasswordFlow(token_url="token"),
