@@ -5,14 +5,12 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
 from pathlib import Path
-from types import MappingProxyType
 from typing import (
     Any,
     AsyncContextManager,
     AsyncGenerator,
     Awaitable,
     Callable,
-    Mapping,
     cast,
     final,
     overload,
@@ -20,7 +18,6 @@ from typing import (
 
 from ididi import Graph
 from typing_extensions import Unpack
-from uvicorn import run as uvi_run
 
 from lihil.config import IAppConfig, lhl_get_config, lhl_read_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
@@ -309,13 +306,17 @@ class Lihil(ASGIBase):
             self._routes.append(route)
         return route
 
-    def run(self, file_path: str, runner: Callable[..., None] = uvi_run) -> None:
+    def run(self, file_path: str, runner: Callable[..., None] | None = None) -> None:
         """
         ```python
         app = Lihil()
         app.run(__file__)
         ```
         """
+        if runner is None:
+            from uvicorn import run as uvi_run
+
+            runner = uvi_run
 
         config = lhl_get_config()
         server_config = config.server
