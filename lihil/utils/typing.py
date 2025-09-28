@@ -1,6 +1,5 @@
 from collections.abc import Mapping
 from dataclasses import is_dataclass
-from functools import lru_cache
 from types import GenericAlias, UnionType
 from typing import (
     Annotated,

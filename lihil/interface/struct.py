@@ -147,6 +147,7 @@ def encode_sse(sse: SSE, enc_hook: Callable[[Any], Any] | None = None) -> bytes:
 
     # Ensure data is a string (JSON encode if not already a string)
     data = sse.data
+
     if isinstance(data, str):
         payload = data
     else:
