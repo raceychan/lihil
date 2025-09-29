@@ -8,7 +8,6 @@ from typing import (
     Literal,
     Mapping,
     TypeVar,
-    cast,
     get_args,
     get_origin,
 )
@@ -38,8 +37,13 @@ ErrorRegistry = MappingProxyType[
 
 
 def parse_exception(
-    exc: type["DetailBase[Any]"] | TypeAliasType,
-) -> type["DetailBase[Any]"] | int | list[type["DetailBase[Any]"] | int]:
+    exc: type[Exception] | type["DetailBase[Any]"] | TypeAliasType,
+) -> (
+    type[Exception]
+    | type["DetailBase[Any]"]
+    | int
+    | list[type[Exception] | type["DetailBase[Any]"] | int]
+):
     exc_origin = get_origin(exc)
 
     if exc_origin is None:
@@ -47,7 +51,10 @@ def parse_exception(
             return exc
         elif http_status.is_status(exc):
             return http_status.code(exc)
-        raise TypeError(f"Invalid exception type {exc}")
+        elif lenient_issubclass(exc, Exception):
+            return exc
+        else:
+            raise TypeError(f"Invalid exception type {exc}")
     elif exc_origin is Literal:
         while isinstance(exc, TypeAliasType):
             exc = exc.__value__
@@ -69,7 +76,7 @@ def parse_exception(
             exc_local, DetailBase
         ):
             # if exc is a subclass of DetailBase then tha
-            return cast(type["DetailBase[Any]"], exc_origin)
+            return exc_origin
         raise TypeError(f"Invalid exception type {exc}")
 
 
@@ -78,12 +85,19 @@ DExc = TypeVar("DExc", bound=DetailBase[Any] | http_status.Status)
 
 def __erresp_factory_registry():
     # TODO: handler can annoate return with Resp[Response, 404]
-    exc_handlers: dict[type[DetailBase[Any]], ExceptionHandler[Any]] = {}
+    exc_handlers: dict[
+        type[DetailBase[Any]] | type[Exception], ExceptionHandler[Any]
+    ] = {}
     status_handlers: dict[int, ExceptionHandler[Any]] = {}
 
     def _extract_exception(
         handler: ExceptionHandler[DExc],
-    ) -> type[DetailBase[Any]] | int | list[type[DetailBase[Any]] | int]:
+    ) -> (
+        type[DetailBase[Any]]
+        | type[Exception]
+        | int
+        | list[type[DetailBase[Any]] | type[Exception] | int]
+    ):
         sig = signature(handler)
         _, exc = sig.parameters.values()
         exc_annt = exc.annotation
@@ -222,7 +236,8 @@ class ErrorResponse(Response, Generic[T]):
         media_type: str = "application/problem+json",
     ):
         if self.encoder is None:
-            self.encoder = encoder_factory(type(detail))
+            detail_type = type(detail)
+            self.encoder = encoder_factory(detail_type)
         content = self.encoder(detail)
         super().__init__(
             content, status_code=status_code, headers=headers, media_type=media_type

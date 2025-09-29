@@ -198,6 +198,40 @@ async def test_scoped_endpoint(rusers: Route, lc: LocalClient):
     await lc.call_endpoint(ep)
 
 
+async def test_regular_exception_solver():
+    """Register a solver for a regular Python exception and ensure it's used.
+
+    This verifies that `problem_solver` supports non-HTTP exceptions and that
+    `Endpoint.make_call` routes such exceptions to the registered handler.
+    """
+
+    from lihil.problems import problem_solver, get_solver
+    from lihil.vendors import Response
+
+    class RegularError(Exception):
+        pass
+
+    @problem_solver
+    def handle_regular_error(req: Request, exc: RegularError) -> Response:
+        return Response("regular exception handled", status_code=501, media_type="text/plain")
+
+    # Verify solver lookup works for regular exceptions
+    assert get_solver(RegularError("boom")) is handle_regular_error
+
+    # Build a route that raises the regular exception
+    route = Route("/regular-exc")
+
+    async def raises_regular():
+        raise RegularError("boom")
+
+    route.get(raises_regular)
+
+    client = LocalClient()
+    resp = await client.call_route(route, method="GET")
+    assert resp.status_code == 501
+    assert await resp.text() == "regular exception handled"
+
+
 async def test_ep_drop_body(rusers: Route, lc: LocalClient):
 
     async def get() -> Annotated[Empty, status.BAD_REQUEST]:

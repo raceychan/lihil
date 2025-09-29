@@ -1732,3 +1732,28 @@ See tests/test_features/test_v0_2_27.py for more examples, including validation 
 ### Notes
 
 - No breaking API changes. Projects using pydantic or premier should keep those dependencies in their own requirements or install the corresponding extras where applicable.
+
+## version 0.2.29
+
+### Features
+
+- Support regular Python exceptions in problem solver
+
+You can now register error handlers for standard exceptions (e.g., `Exception`, `ValueError`, or any custom exception not derived from `HTTPException`). Annotate the exception type in your handler and register it with `@problem_solver`.
+
+Example:
+
+```python
+from lihil import Request
+from lihil.problems import problem_solver
+from lihil.vendors import Response
+
+class RegularError(Exception):
+    ...
+
+@problem_solver
+def handle_regular_error(req: Request, exc: RegularError) -> Response:
+    return Response("regular error", status_code=500, media_type="text/plain")
+```
+
+This integrates with endpoint execution: if an endpoint raises `RegularError`, the registered handler is invoked and its `Response` is returned.
