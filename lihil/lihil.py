@@ -113,17 +113,20 @@ class Lihil(ASGIBase):
         self._is_setup: bool = False
 
     def _init_routes(self, routes: tuple[RouteBase, ...]) -> None:
-        if not routes:
-            self._root = Route(graph=self._graph)
-            self._routes.insert(0, self._root)
-        else:
-            for route in routes:
-                if route.path == "/":
-                    self._root = route
-                    self.include_routes(route)
-                    self._routes.insert(0, self._root)
+        has_root = any(route.path == "/" for route in routes)
 
-            self.include_routes(*routes)
+        if not has_root:
+            self._root = Route(graph=self._graph)
+            self.include_routes(self._root)
+            self._routes.insert(0, self._root)
+
+        for route in routes:
+            if route.path == "/":
+                self._root = route
+                self.include_routes(self._root)
+                self._routes.insert(0, self._root)
+
+        self.include_routes(*routes)
 
     def __repr__(self) -> str:
         config = lhl_get_config()

@@ -1757,3 +1757,38 @@ def handle_regular_error(req: Request, exc: RegularError) -> Response:
 ```
 
 This integrates with endpoint execution: if an endpoint raises `RegularError`, the registered handler is invoked and its `Response` is returned.
+
+
+## version 0.2.30
+
+Fixes:
+
+1. fix bug where UploadFile is not created properly in OAS
+
+```python
+
+from lihil import Lihil, UploadFile
+
+async def test_generate_oas_for_music_ep():
+    async def music(file: UploadFile): ...
+    lhl = Lihil()
+    lhl.post(music)
+
+    lhl.genereate_oas()
+
+```
+
+2. root route is not properly created when Lihil is instantiated with routes but without root route.
+
+```python
+from lihil import Lihil, Route
+
+users = Route("/users")
+products = Route("/products")
+
+lhl = Lihil(users, products)
+
+@lhl.get
+async def foo(...):
+     ...
+```

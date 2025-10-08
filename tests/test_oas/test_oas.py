@@ -331,5 +331,5 @@ def test_generate_tasg():
     oas = lhl.genereate_oas()
 
     for path, itm in oas.paths.items():
-        assert itm.get.tags == ["profiles"]
-        break
+        if path.endswith("profiles"):
+            assert itm.get.tags == ["profiles"]

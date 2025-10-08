@@ -1,5 +1,5 @@
 import re
-from typing import Any, Sequence, cast, get_args
+from typing import Any, Callable, Sequence, cast, get_args
 
 from msgspec import Struct
 from msgspec.json import schema_components
@@ -16,12 +16,14 @@ from lihil.problems import (
 )
 from lihil.routing import Endpoint, Route, RouteBase
 from lihil.signature import EndpointSignature, RequestParam
+from lihil.signature.parser import BodyParam, is_file_body
 from lihil.utils.string import to_kebab_case, trimdoc
 from lihil.utils.typing import is_pydantic_model
 
 SchemasDict = dict[str, oasmodel.LenientSchema]
 SecurityDict = dict[str, oasmodel.SecurityScheme | oasmodel.Reference]
 ComponentsDict = dict[str, Any]
+SchemaHook = Callable[[type], dict[str, Any]] | None
 
 
 class DefinitionOutput(Struct):
@@ -64,12 +66,13 @@ else:
         return ReferenceOutput(ref, cast(SchemasDict, comp_dict))
 
 
-def json_schema(types: RegularTypes) -> SchemaOutput:
+def json_schema(types: RegularTypes, schema_hook: SchemaHook = None) -> SchemaOutput:
     if is_pydantic_model(types):
         return pydantic_json_schema(types)
 
     (schema,), definitions = schema_components(
         (types,),
+        schema_hook=schema_hook,
         ref_template=MSGSPEC_REF_TEMPLATE,
     )
 
@@ -229,13 +232,32 @@ def example_from_detail_base(
     return error_schema
 
 
+def file_body_to_content(
+    param: BodyParam[Any, Any], _: SchemasDict
+) -> dict[str, oasmodel.MediaType]:
+    schema = {"type": "string", "format": "binary"}
+    # if False: # list[UploadFile], not Implemented
+    # schema = {"type": "array", "items": schema}
+
+    schema = {
+        "type": "object",
+        "properties": {param.name: schema},
+        "required": [param.name],
+    }
+    media_type = oasmodel.MediaType(schema_=schema)
+    return {"multipart/form-data": media_type}
+
+
 def body_schema(
     ep_deps: EndpointSignature[Any], schemas: SchemasDict
 ) -> oasmodel.RequestBody | None:
     if not (body_param := ep_deps.body_param):
         return None
     _, param = body_param
-    content = type_to_content(param.type_, schemas, param.content_type)
+    if is_file_body(param.type_):
+        content = file_body_to_content(param, schemas)
+    else:
+        content = type_to_content(param.type_, schemas, param.content_type)
     body = oasmodel.RequestBody(content=content, required=True)
     return body
 

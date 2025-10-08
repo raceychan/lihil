@@ -10,6 +10,7 @@ from typing import (
     Callable,
     Literal,
     Mapping,
+    Sequence,
     TypeGuard,
     Union,
     cast,
@@ -27,7 +28,7 @@ from msgspec.structs import NODEFAULT, FieldInfo
 from msgspec.structs import fields as get_fields
 from typing_extensions import NotRequired, TypeAliasType, is_typeddict
 
-from lihil.errors import InvalidParamError, InvalidParamPackError
+from lihil.errors import InvalidParamError, InvalidParamPackError, NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, R, T, is_present
 from lihil.interface.marks import Struct
@@ -124,7 +125,7 @@ def filedeocder_factory(filename: str):
 
 def file_body_param(
     name: str,
-    type_: type[UploadFile],
+    type_: type[UploadFile] | list[UploadFile],
     annotation: Any,
     default: Any,
     meta: FormMeta | None = None,
@@ -197,10 +198,16 @@ def lexient_get_fields(ptype: type[Any]):
 def formdecoder_factory(
     ptype: type[T] | UnionType,
 ) -> IDecoder[FormData, T] | IDecoder[bytes, T]:
-    if not is_structured_type(ptype, homogeneous_union=True):
+    porigin = get_origin(ptype)
+    if lenient_issubclass(porigin, Sequence):
+        for t in get_args(ptype):
+            if is_structured_type(t, homogeneous_union=True):
+                continue
+            raise InvalidParamError(f"Form type {t} must be a structured type")
+    elif not is_structured_type(ptype, homogeneous_union=True):
         raise InvalidParamError(f"Form type must be a structured type")
 
-    if get_origin(ptype) is UnionType:
+    if porigin is UnionType:
         raise InvalidParamError(f"Union of multiple form type is not supported yet")
 
     ptype = cast(type[T], ptype)
@@ -501,6 +508,8 @@ class EndpointParser:
                     meta=param_meta,
                 )
                 return cast(FormParam[T], body_param)
+            elif type_ == list[UploadFile]:
+                raise NotSupportedError(f"{type_} is currently not supported")
 
             content_type = param_meta.content_type or "multipart/form-data"
             decoder = param_meta.decoder or formdecoder_factory(type_)

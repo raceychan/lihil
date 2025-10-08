@@ -210,6 +210,12 @@ def deannotate(
     return (atype, flattened_metadata)
 
 
+def homogeneous_sequence(val: Any, t: type[T]) -> TypeGuard[Sequence[T]]:
+    if lenient_issubclass(val, Sequence):
+        return all(lenient_issubclass(c, t) for c in get_args(val))
+    return False
+
+
 def get_origin_pro(
     type_: type[T] | UnionType | GenericAlias | TypeAliasType | TypeVar | ForwardRef,
     metas: list[Any] | None = None,
