@@ -4,11 +4,14 @@ from typing import Annotated, Any
 import pytest
 from msgspec import Struct
 
-from pydantic import BaseModel
-
 from lihil import Ignore, Param, use
 from lihil.errors import InvalidParamError, NotSupportedError
 from lihil.signature.tool import ToolParser, _resolve_schema
+
+try:  # pragma: no cover - optional dependency
+    from pydantic import BaseModel
+except ImportError:  # pragma: no cover - optional dependency
+    BaseModel = None
 
 
 class UserService: ...
@@ -151,29 +154,38 @@ class Payload(Struct):
     value: int
 
 
-class RequestModel(BaseModel):
-    name: str
-    count: int
+if BaseModel is not None:
 
+    class RequestModel(BaseModel):
+        name: str
+        count: int
 
-def fallback_tool(
-    data: Any,
-    payload: Payload,
-    payload_opt: Payload | None = None,
-    model: RequestModel = RequestModel(name="demo", count=1),
-    tags: list[str] = ["default"],
-    ratio: float = math.nan,
-    options: tuple[int, int] = (1, 2),
-    config: dict[str, int] = {"mode": 1},
-    secret: Ignore[str] = "hidden",
-):
-    pass
+    def fallback_tool(
+        data: Any,
+        payload: Payload,
+        payload_opt: Payload | None = None,
+        model: RequestModel = RequestModel(name="demo", count=1),
+        tags: list[str] = ["default"],
+        ratio: float = math.nan,
+        options: tuple[int, int] = (1, 2),
+        config: dict[str, int] = {"mode": 1},
+        secret: Ignore[str] = "hidden",
+    ):
+        pass
+
+else:  # pragma: no cover - optional dependency missing
+
+    RequestModel = None  # type: ignore[assignment]
+
+    def fallback_tool(*args: Any, **kwargs: Any):  # type: ignore[empty-body]
+        raise RuntimeError("pydantic is required for fallback_tool")
 
 
 def typed_tool() -> int:
     return 1
 
 
+@pytest.mark.skipif(BaseModel is None, reason="pydantic is not installed")
 def test_tool_parser_any_defaults_and_returns():
     parser = ToolParser()
 
