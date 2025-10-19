@@ -1792,3 +1792,68 @@ lhl = Lihil(users, products)
 async def foo(...):
      ...
 ```
+
+## version 0.2.31
+
+### Features
+
+- Added `ToolParser` and `ToolSignature` helpers to turn regular coroutine functions into OpenAI-compatible tool definitions.
+- Tool parsing now understands rich `Param` metadata (descriptions, examples, extra JSON schema) and structured payloads such as `msgspec.Struct` and `pydantic.BaseModel`.
+
+```python
+from typing import Annotated
+
+from msgspec import Struct
+
+from lihil import Ignore, Param, use
+from lihil.signature.tool import ToolParser
+
+
+class UserPayload(Struct):
+    name: str
+    age: int
+
+
+class UserService: ...
+
+
+async def create_user(
+    payload: Annotated[UserPayload, Param(description="User profile", examples=[["Ada", 42]])],
+    email: str,
+    service: Annotated[UserService, use(UserService)],
+    trace_id: Ignore[str],
+) -> dict[str, str]:
+    """Create a user and return a confirmation message."""
+
+
+tool = ToolParser().parse(create_user)
+print(tool.to_openai_tool())
+# {
+#   "type": "function",
+#   "name": "create_user",
+#   "description": "Create a user and return a confirmation message.",
+#   "parameters": {
+#       "type": "object",
+#       "properties": {
+#           "payload": {
+#               "title": "UserPayload",
+#               "type": "object",
+#               "properties": {
+#                   "name": {"type": "string"},
+#                   "age": {"type": "integer"}
+#               },
+#               "required": ["name", "age"],
+#               "description": "User profile",
+#               "examples": [["Ada", 42]]
+#           },
+#           "email": {"type": "string"}
+#       },
+#       "required": ["payload", "email"]
+#   }
+# }
+```
+
+### Improvements
+
+- Parameters marked with dependency `use(...)` or `lihil.Ignore[...]` are skipped when generating tool schemas, preventing internal plumbing from leaking into public definitions.
+- Default value handling now only injects JSON-safe defaults into generated schemas, avoiding invalid payloads for tool consumers.

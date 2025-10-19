@@ -22,7 +22,6 @@ T = TypeVar("T")
 
 try:
     from pydantic import BaseModel
-
 except ImportError:
     is_pydantic_model = lambda _: False
 else:

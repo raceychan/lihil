@@ -16,7 +16,7 @@ from lihil.oas.schema import (
     get_ep_security,
     get_path_item_from_route,
     get_resp_schemas,
-    json_schema,
+    oas_schema,
 )
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow
 from lihil.problems import collect_problems
@@ -283,12 +283,12 @@ async def test_route_with_pydantic_schema():
     assert result
 
 
-def test_json_schema_of_msgspec_and_pydantic():
+def test_oas_schema_of_msgspec_and_pydantic():
     class MSUser(Struct):
         id: str
         email: str
 
-    result = json_schema(MSUser)
+    result = oas_schema(MSUser)
     assert result
 
 

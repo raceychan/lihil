@@ -1,8 +1,7 @@
 import re
-from typing import Any, Callable, Sequence, cast, get_args
+from typing import Any, Sequence, cast, get_args
 
 from msgspec import Struct
-from msgspec.json import schema_components
 
 from lihil.config.app_config import IOASConfig
 from lihil.constant.status import phrase
@@ -17,13 +16,12 @@ from lihil.problems import (
 from lihil.routing import Endpoint, Route, RouteBase
 from lihil.signature import EndpointSignature, RequestParam
 from lihil.signature.parser import BodyParam, is_file_body
+from lihil.utils.json import SchemaHook, json_schema
 from lihil.utils.string import to_kebab_case, trimdoc
-from lihil.utils.typing import is_pydantic_model
 
 SchemasDict = dict[str, oasmodel.LenientSchema]
 SecurityDict = dict[str, oasmodel.SecurityScheme | oasmodel.Reference]
 ComponentsDict = dict[str, Any]
-SchemaHook = Callable[[type], dict[str, Any]] | None
 
 
 class DefinitionOutput(Struct):
@@ -39,10 +37,6 @@ class ReferenceOutput(Struct):
 SchemaOutput = DefinitionOutput | ReferenceOutput
 """When component is not None result contains reference"""
 
-MSGSPEC_REF_TEMPLATE = "#/components/schemas/{name}"
-PYDANTIC_REF_TEMPLATE = (
-    "#/components/schemas/{model}"  # pydantic json schema would use this internally
-)
 PROBLEM_CONTENTTYPE = "application/problem+json"
 
 
@@ -50,31 +44,9 @@ class OneOfOutput(Struct):
     oneOf: list[SchemaOutput]
 
 
-try:
-    from pydantic import BaseModel
-except ImportError:
-    ...
-else:
 
-    def pydantic_json_schema(t: type[BaseModel]) -> SchemaOutput:
-        full_schema = t.model_json_schema(ref_template=PYDANTIC_REF_TEMPLATE)
-        defs = full_schema.pop("$defs", {})
-        root_schema = full_schema
-        comp_dict = {name: oasmodel.Schema(**schema) for name, schema in defs.items()}
-        comp_dict[t.__name__] = oasmodel.Schema(**root_schema)
-        ref = oasmodel.Reference(ref=PYDANTIC_REF_TEMPLATE.format(model=t.__name__))
-        return ReferenceOutput(ref, cast(SchemasDict, comp_dict))
-
-
-def json_schema(types: RegularTypes, schema_hook: SchemaHook = None) -> SchemaOutput:
-    if is_pydantic_model(types):
-        return pydantic_json_schema(types)
-
-    (schema,), definitions = schema_components(
-        (types,),
-        schema_hook=schema_hook,
-        ref_template=MSGSPEC_REF_TEMPLATE,
-    )
+def oas_schema(types: RegularTypes, schema_hook: SchemaHook = None) -> SchemaOutput:
+    schema, definitions = json_schema(types, schema_hook)
 
     if anyOf := schema.pop("anyOf", None):  # rename
         schema["oneOf"] = anyOf
@@ -93,7 +65,7 @@ def json_schema(types: RegularTypes, schema_hook: SchemaHook = None) -> SchemaOu
 def type_to_content(
     type_: Any, schemas: SchemasDict, content_type: str = "application/json"
 ) -> dict[str, oasmodel.MediaType]:
-    output = json_schema(type_)
+    output = oas_schema(type_)
     if output.component:
         schemas.update(output.component)
         media_type = oasmodel.MediaType(schema_=output.result)
@@ -118,7 +90,7 @@ def detail_base_to_content(
         for var in typevars:
             if var is str:
                 continue
-            output = json_schema(var)
+            output = oas_schema(var)
             output = cast(ReferenceOutput, output)
             ref = output.result
             schemas.update(output.component)
@@ -149,7 +121,7 @@ def detail_base_to_content(
     problem_link = f"/problems?search={problem_type}"
 
     # Get schema from ProblemDetail using json_schema
-    schema_output = json_schema(type(example))
+    schema_output = oas_schema(type(example))
     if schema_output.component:
         schemas.update(schema_output.component)
 
@@ -174,7 +146,7 @@ def detail_base_to_content(
 def _single_field_schema(
     param: "RequestParam[Any]", schemas: SchemasDict
 ) -> oasmodel.Parameter:
-    output = json_schema(param.type_)
+    output = oas_schema(param.type_)
     param_schema: dict[str, Any] = {
         "name": param.alias,
         "in_": param.source,

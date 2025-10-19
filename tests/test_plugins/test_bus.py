@@ -2,8 +2,9 @@ from typing import Any, get_origin
 
 import pytest
 
-from lihil import Annotated, Route, status
+from lihil import Annotated, Route, status, use
 from lihil.ds.event import Event
+from lihil.local_client import LocalClient
 from lihil.plugins.bus import (
     BusPlugin,
     BusTerminal,
@@ -11,7 +12,6 @@ from lihil.plugins.bus import (
     MessageRegistry,
     PEventBus,
 )
-from lihil.local_client import LocalClient
 
 
 class TodoCreated(Event):
@@ -19,7 +19,7 @@ class TodoCreated(Event):
     content: str
 
 
-async def listen_create(created: TodoCreated, _: Any, bus: EventBus[Any]):
+async def listen_create(created: TodoCreated, _: Any, bus: Annotated[EventBus[Any], use(EventBus)]):
     assert created.name
     assert created.content
     assert isinstance(bus, EventBus)
