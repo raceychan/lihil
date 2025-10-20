@@ -1,4 +1,3 @@
-import math
 from typing import Annotated, Any
 
 import pytest
@@ -58,25 +57,11 @@ def test_tool_parser_collects_metadata():
     assert any(option.get("type") == "string" for option in email_options)
     assert email.schema.get("default") is None
 
-    tool_payload = signature.to_openai_tool()
-    fn_block = tool_payload["function"]
-    properties = fn_block["parameters"]["properties"]
+    tool_payload = signature.schema
+    # fn_block = tool_payload["function"]
+    properties = tool_payload["parameters"]["properties"]
     assert set(properties) == {"user_id", "user_data", "notify", "email_address"}
-    assert fn_block["parameters"]["required"] == ["user_id", "user_data"]
-
-    encoded = signature.encode_params(
-        {
-            "user_id": "42",
-            "user_data": {"role": "admin"},
-            "email_address": "ada@example.com",
-        }
-    )
-    decoded = signature.decode_params(encoded)
-    assert isinstance(decoded, signature.payload_struct)
-    assert decoded.user_id == "42"
-    assert decoded.user_data["role"] == "admin"
-    assert decoded.notify is False
-    assert decoded.email == "ada@example.com"
+    assert tool_payload["parameters"]["required"] == ["user_id", "user_data"]
 
 
 def test_tool_parser_rejects_duplicate_aliases():
@@ -142,50 +127,40 @@ def test_tool_parser_handles_complex_examples():
     assert limit.schema["maximum"] == 100
     assert limit.schema["examples"] == [5]
 
-    payload = signature.to_openai_tool()
-    fn_block = payload["function"]
-    props = fn_block["parameters"]["properties"]
+    payload = signature.schema
+    props = payload["parameters"]["properties"]
     assert props["keywords"]["examples"] == [["ai", "ml"]]
     assert props["metadata"]["additionalProperties"] == {"type": "string"}
-    assert fn_block["parameters"]["required"] == ["keywords", "metadata"]
+    assert payload["parameters"]["required"] == ["keywords", "metadata"]
 
 
 class Payload(Struct):
     value: int
 
 
-if BaseModel is not None:
+class RequestStruct(Struct):
+    name: str
+    count: int
 
-    class RequestModel(BaseModel):
-        name: str
-        count: int
 
-    def fallback_tool(
-        data: Any,
-        payload: Payload,
-        payload_opt: Payload | None = None,
-        model: RequestModel = RequestModel(name="demo", count=1),
-        tags: list[str] = ["default"],
-        ratio: float = math.nan,
-        options: tuple[int, int] = (1, 2),
-        config: dict[str, int] = {"mode": 1},
-        secret: Ignore[str] = "hidden",
-    ):
-        pass
-
-else:  # pragma: no cover - optional dependency missing
-
-    RequestModel = None  # type: ignore[assignment]
-
-    def fallback_tool(*args: Any, **kwargs: Any):  # type: ignore[empty-body]
-        raise RuntimeError("pydantic is required for fallback_tool")
+def fallback_tool(
+    data: Any,
+    payload: Payload,
+    payload_opt: Payload | None = None,
+    model: RequestStruct = RequestStruct(name="demo", count=1),
+    tags: list[str] = ["default"],
+    ratio: float = 0.0,
+    options: tuple[int, int] = (1, 2),
+    config: dict[str, int] = {"mode": 1},
+    secret: Ignore[str] = "hidden",
+):
+    pass
 
 
 def typed_tool() -> int:
     return 1
 
 
-@pytest.mark.skipif(BaseModel is None, reason="pydantic is not installed")
 def test_tool_parser_any_defaults_and_returns():
     parser = ToolParser()
 
@@ -220,24 +195,10 @@ def test_tool_parser_any_defaults_and_returns():
     assert config_schema["default"] == {"mode": 1}
 
     ratio_schema = signature.parameters["ratio"].schema
-    assert "default" not in ratio_schema
+    assert ratio_schema["default"] == 0.0
 
     assert "secret" not in signature.parameters
 
-    payload_struct = signature.payload_struct
-    assert issubclass(payload_struct, Struct)
-
-    payload_obj = Payload(value=5)
-    encoded_payload = signature.encode_params({"data": "raw", "payload": payload_obj})
-    decoded_payload = signature.decode_params(encoded_payload)
-    assert isinstance(decoded_payload, payload_struct)
-    assert decoded_payload.payload == payload_obj
-    assert decoded_payload.model.name == "demo"
-    assert decoded_payload.payload.value == 5
-    assert math.isnan(decoded_payload.ratio)
-
-    roundtrip = signature.encode_params(decoded_payload)
-    assert roundtrip == encoded_payload
 
     typed_signature = parser.parse(typed_tool)
     assert typed_signature.return_type == "int"

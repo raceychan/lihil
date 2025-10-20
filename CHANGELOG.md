@@ -1798,7 +1798,7 @@ async def foo(...):
 ### Features
 
 - Added `ToolParser` and `ToolSignature` helpers to turn regular coroutine functions into OpenAI-compatible tool definitions.
-- Tool parsing now understands rich `Param` metadata (descriptions, examples, extra JSON schema) and structured payloads such as `msgspec.Struct` and `pydantic.BaseModel`.
+- Tool parsing now understands rich `Param` metadata (descriptions, examples, extra JSON schema) and produces fully inlined JSON Schema definitions via `ToolSignature.schema`, ready to hand to OpenAI without extra post-processing.
 
 ```python
 from typing import Annotated
@@ -1827,7 +1827,7 @@ async def create_user(
 
 
 tool = ToolParser().parse(create_user)
-print(tool.to_openai_tool())
+print(tool.schema)
 # {
 #   "type": "function",
 #   "name": "create_user",
@@ -1857,3 +1857,4 @@ print(tool.to_openai_tool())
 
 - Parameters marked with dependency `use(...)` or `lihil.Ignore[...]` are skipped when generating tool schemas, preventing internal plumbing from leaking into public definitions.
 - Default value handling now only injects JSON-safe defaults into generated schemas, avoiding invalid payloads for tool consumers.
+- Tool signatures now expose a JSON-first surface area: the generated payload struct and the `encode_params`/`decode_params` helpers have been removed in favour of emitting the final schema directly, letting callers choose their own serialisation strategy.
