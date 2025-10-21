@@ -1,11 +1,17 @@
+import asyncio
+import inspect
+from types import MappingProxyType
 from typing import Annotated, Any
 
 import pytest
 from msgspec import Struct
+from msgspec.json import encode as json_encode
+from typing_extensions import NotRequired
 
 from lihil import Ignore, Param, use
 from lihil.errors import InvalidParamError, NotSupportedError
-from lihil.signature.tool import ToolParser, _resolve_schema
+from lihil.interface import MISSING
+from lihil.signature.tool_parser import _resolve_schema, tool
 
 try:  # pragma: no cover - optional dependency
     from pydantic import BaseModel
@@ -29,13 +35,12 @@ async def sample_tool(
 
 
 def test_tool_parser_collects_metadata():
-    parser = ToolParser()
+    t = tool(sample_tool)
+    signature = t.signature
 
-    signature = parser.parse(sample_tool)
-
-    assert signature.name == "sample_tool"
-    assert signature.description == "Create a new user in the system."
-    assert signature.return_type.startswith("dict")
+    assert t.name == "sample_tool"
+    assert t.description == "Create a new user in the system."
+    assert signature.return_type == dict[str, Any]
 
     # service parameter is injected dependency
     assert "service" not in signature.parameters
@@ -57,31 +62,26 @@ def test_tool_parser_collects_metadata():
     assert any(option.get("type") == "string" for option in email_options)
     assert email.schema.get("default") is None
 
-    tool_payload = signature.schema
-    # fn_block = tool_payload["function"]
+    tool_payload = t.schema
     properties = tool_payload["parameters"]["properties"]
     assert set(properties) == {"user_id", "user_data", "notify", "email_address"}
     assert tool_payload["parameters"]["required"] == ["user_id", "user_data"]
 
 
 def test_tool_parser_rejects_duplicate_aliases():
-    parser = ToolParser()
-
     AnnotatedAlias = Annotated[int, Param(alias="shared")]
 
     async def duplicate_alias(arg1: AnnotatedAlias, arg2: AnnotatedAlias): ...
 
     with pytest.raises(InvalidParamError):
-        parser.parse(duplicate_alias)
+        tool(duplicate_alias)
 
 
 def test_tool_parser_disallows_varargs():
-    parser = ToolParser()
-
     def invalid(*args: int): ...
 
     with pytest.raises(NotSupportedError):
-        parser.parse(invalid)
+        tool(invalid)
 
 
 async def complex_tool(
@@ -104,9 +104,8 @@ async def complex_tool(
 
 
 def test_tool_parser_handles_complex_examples():
-    parser = ToolParser()
-
-    signature = parser.parse(complex_tool)
+    t = tool(complex_tool)
+    signature = t.signature
 
     keywords = signature.parameters["keywords"]
     assert keywords.schema["type"] == "array"
@@ -127,7 +126,7 @@ def test_tool_parser_handles_complex_examples():
     assert limit.schema["maximum"] == 100
     assert limit.schema["examples"] == [5]
 
-    payload = signature.schema
+    payload = t.schema
     props = payload["parameters"]["properties"]
     assert props["keywords"]["examples"] == [["ai", "ml"]]
     assert props["metadata"]["additionalProperties"] == {"type": "string"}
@@ -147,11 +146,11 @@ def fallback_tool(
     data: Any,
     payload: Payload,
     payload_opt: Payload | None = None,
-    model: RequestStruct = RequestStruct(name="demo", count=1),
-    tags: list[str] = ["default"],
+    model: RequestStruct | None = None,
+    tags: list[str] = ("default",),
     ratio: float = 0.0,
     options: tuple[int, int] = (1, 2),
-    config: dict[str, int] = {"mode": 1},
+    config: dict[str, int] = MappingProxyType({"mode": 1}),
     secret: Ignore[str] = "hidden",
 ):
     pass
@@ -162,11 +161,10 @@ def typed_tool() -> int:
 
 
 def test_tool_parser_any_defaults_and_returns():
-    parser = ToolParser()
+    t = tool(fallback_tool)
+    signature = t.signature
 
-    signature = parser.parse(fallback_tool)
-
-    assert signature.return_type == "None"
+    assert signature.return_type is MISSING
 
     data_schema = signature.parameters["data"].schema
     assert data_schema == {"type": "string"}
@@ -181,30 +179,31 @@ def test_tool_parser_any_defaults_and_returns():
     assert payload_opt_schema["default"] is None
 
     model_schema = signature.parameters["model"].schema
-    assert model_schema["properties"]["name"]["type"] == "string"
-    assert model_schema["properties"]["count"]["type"] == "integer"
-    assert "default" not in model_schema
+    assert model_schema["anyOf"][0]["type"] == "null"
+    assert model_schema["anyOf"][1]["properties"]["name"]["type"] == "string"
+    assert model_schema["anyOf"][1]["properties"]["count"]["type"] == "integer"
+    assert model_schema["default"] is None
 
     tags_schema = signature.parameters["tags"].schema
-    assert tags_schema["default"] == ["default"]
+    assert tags_schema["default"] == ("default",)
 
     options_schema = signature.parameters["options"].schema
     assert options_schema["default"] == (1, 2)
 
     config_schema = signature.parameters["config"].schema
-    assert config_schema["default"] == {"mode": 1}
+    assert "default" not in config_schema
+    assert signature.parameters["config"].default["mode"] == 1
 
     ratio_schema = signature.parameters["ratio"].schema
     assert ratio_schema["default"] == 0.0
 
     assert "secret" not in signature.parameters
 
+    typed_tool_obj = tool(typed_tool)
+    assert typed_tool_obj.signature.return_type is int
 
-    typed_signature = parser.parse(typed_tool)
-    assert typed_signature.return_type == "int"
-
-    generic_signature = parser.parse(generic_return_tool)
-    assert generic_signature.return_type == repr(Annotated[int, "meta"])
+    generic_tool_obj = tool(generic_return_tool)
+    assert generic_tool_obj.signature.return_type == Annotated[int, "meta"]
 
 
 def test_resolve_schema_inlines_refs_with_lists():
@@ -228,3 +227,57 @@ def test_resolve_schema_inlines_refs_with_lists():
 
 def generic_return_tool() -> Annotated[int, "meta"]:
     return 1
+
+
+async def async_tool(user_id: Annotated[str, Param(description="user id")]) -> str:
+    return f"{user_id}-ok"
+
+
+def test_tool_call_handles_async_callable():
+    t = tool(async_tool)
+
+    assert t.name == "async_tool"
+    assert inspect.iscoroutinefunction(t.func)
+
+    result = t("demo")
+    assert inspect.iscoroutine(result)
+    assert asyncio.run(result) == "demo-ok"
+
+
+async def virtual_dict_tool(
+    user_id: Annotated[str, Param(alias="uid")],
+    limit: int = 5,
+    note: Annotated[str | None, Param(alias="note_text")] = None,
+) -> None: ...
+
+
+def test_tool_signature_virtual_dict_metadata():
+    t = tool(virtual_dict_tool)
+
+    virtual = t.signature.virtual_dict
+    assert issubclass(virtual, dict)
+    assert virtual.__name__ == f"{virtual_dict_tool.__name__}_params"
+    assert virtual.__module__ == virtual_dict_tool.__module__
+    assert virtual.__required_keys__ == frozenset({"uid"})
+    assert virtual.__optional_keys__ == frozenset({"limit", "note_text"})
+    assert virtual.__annotations__["uid"] is str
+    assert virtual.__annotations__["limit"] == NotRequired[int]
+    assert virtual.__annotations__["note_text"] == NotRequired[str | None]
+
+
+async def decode_params_tool(
+    user_id: Annotated[str, Param(alias="uid")],
+    limit: int = 3,
+    notify: Annotated[bool, Param(alias="send_notification")] = True,
+) -> None: ...
+
+
+def test_tool_decode_params_applies_defaults_and_aliases():
+    t = tool(decode_params_tool)
+
+    payload = json_encode({"uid": "abc"})
+    decoded = t.decode_params(payload)
+
+    assert decoded["uid"] == "abc"
+    assert decoded["send_notification"] is True
+    assert decoded["limit"] == 3

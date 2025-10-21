@@ -1858,3 +1858,41 @@ print(tool.schema)
 - Parameters marked with dependency `use(...)` or `lihil.Ignore[...]` are skipped when generating tool schemas, preventing internal plumbing from leaking into public definitions.
 - Default value handling now only injects JSON-safe defaults into generated schemas, avoiding invalid payloads for tool consumers.
 - Tool signatures now expose a JSON-first surface area: the generated payload struct and the `encode_params`/`decode_params` helpers have been removed in favour of emitting the final schema directly, letting callers choose their own serialisation strategy.
+
+## version 0.2.32
+
+### Improvements
+
+- `lihil.signature.tool.tool` now returns a full `Tool` wrapper with runtime helpers for decoding parameters and encoding return payloads, rather than just metadata.
+- Replaced the generated msgspec struct with a dynamically defined TypedDict (`virtual_dict`) so tool payloads behave like standard mappings and support keyword expansion natively.
+- Tool parameter decoding automatically injects missing optional defaults after JSON parsing, ensuring alias handling and default propagation are consistent.
+
+```python
+from typing import Annotated
+import asyncio
+
+from lihil import Param
+from lihil.signature.tool import parse
+
+
+async def create_user(
+    user_id: Annotated[str, Param(description="External user id")],
+    limit: int = 3,
+) -> str:
+    return f"{user_id}:{limit}"
+
+
+tool = parse(create_user)
+assert tool.schema["parameters"]["required"] == ["user_id"]
+
+payload = tool.decode_params(b'{"user_id": "alice"}')
+# payload == {"user_id": "alice", "limit": 3}
+result = asyncio.run(tool(**payload))
+response = tool.encode_return(result)
+```
+
+Usage advice: keep tool functions asynchronous when interacting with remote services, annotate parameters with `Param(...)` metadata for better schemas, and rely on `tool.decode_params(...)` before invoking the function so defaults and aliases are applied consistently.
+
+### Testing
+
+- Added regression coverage for the new TypedDict metadata and default-handling behaviour in `tests/test_signature/test_tool_parser.py`.
