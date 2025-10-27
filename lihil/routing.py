@@ -17,7 +17,7 @@ from typing import (
 
 from ididi import Graph
 from ididi.graph import Resolver
-from ididi.interfaces import IDependent, NodeIgnoreConfig
+from ididi.interfaces import NodeIgnoreConfig
 from msgspec import field
 from typing_extensions import Self, Unpack
 
@@ -52,8 +52,6 @@ from lihil.utils.string import (
 from lihil.utils.threading import async_wrapper
 from lihil.vendors import Request, Response, StreamingResponse
 
-DepNode = IDependent[Any]
-
 
 class IEndpointProps(TypedDict, total=False):
     problems: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
@@ -72,7 +70,7 @@ class IEndpointProps(TypedDict, total=False):
     "Return Encoder"
     plugins: list[IPlugin]
     "Decorators to decorate the endpoint function"
-    deps: list[DepNode] | None
+    deps: list[Any] | None
     "Dependencies that might be used in "
 
 
@@ -87,7 +85,7 @@ class EndpointProps(Record, kw_only=True):
     tags: list[str] | None = None
     encoder: IEncoder | None = None
     plugins: list[IPlugin] = field(default_factory=list[IPlugin])
-    deps: list[DepNode] | None = None
+    deps: list[Any] | None = None
 
     @classmethod
     def from_unpack(cls, **iconfig: Unpack[IEndpointProps]):
