@@ -6,7 +6,7 @@ import pytest
 from msgspec import field
 
 from lihil import Route, Text
-from lihil.errors import NotSupportedError
+from lihil.errors import MissingDependencyError
 from lihil.local_client import LocalClient
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow, OAuthLoginForm
 from lihil.problems import InvalidAuthError
@@ -48,5 +48,5 @@ def test_jwt_missing():
         if "lihil.plugins.auth.jwt" in sys.modules:
             del sys.modules["lihil.plugins.auth.jwt"]
 
-        with pytest.raises(ImportError):
+        with pytest.raises(MissingDependencyError):
             from lihil.plugins.auth.jwt import jwt_decoder_factory  # type: ignore

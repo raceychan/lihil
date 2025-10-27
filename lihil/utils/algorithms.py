@@ -42,7 +42,9 @@ def deep_merge(
                 new_val = ori_val + value
                 if deduplicate:
                     constructor = ori_val.__class__
-                    new_val = constructor(dict.fromkeys(new_val))
+                    unique_vals = dict.fromkeys(new_val)
+                    # this does not work when new vals contains un-hashable values like dict
+                    new_val = constructor(unique_vals)
 
                 original[key] = new_val
             elif both_instance(ori_val, value, set):

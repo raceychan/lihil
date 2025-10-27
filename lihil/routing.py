@@ -11,14 +11,13 @@ from typing import (
     Pattern,
     Sequence,
     TypedDict,
-    Union,
     cast,
     overload,
 )
 
-from ididi import Graph, INodeConfig
+from ididi import Graph
 from ididi.graph import Resolver
-from ididi.interfaces import IDependent
+from ididi.interfaces import IDependent, NodeIgnoreConfig
 from msgspec import field
 from typing_extensions import Self, Unpack
 
@@ -38,7 +37,6 @@ from lihil.interface import (
     P,
     R,
     Record,
-    T,
 )
 from lihil.plugins import IPlugin
 from lihil.plugins.auth.oauth import AuthBase
@@ -54,7 +52,7 @@ from lihil.utils.string import (
 from lihil.utils.threading import async_wrapper
 from lihil.vendors import Request, Response, StreamingResponse
 
-DepNode = Union[IDependent[Any], tuple[IDependent[Any], INodeConfig]]
+DepNode = IDependent[Any]
 
 
 class IEndpointProps(TypedDict, total=False):
@@ -335,13 +333,11 @@ class RouteBase(ASGIBase):
         scope["path_params"] = m.groupdict()
         return True
 
-    def add_nodes(
-        self, *nodes: Union[IDependent[T], tuple[IDependent[T], INodeConfig]]
-    ) -> None:
+    def add_nodes(self, *nodes: Any) -> None:
         self._graph.add_nodes(*nodes)
 
-    def factory(self, node: Callable[..., R], **node_config: Unpack[INodeConfig]):
-        return self._graph.node(node, **node_config)
+    def factory(self, node: Callable[..., R], *, ignore: NodeIgnoreConfig = ()):
+        return self._graph.node(node, ignore=ignore)
 
     def _setup(
         self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None

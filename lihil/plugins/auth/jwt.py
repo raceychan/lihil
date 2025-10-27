@@ -7,6 +7,7 @@ from msgspec.structs import asdict as struct_asdict
 from typing_extensions import Unpack
 
 from lihil.config.app_config import AppConfig, Doc, IAppConfig
+from lihil.errors import MissingDependencyError
 from lihil.interface import IAsyncFunc, P, R, Struct
 from lihil.plugins import IEndpointInfo
 from lihil.plugins.auth.oauth import OAuth2Token
@@ -61,7 +62,7 @@ try:
     from jwt.api_jws import PyJWS
     from jwt.exceptions import InvalidTokenError
 except ImportError:
-    pass
+    raise MissingDependencyError("jwt", "please install `pyjwt` or `lihil[auth]`")
 else:
 
     class JWTAuthPlugin:

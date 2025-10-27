@@ -5,14 +5,17 @@ import pytest
 
 pytestmark = pytest.mark.requires_premier
 
+try:
+    from premier.providers import AsyncInMemoryCache
+    from premier.throttler.errors import QuotaExceedsError
+    from lihil.plugins.premier import PremierPlugin, Throttler
+except ModuleNotFoundError as exc:
+    pytest.skip(f"premier dependencies unavailable: {exc}", allow_module_level=True)
+
 from lihil.local_client import LocalClient
 
 
 async def test_throttling():
-    from premier.throttler.errors import QuotaExceedsError
-
-    from lihil.plugins.premier import PremierPlugin, Throttler
-
     async def hello():
         print("called the hello func")
         return "hello"
@@ -34,10 +37,6 @@ async def test_throttling():
 
 async def test_fixed_window():
     """Test fixed window rate limiting"""
-    from premier.throttler.errors import QuotaExceedsError
-
-    from lihil.plugins.premier import PremierPlugin
-
     async def api_call():
         return "success"
 
@@ -59,8 +58,6 @@ async def test_fixed_window():
 
 async def test_cache_basic():
     """Test basic caching functionality"""
-    from lihil.plugins.premier import PremierPlugin
-
     call_count = 0
 
     async def expensive_operation():
@@ -86,10 +83,6 @@ async def test_cache_basic():
 
 async def test_cache_with_ttl():
     """Test cache with TTL expiration"""
-    from premier.providers import AsyncInMemoryCache
-
-    from lihil.plugins.premier import PremierPlugin
-
     call_count = 0
     mock_time = [1000.0]  # Use list to make it mutable
 
@@ -132,8 +125,6 @@ async def test_cache_with_ttl():
 
 async def test_cache_with_custom_key():
     """Test cache with custom key generation"""
-    from lihil.plugins.premier import PremierPlugin
-
     call_count = 0
 
     async def user_operation(user_id: str):
@@ -164,8 +155,6 @@ async def test_cache_with_custom_key():
 
 async def test_retry_basic():
     """Test basic retry functionality"""
-    from lihil.plugins.premier import PremierPlugin
-
     attempt_count = 0
 
     async def flaky_service():
@@ -189,8 +178,6 @@ async def test_retry_basic():
 
 async def test_retry_with_exponential_backoff():
     """Test retry with exponential backoff"""
-    from lihil.plugins.premier import PremierPlugin
-
     attempt_count = 0
 
     async def unreliable_service():
@@ -215,8 +202,6 @@ async def test_retry_with_exponential_backoff():
 
 async def test_retry_specific_exceptions():
     """Test retry with specific exception types"""
-    from lihil.plugins.premier import PremierPlugin
-
     attempt_count = 0
 
     async def service_with_different_errors():
@@ -247,8 +232,6 @@ async def test_retry_specific_exceptions():
 
 async def test_retry_with_on_fail_callback():
     """Test retry with failure callback"""
-    from lihil.plugins.premier import PremierPlugin
-
     attempt_count = 0
     failure_logs = []
 
@@ -277,8 +260,6 @@ async def test_retry_with_on_fail_callback():
 
 async def test_timeout():
     """Test timeout functionality"""
-    from lihil.plugins.premier import PremierPlugin, Throttler
-
     async def slow_operation():
         # Mock slow operation that would timeout
         await asyncio.sleep(0.01)  # Very short delay for testing
@@ -302,8 +283,6 @@ async def test_timeout():
 
 async def test_timeout_with_logger():
     """Test timeout with logging"""
-    from lihil.plugins.premier import PremierPlugin, Throttler
-
     logged_messages: list[str] = []
 
     class MockLogger:
@@ -341,10 +320,6 @@ async def test_timeout_with_logger():
 
 async def test_custom_cache_provider():
     """Test plugin with custom cache provider"""
-    from premier.providers import AsyncInMemoryCache
-
-    from lihil.plugins.premier import PremierPlugin
-
     custom_cache = AsyncInMemoryCache()
     plugin = PremierPlugin(cache_provider=custom_cache)
 
@@ -371,8 +346,6 @@ async def test_custom_cache_provider():
 
 async def test_combined_features():
     """Test combining multiple plugin features"""
-    from lihil.plugins.premier import PremierPlugin
-
     call_count = 0
     attempt_count = 0
 
@@ -416,10 +389,6 @@ async def test_combined_features():
 
 async def test_backward_compatibility():
     """Test that fix_window alias still works"""
-    from premier.throttler.errors import QuotaExceedsError
-
-    from lihil.plugins.premier import PremierPlugin, Throttler
-
     async def hello():
         return "hello"
 

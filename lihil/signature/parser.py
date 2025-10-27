@@ -20,7 +20,7 @@ from typing import (
 )
 from warnings import warn
 
-from ididi import DependentNode, Graph, INode, NodeConfig, Resolver
+from ididi import DependentNode, Graph, INode, Resolver
 from ididi.config import USE_FACTORY_MARK
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from msgspec import Struct, convert
@@ -330,20 +330,16 @@ class EndpointParser:
         self.node_derived = set[str]()
 
     def _parse_node(
-        self, node_type: INode[..., Any], node_config: NodeConfig | None = None
+        self, node_type: INode[..., Any], reuse: Maybe[bool] = LIHIL_MISSING
     ) -> list["ParsedParam[Any]"]:
-        if node_config:
-            node = self.graph.analyze(node_type, config=node_config)
+        if is_present(reuse):
+            node = self.graph.analyze(node_type, reuse=reuse)
         else:
             node = self.graph.analyze(node_type)
-
-        ignores = node_config.ignore if node_config else ()
 
         params: list[Any | DependentNode] = [node]
         for dep_name, dep in node.dependencies.items():
             ptype, default = dep.param_type, dep.default_
-            if dep_name in ignores or ptype in ignores:
-                continue
             default = LIHIL_MISSING if default is IDIDI_MISSING else default
             sub_params = self.parse_param(dep_name, cast(type, ptype), default)
             for sp in sub_params:
@@ -683,8 +679,8 @@ class EndpointParser:
                     else:
                         param_meta = meta
                 elif meta == USE_FACTORY_MARK:
-                    factory, config = parsed_metas[idx + 1], parsed_metas[idx + 2]
-                    return self._parse_node(factory, config)
+                    factory, reuse = parsed_metas[idx + 1], parsed_metas[idx + 2]
+                    return self._parse_node(factory, reuse)
 
         if source is not None:
             if param_meta is None:

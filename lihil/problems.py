@@ -80,7 +80,7 @@ def parse_exception(
         raise TypeError(f"Invalid exception type {exc}")
 
 
-DExc = TypeVar("DExc", bound=DetailBase[Any] | http_status.Status)
+DExc = TypeVar("DExc", bound=DetailBase[Any] | Exception | http_status.Status)
 
 
 def __erresp_factory_registry():

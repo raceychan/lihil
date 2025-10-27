@@ -15,7 +15,6 @@ from starlette.responses import StreamingResponse as StreamingResponse
 from starlette.routing import compile_path as compile_path
 from starlette.types import Lifespan as Lifespan
 from starlette.websockets import WebSocket as WebSocket
-from typing_extensions import Unpack
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -26,11 +25,4 @@ except (ImportError, RuntimeError):
     pass
 
 
-from ididi import use as ididi_use
-from ididi.interfaces import INodeConfig, INodeFactory
-
-
-def use(func: INodeFactory[P, T], **iconfig: Unpack[INodeConfig]):
-    if iconfig.get("reuse") is None:
-        iconfig["reuse"] = False
-    return ididi_use(func, **iconfig)
+from ididi import use as use

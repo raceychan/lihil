@@ -2,7 +2,7 @@ from typing import Annotated, Generic, TypeAlias, TypeVar, Union
 
 import pytest
 
-from lihil import Param
+from lihil import Param, use
 from lihil.interface import CustomEncoder
 from lihil.utils.typing import (
     deannotate,
@@ -205,3 +205,10 @@ def test_is_pydantic_model():
     assert is_pydantic_model(dict[str, PydanticType])
 
     assert not is_pydantic_model(MsgspecType)
+
+from lihil import Route
+
+def test_route_typing():
+    route = Route()
+
+    route.add_nodes(use(int))
