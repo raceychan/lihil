@@ -6,6 +6,8 @@ import msgspec
 import pytest
 from starlette.requests import Request
 
+pytest.importorskip("jwt", reason="pyjwt is not installed; install `lihil[auth]` to run JWT tests")
+
 from lihil import MISSING, DependentNode, Form, Graph, Param, Payload, Request, use
 from lihil.config import lhl_set_config
 from lihil.errors import InvalidParamError, InvalidParamSourceError, NotSupportedError

@@ -5,6 +5,8 @@ import pytest
 from ididi import AsyncScope, Graph, Ignore, use
 from starlette.requests import Request
 
+pytest.importorskip("jwt", reason="pyjwt is not installed; install `lihil[auth]` to run JWT tests")
+
 from lihil import (
     Empty,
     Form,
