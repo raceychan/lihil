@@ -1896,3 +1896,9 @@ Usage advice: keep tool functions asynchronous when interacting with remote serv
 ### Testing
 
 - Added regression coverage for the new TypedDict metadata and default-handling behaviour in `tests/test_signature/test_tool_parser.py`.
+
+## version 0.2.33
+
+### Dependencies
+
+- Pinned `ididi==1.7.5` and refreshed our dependency-injection integration (route factories, `Route.deps`, signature parser) so reuse hints from `use(...)` continue to work against the new API surface.
