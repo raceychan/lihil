@@ -19,7 +19,7 @@ class TodoCreated(Event):
     content: str
 
 
-async def listen_create(created: TodoCreated, _: Any, bus: Annotated[EventBus[Any], use(EventBus)]):
+async def listen_create(created: TodoCreated, _: Any, bus: Annotated[EventBus[Any], use(EventBus, reuse=True)]):
     assert created.name
     assert created.content
     assert isinstance(bus, EventBus)

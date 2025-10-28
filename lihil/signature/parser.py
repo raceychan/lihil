@@ -338,10 +338,10 @@ class EndpointParser:
             node = self.graph.analyze(node_type)
 
         params: list[Any | DependentNode] = [node]
-        for dep_name, dep in node.dependencies.items():
+        for dep in node.dependencies:
             ptype, default = dep.param_type, dep.default_
             default = LIHIL_MISSING if default is IDIDI_MISSING else default
-            sub_params = self.parse_param(dep_name, cast(type, ptype), default)
+            sub_params = self.parse_param(dep.name, cast(type, ptype), default)
             for sp in sub_params:
                 if not isinstance(sp, DependentNode):
                     self.node_derived.add(sp.name)

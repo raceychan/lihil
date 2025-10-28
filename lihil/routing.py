@@ -366,7 +366,8 @@ class Route(RouteBase):
             self._props = EndpointProps()
 
         if self._props.deps:
-            self._graph.add_nodes(*self._props.deps)
+            for dep in self._props.deps:
+                self._graph.node(dep)
 
         self._is_setup: bool = False
 

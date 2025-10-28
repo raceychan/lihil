@@ -1,6 +1,7 @@
 from typing import Annotated, Generic, TypeAlias, TypeVar, Union
 
 import pytest
+from ididi.errors import NotSupportedError
 
 from lihil import Param, use
 from lihil.interface import CustomEncoder
@@ -8,10 +9,10 @@ from lihil.utils.typing import (
     deannotate,
     get_origin_pro,
     is_nontextual_sequence,
+    is_pydantic_model,
     is_text_type,
     is_union_type,
     lenient_issubclass,
-    is_pydantic_model,
 )
 
 T = TypeVar("T")
@@ -206,9 +207,16 @@ def test_is_pydantic_model():
 
     assert not is_pydantic_model(MsgspecType)
 
+
 from lihil import Route
+
 
 def test_route_typing():
     route = Route()
 
     route.add_nodes(use(int))
+
+
+def test_algo():
+    with pytest.raises(NotSupportedError):
+        _ = Route(deps=[dict(a=1, b=2)])

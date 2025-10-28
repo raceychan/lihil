@@ -989,14 +989,14 @@ wheels = [
 
 [[package]]
 name = "ididi"
-version = "1.7.3"
+version = "1.7.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fc/06/36159aafddacf6a0f56f0c058c55c3a1149a4c13538e7a5f94248ca9456d/ididi-1.7.3.tar.gz", hash = "sha256:2cf375d5083c774c950d69e76153c545195f19376fb8025ec25eb25d9fb3509a", size = 262790, upload-time = "2025-10-26T14:31:02.804Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/73/c3/1979f49bf4972a6a7af7ee80aabf5a1b58464c4322a47e69762e4c6a10b5/ididi-1.7.5.tar.gz", hash = "sha256:d2e0a286d9ed492a74fe21bd05dff23acbbbe1b172f8152b08556ed1b750b6f0", size = 264355, upload-time = "2025-10-28T13:03:35.444Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/1a/598d3c80ef024552d0a3a6a99fffc1c59c8f6814d76539abf46d5982a6ee/ididi-1.7.3-py3-none-any.whl", hash = "sha256:5061d1123273be230649c246b78a28d8cf5aeca71d0ab6795e11dbb01cd27e43", size = 30454, upload-time = "2025-10-26T14:31:00.181Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/d0/f5402af8b0a8e810397a5785cde3415bb42088a0c8d2e605a6b5c5c431ac/ididi-1.7.5-py3-none-any.whl", hash = "sha256:d972e8d09762c4f586c7d6f75b902a8af0ed18f4166cb9925ecd9f8b75945223", size = 30733, upload-time = "2025-10-28T13:03:32.915Z" },
 ]
 
 [[package]]
@@ -1165,7 +1165,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ididi", specifier = "==1.7.3" },
+    { name = "ididi", specifier = "==1.7.5" },
     { name = "msgspec", specifier = ">=0.19.0" },
     { name = "pyjwt", marker = "extra == 'auth'", specifier = ">=2.10.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
