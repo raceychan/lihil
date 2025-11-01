@@ -204,33 +204,37 @@ def test_generate_oas_collects_schema_errors_structure():
     class Unknown:
         pass
 
-    route_bad_resp = Route("/bad-response")
+    api_route = Route("/api")
+    admin_route = api_route.sub("/admin")
 
-    @route_bad_resp.get
-    async def bad_response() -> Unknown:
+    @api_route.get
+    async def bad_root_response() -> Unknown:
         return Unknown()
 
-    route_bad_param = Route("/bad-param")
+    @api_route.post
+    async def ok_root_endpoint(data: str) -> dict[str, int]:
+        return {"value": 1}
 
-    @route_bad_param.get
-    async def bad_param(bad: Unknown) -> None:
+    @admin_route.get
+    async def bad_admin_param(admin_id: Unknown) -> None:
         return None
 
-    route_bad_resp._setup()
-    route_bad_param._setup()
+    @admin_route.post
+    async def ok_admin_endpoint() -> dict[str, str]:
+        return {"status": "ok"}
+
+    api_route._setup()
+    admin_route._setup()
 
     with pytest.raises(SchemaGenerationAggregateError) as exc_info:
-        generate_oas([route_bad_resp, route_bad_param], oas_config, "test")
+        generate_oas([api_route, admin_route], oas_config, "test")
 
     agg_error = exc_info.value
     assert len(agg_error.errors) == 2
 
     message = str(agg_error)
-    assert "- Route /bad-response" in message
-    assert "- Endpoint GET bad_response" in message
-    assert "Response 200" in message
-    assert "- Route /bad-param" in message
-    assert "Param query bad" in message
+    assert "GET /api bad_root_response -> Response[200, application/json [Unknown]]" in message
+    assert "GET /api/admin bad_admin_param (admin_id: Query[Unknown])" in message
 
 
 def test_detail_base_to_content():

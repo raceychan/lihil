@@ -1,5 +1,4 @@
 import re
-from collections import defaultdict
 from typing import Any, Sequence, cast, get_args
 
 from msgspec import Struct
@@ -53,47 +52,31 @@ class SchemaGenerationError(LihilError):
         self,
         message: str,
         *,
-        type_hint: Any,
-        detail: str,
+        type_hint: Any | None = None,
+        detail: str | None = None,
     ) -> None:
         super().__init__(message)
         self.base_message = message
+        self.type_hint = self._type_repr(type_hint) if type_hint is not None else None
+        self.detail = detail or ""
+        self.frames: dict[str, dict[str, Any]] = {}
+
+    @staticmethod
+    def _type_repr(value: Any) -> str:
+        if isinstance(value, str):
+            return value
         try:
-            type_repr = type_hint.__name__
-        except AttributeError:
-            type_repr = repr(type_hint)
+            return getattr(value, "__name__", None) or repr(value)
+        except Exception:  # pragma: no cover - defensive
+            return "<unrepresentable>"
 
-        self.type_hint: str = type_repr
-        self.detail = detail
-        self.frames: list[tuple[str, dict[str, Any]]] = []
+    def add_frame(self, kind: str, **info: Any):
+        self.frames.setdefault(kind, {}).update(info)
 
-    def add_frame(self, kind: str, **info: Any) -> "SchemaGenerationError":
-        payload = {k: v for k, v in info.items() if v is not None}
-        for idx, (existing_kind, existing_info) in enumerate(self.frames):
-            if existing_kind == kind:
-                existing_info.update(payload)
-                self.frames[idx] = (existing_kind, existing_info)
-                break
-        else:
-            self.frames.append((kind, payload))
-        return self
+    def get_frame(self, kind: str) -> dict[str, Any]:
+        return self.frames.get(kind, {})
 
-    def head_detail(self) -> str | None:
-        if not self.detail:
-            return None
-        for line in self.detail.splitlines():
-            stripped = line.strip()
-            if stripped:
-                return stripped
-        return None
-
-    def get_frame(self, kind: str) -> dict[str, str]:
-        for fkind, payload in self.frames:
-            if fkind == kind:
-                return payload
-        return {}
-
-    def describe(self) -> tuple[str, str]:
+    def describe(self) -> tuple[str, str | None]:
         param_info = self.get_frame("param")
         if param_info:
             source = param_info.get("source", "param")
@@ -110,41 +93,95 @@ class SchemaGenerationError(LihilError):
 
         return ("Schema", self.type_hint)
 
+    def format_context(self, descriptor: str, type_hint: str | None) -> str:
+        param_info = self.get_frame("param")
+        if param_info:
+            source = param_info.get("source", "param")
+            source_name = source.replace("_", " ").title()
+            name = param_info.get("name", "<unknown>")
+            detail = f"{name}: {source_name}"
+            if type_hint:
+                detail += f"[{type_hint}]"
+            return f" ({detail})"
+
+        resp_info = self.get_frame("response")
+        if resp_info:
+            status = resp_info.get("status", "<status>")
+            content_type = resp_info.get("content_type")
+            parts: list[str] = []
+            if status:
+                parts.append(str(status))
+            if content_type:
+                ct_part = str(content_type)
+                if type_hint:
+                    ct_part = f"{ct_part} [{type_hint}]"
+                parts.append(ct_part)
+            elif type_hint:
+                parts.append(f"[{type_hint}]")
+            scheme = ", ".join(parts)
+            return f" -> Response[{scheme}]"
+
+        if descriptor:
+            detail = descriptor
+            if type_hint:
+                detail += f" [{type_hint}]"
+            return f" ({detail})"
+
+        if type_hint:
+            return f" [{type_hint}]"
+
+        return ""
+
 
 class SchemaGenerationAggregateError(LihilError):
     """Aggregated schema generation errors collected across routes."""
 
-    def __init__(self, errors: Sequence[SchemaGenerationError]) -> None:
-        self.errors = list(errors)
+    def __init__(self, route_map: dict[str, list[SchemaGenerationError]]) -> None:
+        self.route_map = {k: list(v) for k, v in route_map.items()}
         super().__init__("Failed to generate OpenAPI schema")
 
-    def __str__(self) -> str:  # pragma: no cover - formatting helper
-        lines = [super().__str__()]
-        route_map: dict[str, dict[tuple[str, str], list[SchemaGenerationError]]] = (
-            defaultdict(lambda: defaultdict(list))
-        )
-        for error in self.errors:
-            route_info = error.get_frame("route")
-            route_path = route_info.get("path", "<unknown-route>")
-            endpoint_info = error.get_frame("endpoint")
+    @classmethod
+    def from_errors(
+        cls, errors: Sequence[SchemaGenerationError]
+    ) -> "SchemaGenerationAggregateError":
+        route_map: dict[str, list[SchemaGenerationError]] = {}
 
+        for error in errors:
+            route_path = error.get_frame("route").get("path", "<unknown-route>")
+            endpoint_info = error.get_frame("endpoint")
             method = endpoint_info.get("method", "<unknown-method>")
             name = endpoint_info.get("name", "<unknown-endpoint>")
 
-            route_map[route_path][(method, name)].append(error)
+            key = f"{method} {route_path} {name}"
+            route_map.setdefault(key, []).append(error)
 
-        for route, endpoint_map in route_map.items():
-            lines.append(f"- Route {route}")
-            for (method, name), errors in endpoint_map.items():
-                lines.append(f"  - Endpoint {method} {name}")
-                for error in errors:
-                    descriptor, type_hint = error.describe()
-                    message = error.base_message
-                    if type_hint:
-                        message = f"{message} [{type_hint}]"
-                    if detail := error.head_detail():
-                        message = f"{message} ({detail})"
-                    lines.append(f"    - {descriptor}: {message}")
+        return cls(route_map)
+
+    @property
+    def errors(self) -> list[SchemaGenerationError]:
+        return [error for errors in self.route_map.values() for error in errors]
+
+    def __str__(self) -> str:  # pragma: no cover - formatting helper
+        lines = [super().__str__()]
+        detail_blocks: list[str] = []
+        seen_details: set[str] = set()
+
+        for base_line, errors in self.route_map.items():
+            for error in errors:
+                descriptor, type_hint = error.describe()
+                context = error.format_context(descriptor, type_hint)
+                message = error.base_message
+                lines.append(f"- {base_line}{context} - {message}")
+                if detail := (error.detail or "").strip():
+                    if detail not in seen_details:
+                        seen_details.add(detail)
+                        detail_blocks.append(detail)
+
+        if detail_blocks:
+            lines.append("")
+            for block in detail_blocks:
+                lines.extend(block.splitlines())
+
         return "\n".join(lines)
 
 
@@ -158,7 +195,7 @@ def oas_schema(types: RegularTypes, schema_hook: SchemaHook = None) -> SchemaOut
         raise
     except Exception as exc:
         raise SchemaGenerationError(
-            "Unable to build JSON schema from type",
+            f"Unable to build JSON schema from type",
             type_hint=types,
             detail=str(exc),
         ) from exc
@@ -638,7 +675,7 @@ def generate_oas(
             errors.append(exc)
 
     if errors:
-        raise SchemaGenerationAggregateError(errors)
+        raise SchemaGenerationAggregateError.from_errors(errors)
     if schemas:
         components["schemas"] = schemas
 
