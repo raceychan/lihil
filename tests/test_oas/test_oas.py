@@ -10,6 +10,7 @@ from lihil.local_client import LocalClient
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
 from lihil.oas.doc_ui import get_problem_ui_html
 from lihil.oas.schema import (
+    SchemaGenerationAggregateError,
     detail_base_to_content,
     generate_oas,
     generate_op_from_ep,
@@ -197,6 +198,39 @@ async def test_route_not_include_schema():
 
 class Random(Struct):
     name: str
+
+
+def test_generate_oas_collects_schema_errors_structure():
+    class Unknown:
+        pass
+
+    route_bad_resp = Route("/bad-response")
+
+    @route_bad_resp.get
+    async def bad_response() -> Unknown:
+        return Unknown()
+
+    route_bad_param = Route("/bad-param")
+
+    @route_bad_param.get
+    async def bad_param(bad: Unknown) -> None:
+        return None
+
+    route_bad_resp._setup()
+    route_bad_param._setup()
+
+    with pytest.raises(SchemaGenerationAggregateError) as exc_info:
+        generate_oas([route_bad_resp, route_bad_param], oas_config, "test")
+
+    agg_error = exc_info.value
+    assert len(agg_error.errors) == 2
+
+    message = str(agg_error)
+    assert "- Route /bad-response" in message
+    assert "- Endpoint GET bad_response" in message
+    assert "Response 200" in message
+    assert "- Route /bad-param" in message
+    assert "Param query bad" in message
 
 
 def test_detail_base_to_content():

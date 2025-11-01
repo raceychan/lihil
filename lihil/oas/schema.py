@@ -1,10 +1,12 @@
 import re
+from collections import defaultdict
 from typing import Any, Sequence, cast, get_args
 
 from msgspec import Struct
 
 from lihil.config.app_config import IOASConfig
 from lihil.constant.status import phrase
+from lihil.errors import LihilError
 from lihil.interface import RegularTypes, is_present, is_set
 from lihil.oas import model as oasmodel
 from lihil.problems import (
@@ -44,9 +46,122 @@ class OneOfOutput(Struct):
     oneOf: list[SchemaOutput]
 
 
+class SchemaGenerationError(LihilError):
+    """Raised when OpenAPI schema generation fails for a specific element."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        type_hint: Any,
+        detail: str,
+    ) -> None:
+        super().__init__(message)
+        self.base_message = message
+        try:
+            type_repr = type_hint.__name__
+        except AttributeError:
+            type_repr = repr(type_hint)
+
+        self.type_hint: str = type_repr
+        self.detail = detail
+        self.frames: list[tuple[str, dict[str, Any]]] = []
+
+    def add_frame(self, kind: str, **info: Any) -> "SchemaGenerationError":
+        payload = {k: v for k, v in info.items() if v is not None}
+        for idx, (existing_kind, existing_info) in enumerate(self.frames):
+            if existing_kind == kind:
+                existing_info.update(payload)
+                self.frames[idx] = (existing_kind, existing_info)
+                break
+        else:
+            self.frames.append((kind, payload))
+        return self
+
+    def head_detail(self) -> str | None:
+        if not self.detail:
+            return None
+        for line in self.detail.splitlines():
+            stripped = line.strip()
+            if stripped:
+                return stripped
+        return None
+
+    def get_frame(self, kind: str) -> dict[str, str]:
+        for fkind, payload in self.frames:
+            if fkind == kind:
+                return payload
+        return {}
+
+    def describe(self) -> tuple[str, str]:
+        param_info = self.get_frame("param")
+        if param_info:
+            source = param_info.get("source", "param")
+            name = param_info.get("name", "<unknown>")
+            return (f"Param {source} {name}", self.type_hint)
+
+        resp_info = self.get_frame("response")
+        if resp_info:
+            status = resp_info.get("status", "<status>")
+            content_type = resp_info.get("content_type")
+            if content_type:
+                return (f"Response {status} {content_type}", self.type_hint)
+            return (f"Response {status}", self.type_hint)
+
+        return ("Schema", self.type_hint)
+
+
+class SchemaGenerationAggregateError(LihilError):
+    """Aggregated schema generation errors collected across routes."""
+
+    def __init__(self, errors: Sequence[SchemaGenerationError]) -> None:
+        self.errors = list(errors)
+        super().__init__("Failed to generate OpenAPI schema")
+
+    def __str__(self) -> str:  # pragma: no cover - formatting helper
+        lines = [super().__str__()]
+        route_map: dict[str, dict[tuple[str, str], list[SchemaGenerationError]]] = (
+            defaultdict(lambda: defaultdict(list))
+        )
+        for error in self.errors:
+            route_info = error.get_frame("route")
+            route_path = route_info.get("path", "<unknown-route>")
+            endpoint_info = error.get_frame("endpoint")
+
+            method = endpoint_info.get("method", "<unknown-method>")
+            name = endpoint_info.get("name", "<unknown-endpoint>")
+
+            route_map[route_path][(method, name)].append(error)
+
+        for route, endpoint_map in route_map.items():
+            lines.append(f"- Route {route}")
+            for (method, name), errors in endpoint_map.items():
+                lines.append(f"  - Endpoint {method} {name}")
+                for error in errors:
+                    descriptor, type_hint = error.describe()
+                    message = error.base_message
+                    if type_hint:
+                        message = f"{message} [{type_hint}]"
+                    if detail := error.head_detail():
+                        message = f"{message} ({detail})"
+                    lines.append(f"    - {descriptor}: {message}")
+        return "\n".join(lines)
+
 
 def oas_schema(types: RegularTypes, schema_hook: SchemaHook = None) -> SchemaOutput:
-    schema, definitions = json_schema(types, schema_hook)
+    if types is object:
+        types = Any
+
+    try:
+        schema, definitions = json_schema(types, schema_hook)
+    except SchemaGenerationError:
+        raise
+    except Exception as exc:
+        raise SchemaGenerationError(
+            "Unable to build JSON schema from type",
+            type_hint=types,
+            detail=str(exc),
+        ) from exc
 
     if anyOf := schema.pop("anyOf", None):  # rename
         schema["oneOf"] = anyOf
@@ -171,7 +286,11 @@ def param_schema(
 
     for group in single_value_param_group:
         for p in group.values():
-            ps = _single_field_schema(p, schemas)
+            try:
+                ps = _single_field_schema(p, schemas)
+            except SchemaGenerationError as exc:
+                exc.add_frame("param", name=p.name, source=p.source)
+                raise
             parameters.append(ps)
     return parameters
 
@@ -229,15 +348,23 @@ def body_schema(
     if is_file_body(param.type_):
         content = file_body_to_content(param, schemas)
     else:
-        content = type_to_content(param.type_, schemas, param.content_type)
+        try:
+            content = type_to_content(param.type_, schemas, param.content_type)
+        except SchemaGenerationError as exc:
+            exc.add_frame("param", name=param.name, source="body")
+            raise
     body = oasmodel.RequestBody(content=content, required=True)
     return body
 
 
 def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: str):
-    problem_content = schemas.get(ProblemDetail.__name__, None) or type_to_content(
-        ProblemDetail, schemas
-    )
+    try:
+        problem_content = schemas.get(ProblemDetail.__name__, None) or type_to_content(
+            ProblemDetail, schemas
+        )
+    except SchemaGenerationError as exc:
+        exc.add_frame("response", status="problem", content_type=PROBLEM_CONTENTTYPE)
+        raise
     problem_content = cast(dict[str, oasmodel.MediaType], problem_content)
 
     resps: dict[str, oasmodel.Response] = {}
@@ -267,7 +394,15 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
             # Single error type for this status code
             err_type = error_types[0]
             err_name = err_type.__name__
-            content = detail_base_to_content(err_type, problem_content, schemas)
+            try:
+                content = detail_base_to_content(err_type, problem_content, schemas)
+            except SchemaGenerationError as exc:
+                exc.add_frame(
+                    "response",
+                    status=status_str,
+                    content_type=PROBLEM_CONTENTTYPE,
+                )
+                raise
 
             # Create link to problem documentation
             resps[status_str] = oasmodel.Response(
@@ -286,7 +421,17 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
 
                 if err_name not in schemas:
                     schemas[err_name] = example_from_detail_base(err_type, problem_path)
-                    content = detail_base_to_content(err_type, problem_content, schemas)
+                    try:
+                        content = detail_base_to_content(
+                            err_type, problem_content, schemas
+                        )
+                    except SchemaGenerationError as exc:
+                        exc.add_frame(
+                            "response",
+                            status=status_str,
+                            content_type=PROBLEM_CONTENTTYPE,
+                        )
+                        raise
 
                 # Create a schema with title that references the actual schema
                 schema_with_title = oasmodel.Schema(
@@ -351,7 +496,15 @@ def get_resp_schemas(
             if ep_return.mark_type == "empty":
                 resps[status] = oasmodel.Response(description="No Content")
             else:
-                content = type_to_content(return_type, schemas, content_type)
+                try:
+                    content = type_to_content(return_type, schemas, content_type)
+                except SchemaGenerationError as exc:
+                    exc.add_frame(
+                        "response",
+                        status=status,
+                        content_type=content_type,
+                    )
+                    raise
                 resp = oasmodel.Response(description=description, content=content)
                 resps[status] = resp
     return resps
@@ -398,12 +551,16 @@ def generate_op_from_ep(
     summary = ep.name.replace("_", " ").title()
     description = trimdoc(ep.unwrapped_func.__doc__) or "Missing Description"
     operationId = generate_unique_id(ep)
-    params, body = generate_param_schema(ep.sig, schemas)
 
-    resps = get_resp_schemas(ep, schemas, problem_path)
-    err_resps = get_err_resp_schemas(ep, schemas, problem_path)
+    try:
+        params, body = generate_param_schema(ep.sig, schemas)
+        resps = get_resp_schemas(ep, schemas, problem_path)
+        err_resps = get_err_resp_schemas(ep, schemas, problem_path)
+    except SchemaGenerationError as exc:
+        exc.add_frame("endpoint", method=ep.method, name=ep.name)
+        raise
+
     security = get_ep_security(ep, security_schemas)
-
     resps.update(err_resps)
 
     op = oasmodel.Operation(
@@ -434,12 +591,16 @@ def get_path_item_from_route(
     for endpoint in route.endpoints.values():
         if not endpoint.props.in_schema:
             continue
-        operation = generate_op_from_ep(
-            ep=endpoint,
-            schemas=schemas,
-            security_schemas=security_schemas,
-            problem_path=problem_path,
-        )
+        try:
+            operation = generate_op_from_ep(
+                ep=endpoint,
+                schemas=schemas,
+                security_schemas=security_schemas,
+                problem_path=problem_path,
+            )
+        except SchemaGenerationError as exc:
+            exc.add_frame("route", path=route.path)
+            raise
         epoint_ops[endpoint.method.lower()] = operation
 
     path_item = oasmodel.PathItem(**epoint_ops)
@@ -461,16 +622,23 @@ def generate_oas(
     components: ComponentsDict = {}
     schemas: dict[str, Any] = {}
     security_schemas: SecurityDict = {}
+    errors: list[SchemaGenerationError] = []
 
     for route in routes:
         if not isinstance(route, Route) or not route.props.in_schema:
             continue
-        paths[route.path] = get_path_item_from_route(
-            route=route,
-            schemas=schemas,
-            security_schemas=security_schemas,
-            problem_path=oas_config.PROBLEM_PATH,
-        )
+        try:
+            paths[route.path] = get_path_item_from_route(
+                route=route,
+                schemas=schemas,
+                security_schemas=security_schemas,
+                problem_path=oas_config.PROBLEM_PATH,
+            )
+        except SchemaGenerationError as exc:
+            errors.append(exc)
+
+    if errors:
+        raise SchemaGenerationAggregateError(errors)
     if schemas:
         components["schemas"] = schemas
 
