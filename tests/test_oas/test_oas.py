@@ -57,9 +57,11 @@ async def test_get_order_schema(user_route: Route):
     ep_rt = current_ep.sig.return_params[200]
     ep_rt.type_ == Union[Order, User]
     components = {"schemas": {}}
-    ep_oas = generate_op_from_ep(
+    op, errs = generate_op_from_ep(
         current_ep, components["schemas"], {}, oas_config.PROBLEM_PATH
     )
+    assert op is not None
+    assert not errs
 
 
 async def test_get_hello_return(user_route: Route):
@@ -186,7 +188,7 @@ async def test_ep_not_include_schema():
     route.get(empty_ep, in_schema=False)
 
     ep = route.get_endpoint("GET")
-    schema = get_path_item_from_route(route, {}, {}, "")
+    schema = get_path_item_from_route(route, {}, {}, "", {})
     assert not is_set(schema.get)
 
 
@@ -241,6 +243,12 @@ def test_detail_base_to_content():
     assert detail_base_to_content(Random, {}, {})
 
 
+def test_object_schema_defaults_to_any():
+    output = oas_schema(object)
+    assert output.component is None
+    assert output.result["type"] == "object"
+
+
 async def test_ep_with_status_larger_than_300():
     async def create_user() -> (
         Annotated[str, status.NOT_FOUND] | Annotated[int, status.INTERNAL_SERVER_ERROR]
@@ -251,6 +259,59 @@ async def test_ep_with_status_larger_than_300():
     ep = route.get_endpoint(create_user)
 
     get_resp_schemas(ep, {}, "")
+
+
+def test_collects_multiple_param_errors_same_endpoint():
+    class Unknown:
+        pass
+
+    route = Route("/multi")
+
+    @route.get
+    async def bad_params(x: Unknown, y: Unknown) -> None:
+        return None
+
+    route._setup()
+
+    with pytest.raises(SchemaGenerationAggregateError) as exc_info:
+        generate_oas([route], oas_config, "test")
+
+    agg = exc_info.value
+    # Ensure two param errors are recorded for the same endpoint
+    assert "/multi" in agg.error_map
+    assert "GET" in agg.error_map["/multi"]
+    errs = agg.error_map["/multi"]["GET"]
+    assert len(errs) == 2
+    # Message contains grouped param contexts on one line
+    msg = str(agg)
+    assert "(x: Query[Unknown], y: Query[Unknown])" in msg
+
+
+def test_route_with_multiple_endpoints_have_errors():
+    class Unknown:
+        pass
+
+    route = Route("/same")
+
+    @route.get
+    async def bad_get(a: Unknown) -> None:
+        return None
+
+    @route.post
+    async def bad_post() -> Unknown:
+        return Unknown()
+
+    route._setup()
+
+    with pytest.raises(SchemaGenerationAggregateError) as exc_info:
+        generate_oas([route], oas_config, "test")
+
+    agg = exc_info.value
+    assert "/same" in agg.error_map
+    methods = agg.error_map["/same"]
+    assert "GET" in methods and "POST" in methods
+    assert len(methods["GET"]) >= 1
+    assert len(methods["POST"]) >= 1
 
 
 async def test_ep_without_ret():
@@ -317,8 +378,9 @@ async def test_route_with_pydantic_schema():
 
     ep = await lc.make_endpoint(create_user)
 
-    result = generate_op_from_ep(ep, {}, {}, "problems")
-    assert result
+    op, errs = generate_op_from_ep(ep, {}, {}, "problems")
+    assert op is not None
+    assert not errs
 
 
 def test_oas_schema_of_msgspec_and_pydantic():

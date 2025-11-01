@@ -18,7 +18,7 @@ from lihil.interface import (
 )
 from lihil.utils.typing import is_pydantic_model, is_text_type
 
-SchemaHook = Callable[[type], dict[str, Any]] | None
+SchemaHook = Callable[[type], dict[str, Any] | None] | None
 
 
 @lru_cache(256)
@@ -57,11 +57,24 @@ MSGSPEC_REF_TEMPLATE = "#/components/schemas/{name}"
 PYDANTIC_REF_TEMPLATE = "#/components/schemas/{model}"
 
 
+def _default_schema_hook(t: type) -> dict[str, Any] | None:
+    if t is object:
+        # Treat bare ``object`` annotations as unconstrained payloads.
+        return {"type": "object"}
+    return None
+
+
 def json_schema(
     type_: RegularTypes,
     schema_hook: SchemaHook = None,
     schema_generator: Maybe[Any] = MISSING,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    def _combined_hook(t: type) -> dict[str, Any] | None:
+        if schema_hook is not None:
+            custom_schema = schema_hook(t)
+            if custom_schema is not None:
+                return custom_schema
+        return _default_schema_hook(t)
 
     if is_pydantic_model(type_):
         if is_present(schema_generator):
@@ -74,7 +87,7 @@ def json_schema(
     else:
         (schema,), defs = schema_components(
             (type_,),
-            schema_hook=schema_hook,
+            schema_hook=_combined_hook,
             ref_template=MSGSPEC_REF_TEMPLATE,
         )
     return schema, defs
