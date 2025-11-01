@@ -1,26 +1,5 @@
 # CHANGELOG
 
-
-## Unreleased
-
-### Features
-
-- Rich OpenAPI schema diagnostics surface route, method, and type information whenever `SchemaGenerationError` is raised, making schema fixes faster.
-
-  ```python
-  with pytest.raises(SchemaGenerationAggregateError) as exc:
-      generate_oas([api_route, admin_route], oas_config, "test")
-
-  message = str(exc.value)
-  assert "GET /api bad_root_response -> Response[200, application/json [Unknown]]" in message
-  assert "GET /api/admin bad_admin_param (admin_id: Query[Unknown])" in message
-  ```
-
-### Enhancements
-
-- Aggregated schema failures now deduplicate error details and append route context automatically, so exception messages read like a ready-made checklist of fixes.
-
-
 ## version 0.1.1
 
 This is the very first version of lihil, but we already have a working version that users can play around with.
@@ -1922,3 +1901,117 @@ Usage advice: keep tool functions asynchronous when interacting with remote serv
 ### Dependencies
 
 - Pinned `ididi==1.7.5` and refreshed our dependency-injection integration (route factories, `Route.deps`, signature parser) so reuse hints from `use(...)` continue to work against the new API surface.
+
+
+
+## version 0.2.34
+
+### Features
+
+- Rich OpenAPI schema diagnostics surface route, method, and type information whenever `SchemaGenerationError` is raised, making schema fixes faster.
+
+  ```python
+  with pytest.raises(SchemaGenerationAggregateError) as exc:
+      generate_oas([api_route, admin_route], oas_config, "test")
+
+  message = str(exc.value)
+  assert "GET /api bad_root_response -> Response[200, application/json [Unknown]]" in message
+  assert "GET /api/admin bad_admin_param (admin_id: Query[Unknown])" in message
+  ```
+
+### Enhancements
+
+- Aggregated schema failures now deduplicate error details and append route context automatically, so exception messages read like a ready-made checklist of fixes.
+
+### Breaking Changes
+
+- OpenAPI schema error plumbing has been redesigned for clarity and stronger typing.
+  - `get_path_item_from_route` now requires an `error_map: dict[str, dict[str, list[SchemaGenerationError]]]` argument to collect errors without aborting.
+  - `generate_op_from_ep` now returns a tuple `(operation | None, errors: list[SchemaGenerationError])` instead of raising immediately, enabling the caller to aggregate endpoint-level failures.
+
+### Refactors
+
+- `SchemaGenerationError` is now a base class with two concrete subclasses:
+  - `ParamSchemaGenerationError(param_error: ParamError)`
+  - `ResponseGenerationError(response_error: ResponseError)`
+- Each exception instance represents exactly one error.
+- Strongly-typed error payloads using `msgspec.Struct`:
+  - `ParamError(name: str, source: str)` with `source_name` helper property.
+  - `ResponseError(status: str, content_type: str)`.
+- Removed the old frame-based context (`add_frame`/`get_frame`) and reflection fallbacks; errors carry explicit fields.
+- Aggregated output now groups multiple param errors for the same endpoint onto a single line for readability.
+
+### Examples
+
+Group multiple param errors for a single endpoint into one line:
+
+```python
+import pytest
+from lihil import Route
+from lihil.config import OASConfig
+from lihil.oas.schema import SchemaGenerationAggregateError, generate_oas
+
+oas_config = OASConfig()
+
+class Unknown:
+    pass
+
+route = Route("/multi")
+
+@route.get
+async def bad_params(x: Unknown, y: Unknown) -> None:
+    return None
+
+route._setup()
+
+with pytest.raises(SchemaGenerationAggregateError) as exc:
+    generate_oas([route], oas_config, "test")
+
+message = str(exc.value)
+assert "- GET /multi bad_params (x: Query[Unknown], y: Query[Unknown]) - Unable to build JSON schema" in message
+```
+
+Collect errors from multiple failing endpoints on the same route path:
+
+```python
+import pytest
+from lihil import Route
+from lihil.config import OASConfig
+from lihil.oas.schema import SchemaGenerationAggregateError, generate_oas
+
+oas_config = OASConfig()
+
+class Unknown:
+    pass
+
+route = Route("/same")
+
+@route.get
+async def bad_get(a: Unknown) -> None:
+    return None
+
+@route.post
+async def bad_post() -> Unknown:
+    return Unknown()
+
+route._setup()
+
+with pytest.raises(SchemaGenerationAggregateError) as exc:
+    generate_oas([route], oas_config, "test")
+
+agg = exc.value
+assert "/same" in agg.error_map
+assert "GET" in agg.error_map["/same"] and "POST" in agg.error_map["/same"]
+```
+
+Direct usage updates in tests and callers:
+
+```python
+# generate_op_from_ep now returns (operation | None, errors)
+op, errs = generate_op_from_ep(ep, {}, {}, oas_config.PROBLEM_PATH)
+assert not errs
+
+# get_path_item_from_route now accepts an error_map to collect failures
+error_map = {}
+path_item = get_path_item_from_route(route, {}, {}, oas_config.PROBLEM_PATH, error_map)
+```
