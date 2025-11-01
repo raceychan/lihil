@@ -1,6 +1,26 @@
 # CHANGELOG
 
 
+## Unreleased
+
+### Features
+
+- Rich OpenAPI schema diagnostics surface route, method, and type information whenever `SchemaGenerationError` is raised, making schema fixes faster.
+
+  ```python
+  with pytest.raises(SchemaGenerationAggregateError) as exc:
+      generate_oas([api_route, admin_route], oas_config, "test")
+
+  message = str(exc.value)
+  assert "GET /api bad_root_response -> Response[200, application/json [Unknown]]" in message
+  assert "GET /api/admin bad_admin_param (admin_id: Query[Unknown])" in message
+  ```
+
+### Enhancements
+
+- Aggregated schema failures now deduplicate error details and append route context automatically, so exception messages read like a ready-made checklist of fixes.
+
+
 ## version 0.1.1
 
 This is the very first version of lihil, but we already have a working version that users can play around with.

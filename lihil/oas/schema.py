@@ -52,13 +52,13 @@ class SchemaGenerationError(LihilError):
         self,
         message: str,
         *,
-        type_hint: Any | None = None,
-        detail: str | None = None,
+        type_hint: Any,
+        detail: str,
     ) -> None:
         super().__init__(message)
         self.base_message = message
-        self.type_hint = self._type_repr(type_hint) if type_hint is not None else None
-        self.detail = detail or ""
+        self.type_hint = self._type_repr(type_hint)
+        self.detail = detail
         self.frames: dict[str, dict[str, Any]] = {}
 
     @staticmethod
@@ -186,14 +186,9 @@ class SchemaGenerationAggregateError(LihilError):
 
 
 def oas_schema(types: RegularTypes, schema_hook: SchemaHook = None) -> SchemaOutput:
-    if types is object:
-        types = Any
-
     try:
         schema, definitions = json_schema(types, schema_hook)
-    except SchemaGenerationError:
-        raise
-    except Exception as exc:
+    except TypeError as exc:
         raise SchemaGenerationError(
             f"Unable to build JSON schema from type",
             type_hint=types,

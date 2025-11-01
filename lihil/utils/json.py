@@ -79,6 +79,7 @@ def json_schema(
         )
     return schema, defs
 
+
 def is_json_compatible(value: Any) -> bool:
     if value is None:
         return True
