@@ -20,8 +20,9 @@ from typing import (
 )
 from warnings import warn
 
-from ididi import DependentNode, Graph, INode, Resolver
+from ididi import DependentNode, Graph, Resolver
 from ididi.config import USE_FACTORY_MARK
+from ididi.interfaces import IDependent
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from msgspec import Struct, convert
 from msgspec.structs import NODEFAULT, FieldInfo
@@ -330,7 +331,7 @@ class EndpointParser:
         self.node_derived = set[str]()
 
     def _parse_node(
-        self, node_type: INode[..., Any], reuse: Maybe[bool] = LIHIL_MISSING
+        self, node_type: IDependent[Any], reuse: Maybe[bool] = LIHIL_MISSING
     ) -> list["ParsedParam[Any]"]:
         if is_present(reuse):
             node = self.graph.analyze(node_type, reuse=reuse)
@@ -341,10 +342,15 @@ class EndpointParser:
         for dep in node.dependencies:
             ptype, default = dep.param_type, dep.default_
             default = LIHIL_MISSING if default is IDIDI_MISSING else default
-            sub_params = self.parse_param(dep.name, cast(type, ptype), default)
+            try:
+                dep_annt = node_type.__annotations__[dep.name]
+                sub_params = self.parse_param(dep.name, dep_annt, default)
+            except (KeyError, InvalidParamError):
+                sub_params = self.parse_param(dep.name, cast(type, ptype), default)
             for sp in sub_params:
-                if not isinstance(sp, DependentNode):
-                    self.node_derived.add(sp.name)
+                if isinstance(sp, DependentNode):
+                    continue
+                self.node_derived.add(sp.name)
             params.extend(sub_params)
         return params
 
@@ -395,7 +401,7 @@ class EndpointParser:
             # IMPORTANT: Dependency injection has higher priority than body param parsing.
             # If a type is registered in the dependency graph, treat it as a dependency
             # even if it's a structured type that could be used as a body parameter.
-            nodes = self._parse_node(param_type)
+            nodes = self._parse_node(cast(type, param_type))
             return nodes
         elif is_body_param(param_type):
             if param_meta and param_meta.decoder:
@@ -442,7 +448,6 @@ class EndpointParser:
         default: Maybe[T],
         param_meta: ParamMeta,
     ) -> "ParsedParam[T]":
-
         req_param = req_param_factory(
             name=name,
             alias=header_key,
