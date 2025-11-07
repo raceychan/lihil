@@ -5,7 +5,9 @@ import pytest
 from ididi import AsyncScope, Graph, Ignore, use
 from starlette.requests import Request
 
-pytest.importorskip("jwt", reason="pyjwt is not installed; install `lihil[auth]` to run JWT tests")
+pytest.importorskip(
+    "jwt", reason="pyjwt is not installed; install `lihil[auth]` to run JWT tests"
+)
 
 from lihil import (
     Empty,
@@ -22,7 +24,7 @@ from lihil import (
     status,
 )
 from lihil.config import DEFAULT_CONFIG, lhl_set_config
-from lihil.errors import InvalidParamError, StatusConflictError
+from lihil.errors import InvalidEndpointError, InvalidParamError
 from lihil.interface import Base
 from lihil.local_client import LocalClient
 from lihil.plugins.auth.jwt import JWTAuthParam, JWTConfig
@@ -92,7 +94,7 @@ async def test_status_conflict(rusers: Route):
         return "hello"
 
     rusers.get(get_user)
-    with pytest.raises(StatusConflictError):
+    with pytest.raises(InvalidEndpointError):
         rusers.get_endpoint(get_user)
         rusers.setup()
 
@@ -207,7 +209,7 @@ async def test_regular_exception_solver():
     `Endpoint.make_call` routes such exceptions to the registered handler.
     """
 
-    from lihil.problems import problem_solver, get_solver
+    from lihil.problems import get_solver, problem_solver
     from lihil.vendors import Response
 
     class RegularError(Exception):
@@ -215,7 +217,9 @@ async def test_regular_exception_solver():
 
     @problem_solver
     def handle_regular_error(req: Request, exc: RegularError) -> Response:
-        return Response("regular exception handled", status_code=501, media_type="text/plain")
+        return Response(
+            "regular exception handled", status_code=501, media_type="text/plain"
+        )
 
     # Verify solver lookup works for regular exceptions
     assert get_solver(RegularError("boom")) is handle_regular_error
@@ -411,7 +415,7 @@ async def test_ep_requiring_file_bytse(rusers: Route, lc: LocalClient):
         return "ok"
 
     rusers.get(get)
-    with pytest.raises(InvalidParamError):
+    with pytest.raises(InvalidEndpointError):
         ep = rusers.get_endpoint("GET")
 
 
@@ -423,7 +427,7 @@ async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
         return "ok"
 
     rusers.get(get)
-    with pytest.raises(InvalidParamError):
+    with pytest.raises(InvalidEndpointError):
         rusers._setup()
 
 

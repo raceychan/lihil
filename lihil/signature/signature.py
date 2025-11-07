@@ -203,6 +203,7 @@ class Injector(Generic[R]):
                 params[name] = resolver
 
         for name, dep in self.deps:
+            # TODO: what if param is missing?
             params[name] = await resolver.aresolve(dep.dependent, **params)
 
         for p in self.transitive_params:

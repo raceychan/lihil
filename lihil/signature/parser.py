@@ -83,7 +83,7 @@ def is_body_param(annt: Any) -> bool:
         if annt_origin := get_origin(annt):
             return is_body_param(annt_origin)
         if not isinstance(annt, type):
-            raise InvalidParamError(f"Invalid type {annt} for body param")
+            return False
         return is_structured_type(annt) or is_file_body(annt)
 
 
@@ -260,6 +260,10 @@ def req_param_factory(
     else:
         decoder_ = textdecoder_factory(param_type=param_type)
 
+    param_origin, _ = get_origin_pro(param_type)
+    if not is_union_type(param_origin) and not isinstance(param_origin, type):
+        raise InvalidParamError(f"Invalid param type {param_type} for {source} param")
+
     match source:
         case "path":
             req_param = PathParam(
@@ -342,6 +346,9 @@ class EndpointParser:
         for dep in node.dependencies:
             ptype, default = dep.param_type, dep.default_
             default = LIHIL_MISSING if default is IDIDI_MISSING else default
+            # FIXME: find a better work around to solve this problem
+            # currently since ptype is from node.dependencies and it woudl 'purify' annotation
+            # so need to keep the original annotation where it uses Param("header")
             try:
                 dep_annt = node_type.__annotations__[dep.name]
                 sub_params = self.parse_param(dep.name, dep_annt, default)
@@ -604,7 +611,7 @@ class EndpointParser:
                 )
                 params.extend(fparams)
         else:
-            raise InvalidParamPackError(f"Invalid type for param pack {type_}")
+            raise InvalidParamPackError(f"Invalid type for param pack {name}: {type_}")
 
         return params
 
@@ -665,6 +672,31 @@ class EndpointParser:
         )
         return req_param
 
+    def _parse_meta_from_annotation(
+        self,
+        annotation: type[T] | UnionType | GenericAlias | TypeAliasType,
+        source: ParamSource | None = None,
+    ) -> tuple[type[T], ParamMeta | None]:
+        parsed_type, parsed_metas = get_origin_pro(annotation)
+        parsed_type = cast(type[T], parsed_type)
+        param_meta: ParamMeta | None = None
+        # TODO: parse default
+        if parsed_metas:
+            for idx, meta in enumerate(parsed_metas):
+                if isinstance(meta, (ParamMeta, BodyMeta)):
+                    if param_meta:
+                        param_meta = param_meta.merge(meta)  # type: ignore
+                    else:
+                        param_meta = meta
+
+        if source is not None:
+            if param_meta is None:
+                param_meta = ParamMeta(source=source)
+            elif param_meta.source is None:
+                param_meta = param_meta.replace(source=source)
+
+        return parsed_type, param_meta
+
     def parse_param(
         self,
         name: str,
@@ -672,6 +704,8 @@ class EndpointParser:
         default: Maybe[T] = LIHIL_MISSING,
         source: ParamSource | None = None,
     ) -> list[ParsedParam[T]]:
+        # b_parsed_type, b_param_meta = self._parse_meta_from_annotation(annotation, source)
+
         parsed_type, parsed_metas = get_origin_pro(annotation)
         parsed_type = cast(type[T], parsed_type)
         param_meta: ParamMeta | None = None
@@ -692,6 +726,8 @@ class EndpointParser:
                 param_meta = ParamMeta(source=source)
             elif param_meta.source is None:
                 param_meta = param_meta.replace(source=source)
+
+        # breakpoint()
 
         if param_meta is None or param_meta.source is None:
             res = self._parse_rule_based(
@@ -723,6 +759,7 @@ class EndpointParser:
                 default = LIHIL_MISSING
             else:
                 default = param.default
+
             parsed_params = self.parse_param(name, annotation, default)
             for req_param in parsed_params:
                 if isinstance(req_param, DependentNode):
@@ -737,7 +774,7 @@ class EndpointParser:
                     params[req_param.name] = req_param
 
         if self.seen_path:
-            warn(f"Unused path keys {self.seen_path}")
+            warn(f"Unused path keys {self.seen_path} from {self.route_path}")
 
         ep_params = EndpointParams(
             params=params, bodies=bodies, nodes=nodes, plugins=plugins

@@ -7,7 +7,7 @@ from msgspec import field
 from typing_extensions import NotRequired
 
 from lihil import Annotated, LocalClient, Param, Struct
-from lihil.errors import InvalidParamPackError
+from lihil.errors import InvalidParamPackError, InvalidEndpointError
 
 
 async def test_ep_with_dict():
@@ -16,7 +16,7 @@ async def test_ep_with_dict():
 
     lc = LocalClient()
 
-    with pytest.raises(InvalidParamPackError):
+    with pytest.raises(InvalidEndpointError):
         await lc.make_endpoint(login)
 
 
@@ -77,7 +77,7 @@ async def test_ep_with_dataclass_param_collection_and_factory():
 
     lc = LocalClient()
 
-    with pytest.raises(InvalidParamPackError):
+    with pytest.raises(InvalidEndpointError):
         await lc.make_endpoint(login)
 
 
@@ -114,7 +114,7 @@ async def test_ep_with_struct_param_collection_and_factory():
 
     lc = LocalClient()
 
-    with pytest.raises(InvalidParamPackError):
+    with pytest.raises(InvalidEndpointError):
         await lc.make_endpoint(login)
 
 
@@ -155,7 +155,7 @@ async def test_ep_with_struct_param_collection_with_default():
 
     lc = LocalClient()
 
-    with pytest.raises(InvalidParamPackError):
+    with pytest.raises(InvalidEndpointError):
         await lc.make_endpoint(login)
 
 
@@ -171,5 +171,5 @@ async def test_ep_with_struct_param_collection_with_union():
 
     lc = LocalClient()
 
-    with pytest.raises(InvalidParamPackError):
+    with pytest.raises(InvalidEndpointError):
         await lc.make_endpoint(login)

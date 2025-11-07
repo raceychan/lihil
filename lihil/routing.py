@@ -23,7 +23,7 @@ from typing_extensions import Self, Unpack
 
 from lihil.asgi import ASGIBase
 from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
-from lihil.errors import UnserializableResponseError
+from lihil.errors import InvalidEndpointError, LihilError, UnserializableResponseError
 from lihil.interface import (
     HTTP_METHODS,
     ASGIApp,
@@ -399,10 +399,12 @@ class Route(RouteBase):
         for method, ep in self._endpoints.items():
             if ep.is_setup:
                 continue
-            ep_sig = self.endpoint_parser.parse(ep.unwrapped_func)
-            ep._setup(ep_sig, self._graph)
+            try:
+                ep_sig = self.endpoint_parser.parse(ep.unwrapped_func)
+                ep._setup(ep_sig, self._graph)
+            except LihilError as le:
+                raise InvalidEndpointError(f"Failed to setup {ep}") from le
             self._call_stacks[method] = self.chainup_middlewares(ep)
-
         self._is_setup = True
 
     def get_endpoint(
