@@ -2019,3 +2019,14 @@ path_item = get_path_item_from_route(route, {}, {}, oas_config.PROBLEM_PATH, err
 ## version 0.2.35
 
 No longer pin swagger-ui version to 5.2.0, so that minor upgrades could be applied
+
+
+## version 0.2.36
+
+Fix:
+an urgen fix to solve the issue that, starting with 3.12 the `types.GenericAlias` objects they produce are no longer instances of type.
+
+
+where in lihil.signature.parser
+
+we asserted that req_param type must be instance of type;
