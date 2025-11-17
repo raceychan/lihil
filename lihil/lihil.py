@@ -22,10 +22,12 @@ from typing_extensions import Unpack
 from lihil.config import IAppConfig, lhl_get_config, lhl_read_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import (
+    LihilError,
     AppConfiguringError,
     DuplicatedRouteError,
     InvalidLifeSpanError,
     NotSupportedError,
+    RouteSetupError,
 )
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
@@ -197,7 +199,10 @@ class Lihil(ASGIBase):
         self._routes.extend(self._generate_builtin_routes())
 
         for route in self._routes:
-            route._setup(graph=self._graph, workers=self._workers)  # type: ignore
+            try:
+                route._setup(graph=self._graph, workers=self._workers)  # type: ignore
+            except LihilError as le:
+                raise RouteSetupError(route) from le
 
         self._is_setup = True
 

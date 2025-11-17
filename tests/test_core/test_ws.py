@@ -11,7 +11,7 @@ from lihil import (
     WebSocketRoute,
     use,
 )
-from lihil.errors import NotSupportedError
+from lihil.errors import RouteSetupError
 from lihil.plugins.bus import BusPlugin, BusTerminal, PEventBus
 
 
@@ -55,7 +55,7 @@ async def test_ws_with_body_fail(test_client):
 
     client = test_client(lhl)
 
-    with pytest.raises(NotSupportedError):
+    with pytest.raises(RouteSetupError):
         client.__enter__()
 
 

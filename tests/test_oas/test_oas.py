@@ -235,7 +235,10 @@ def test_generate_oas_collects_schema_errors_structure():
     assert len(agg_error.errors) == 2
 
     message = str(agg_error)
-    assert "GET /api bad_root_response -> Response[200, application/json [Unknown]]" in message
+    assert (
+        "GET /api bad_root_response -> Response[200, application/json [Unknown]]"
+        in message
+    )
     assert "GET /api/admin bad_admin_param (admin_id: Query[Unknown])" in message
 
 
@@ -433,3 +436,24 @@ def test_generate_tasg():
     for path, itm in oas.paths.items():
         if path.endswith("profiles"):
             assert itm.get.tags == ["profiles"]
+
+
+async def test_optional_query():
+    "before 0.2.14 we set in lihil.oas.schema._single_field_schema that param required is always true"
+
+    lc = LocalClient()
+
+    async def create_user(
+        age: int,
+        user_id: str | None = None,
+        address: Annotated[str, Param("header", alias="address")] = "",
+    ): ...
+
+    ep = await lc.make_endpoint(create_user)
+
+    assert not ep.sig.query_params["user_id"].required
+    assert ep.sig.query_params["age"].required
+    assert not ep.sig.header_params["address"].required
+
+    op, errs = generate_op_from_ep(ep, {}, {}, "problems")
+    assert op.parameters[1].schema_["oneOf"]

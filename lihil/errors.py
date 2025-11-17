@@ -67,3 +67,9 @@ class InvalidParamSourceError(LihilError):
     def __init__(self, source: str, param_sources: tuple[str, ...]):
         msg = f"Invalid source {source}, expected one of {param_sources}"
         super().__init__(msg)
+
+
+class RouteSetupError(LihilError):
+    def __init__(self, route: Any):
+        msg = f"Failed to setup route {route}"
+        super().__init__(msg)

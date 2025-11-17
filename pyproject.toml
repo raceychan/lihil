@@ -69,6 +69,7 @@ dev = [
   "dotenv>=0.9.9",
   "bcrypt>=4.3.0",
   "pydantic>=2.10.6",
+  "fastapi>=0.121.2",
 ]
 
 [tool.pyright]
