@@ -2015,3 +2015,7 @@ assert not errs
 error_map = {}
 path_item = get_path_item_from_route(route, {}, {}, oas_config.PROBLEM_PATH, error_map)
 ```
+
+## version 0.2.35
+
+No longer pin swagger-ui version to 5.2.0, so that minor upgrades could be applied
