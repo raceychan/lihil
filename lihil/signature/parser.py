@@ -261,7 +261,11 @@ def req_param_factory(
         decoder_ = textdecoder_factory(param_type=param_type)
 
     param_origin, _ = get_origin_pro(param_type)
-    if not is_union_type(param_origin) and not isinstance(param_origin, type):
+    # Python 3.12: builtin generics expose their typing info via types.GenericAlias,
+    # which should be treated as a valid "type" for request params.
+    if not is_union_type(param_origin) and not isinstance(
+        param_origin, (type, GenericAlias)
+    ):
         raise InvalidParamError(f"Invalid param type {param_type} for {source} param")
 
     match source:
