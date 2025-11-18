@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import is_dataclass
+from enum import EnumMeta
 from types import GenericAlias, UnionType
 from typing import (
     Annotated,
@@ -94,6 +95,9 @@ def is_nontextual_sequence(
         return False
 
     if type_origin in (str, bytes):
+        return False
+
+    if isinstance(type_origin, EnumMeta):
         return False
 
     if issubclass(type_origin, Sequence):

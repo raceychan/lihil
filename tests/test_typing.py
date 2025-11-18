@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Annotated, Generic, TypeAlias, TypeVar, Union
 
 import pytest
@@ -220,3 +221,12 @@ def test_route_typing():
 def test_algo():
     with pytest.raises(NotSupportedError):
         _ = Route(deps=[dict(a=1, b=2)])
+
+
+@pytest.mark.debug
+def test_str_enum_not_non_textual_sequence():
+    class MyStrEnum(str, Enum):
+        A = "a"
+        B = "b"
+
+    assert not is_nontextual_sequence(MyStrEnum)
