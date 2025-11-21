@@ -351,7 +351,7 @@ class EndpointParser:
             ptype, default = dep.param_type, dep.default_
             default = LIHIL_MISSING if default is IDIDI_MISSING else default
             # FIXME: find a better work around to solve this problem
-            # currently since ptype is from node.dependencies and it woudl 'purify' annotation
+            # currently since ptype is from node.dependencies and it would 'purify' annotation
             # so need to keep the original annotation where it uses Param("header")
             try:
                 dep_annt = node_type.__annotations__[dep.name]

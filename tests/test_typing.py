@@ -3,6 +3,7 @@ from typing import Annotated, Generic, TypeAlias, TypeVar, Union
 
 import pytest
 from ididi.errors import NotSupportedError
+from msgspec import Struct
 
 from lihil import Param, use
 from lihil.interface import CustomEncoder
@@ -229,4 +230,9 @@ def test_str_enum_not_non_textual_sequence():
         A = "a"
         B = "b"
 
+    class Payload(Struct):
+        name: str
+        age: int
+
     assert not is_nontextual_sequence(MyStrEnum)
+    assert not is_nontextual_sequence(Payload)

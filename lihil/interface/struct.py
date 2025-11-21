@@ -110,8 +110,9 @@ class Payload(Record, frozen=True, gc=False):
     """
 
 
-class CustomEncoder(Base):
-    encode: Callable[[Any], bytes]
+class CustomEncoder:
+    def __init__(self, encode: Callable[[Any], bytes]) -> None:
+        self.encode = encode
 
 
 def empty_encoder(param: Any) -> bytes:

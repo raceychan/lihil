@@ -1,6 +1,5 @@
 from collections.abc import Mapping
 from dataclasses import is_dataclass
-from enum import EnumMeta
 from types import GenericAlias, UnionType
 from typing import (
     Annotated,
@@ -84,26 +83,18 @@ def is_union_type(
 
 
 def is_nontextual_sequence(
-    type_: Any, strict: bool = False
+    type_: Any, strict: bool = True
 ) -> TypeGuard[list[Any] | tuple[Any] | bytearray]:
     type_origin = ty_get_origin(type_) or type_
 
     if type_origin is Union:
         return any(is_nontextual_sequence(arg, strict) for arg in get_args(type_))
 
-    if not isinstance(type_origin, type):
-        return False
+    sequence_types = (list, tuple, bytearray, set, frozenset)
+    if not strict:
+        sequence_types += (Sequence,)
 
-    if type_origin in (str, bytes):
-        return False
-
-    if isinstance(type_origin, EnumMeta):
-        return False
-
-    if issubclass(type_origin, Sequence):
-        return True
-
-    return not strict and issubclass(type_origin, (set, frozenset))
+    return isinstance(type_origin, type) and issubclass(type_origin, sequence_types)
 
 
 def is_text_type(t: type | UnionType | GenericAlias) -> bool:
