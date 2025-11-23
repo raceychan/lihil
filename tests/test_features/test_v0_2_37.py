@@ -2,6 +2,12 @@
 
 from typing import Annotated
 
+import pytest
+
+pytest.importorskip(
+    "jwt", reason="pyjwt is not installed; install `lihil[auth]` to run JWT tests"
+)
+
 from ididi import Ignore
 from jwt import PyJWT
 from msgspec import Struct, convert
