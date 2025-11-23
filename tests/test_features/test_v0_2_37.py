@@ -6,7 +6,7 @@ from ididi import Ignore
 from jwt import PyJWT
 from msgspec import Struct, convert
 
-from lihil import LocalClient, Param, Text, use
+from lihil import LocalClient, Param, use
 from lihil.interface import T
 
 """
@@ -58,8 +58,8 @@ async def get_user_id(
     return decoded.user_id
 
 
-async def get_age(age: int) -> Ignore[int]:
-    return age
+async def get_age(age: int, path_int: Annotated[int, Param("path")]) -> Ignore[int]:
+    return age + path_int
 
 
 FAKE_USER_DB = {
@@ -67,13 +67,20 @@ FAKE_USER_DB = {
 }
 
 
-async def get_me(user_id: Annotated[str, use(get_user_id)], age: Annotated[int, use(get_age)]) -> Text:
-    return FAKE_USER_DB[user_id]["name"]
+class User(Struct):
+    name: str
+    age: int
+
+
+async def get_me(
+    user_id: Annotated[str, use(get_user_id)], age: Annotated[int, use(get_age)]
+) -> User:
+    return User(name=FAKE_USER_DB[user_id]["name"], age=age)
 
 
 async def test_jwt_auth_param():
     lc = LocalClient()
-    ep = await lc.make_endpoint(get_me)
+    ep = await lc.make_endpoint(get_me, path="/me/{path_int}")
 
     resp = await lc.call_endpoint(
         ep,
@@ -82,5 +89,6 @@ async def test_jwt_auth_param():
             + PyJWT().encode({"user_id": "user123"}, "my secret", algorithm="HS256")
         },
         query_params={"age": "30"},
+        path_params={"path_int": "5"},
     )
-    assert await resp.text() == "Alice"
+    assert await resp.json() == {"name": "Alice", "age": 35}

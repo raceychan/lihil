@@ -270,9 +270,9 @@ class PathParam(Decodable[str, T], Generic[T], kw_only=True):
                 f"Path param {self} with default value is not supported"
             )
 
-    def extract(self, params: Mapping[str, str]) -> "ParamResult[T]":
+    def extract(self, path_params: Mapping[str, str]) -> "ParamResult[T]":
         try:
-            raw = params[self.alias]
+            raw = path_params[self.alias]
         except KeyError:
             return (MISSING, MissingRequestParam(self.source, self.alias))
 

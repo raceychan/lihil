@@ -121,7 +121,7 @@ class Injector(Generic[R]):
                     verrors.append(error)
 
         if self.path_params:
-            paths = conn.path_params
+            paths = conn.path_params or {}
             for name, param in self.path_params:
                 val, error = param.extract(paths)
                 if val is not MISSING:
