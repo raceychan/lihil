@@ -341,6 +341,7 @@ class EndpointParser:
     def _parse_node(
         self, node_type: IDependent[Any], reuse: Maybe[bool] = LIHIL_MISSING
     ) -> list["ParsedParam[Any]"]:
+
         if is_present(reuse):
             node = self.graph.analyze(node_type, reuse=reuse)
         else:
@@ -348,16 +349,9 @@ class EndpointParser:
 
         params: list[Any | DependentNode] = [node]
         for dep in node.dependencies:
-            ptype, default = dep.param_type, dep.default_
-            default = LIHIL_MISSING if default is IDIDI_MISSING else default
-            # FIXME: find a better work around to solve this problem
-            # currently since ptype is from node.dependencies and it would 'purify' annotation
-            # so need to keep the original annotation where it uses Param("header")
-            try:
-                dep_annt = node_type.__annotations__[dep.name]
-                sub_params = self.parse_param(dep.name, dep_annt, default)
-            except (KeyError, InvalidParamError):
-                sub_params = self.parse_param(dep.name, cast(type, ptype), default)
+            default = LIHIL_MISSING if dep.default_ is IDIDI_MISSING else dep.default_
+            sub_params = self.parse_param(dep.name, dep.annotation, default)
+
             for sp in sub_params:
                 if isinstance(sp, DependentNode):
                     continue
@@ -675,31 +669,6 @@ class EndpointParser:
             param_meta=param_meta,
         )
         return req_param
-
-    def _parse_meta_from_annotation(
-        self,
-        annotation: type[T] | UnionType | GenericAlias | TypeAliasType,
-        source: ParamSource | None = None,
-    ) -> tuple[type[T], ParamMeta | None]:
-        parsed_type, parsed_metas = get_origin_pro(annotation)
-        parsed_type = cast(type[T], parsed_type)
-        param_meta: ParamMeta | None = None
-        # TODO: parse default
-        if parsed_metas:
-            for idx, meta in enumerate(parsed_metas):
-                if isinstance(meta, (ParamMeta, BodyMeta)):
-                    if param_meta:
-                        param_meta = param_meta.merge(meta)  # type: ignore
-                    else:
-                        param_meta = meta
-
-        if source is not None:
-            if param_meta is None:
-                param_meta = ParamMeta(source=source)
-            elif param_meta.source is None:
-                param_meta = param_meta.replace(source=source)
-
-        return parsed_type, param_meta
 
     def parse_param(
         self,
