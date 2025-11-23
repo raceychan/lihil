@@ -22,6 +22,7 @@ from warnings import warn
 
 from ididi import DependentNode, Graph, Resolver
 from ididi.config import USE_FACTORY_MARK
+from ididi.errors import UnsolvableNodeError
 from ididi.interfaces import IDependent
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
 from msgspec import Struct, convert
@@ -213,11 +214,12 @@ def formdecoder_factory(
 
     ptype = cast(type[T], ptype)
     form_fields = lexient_get_fields(ptype)
+    multivar_fields = set(f.name for f in form_fields if is_nontextual_sequence(f.type))
 
     def form_decoder(form_data: FormData) -> T:
         values = {}
         for ffield in form_fields:
-            if is_nontextual_sequence(ffield.type):
+            if ffield.name in multivar_fields:
                 val = form_data.getlist(ffield.encode_name)
             else:
                 val = form_data.get(ffield.encode_name)
@@ -760,10 +762,17 @@ class EndpointParser:
         params = self.parse_params(func_sig.parameters)
         retns = parse_returns(func_sig.return_annotation)
 
-        scoped = any(
-            self.graph.should_be_scoped(node.dependent)
-            for node in params.nodes.values()
-        )
+        scoped = False
+
+        for node in params.nodes.values():
+            try:
+                if scoped := self.graph.should_be_scoped(node.dependent):
+                    break
+            except UnsolvableNodeError as une:
+                raise InvalidParamError(
+                    f"Failed to parse dependency {node.dependent} for endpoint {self.route_path}"
+                ) from une
+
         body_param_pair = params.get_body()
         body_param = body_param_pair[1] if body_param_pair else None
 

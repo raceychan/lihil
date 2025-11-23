@@ -14,6 +14,7 @@ from typing import (
 )
 from typing import get_origin as ty_get_origin
 from typing import overload
+from functools import lru_cache
 
 from msgspec import UNSET, Struct, UnsetType
 from typing_extensions import TypeAliasType, TypeGuard, is_typeddict
@@ -85,6 +86,7 @@ def is_union_type(
 NON_TEXTUAL_SEQUENCE_TYPES = (list, tuple, bytearray, set, frozenset)
 
 
+@lru_cache
 def is_nontextual_sequence(type_: Any, strict: bool = True) -> TypeGuard[Sequence[Any]]:
     type_origin = ty_get_origin(type_) or type_
 
