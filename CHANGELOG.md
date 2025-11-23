@@ -1,5 +1,73 @@
 # CHANGELOG
 
+## version 0.2.37
+
+### Fixes
+
+1. Fix a bug where if a param is a subclass of both str and enum.Enum then it will be treated as a sequence type
+
+e.g., Following test will fail before 0.2.37
+```python
+def test_ep_with_str_enum_param(ep_parser: EndpointParser):
+    from lihil import  Param
+
+    class MyStrEnum(str, Enum):
+        A = "a"
+        B = "b"
+
+    async def my_endpoint(param: Annotated[MyStrEnum, Param("query")]):
+        ...
+
+    sig = ep_parser.parse(my_endpoint)
+    param = sig.query_params["param"]
+    assert param.multivals is False
+```
+
+2. Fix a bug where subparams of
+
+
+
+### Example
+
+The new tests document how to compose nested dependencies that mix request sources:
+
+```python
+lc = LocalClient()
+ep = await lc.make_endpoint(
+    get_dashboard_summary,
+    path="/tenants/{tenant_hint}/dashboards/{view_id}",
+)
+
+resp = await lc.call_endpoint(
+    ep,
+    headers={
+        "Authorization": f"Bearer {token}",
+        "X-Region": "us-east-1",
+        "X-Request-Id": "req-xyz",
+        "cookie": "theme=contrast; trace=trace-999",
+    },
+    query_params={
+        "locale": "en-US",
+        "tenant": "tenant-query",
+        "variant": "beta",
+        "view": "summary",
+    },
+    path_params={"tenant_hint": "tenant-path", "view_id": "main"},
+)
+
+assert await resp.json() == {
+    "user_id": "user123",
+    "tenant_id": "tenant-query",
+    "locale": "en-US",
+    "region": "us-east-1",
+    "theme": "contrast",
+    "view": "summary",
+    "tier": "gold",
+    "variant": "beta",
+    "request_id": "req-xyz",
+}
+```
+
 ## version 0.2.36
 
 Fix:

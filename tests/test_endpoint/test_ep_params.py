@@ -1,6 +1,7 @@
 import sys
 from typing import Annotated
 from unittest import mock
+from enum import Enum
 
 import msgspec
 import pytest
@@ -567,3 +568,17 @@ def test_param_with_default_value(ep_parser: EndpointParser):
     res = ep_parser.parse_param("count", Annotated[int, Param("query")], use(get_ten))[
         0
     ]
+
+def test_ep_with_str_enum_param(ep_parser: EndpointParser):
+    from lihil import  Param
+
+    class MyStrEnum(str, Enum):
+        A = "a"
+        B = "b"
+
+    async def my_endpoint(param: Annotated[MyStrEnum, Param("query")]):
+        ...
+
+    sig = ep_parser.parse(my_endpoint)
+    param = sig.query_params["param"]
+    assert param.multivals is False
