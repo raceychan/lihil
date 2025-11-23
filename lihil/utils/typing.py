@@ -82,19 +82,22 @@ def is_union_type(
     return ty_get_origin(t) in (Union, UnionType)
 
 
-def is_nontextual_sequence(
-    type_: Any, strict: bool = True
-) -> TypeGuard[list[Any] | tuple[Any] | bytearray]:
+NON_TEXTUAL_SEQUENCE_TYPES = (list, tuple, bytearray, set, frozenset)
+
+
+def is_nontextual_sequence(type_: Any, strict: bool = True) -> TypeGuard[Sequence[Any]]:
     type_origin = ty_get_origin(type_) or type_
 
     if type_origin is Union:
         return any(is_nontextual_sequence(arg, strict) for arg in get_args(type_))
 
-    sequence_types = (list, tuple, bytearray, set, frozenset)
-    if not strict:
-        sequence_types += (Sequence,)
+    if not isinstance(type_origin, type):
+        return False
 
-    return isinstance(type_origin, type) and issubclass(type_origin, sequence_types)
+    if issubclass(type_origin, NON_TEXTUAL_SEQUENCE_TYPES):
+        return True
+    else:
+        return not strict and issubclass(type_origin, Sequence)
 
 
 def is_text_type(t: type | UnionType | GenericAlias) -> bool:

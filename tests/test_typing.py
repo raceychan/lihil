@@ -224,7 +224,6 @@ def test_algo():
         _ = Route(deps=[dict(a=1, b=2)])
 
 
-@pytest.mark.debug
 def test_str_enum_not_non_textual_sequence():
     class MyStrEnum(str, Enum):
         A = "a"
