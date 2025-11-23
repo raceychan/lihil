@@ -8,6 +8,7 @@ from msgspec import Struct, convert
 
 from lihil import LocalClient, Param, use
 from lihil.interface import T
+from lihil.plugins.auth.jwt import JWTAuthParam
 
 """
 write an endpoint that requires a function dependency which requires JWTAuthParam
@@ -115,7 +116,7 @@ class AuditResponse(Struct):
 
 
 async def get_user_id(
-    auth_header: Annotated[bytes, Param("header", alias="Authorization")],
+    auth_header: Annotated[bytes, JWTAuthParam],
     decoder: Annotated[JWTDecoder, use(get_jwt_decoder, reuse=True)],
 ) -> Ignore[str]:
     decoded = decoder.decode(auth_header, LoginResponse)

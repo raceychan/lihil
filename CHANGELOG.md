@@ -6,7 +6,7 @@
 
 1. Fix a bug where if a param is a subclass of both str and enum.Enum then it will be treated as a sequence type
 
-e.g., Following test will fail before 0.2.37
+e.g. Following test will fail before 0.2.37
 ```python
 def test_ep_with_str_enum_param(ep_parser: EndpointParser):
     from lihil import  Param
@@ -23,8 +23,22 @@ def test_ep_with_str_enum_param(ep_parser: EndpointParser):
     assert param.multivals is False
 ```
 
-2. Fix a bug where subparams of
+2. Fix a bug where subparams of a function dependency could not be properly parsed;
 
+e.g. This would fail before 0.2.37
+```python
+async def get_user_id(
+    auth_header: Annotated[bytes, JWTAuthParam],
+    decoder: Annotated[JWTDecoder, use(get_jwt_decoder, reuse=True)],
+) -> Ignore[str]:
+    decoded = decoder.decode(auth_header, LoginResponse)
+    return decoded.user_id
+
+async def get_me(
+    user_id: Annotated[str, use(get_user_id)], age: Annotated[int, use(get_age)]
+) -> User:
+    return User(name=FAKE_USER_DB[user_id]["name"], age=age)
+```
 
 
 ### Example
