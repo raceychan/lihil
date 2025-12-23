@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import Mock
 from lihil.websocket import WebSocketRoute, WebSocketEndpoint
 from lihil.errors import NotSupportedError
-from lihil.routing import Graph
+from lihil.routing import Graph, EndpointProps
 
 
 class TestWSEndpointCoverage:
@@ -13,7 +13,7 @@ class TestWSEndpointCoverage:
 
     def test_ws_endpoint_sync_function_error(self):
         """Test WebSocketEndpoint raises error for sync functions."""
-        route = Mock()
+        route = "/ws"
 
         def sync_function():
             return "sync"
@@ -23,8 +23,8 @@ class TestWSEndpointCoverage:
 
     def test_ws_endpoint_properties(self):
         """Test WSEndpoint property getters."""
-        route = Mock()
-        props = {"test": "value"}
+        route = "/ws"
+        props = EndpointProps()
 
         async def async_function():
             pass
@@ -100,7 +100,7 @@ class TestWSRouteCoverage:
         """Test WebSocketEndpoint.chainup_plugins functionality."""
         from lihil.routing import EndpointProps
 
-        route = Mock()
+        route = "/ws"
 
         async def ws_handler():
             pass
@@ -117,7 +117,7 @@ class TestWSRouteCoverage:
         # Mock signature
         sig = Mock()
 
-        result = endpoint.chainup_plugins(ws_handler, sig)
+        result = endpoint.chainup_plugins(ws_handler, sig, Graph())
 
         # Verify plugins were called
         assert plugin1.called
@@ -128,7 +128,7 @@ class TestWSRouteCoverage:
         """Test WebSocketEndpoint.chainup_plugins with duplicate plugins."""
         from lihil.routing import EndpointProps
 
-        route = Mock()
+        route = "/ws"
 
         async def ws_handler():
             pass
@@ -142,7 +142,7 @@ class TestWSRouteCoverage:
 
         sig = Mock()
 
-        result = endpoint.chainup_plugins(ws_handler, sig)
+        result = endpoint.chainup_plugins(ws_handler, sig, Graph())
 
         # Plugin should only be called once despite being in list twice
         assert plugin.call_count == 1

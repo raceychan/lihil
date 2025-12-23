@@ -10,11 +10,13 @@ from lihil.errors import (
     InvalidLifeSpanError,
     LihilError,
     NotSupportedError,
+    RouteSetupError,
 )
 from lihil.interface import ASGIApp, Base
 from lihil.lihil import Lihil, lhl_set_config, lifespan_wrapper
 from lihil.local_client import LocalClient
 from lihil.routing import Route
+from lihil import WebSocket, WebSocketRoute
 
 
 class CustomAppState(Base):
@@ -257,6 +259,83 @@ async def test_lihil_static_route_with_invalid_path():
     # Try to add a static route with a dynamic path
     with pytest.raises(NotSupportedError):
         app.static("/static/{param}", "Content")
+
+
+async def test_lihil_include_nested_http_and_ws_routes(test_client):
+    api_route = Route("api")
+    v1_route = api_route.sub("v1")
+    users_route = v1_route.sub("users")
+
+    async def get_users():
+        return {"message": "Users route"}
+
+    users_route.get(get_users)
+
+    ws_route = WebSocketRoute("ws")
+    ws_v1 = ws_route.sub("v1")
+    ws_notification = ws_v1.sub("notification")
+
+    async def ws_root(ws: WebSocket):
+        await ws.accept()
+        await ws.send_text("ws root")
+        await ws.close()
+
+    async def ws_v1_handler(ws: WebSocket):
+        await ws.accept()
+        await ws.send_text("ws v1")
+        await ws.close()
+
+    async def notify(ws: WebSocket):
+        await ws.accept()
+        await ws.send_text("ws ok")
+        await ws.close()
+
+    ws_route.ws_handler(ws_root)
+    ws_v1.ws_handler(ws_v1_handler)
+    ws_notification.ws_handler(notify)
+
+    app = Lihil(api_route, ws_route)
+
+    client = LocalClient()
+    resp = await client.call_app(app, "GET", "/api/v1/users")
+    assert (await resp.json())["message"] == "Users route"
+
+    wsc = test_client(app)
+    with wsc:
+        with wsc.websocket_connect("/ws/v1/notification") as websocket:
+            assert websocket.receive_text() == "ws ok"
+
+
+async def test_route_cannot_include_websocket():
+    api_route = Route("api")
+    ws_route = WebSocketRoute("ws")
+
+    async def ws_handler(ws: WebSocket):
+        await ws.accept()
+        await ws.close()
+
+    ws_route.ws_handler(ws_handler)
+
+    # Route.include_subroutes assumes HTTP endpoints; mixing WebSocketRoute should fail
+    with pytest.raises(AttributeError):
+        api_route.include_subroutes(ws_route)
+
+
+async def test_websocket_cannot_include_route():
+    ws_route = WebSocketRoute("ws")
+
+    async def ws_handler(ws: WebSocket):
+        await ws.accept()
+        await ws.send_text("root ws")
+        await ws.close()
+
+    ws_route.ws_handler(ws_handler)
+
+    api_route = Route("api")
+
+    # WebSocketRoute.include_subroutes assumes websocket endpoints; mixing Route should fail
+    with pytest.raises(AttributeError):
+        ws_route.include_subroutes(api_route)
 
 
 async def test_lihil_middleware():

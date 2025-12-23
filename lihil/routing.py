@@ -48,13 +48,13 @@ class EndpointInfo(Record, Generic[P, R]):
 class Endpoint(Generic[R]):
     def __init__(
         self,
-        route: "Route",
+        path: str,
         method: HTTP_METHODS,
         func: Callable[..., R],
         props: EndpointProps,
         workers: ThreadPoolExecutor | None,
     ):
-        self._route = route
+        self._path = path
         self._method: HTTP_METHODS = method
         self._unwrapped_func = func
         self._func = async_wrapper(func, threaded=props.to_thread, workers=workers)
@@ -63,11 +63,7 @@ class Endpoint(Generic[R]):
         self._is_setup: bool = False
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self._method}: {self._route.path!r} {self._func})"
-
-    @property
-    def route(self) -> "Route":
-        return self._route
+        return f"{self.__class__.__name__}({self._method}: {self._path!r} {self._func})"
 
     @property
     def props(self) -> EndpointProps:
@@ -75,7 +71,7 @@ class Endpoint(Generic[R]):
 
     @property
     def path(self) -> str:
-        return self._route.path
+        return self._path
 
     @property
     def name(self) -> str:
@@ -106,25 +102,25 @@ class Endpoint(Generic[R]):
         return self._is_setup
 
     def _chainup_plugins(
-        self, func: Callable[..., Awaitable[R]], sig: EndpointSignature[R]
+        self, func: Callable[..., Awaitable[R]], sig: EndpointSignature[R], graph: Graph
     ) -> Callable[..., Awaitable[R]]:
         seen: set[int] = set()
         for decor in self._props.plugins:
             if (decor_id := id(decor)) in seen:
                 continue
 
-            ep_info = EndpointInfo(self._route.graph, func, sig)
+            ep_info = EndpointInfo(graph, func, sig)
             func = decor(ep_info)
             seen.add(decor_id)
         return func
 
-    def _setup(self, sig: EndpointSignature[R], graph: Graph) -> None:
+    def setup(self, sig: EndpointSignature[R], graph: Graph) -> None:
         if self._is_setup:
             raise Exception(f"`setup` is called more than once in {self}")
 
         self._sig = sig
         self._graph = graph
-        self._func = self._chainup_plugins(self._func, self._sig)
+        self._func = self._chainup_plugins(self._func, self._sig, graph)
         self._injector = Injector(self._sig)
 
         self._static = sig.static
@@ -343,27 +339,11 @@ class Route(RouteBase):
                 continue
             try:
                 ep_sig = self.endpoint_parser.parse(ep.unwrapped_func)
-                ep._setup(ep_sig, self._graph)
+                ep.setup(ep_sig, self._graph)
             except LihilError as le:
                 raise InvalidEndpointError(f"Failed to setup {ep}") from le
             self._call_stacks[method] = self.chainup_middlewares(ep)
         self._is_setup = True
-
-    def get_endpoint(
-        self, method_func: HTTP_METHODS | Callable[..., Any]
-    ) -> Endpoint[Any]:
-        if not self._is_setup:
-            self._setup()
-
-        if isinstance(method_func, str):
-            methodname = cast(HTTP_METHODS, method_func.upper())
-            return self._endpoints[methodname]
-
-        for ep in self._endpoints.values():
-            if ep.unwrapped_func is method_func:
-                return ep
-        else:
-            raise KeyError(f"{method_func} is not in current route")
 
     def include_subroutes(self, *subs: Self, parent_prefix: str | None = None) -> None:
         """
@@ -392,6 +372,22 @@ class Route(RouteBase):
                 new_sub.include_subroutes(sub_sub, parent_prefix=sub._path)
             self._subroutes.append(new_sub)
 
+    def get_endpoint(
+        self, method_func: HTTP_METHODS | Callable[..., Any]
+    ) -> Endpoint[Any]:
+        if not self._is_setup:
+            self._setup()
+
+        if isinstance(method_func, str):
+            methodname = cast(HTTP_METHODS, method_func.upper())
+            return self._endpoints[methodname]
+
+        for ep in self._endpoints.values():
+            if ep.unwrapped_func is method_func:
+                return ep
+        else:
+            raise KeyError(f"{method_func} is not in current route")
+
     def add_endpoint(
         self,
         *methods: HTTP_METHODS,
@@ -410,7 +406,7 @@ class Route(RouteBase):
 
         for method in methods:
             endpoint = Endpoint(
-                self, method=method, func=func, props=props, workers=self._workers
+                self._path, method=method, func=func, props=props, workers=self._workers
             )
             self._endpoints[method] = endpoint
 

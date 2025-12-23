@@ -22,10 +22,10 @@ from typing_extensions import Unpack
 from lihil.config import IAppConfig, lhl_get_config, lhl_read_config, lhl_set_config
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import (
-    LihilError,
     AppConfiguringError,
     DuplicatedRouteError,
     InvalidLifeSpanError,
+    LihilError,
     NotSupportedError,
     RouteSetupError,
 )

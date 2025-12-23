@@ -14,10 +14,8 @@ from lihil.vendors import Response, WebSocket
 
 
 class WebSocketEndpoint:
-    def __init__(
-        self, route: "WebSocketRoute", func: Func[..., None], props: EndpointProps
-    ):
-        self._route = route
+    def __init__(self, path: str, func: Func[..., None], props: EndpointProps):
+        self._path = path
         self._unwrapped_func = func
         if not iscoroutinefunction(func):
             raise NotSupportedError("sync function is not supported for websocket")
@@ -34,27 +32,30 @@ class WebSocketEndpoint:
         return self._props
 
     def chainup_plugins(
-        self, func: Callable[..., Awaitable[None]], sig: EndpointSignature[None]
+        self,
+        func: Callable[..., Awaitable[None]],
+        sig: EndpointSignature[None],
+        graph: Graph,
     ) -> Callable[..., Awaitable[None]]:
         seen: set[int] = set()
         for decor in self._props.plugins:
             if (decor_id := id(decor)) in seen:
                 continue
 
-            ep_info = EndpointInfo(self._route.graph, func, sig)
+            ep_info = EndpointInfo(graph, func, sig)
             func = decor(ep_info)
             seen.add(decor_id)
         return func
 
-    def setup(self, sig: EndpointSignature[None]) -> None:
-        self._graph = self._route.graph
+    def setup(self, sig: EndpointSignature[None], graph: Graph) -> None:
+        self._graph = graph
         self._sig = sig
-        self._func = self.chainup_plugins(self._func, sig)
+        self._func = self.chainup_plugins(self._func, sig, graph)
         self._injector = Injector(self._sig)
         self._scoped: bool = self._sig.scoped
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self._route.path!r} {self._func})"
+        return f"{self.__class__.__name__}({self._path!r} {self._func})"
 
     async def make_call(
         self,
@@ -110,8 +111,15 @@ class WebSocketRoute(RouteBase):
             raise NotSupportedError(
                 f"Websocket does not support body param, got {sig.body_param}"
             )
-        self.endpoint.setup(sig)
+        self.endpoint.setup(sig, self._graph)
         self.call_stack = self.chainup_middlewares(self.endpoint)
+
+    def ws_handler(self, func: Any = None, **iprops: Unpack[IEndpointProps]) -> Any:
+        props = EndpointProps.from_unpack(**iprops)
+        endpoint = WebSocketEndpoint(self._path, func=func, props=props)
+
+        self.endpoint = endpoint
+        return func
 
     def include_subroutes(self, *subs: Self, parent_prefix: str | None = None) -> None:
         """
@@ -135,14 +143,6 @@ class WebSocketRoute(RouteBase):
             )
             if sub.endpoint is not None:
                 new_sub.ws_handler(sub.endpoint.unwrapped_func, **sub.endpoint.props)
-
             for sub_sub in sub_subs:
                 new_sub.include_subroutes(sub_sub, parent_prefix=sub._path)
             self._subroutes.append(new_sub)
-
-    def ws_handler(self, func: Any = None, **iprops: Unpack[IEndpointProps]) -> Any:
-        props = EndpointProps.from_unpack(**iprops)
-        endpoint = WebSocketEndpoint(self, func=func, props=props)
-
-        self.endpoint = endpoint
-        return func

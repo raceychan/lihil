@@ -538,7 +538,14 @@ async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
             assert isinstance(resolver, AsyncScope)
         return "ok"
 
+    async def post(
+        user_id: str, engine: Annotated[Engine, use(Engine)], resolver: AsyncScope
+    ) -> Annotated[Text, status.OK]:
+        assert isinstance(resolver, AsyncScope)
+        return "ok"
+
     rusers.get(get)
+    rusers.post(post, scoped=True)
 
     res = await lc.call_endpoint(
         rusers.get_endpoint("GET"), path_params={"user_id": "123"}
@@ -547,13 +554,6 @@ async def test_config_nonscoped_ep_to_be_scoped(rusers: Route, lc: LocalClient):
     text = await res.text()
     assert text == "ok"
 
-    async def post(
-        user_id: str, engine: Annotated[Engine, use(Engine)], resolver: AsyncScope
-    ) -> Annotated[Text, status.OK]:
-        assert isinstance(resolver, AsyncScope)
-        return "ok"
-
-    rusers.post(post, scoped=True)
     res = await lc.call_endpoint(
         rusers.get_endpoint("POST"), path_params={"user_id": "123"}
     )

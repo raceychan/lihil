@@ -13,14 +13,12 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 from msgspec.json import decode as json_decode
-from msgspec.json import encode as json_encode
 from typing_extensions import Unpack
 
 from lihil.errors import LihilError
 from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload, R
 from lihil.routing import Endpoint, IEndpointProps, Route
 from lihil.utils.json import encoder_factory
-from lihil.utils.typing import is_structured_type
 
 
 class Timer:
@@ -368,7 +366,7 @@ class LocalClient:
         """
 
         if not ep.is_setup:
-            ep.route._setup()
+            ep.setup()
 
         resp = await self.request(
             app=ep,
