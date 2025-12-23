@@ -273,7 +273,7 @@ class PathParam(Decodable[str, T], Generic[T], kw_only=True):
     def extract(self, path_params: Mapping[str, str]) -> "ParamResult[T]":
         try:
             raw = path_params[self.alias]
-        except KeyError:
+        except (KeyError, TypeError):
             return (MISSING, MissingRequestParam(self.source, self.alias))
 
         return self.validate(raw)

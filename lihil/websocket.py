@@ -13,7 +13,7 @@ from lihil.utils.string import merge_path
 from lihil.vendors import Response, WebSocket
 
 
-class WebSocketEndpoint:  # TODO:  endpoint base
+class WebSocketEndpoint:
     def __init__(
         self, route: "WebSocketRoute", func: Func[..., None], props: EndpointProps
     ):

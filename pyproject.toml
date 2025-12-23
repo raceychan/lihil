@@ -22,9 +22,9 @@ classifiers = [
 ]
 dependencies = [
   "ididi>=1.7.9",
-  "msgspec>=0.19.0",
+  "msgspec>=0.20.0",
   "python-multipart>=0.0.20",
-  "starlette>=0.48.0",
+  "starlette>=0.50.0",
   "typing-extensions>=4.12.2",
 ]
 description = "async python framework offering high level development, low level performance."

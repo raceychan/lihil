@@ -20,8 +20,8 @@ from lihil.signature.parser import BodyParam, is_file_body
 from lihil.utils.json import SchemaHook, json_schema
 from lihil.utils.string import to_kebab_case, trimdoc
 
-SchemasDict = dict[str, oasmodel.LenientSchema]
-SecurityDict = dict[str, oasmodel.SecurityScheme | oasmodel.Reference]
+SchemasDict = dict[str, oasmodel.OASLenientSchema]
+SecurityDict = dict[str, oasmodel.OASSecurityScheme | oasmodel.OASReference]
 ComponentsDict = dict[str, Any]
 
 
@@ -40,12 +40,12 @@ class ResponseError(Struct):
 
 
 class DefinitionOutput(Struct):
-    result: oasmodel.Schema
+    result: oasmodel.OASSchema
     component: None = None
 
 
 class ReferenceOutput(Struct):
-    result: oasmodel.Reference
+    result: oasmodel.OASReference
     component: SchemasDict
 
 
@@ -268,37 +268,37 @@ def oas_schema(types: RegularTypes, schema_hook: SchemaHook = None) -> SchemaOut
 
     if definitions:
         comp_dict = {
-            name: oasmodel.Schema(**schema) for name, schema in definitions.items()
+            name: oasmodel.OASSchema(**schema) for name, schema in definitions.items()
         }
         return ReferenceOutput(
-            cast(oasmodel.Reference, schema), cast(SchemasDict, comp_dict)
+            cast(oasmodel.OASReference, schema), cast(SchemasDict, comp_dict)
         )
     else:
-        return DefinitionOutput(cast(oasmodel.Schema, schema))
+        return DefinitionOutput(cast(oasmodel.OASSchema, schema))
 
 
 def type_to_content(
     type_: Any, schemas: SchemasDict, content_type: str = "application/json"
-) -> dict[str, oasmodel.MediaType]:
+) -> dict[str, oasmodel.OASMediaType]:
     output = oas_schema(type_)
     if output.component:
         schemas.update(output.component)
-        media_type = oasmodel.MediaType(schema_=output.result)
+        media_type = oasmodel.OASMediaType(schema_=output.result)
     else:
-        media_type = oasmodel.MediaType(schema_=output.result)
+        media_type = oasmodel.OASMediaType(schema_=output.result)
     return {content_type: media_type}
 
 
 def detail_base_to_content(
     err_type: type[DetailBase[Any]] | type[ProblemDetail[Any]],
-    problem_content: dict[str, oasmodel.MediaType],
+    problem_content: dict[str, oasmodel.OASMediaType],
     schemas: SchemasDict,
     content_type: str = PROBLEM_CONTENTTYPE,
-) -> dict[str, oasmodel.MediaType]:
+) -> dict[str, oasmodel.OASMediaType]:
     if not issubclass(err_type, DetailBase):
         return type_to_content(err_type, schemas)
 
-    ref: oasmodel.Reference | None = None
+    ref: oasmodel.OASReference | None = None
     org_base = getattr(err_type, "__orig_bases__", ())
     for base in org_base:
         typevars = get_args(base)
@@ -321,7 +321,7 @@ def detail_base_to_content(
     #     raise ValueError(f"Schema for {pb_name} not found in schemas")
 
     # Create a new schema for this specific error type
-    assert isinstance(problem_schema, oasmodel.Schema)
+    assert isinstance(problem_schema, oasmodel.OASSchema)
 
     # Clone the problem schema properties
     assert is_set(problem_schema.properties)
@@ -340,27 +340,27 @@ def detail_base_to_content(
     if schema_output.component:
         schemas.update(schema_output.component)
 
-    schemas[err_name] = oasmodel.Schema(
+    schemas[err_name] = oasmodel.OASSchema(
         type="object",
         properties=properties,
         examples=[example.asdict()],
         description=trimdoc(err_type.__doc__) or f"{err_name}",
-        externalDocs=oasmodel.ExternalDocumentation(
+        externalDocs=oasmodel.OASExternalDocumentation(
             description=f"Learn more about {err_name}", url=problem_link
         ),
     )
 
     # Return a reference to this schema
     return {
-        content_type: oasmodel.MediaType(
-            schema_=oasmodel.Reference(ref=f"#/components/schemas/{err_name}")
+        content_type: oasmodel.OASMediaType(
+            schema_=oasmodel.OASReference(ref=f"#/components/schemas/{err_name}")
         )
     }
 
 
 def _single_field_schema(
     param: "RequestParam[Any]", schemas: SchemasDict
-) -> oasmodel.Parameter:
+) -> oasmodel.OASParameter:
     output = oas_schema(param.type_)
     param_schema: dict[str, Any] = {
         "name": param.alias,
@@ -370,7 +370,7 @@ def _single_field_schema(
     if output.component:  # reference
         schemas.update(output.component)
     param_schema["schema_"] = output.result
-    ps = oasmodel.Parameter(**param_schema)
+    ps = oasmodel.OASParameter(**param_schema)
     return ps
 
 
@@ -379,8 +379,8 @@ def param_schema(
     schemas: SchemasDict,
     endpoint_name: str,
     errors: list[SchemaGenerationError],
-) -> list[oasmodel.Parameter | oasmodel.Reference]:
-    parameters: list[oasmodel.Parameter | oasmodel.Reference] = []
+) -> list[oasmodel.OASParameter | oasmodel.OASReference]:
+    parameters: list[oasmodel.OASParameter | oasmodel.OASReference] = []
     single_value_param_group = (
         ep_deps.query_params,
         ep_deps.path_params,
@@ -408,26 +408,26 @@ def param_schema(
 
 def example_from_detail_base(
     err_type: type[DetailBase[Any]], problem_path: str
-) -> oasmodel.Schema:
+) -> oasmodel.OASSchema:
     example = err_type.__json_example__()
     err_name = err_type.__name__
 
     # Create a schema for this specific error type
     problem_type = example.type_
     problem_url = f"{problem_path}/search?{problem_type}"
-    error_schema = oasmodel.Schema(
+    error_schema = oasmodel.OASSchema(
         type="object",
         title=err_name,  # Add title to make it show up in Swagger UI
         properties={
-            "type": oasmodel.Schema(type="string", examples=[example.type_]),
-            "title": oasmodel.Schema(type="string", examples=[example.title]),
-            "status": oasmodel.Schema(type="integer", examples=[example.status]),
-            "detail": oasmodel.Schema(type="string", examples=[example.detail]),
-            "instance": oasmodel.Schema(type="string", examples=[example.instance]),
+            "type": oasmodel.OASSchema(type="string", examples=[example.type_]),
+            "title": oasmodel.OASSchema(type="string", examples=[example.title]),
+            "status": oasmodel.OASSchema(type="integer", examples=[example.status]),
+            "detail": oasmodel.OASSchema(type="string", examples=[example.detail]),
+            "instance": oasmodel.OASSchema(type="string", examples=[example.instance]),
         },
         examples=[example.asdict()],
         description=trimdoc(err_type.__doc__) or err_name,
-        externalDocs=oasmodel.ExternalDocumentation(
+        externalDocs=oasmodel.OASExternalDocumentation(
             description=f"Learn more about {err_name}", url=problem_url
         ),
     )
@@ -436,7 +436,7 @@ def example_from_detail_base(
 
 def file_body_to_content(
     param: BodyParam[Any, Any], _: SchemasDict
-) -> dict[str, oasmodel.MediaType]:
+) -> dict[str, oasmodel.OASMediaType]:
     schema = {"type": "string", "format": "binary"}
     # if False: # list[UploadFile], not Implemented
     # schema = {"type": "array", "items": schema}
@@ -446,7 +446,7 @@ def file_body_to_content(
         "properties": {param.name: schema},
         "required": [param.name],
     }
-    media_type = oasmodel.MediaType(schema_=schema)
+    media_type = oasmodel.OASMediaType(schema_=schema)
     return {"multipart/form-data": media_type}
 
 
@@ -455,7 +455,7 @@ def body_schema(
     schemas: SchemasDict,
     endpoint_name: str,
     errors: list[SchemaGenerationError],
-) -> oasmodel.RequestBody | None:
+) -> oasmodel.OASRequestBody | None:
     if not (body_param := ep_deps.body_param):
         return None
     _, param = body_param
@@ -475,7 +475,7 @@ def body_schema(
                 )
             )
             return None
-    body = oasmodel.RequestBody(content=content, required=True)
+    body = oasmodel.OASRequestBody(content=content, required=True)
     return body
 
 
@@ -494,9 +494,9 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
                 status="problem", content_type=PROBLEM_CONTENTTYPE
             ),
         ) from exc
-    problem_content = cast(dict[str, oasmodel.MediaType], problem_content)
+    problem_content = cast(dict[str, oasmodel.OASMediaType], problem_content)
 
-    resps: dict[str, oasmodel.Response] = {}
+    resps: dict[str, oasmodel.OASResponse] = {}
 
     if user_provid_errors := ep.props.problems:
         errors = user_provid_errors + [InvalidRequestErrors]
@@ -537,7 +537,7 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
                 ) from exc
 
             # Create link to problem documentation
-            resps[status_str] = oasmodel.Response(
+            resps[status_str] = oasmodel.OASResponse(
                 description=phrase(status_code),
                 content=content,
             )
@@ -569,9 +569,9 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
                         ) from exc
 
                 # Create a schema with title that references the actual schema
-                schema_with_title = oasmodel.Schema(
+                schema_with_title = oasmodel.OASSchema(
                     title=err_name,
-                    allOf=[oasmodel.Reference(ref=f"#/components/schemas/{err_name}")],
+                    allOf=[oasmodel.OASReference(ref=f"#/components/schemas/{err_name}")],
                 )
 
                 # Add the schema with title to the oneOf list
@@ -586,19 +586,19 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
                 for err_type in error_types
             }
 
-            one_of_schema = oasmodel.Schema(
+            one_of_schema = oasmodel.OASSchema(
                 oneOf=one_of_schemas,
-                discriminator=oasmodel.Discriminator(
+                discriminator=oasmodel.OASDiscriminator(
                     propertyName="type", mapping=error_mapping
                 ),
                 description=f"chek {problem_path} for further details",
             )
 
             # Add to responses
-            resps[status_str] = oasmodel.Response(
+            resps[status_str] = oasmodel.OASResponse(
                 description=phrase(status_code),
                 content={
-                    PROBLEM_CONTENTTYPE: oasmodel.MediaType(schema_=one_of_schema)
+                    PROBLEM_CONTENTTYPE: oasmodel.OASMediaType(schema_=one_of_schema)
                 },
             )
 
@@ -607,9 +607,9 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
 
 def get_resp_schemas(
     ep: Endpoint[Any], schemas: SchemasDict, problem_path: str
-) -> dict[str, oasmodel.Response]:
-    resps: dict[str, oasmodel.Response] = {
-        "200": oasmodel.Response(description="Sucessful Response")
+) -> dict[str, oasmodel.OASResponse]:
+    resps: dict[str, oasmodel.OASResponse] = {
+        "200": oasmodel.OASResponse(description="Sucessful Response")
     }
 
     for status, ep_return in ep.sig.return_params.items():
@@ -629,7 +629,7 @@ def get_resp_schemas(
             return resps
         else:
             if ep_return.mark_type == "empty":
-                resps[status] = oasmodel.Response(description="No Content")
+                resps[status] = oasmodel.OASResponse(description="No Content")
             else:
                 try:
                     content = type_to_content(return_type, schemas, content_type)
@@ -643,7 +643,7 @@ def get_resp_schemas(
                             status=status, content_type=content_type
                         ),
                     ) from exc
-                resp = oasmodel.Response(description=description, content=content)
+                resp = oasmodel.OASResponse(description=description, content=content)
                 resps[status] = resp
     return resps
 
@@ -673,7 +673,7 @@ def get_ep_security(
     auth_scheme = ep.props.auth_scheme
     if auth_scheme:
         scheme_name = auth_scheme.scheme_name
-        security_schemas[scheme_name] = cast(oasmodel.SecurityScheme, auth_scheme.model)
+        security_schemas[scheme_name] = cast(oasmodel.OASSecurityScheme, auth_scheme.model)
         security: dict[str, list[str]] = {scheme_name: []}
         if auth_scopes := auth_scheme.scopes:
             for name, scope in auth_scopes.items():
@@ -689,7 +689,7 @@ def generate_op_from_ep(
     schemas: SchemasDict,
     security_schemas: SecurityDict,
     problem_path: str,
-) -> tuple[oasmodel.Operation | None, list[SchemaGenerationError]]:
+) -> tuple[oasmodel.OASOperation | None, list[SchemaGenerationError]]:
     tags = ep.props.tags
     summary = ep.name.replace("_", " ").title()
     description = trimdoc(ep.unwrapped_func.__doc__) or "Missing Description"
@@ -709,7 +709,7 @@ def generate_op_from_ep(
     security = get_ep_security(ep, security_schemas)
     resps.update(err_resps)
 
-    op = oasmodel.Operation(
+    op = oasmodel.OASOperation(
         tags=tags or oasmodel.UNSET,
         summary=summary,
         description=description,
@@ -729,7 +729,7 @@ def get_path_item_from_route(
     security_schemas: SecurityDict,
     problem_path: str,
     error_map: dict[str, dict[str, list[SchemaGenerationError]]],
-) -> oasmodel.PathItem:
+) -> oasmodel.OASPathItem:
 
     # 1 pathitem = 1 route
     # 1 operation = 1 endpoint
@@ -754,7 +754,7 @@ def get_path_item_from_route(
         assert operation is not None
         epoint_ops[endpoint.method.lower()] = operation
 
-    path_item = oasmodel.PathItem(**epoint_ops)
+    path_item = oasmodel.OASPathItem(**epoint_ops)
     return path_item
 
 
@@ -767,9 +767,9 @@ def generate_oas(
     routes: Sequence[RouteBase],
     oas_config: IOASConfig,
     app_version: str,
-) -> oasmodel.OpenAPI:
+) -> oasmodel.OASOpenAPI:
     "Return application/json response"
-    paths: dict[str, oasmodel.PathItem] = {}
+    paths: dict[str, oasmodel.OASPathItem] = {}
     components: ComponentsDict = {}
     schemas: dict[str, Any] = {}
     security_schemas: SecurityDict = {}
@@ -795,10 +795,10 @@ def generate_oas(
     if security_schemas:
         components["securitySchemes"] = security_schemas
 
-    comp = oasmodel.Components(**components)
-    info = oasmodel.Info(title=oas_config.TITLE, version=app_version)
+    comp = oasmodel.OASComponents(**components)
+    info = oasmodel.OASInfo(title=oas_config.TITLE, version=app_version)
 
-    oas = oasmodel.OpenAPI(
+    oas = oasmodel.OASOpenAPI(
         openapi=oas_config.VERSION,
         info=info,
         paths=paths,

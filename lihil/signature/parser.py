@@ -679,19 +679,17 @@ class EndpointParser:
         default: Maybe[T] = LIHIL_MISSING,
         source: ParamSource | None = None,
     ) -> list[ParsedParam[T]]:
-        # b_parsed_type, b_param_meta = self._parse_meta_from_annotation(annotation, source)
-
         parsed_type, parsed_metas = get_origin_pro(annotation)
         parsed_type = cast(type[T], parsed_type)
         param_meta: ParamMeta | None = None
-        # TODO: parse default
+
         if parsed_metas:
             for idx, meta in enumerate(parsed_metas):
                 if isinstance(meta, (ParamMeta, BodyMeta)):
-                    if param_meta:
-                        param_meta = param_meta.merge(meta)  # type: ignore
-                    else:
+                    if param_meta is None:
                         param_meta = meta
+                    else:
+                        param_meta = param_meta.merge(meta)  # type: ignore
                 elif meta == USE_FACTORY_MARK:
                     factory, reuse = parsed_metas[idx + 1], parsed_metas[idx + 2]
                     return self._parse_node(factory, reuse)
@@ -701,8 +699,6 @@ class EndpointParser:
                 param_meta = ParamMeta(source=source)
             elif param_meta.source is None:
                 param_meta = param_meta.replace(source=source)
-
-        # breakpoint()
 
         if param_meta is None or param_meta.source is None:
             res = self._parse_rule_based(
@@ -749,7 +745,9 @@ class EndpointParser:
                     params[req_param.name] = req_param
 
         if self.seen_path:
-            warn(f"Unused path keys {self.seen_path} from {self.route_path}")
+            warn(
+                f"Path params {self.seen_path} appeared in {self.route_path} but not used in endpoint function"
+            )
 
         ep_params = EndpointParams(
             params=params, bodies=bodies, nodes=nodes, plugins=plugins

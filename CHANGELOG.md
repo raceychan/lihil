@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## version 0.2.38
+
+GOAL: give user ultimate control over oas
+
+t1:
+    support content-type in `Param`
+t2:
+    support Annotated[T, Resp("")]
+
+
+
 ## version 0.2.37
 
 ### Fixes

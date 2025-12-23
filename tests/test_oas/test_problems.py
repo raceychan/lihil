@@ -171,31 +171,6 @@ def test_a_random_exc_without_status():
     assert get_solver(unreg_status_exc) is None
 
 
-# def test_exc_is_detailbase():
-#     "when exc is annotated exc: DetailBase"
-
-#     @problem_solver
-#     def handle_detail_base(req: Request, exc: DetailBase[Any]) -> ErrorResponse[Any]:
-#         detail = exc.__problem_detail__(req.url.path)
-#         return ErrorResponse[Any](detail, status_code=detail.status)
-
-#     # Create a custom exception
-#     class CustomException(HTTPException[str]):
-#         __status__ = http_status.code(http_status.BAD_REQUEST)
-
-#     # Test that our handler is used for any DetailBase subclass
-#     mock_req = Request({"type": "http", "path": "/test"})
-#     custom_exc = CustomException("Custom error")
-
-#     handler = get_solver(custom_exc)
-#     # assert handler is handle_detail_base
-
-#     # Verify the handler works correctly
-#     response = handler(mock_req, custom_exc)
-#     assert isinstance(response, ErrorResponse)
-#     assert response.status_code == http_status.code(http_status.BAD_REQUEST)
-
-
 def test_call_httpexcpt__problem_detail__():
     "test if httpexception.__problem_detail__ works properly"
 

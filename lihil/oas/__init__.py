@@ -13,15 +13,15 @@ from lihil.utils.json import encoder_factory
 from lihil.vendors import Response
 
 from .doc_ui import get_problem_ui_html, get_swagger_ui_html
-from .model import OpenAPI
+from .model import OASOpenAPI
 from .schema import generate_oas
 
 
 def get_openapi_route(
     routes: list[RouteBase], oas_config: IOASConfig, app_version: str
 ) -> Route:
-    oas: OpenAPI | None = None
-    encoder = encoder_factory(t=OpenAPI)
+    oas: OASOpenAPI | None = None
+    encoder = encoder_factory(t=OASOpenAPI)
 
     async def openapi():
         nonlocal oas

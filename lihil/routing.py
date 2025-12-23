@@ -2,23 +2,11 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from functools import partial
 from inspect import isasyncgen, isgenerator
 from types import MappingProxyType
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Generic,
-    Literal,
-    Pattern,
-    Sequence,
-    TypedDict,
-    cast,
-    overload,
-)
+from typing import Any, Awaitable, Callable, Generic, Pattern, cast, overload
 
 from ididi import Graph
 from ididi.graph import Resolver
 from ididi.interfaces import NodeIgnoreConfig
-from msgspec import field
 from typing_extensions import Self, Unpack
 
 from lihil.asgi import ASGIBase
@@ -29,7 +17,6 @@ from lihil.interface import (
     ASGIApp,
     Func,
     IAsyncFunc,
-    IEncoder,
     IReceive,
     IScope,
     ISend,
@@ -38,9 +25,8 @@ from lihil.interface import (
     R,
     Record,
 )
-from lihil.plugins import IPlugin
-from lihil.plugins.auth.oauth import AuthBase
-from lihil.problems import DetailBase, get_solver
+from lihil.problems import get_solver
+from lihil.props import EndpointProps, IEndpointProps
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
 from lihil.utils.string import (
@@ -51,50 +37,6 @@ from lihil.utils.string import (
 )
 from lihil.utils.threading import async_wrapper
 from lihil.vendors import Request, Response, StreamingResponse
-
-
-class IEndpointProps(TypedDict, total=False):
-    problems: Sequence[type[DetailBase[Any]]] | type[DetailBase[Any]]
-    "Errors that might be raised from the current `endpoint`. These will be treated as responses and displayed in OpenAPI documentation."
-    in_schema: bool
-    "Whether to include this endpoint inside openapi docs"
-    to_thread: bool
-    "Whether this endpoint should be run wihtin a separate thread, only apply to sync function"
-    scoped: Literal[True] | None
-    "Whether current endpoint should be scoped"
-    auth_scheme: AuthBase | None
-    "Auth Scheme for access control"
-    tags: list[str] | None
-    "OAS tag, endpoints with the same tag will be grouped together"
-    encoder: IEncoder | None
-    "Return Encoder"
-    plugins: list[IPlugin]
-    "Decorators to decorate the endpoint function"
-    deps: list[Any] | None
-    "Dependencies that might be used in "
-
-
-class EndpointProps(Record, kw_only=True):
-    problems: list[type[DetailBase[Any]]] = field(
-        default_factory=list[type[DetailBase[Any]]]
-    )
-    to_thread: bool = True
-    in_schema: bool = True
-    scoped: Literal[True] | None = None
-    auth_scheme: AuthBase | None = None
-    tags: list[str] | None = None
-    encoder: IEncoder | None = None
-    plugins: list[IPlugin] = field(default_factory=list[IPlugin])
-    deps: list[Any] | None = None
-
-    @classmethod
-    def from_unpack(cls, **iconfig: Unpack[IEndpointProps]):
-        if problems := iconfig.get("problems"):
-            if not isinstance(problems, Sequence):
-                problems = [problems]
-
-            iconfig["problems"] = problems
-        return cls(**iconfig)  # type: ignore
 
 
 class EndpointInfo(Record, Generic[P, R]):

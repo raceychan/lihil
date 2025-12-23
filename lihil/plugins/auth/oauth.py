@@ -3,7 +3,12 @@ from typing import Annotated, ClassVar, Literal
 from msgspec import field
 
 from lihil.interface import UNSET, Base, Payload, UnsetType, Unset
-from lihil.oas.model import AuthModel, OAuth2, OAuthFlowPassword, OAuthFlows
+from lihil.oas.model import (
+    OASAuthModel,
+    OASOAuth2,
+    OASOAuthFlowPassword,
+    OASOAuthFlows,
+)
 from lihil.signature.params import Form
 
 
@@ -45,7 +50,10 @@ class AuthBase:
     "A base class for all auth schemes"
 
     def __init__(
-        self, model: AuthModel, scheme_name: str, scopes: dict[str, str] | None = None
+        self,
+        model: OASAuthModel,
+        scheme_name: str,
+        scopes: dict[str, str] | None = None,
     ):
         self.model = model
         self.scheme_name = scheme_name
@@ -59,7 +67,7 @@ class OAuth2Base(AuthBase):
         self,
         description: UnsetType | str = UNSET,
         auto_error: bool = True,
-        flows: OAuthFlows | None = None,
+        flows: OASOAuthFlows | None = None,
         scheme_name: str | None = None,
         scopes: dict[str, str] | None = None,
     ):
@@ -69,7 +77,9 @@ class OAuth2Base(AuthBase):
         assert self.scheme_name, "scheme name not set"
 
         super().__init__(
-            model=OAuth2(flows=flows or OAuthFlows(), description=self.description),
+            model=OASOAuth2(
+                flows=flows or OASOAuthFlows(), description=self.description
+            ),
             scheme_name=scheme_name or self.scheme_name,
             scopes=scopes,
         )
@@ -84,13 +94,13 @@ class OAuth2PasswordFlow(OAuth2Base):
         token_url: str,
         description: UnsetType | str = UNSET,
         auto_error: bool = True,
-        flows: OAuthFlows | None = None,
+        flows: OASOAuthFlows | None = None,
         scheme_name: str | None = None,
         scopes: dict[str, str] | None = None,
     ):
 
-        password_flow = OAuthFlowPassword(tokenUrl=token_url, scopes=(scopes or {}))
-        flows = OAuthFlows(password=password_flow)
+        password_flow = OASOAuthFlowPassword(tokenUrl=token_url, scopes=(scopes or {}))
+        flows = OASOAuthFlows(password=password_flow)
         super().__init__(
             flows=flows,
             description=description,

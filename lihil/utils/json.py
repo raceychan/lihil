@@ -64,17 +64,26 @@ def _default_schema_hook(t: type) -> dict[str, Any] | None:
     return None
 
 
+def _compose_hooks(schema_hook: SchemaHook | None) -> SchemaHook:
+    if schema_hook is None:
+        return _default_schema_hook
+    else:
+
+        def inner(t: type) -> dict[str, Any] | None:
+            user_schema = schema_hook(t)
+            if user_schema is not None:
+                return user_schema
+            return _default_schema_hook(t)
+
+        return inner
+
+
 def json_schema(
     type_: RegularTypes,
     schema_hook: SchemaHook = None,
     schema_generator: Maybe[Any] = MISSING,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    def _combined_hook(t: type) -> dict[str, Any] | None:
-        if schema_hook is not None:
-            custom_schema = schema_hook(t)
-            if custom_schema is not None:
-                return custom_schema
-        return _default_schema_hook(t)
+    combined_hook: SchemaHook = _compose_hooks(schema_hook)
 
     if is_pydantic_model(type_):
         if is_present(schema_generator):
@@ -87,7 +96,7 @@ def json_schema(
     else:
         (schema,), defs = schema_components(
             (type_,),
-            schema_hook=_combined_hook,
+            schema_hook=combined_hook,
             ref_template=MSGSPEC_REF_TEMPLATE,
         )
     return schema, defs

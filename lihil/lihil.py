@@ -31,7 +31,7 @@ from lihil.errors import (
 )
 from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
-from lihil.oas.model import OpenAPI
+from lihil.oas.model import OASOpenAPI
 from lihil.oas.schema import generate_oas
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
 from lihil.routing import (
@@ -225,7 +225,7 @@ class Lihil(ASGIBase):
             if route.path == path:
                 return route
 
-    def genereate_oas(self) -> OpenAPI:
+    def genereate_oas(self) -> OASOpenAPI:
         if not self._is_setup:
             self._setup()
 

@@ -39,6 +39,7 @@ spy:
 
 VERSION ?= x.x.x
 BRANCH = version/$(VERSION)
+BASE_BRANCH ?= master
 
 # Command definitions
 UV_CMD = uv run
@@ -46,7 +47,7 @@ HATCH_VERSION_CMD = $(UV_CMD) hatch version
 CURRENT_VERSION = $(shell $(HATCH_VERSION_CMD))
 
 # Main release target
-.PHONY: release check-branch check-version update-version git-commit git-merge git-tag git-push build pypi-release delete-branch new-branch
+.PHONY: release check-branch check-version update-version git-commit git-merge git-tag git-push build pypi-release delete-branch new-branch new_branch
 
 release: check-branch check-version update-version git-commit git-merge git-tag git-push build
 
@@ -112,3 +113,8 @@ new-branch:
 	$(call increment_patch_version,$(CURRENT_VERSION))
 	@echo "Creating branch version/$(NEW_VERSION)"
 	@git checkout -b "version/$(NEW_VERSION)"
+
+.PHONY: new_branch
+new_branch:
+	@echo "Creating the next version branch from $(BASE_BRANCH)..."
+	@./scripts/create_version_branch.py --base $(BASE_BRANCH)

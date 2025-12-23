@@ -200,7 +200,10 @@ An alias for Param("header", alias="Authorization"), set extra_meta `dict(skip_u
 
 Usage:
 ```python
-@me.get(auth_scheme=OAuth2PasswordFlow(token_url=token_url), plugins=[jwt_plugin.jwt_decode_factory(secret, algorithm)])
+@me.get(
+    auth_scheme=OAuth2PasswordFlow(token_url=token_url),
+    plugins=[jwt_plugin.jwt_decode_factory(secret, algorithm)]
+)
 async def current_user(user_profile: Annotated[UserProfile, JWTAuthParam]) -> OAuth2Token:
     ...
 ```

@@ -121,7 +121,7 @@ class Injector(Generic[R]):
                     verrors.append(error)
 
         if self.path_params:
-            paths = conn.path_params or {}
+            paths = conn.path_params
             for name, param in self.path_params:
                 val, error = param.extract(paths)
                 if val is not MISSING:
@@ -159,6 +159,9 @@ class Injector(Generic[R]):
 
         for name, dep in self.deps:
             params[name] = await resolver.aresolve(dep.dependent, **params)
+
+        for p in self.transitive_params:
+            params.pop(p)
 
         return parsed_result
 
@@ -203,7 +206,6 @@ class Injector(Generic[R]):
                 params[name] = resolver
 
         for name, dep in self.deps:
-            # TODO: what if param is missing?
             params[name] = await resolver.aresolve(dep.dependent, **params)
 
         for p in self.transitive_params:

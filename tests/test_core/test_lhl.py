@@ -939,8 +939,8 @@ async def test_lhl_add_seen_subroute():
 
 
 def test_genereate_oas_from_lhl():
-    from lihil.oas import OpenAPI
+    from lihil.oas import OASOpenAPI
 
     lhl = Lihil()
     oas = lhl.genereate_oas()
-    assert isinstance(oas, OpenAPI)
+    assert isinstance(oas, OASOpenAPI)

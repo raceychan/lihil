@@ -30,29 +30,29 @@ class OASB(Base):
                 setattr(self, field, UNSET)
 
 
-class AuthModel(OASB, kw_only=True):
+class OASAuthModel(OASB, kw_only=True):
     type_: SecuritySchemeTypes = field(name="type")
     description: Unset[str] = UNSET
 
 
-class APIKeyIn(Enum):
+class OASAPIKeyIn(Enum):
     query = "query"
     header = "header"
     cookie = "cookie"
 
 
-class APIKey(AuthModel, kw_only=True):
+class OASAPIKey(OASAuthModel, kw_only=True):
     type_: SecuritySchemeTypes = field(default="apiKey", name="type")
-    in_: APIKeyIn = field(name="in")
+    in_: OASAPIKeyIn = field(name="in")
     name: str
 
 
-class HTTPBase(AuthModel, kw_only=True):
+class OASHTTPBase(OASAuthModel, kw_only=True):
     type_: SecuritySchemeTypes = field(default="http", name="type")
     scheme: Literal["bearer", "digest", "basic"]
 
 
-class HTTPBearer(HTTPBase):
+class OASHTTPBearer(OASHTTPBase):
     scheme: Literal["bearer"] = "bearer"
     bearerFormat: Unset[str] = UNSET
 
@@ -60,95 +60,95 @@ class HTTPBearer(HTTPBase):
 # ======================== OAuth ========================
 
 
-class OAuthFlow(OASB, kw_only=True):
+class OASOAuthFlow(OASB, kw_only=True):
     refreshUrl: Unset[str] = UNSET
     scopes: dict[str, str] = {}
 
 
-class OAuthFlowImplicit(OAuthFlow):
+class OASOAuthFlowImplicit(OASOAuthFlow):
     authorizationUrl: str
 
 
-class OAuthFlowPassword(OAuthFlow):
+class OASOAuthFlowPassword(OASOAuthFlow):
     tokenUrl: str
 
 
-class OAuthFlowClientCredentials(OAuthFlow):
+class OASOAuthFlowClientCredentials(OASOAuthFlow):
     tokenUrl: str
 
 
-class OAuthFlowAuthorizationCode(OAuthFlow):
+class OASOAuthFlowAuthorizationCode(OASOAuthFlow):
     authorizationUrl: str
     tokenUrl: str
 
 
-class OAuthFlows(OASB, kw_only=True):
-    implicit: Unset[OAuthFlowImplicit] = UNSET
-    password: Unset[OAuthFlowPassword] = UNSET
-    clientCredentials: Unset[OAuthFlowClientCredentials] = UNSET
-    authorizationCode: Unset[OAuthFlowAuthorizationCode] = UNSET
+class OASOAuthFlows(OASB, kw_only=True):
+    implicit: Unset[OASOAuthFlowImplicit] = UNSET
+    password: Unset[OASOAuthFlowPassword] = UNSET
+    clientCredentials: Unset[OASOAuthFlowClientCredentials] = UNSET
+    authorizationCode: Unset[OASOAuthFlowAuthorizationCode] = UNSET
 
 
-class OAuth2(AuthModel, kw_only=True):
+class OASOAuth2(OASAuthModel, kw_only=True):
     type_: SecuritySchemeTypes = field(default="oauth2", name="type")
-    flows: OAuthFlows
+    flows: OASOAuthFlows
 
 
 # ======================== OAuth ========================
 
 
-class OpenIdConnect(AuthModel, kw_only=True):
+class OASOpenIdConnect(OASAuthModel, kw_only=True):
     type_: SecuritySchemeTypes = field(default="openIdConnect", name="type")
     openIdConnectUrl: str
 
 
-SecurityScheme = Union[APIKey, HTTPBase, OAuth2, OpenIdConnect, HTTPBearer]
+OASSecurityScheme = Union[OASAPIKey, OASHTTPBase, OASOAuth2, OASOpenIdConnect, OASHTTPBearer]
 
 
-class Contact(OASB, kw_only=True):
+class OASContact(OASB, kw_only=True):
     name: Unset[str] = UNSET
     url: Unset[str] = UNSET
     email: Unset[str] = UNSET
 
 
-class License(OASB, kw_only=True):
+class OASLicense(OASB, kw_only=True):
     name: str
     identifier: Unset[str] = UNSET
     url: Unset[str] = UNSET
 
 
-class Info(OASB, kw_only=True):
+class OASInfo(OASB, kw_only=True):
     title: str
     summary: Unset[str] = UNSET
     description: Unset[str] = UNSET
     termsOfService: Unset[str] = UNSET
-    contact: Unset[Contact] = UNSET
-    license: Unset[License] = UNSET
+    contact: Unset[OASContact] = UNSET
+    license: Unset[OASLicense] = UNSET
     version: str
 
 
-class ServerVariable(OASB, kw_only=True):
+class OASServerVariable(OASB, kw_only=True):
     enum: Annotated[Unset[list[str]], Meta(min_length=1)] = UNSET
     default: str
     description: Unset[str] = UNSET
 
 
-class Server(OASB, kw_only=True):
+class OASServer(OASB, kw_only=True):
     url: Union[str, str]
     description: Unset[str] = UNSET
-    variables: Unset[dict[str, ServerVariable]] = UNSET
+    variables: Unset[dict[str, OASServerVariable]] = UNSET
 
 
-class Reference(OASB, kw_only=True):
+class OASReference(OASB, kw_only=True):
     ref: str = field(name="$ref")
 
 
-class Discriminator(OASB, kw_only=True):
+class OASDiscriminator(OASB, kw_only=True):
     propertyName: str
     mapping: Unset[dict[str, str]] = UNSET
 
 
-class XML(OASB, kw_only=True):
+class OASXML(OASB, kw_only=True):
     name: Unset[str] = UNSET
     namespace: Unset[str] = UNSET
     prefix: Unset[str] = UNSET
@@ -156,12 +156,12 @@ class XML(OASB, kw_only=True):
     wrapped: Unset[bool] = UNSET
 
 
-class ExternalDocumentation(OASB, kw_only=True):
+class OASExternalDocumentation(OASB, kw_only=True):
     description: Unset[str] = UNSET
     url: str
 
 
-class Schema(OASB, kw_only=True):
+class OASSchema(OASB, kw_only=True):
     schema_: Unset[str] = field(default=UNSET, name="$schema")
     vocabulary: Unset[str] = field(default=UNSET, name="$vocabulary")
     id: Unset[str] = field(default=UNSET, name="$id")
@@ -169,24 +169,24 @@ class Schema(OASB, kw_only=True):
     dynamicAnchor: Unset[str] = field(default=UNSET, name="$dynamicAnchor")
     ref: Unset[str] = field(default=UNSET, name="$ref")
     dynamicRef: Unset[str] = field(default=UNSET, name="$dynamicRef")
-    defs: Unset[dict[str, "LenientSchema"]] = field(default=UNSET, name="$defs")
+    defs: Unset[dict[str, "OASLenientSchema"]] = field(default=UNSET, name="$defs")
     comment: Unset[str] = field(default=UNSET, name="$comment")
-    allOf: Unset[list["LenientSchema"]] = UNSET
-    anyOf: Unset[list["LenientSchema"]] = UNSET
-    oneOf: Unset[list["LenientSchema"]] = UNSET
-    not_: Unset["LenientSchema"] = field(default=UNSET, name="not")
-    if_: Unset["LenientSchema"] = field(default=UNSET, name="if")
-    then: Unset["LenientSchema"] = UNSET
-    else_: Unset["LenientSchema"] = field(default=UNSET, name="else")
-    dependentSchemas: Unset[dict[str, "LenientSchema"]] = UNSET
-    prefixItems: Unset[list["LenientSchema"]] = UNSET
-    contains: Unset["LenientSchema"] = UNSET
-    properties: Unset[dict[str, "LenientSchema"]] = UNSET
-    patternProperties: Unset[dict[str, "LenientSchema"]] = UNSET
-    additionalProperties: Unset["LenientSchema"] = UNSET
-    propertyNames: Unset["LenientSchema"] = UNSET
-    unevaluatedItems: Unset["LenientSchema"] = UNSET
-    unevaluatedProperties: Unset["LenientSchema"] = UNSET
+    allOf: Unset[list["OASLenientSchema"]] = UNSET
+    anyOf: Unset[list["OASLenientSchema"]] = UNSET
+    oneOf: Unset[list["OASLenientSchema"]] = UNSET
+    not_: Unset["OASLenientSchema"] = field(default=UNSET, name="not")
+    if_: Unset["OASLenientSchema"] = field(default=UNSET, name="if")
+    then: Unset["OASLenientSchema"] = UNSET
+    else_: Unset["OASLenientSchema"] = field(default=UNSET, name="else")
+    dependentSchemas: Unset[dict[str, "OASLenientSchema"]] = UNSET
+    prefixItems: Unset[list["OASLenientSchema"]] = UNSET
+    contains: Unset["OASLenientSchema"] = UNSET
+    properties: Unset[dict[str, "OASLenientSchema"]] = UNSET
+    patternProperties: Unset[dict[str, "OASLenientSchema"]] = UNSET
+    additionalProperties: Unset["OASLenientSchema"] = UNSET
+    propertyNames: Unset["OASLenientSchema"] = UNSET
+    unevaluatedItems: Unset["OASLenientSchema"] = UNSET
+    unevaluatedProperties: Unset["OASLenientSchema"] = UNSET
     type: Unset[str] = UNSET
     enum: Unset[list[Any]] = UNSET
     const: Unset[Any] = UNSET
@@ -210,7 +210,7 @@ class Schema(OASB, kw_only=True):
     format: Unset[str] = UNSET
     contentEncoding: Unset[str] = UNSET
     contentMediaType: Unset[str] = UNSET
-    contentSchema: Unset["LenientSchema"] = UNSET
+    contentSchema: Unset["OASLenientSchema"] = UNSET
     title: Unset[str] = UNSET
     description: Unset[str] = UNSET
     default: Unset[Any] = UNSET
@@ -218,44 +218,44 @@ class Schema(OASB, kw_only=True):
     readOnly: Unset[bool] = UNSET
     writeOnly: Unset[bool] = UNSET
     examples: Unset[list[Any]] = UNSET
-    discriminator: Unset[Discriminator] = UNSET
-    xml: Unset[XML] = UNSET
-    externalDocs: Unset[ExternalDocumentation] = UNSET
+    discriminator: Unset[OASDiscriminator] = UNSET
+    xml: Unset[OASXML] = UNSET
+    externalDocs: Unset[OASExternalDocumentation] = UNSET
 
 
-LenientSchema = Union[Schema, Reference, bool]
+OASLenientSchema = Union[OASSchema, OASReference, bool]
 
 
-class Example(TypedDict, total=False):
+class OASExample(TypedDict, total=False):
     summary: Unset[str]
     description: Unset[str]
     value: Unset[Any]
     externalValue: Unset[str]
 
 
-class ParameterInType(Enum):
+class OASParameterInType(Enum):
     query = "query"
     header = "header"
     path = "path"
     cookie = "cookie"
 
 
-class Encoding(OASB, kw_only=True):
+class OASEncoding(OASB, kw_only=True):
     contentType: Unset[str] = UNSET
-    headers: Unset[dict[str, Union["Header", Reference]]] = UNSET
+    headers: Unset[dict[str, Union["OASHeader", OASReference]]] = UNSET
     style: Unset[str] = UNSET
     explode: Unset[bool] = UNSET
     allowReserved: Unset[bool] = UNSET
 
 
-class MediaType(OASB, kw_only=True):
-    schema_: Unset[Union[Schema, Reference]] = field(default=UNSET, name="schema")
+class OASMediaType(OASB, kw_only=True):
+    schema_: Unset[Union[OASSchema, OASReference]] = field(default=UNSET, name="schema")
     example: Unset[Any] = UNSET
-    examples: Unset[dict[str, Union[Example, Reference]]] = UNSET
-    encoding: Unset[dict[str, Encoding]] = UNSET
+    examples: Unset[dict[str, Union[OASExample, OASReference]]] = UNSET
+    encoding: Unset[dict[str, OASEncoding]] = UNSET
 
 
-class ParameterBase(OASB, kw_only=True):
+class OASParameterBase(OASB, kw_only=True):
     description: Unset[str] = UNSET
     required: Unset[bool] = UNSET
     deprecated: Unset[bool] = UNSET
@@ -263,107 +263,107 @@ class ParameterBase(OASB, kw_only=True):
     style: Unset[str] = UNSET
     explode: Unset[bool] = UNSET
     allowReserved: Unset[bool] = UNSET
-    schema_: Unset[Union[Schema, Reference]] = field(default=UNSET, name="schema")
+    schema_: Unset[Union[OASSchema, OASReference]] = field(default=UNSET, name="schema")
     example: Unset[Any] = UNSET
-    examples: Unset[dict[str, Union[Example, Reference]]] = UNSET
+    examples: Unset[dict[str, Union[OASExample, OASReference]]] = UNSET
     # Serialization rules for more complex scenarios
-    content: Unset[dict[str, MediaType]] = UNSET
+    content: Unset[dict[str, OASMediaType]] = UNSET
 
 
-class Parameter(ParameterBase):
+class OASParameter(OASParameterBase):
     name: str
-    in_: ParameterInType = field(name="in")
+    in_: OASParameterInType = field(name="in")
 
 
-class Header(ParameterBase):
+class OASHeader(OASParameterBase):
     pass
 
 
-class RequestBody(OASB, kw_only=True):
+class OASRequestBody(OASB, kw_only=True):
     description: Unset[str] = UNSET
-    content: dict[str, MediaType]
+    content: dict[str, OASMediaType]
     required: Unset[bool] = UNSET
 
 
-class Link(OASB, kw_only=True):
+class OASLink(OASB, kw_only=True):
     operationRef: Unset[str] = UNSET
     operationId: Unset[str] = UNSET
     parameters: Unset[dict[str, Union[Any, str]]] = UNSET
     requestBody: Unset[Union[Any, str]] = UNSET
     description: Unset[str] = UNSET
-    server: Unset[Server] = UNSET
+    server: Unset[OASServer] = UNSET
 
 
-class Response(OASB, kw_only=True):
+class OASResponse(OASB, kw_only=True):
     description: str
-    headers: Unset[dict[str, Union[Header, Reference]]] = UNSET
-    content: Unset[dict[str, MediaType]] = UNSET
-    links: Unset[dict[str, Union[Link, Reference]]] = UNSET
+    headers: Unset[dict[str, Union[OASHeader, OASReference]]] = UNSET
+    content: Unset[dict[str, OASMediaType]] = UNSET
+    links: Unset[dict[str, Union[OASLink, OASReference]]] = UNSET
 
 
-class Operation(OASB, kw_only=True):
+class OASOperation(OASB, kw_only=True):
     tags: Unset[list[str]] = UNSET
     summary: Unset[str] = UNSET
     description: Unset[str] = UNSET
-    externalDocs: Unset[ExternalDocumentation] = UNSET
+    externalDocs: Unset[OASExternalDocumentation] = UNSET
     operationId: Unset[str] = UNSET
-    parameters: Unset[list[Union[Parameter, Reference]]] = UNSET
-    requestBody: Unset[Union[RequestBody, Reference]] = UNSET
+    parameters: Unset[list[Union[OASParameter, OASReference]]] = UNSET
+    requestBody: Unset[Union[OASRequestBody, OASReference]] = UNSET
     # Using Any for Specification Extensions
-    responses: dict[str, Union[Response, Any]] = field(
-        default_factory=dict[str, Union[Response, Any]]
+    responses: dict[str, Union[OASResponse, Any]] = field(
+        default_factory=dict[str, Union[OASResponse, Any]]
     )
-    callbacks: Unset[dict[str, Union[dict[str, "PathItem"], Reference]]] = UNSET
+    callbacks: Unset[dict[str, Union[dict[str, "OASPathItem"], OASReference]]] = UNSET
     deprecated: Unset[bool] = UNSET
     security: Unset[list[dict[str, list[str]]]] = UNSET
-    servers: Unset[list[Server]] = UNSET
+    servers: Unset[list[OASServer]] = UNSET
 
 
-class PathItem(OASB, kw_only=True):
+class OASPathItem(OASB, kw_only=True):
     ref: Unset[str] = field(default=UNSET, name="$ref")
     summary: Unset[str] = UNSET
     description: Unset[str] = UNSET
-    get: Unset[Operation] = UNSET
-    put: Unset[Operation] = UNSET
-    post: Unset[Operation] = UNSET
-    delete: Unset[Operation] = UNSET
-    options: Unset[Operation] = UNSET
-    head: Unset[Operation] = UNSET
-    patch: Unset[Operation] = UNSET
-    trace: Unset[Operation] = UNSET
-    servers: Unset[list[Server]] = UNSET
-    parameters: Unset[list[Union[Parameter, Reference]]] = UNSET
+    get: Unset[OASOperation] = UNSET
+    put: Unset[OASOperation] = UNSET
+    post: Unset[OASOperation] = UNSET
+    delete: Unset[OASOperation] = UNSET
+    options: Unset[OASOperation] = UNSET
+    head: Unset[OASOperation] = UNSET
+    patch: Unset[OASOperation] = UNSET
+    trace: Unset[OASOperation] = UNSET
+    servers: Unset[list[OASServer]] = UNSET
+    parameters: Unset[list[Union[OASParameter, OASReference]]] = UNSET
 
 
-class Components(OASB, kw_only=True):
-    schemas: Unset[dict[str, Union[Schema, Reference]]] = UNSET
-    responses: Unset[dict[str, Union[Response, Reference]]] = UNSET
-    parameters: Unset[dict[str, Union[Parameter, Reference]]] = UNSET
-    examples: Unset[dict[str, Union[Example, Reference]]] = UNSET
-    requestBodies: Unset[dict[str, Union[RequestBody, Reference]]] = UNSET
-    headers: Unset[dict[str, Union[Header, Reference]]] = UNSET
-    securitySchemes: Unset[dict[str, Union[SecurityScheme, Reference]]] = UNSET
-    links: Unset[dict[str, Union[Link, Reference]]] = UNSET
-    callbacks: Unset[dict[str, Union[dict[str, PathItem], Reference, Any]]] = UNSET
-    pathItems: Unset[dict[str, Union[PathItem, Reference]]] = UNSET
+class OASComponents(OASB, kw_only=True):
+    schemas: Unset[dict[str, Union[OASSchema, OASReference]]] = UNSET
+    responses: Unset[dict[str, Union[OASResponse, OASReference]]] = UNSET
+    parameters: Unset[dict[str, Union[OASParameter, OASReference]]] = UNSET
+    examples: Unset[dict[str, Union[OASExample, OASReference]]] = UNSET
+    requestBodies: Unset[dict[str, Union[OASRequestBody, OASReference]]] = UNSET
+    headers: Unset[dict[str, Union[OASHeader, OASReference]]] = UNSET
+    securitySchemes: Unset[dict[str, Union[OASSecurityScheme, OASReference]]] = UNSET
+    links: Unset[dict[str, Union[OASLink, OASReference]]] = UNSET
+    callbacks: Unset[dict[str, Union[dict[str, OASPathItem], OASReference, Any]]] = UNSET
+    pathItems: Unset[dict[str, Union[OASPathItem, OASReference]]] = UNSET
 
 
-class Tag(OASB, kw_only=True):
+class OASTag(OASB, kw_only=True):
     name: str
     description: Unset[str] = UNSET
-    externalDocs: Unset[ExternalDocumentation] = UNSET
+    externalDocs: Unset[OASExternalDocumentation] = UNSET
 
 
-class OpenAPI(OASB, kw_only=True):
+class OASOpenAPI(OASB, kw_only=True):
     openapi: str
-    info: Info
+    info: OASInfo
     jsonSchemaDialect: Unset[str] = UNSET
-    servers: Unset[list[Server]] = UNSET
+    servers: Unset[list[OASServer]] = UNSET
     # Using Any for Specification Extensions
-    paths: Unset[dict[str, Union[PathItem, Any]]] = UNSET
-    webhooks: Unset[dict[str, Union[PathItem, Reference]]] = UNSET
-    components: Unset[Components] = UNSET
+    paths: Unset[dict[str, Union[OASPathItem, Any]]] = UNSET
+    webhooks: Unset[dict[str, Union[OASPathItem, OASReference]]] = UNSET
+    components: Unset[OASComponents] = UNSET
     security: Unset[list[dict[str, list[str]]]] = UNSET
-    tags: Unset[list[Tag]] = UNSET
-    externalDocs: Unset[ExternalDocumentation] = UNSET
-    # responses: dict[str, Response]
+    tags: Unset[list[OASTag]] = UNSET
+    externalDocs: Unset[OASExternalDocumentation] = UNSET
+    # responses: dict[str, OASResponse]

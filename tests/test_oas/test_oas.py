@@ -8,6 +8,7 @@ from lihil.config import OASConfig
 from lihil.interface import is_set
 from lihil.local_client import LocalClient
 from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
+from lihil.oas.model import OASResponse
 from lihil.oas.doc_ui import get_problem_ui_html
 from lihil.oas.schema import (
     SchemaGenerationAggregateError,
@@ -19,6 +20,7 @@ from lihil.oas.schema import (
     get_resp_schemas,
     oas_schema,
 )
+from lihil.plugins.auth.jwt import JWTAuthParam
 from lihil.plugins.auth.oauth import OAuth2PasswordFlow
 from lihil.problems import collect_problems
 
@@ -457,3 +459,15 @@ async def test_optional_query():
 
     op, errs = generate_op_from_ep(ep, {}, {}, "problems")
     assert op.parameters[1].schema_["oneOf"]
+
+
+async def test_jwt_header():
+    lc = LocalClient()
+
+    async def create_user(
+        auth: Annotated[bytes, JWTAuthParam],
+    ): ...
+
+    ep = await lc.make_endpoint(create_user)
+
+    op, errs = generate_op_from_ep(ep, {}, {}, "problems")
