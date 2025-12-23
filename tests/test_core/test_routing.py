@@ -689,7 +689,7 @@ def test_routing_merge_sub_route():
     user = Route("users")
     item = user.sub("items")
     item.sub("{item_id}")
-    root.include_subroutes(user)
+    root.merge(user)
 
     new_user = root.subroutes[0]
     assert new_user.path == "/api/v0/users"

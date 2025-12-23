@@ -142,7 +142,7 @@ separate_route = Route("/posts")
 async def get_posts():
     return {"posts": []}
 
-app.include_routes(separate_route)
+app.include(separate_route)
 
 # Method 4: Nested subroutes
 api_route = Route("/api")
@@ -213,7 +213,7 @@ async def get_user(user_id: str):
     return {"id": user_id}
 
 # Include routes
-app.include_routes(api_route)
+app.include(api_route)
 ```
 
 ### Common Mistakes to Avoid

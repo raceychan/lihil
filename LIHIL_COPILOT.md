@@ -185,7 +185,7 @@ async def list_posts():
 
 # Include in app
 app = Lihil()
-app.include_routes(users_route, posts_route)
+app.include(users_route, posts_route)
 
 # Or pass routes to constructor
 app = Lihil(users_route, posts_route)
@@ -310,7 +310,7 @@ async def delete_user(user_id: str):
     return {"deleted": user_id}
 
 # Include routes
-app.include_routes(api_route)
+app.include(api_route)
 
 # Run with: uvicorn main:app --reload
 ```
@@ -376,7 +376,7 @@ When working with Lihil, AI agents should:
 2. **Create Route objects first** - Then apply HTTP method decorators
 3. **Use Payload for request bodies** - Note that BaseModel, dataclasses,typeddict are supported
 4. **Check existing patterns** - Look at how the codebase structures routes
-5. **Include routes properly** - Use `app.include_routes()` or pass to constructor
+5. **Include routes properly** - Use `app.include()` or pass to constructor
 6. **Handle path parameters correctly** - They're extracted automatically
 7. **Use proper imports** - `from lihil import Lihil, Route, Payload`
 8. **Follow nested route patterns** - Use subroutes for hierarchical APIs

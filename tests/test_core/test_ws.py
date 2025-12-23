@@ -27,7 +27,7 @@ async def test_ws(test_client):
     ws_route.ws_handler(test_ws)
 
     lhl = Lihil()
-    lhl.include_routes(ws_route)
+    lhl.include(ws_route)
 
     client = test_client(lhl)
     with client:
@@ -51,7 +51,7 @@ async def test_ws_with_body_fail(test_client):
     ws_route.ws_handler(test_ws)
 
     lhl = Lihil()
-    lhl.include_routes(ws_route)
+    lhl.include(ws_route)
 
     client = test_client(lhl)
 
@@ -78,7 +78,7 @@ async def test_ws_full_fledge(test_client):
     ws_route.ws_handler(ws_handler)
 
     lhl = Lihil()
-    lhl.include_routes(ws_route)
+    lhl.include(ws_route)
 
     client = test_client(lhl)
     with client:
@@ -133,7 +133,7 @@ async def test_ws_plugins(test_client):
     ws_route.ws_handler(ws_handler, plugins=[plugin.decorate])
 
     lhl = Lihil()
-    lhl.include_routes(ws_route)
+    lhl.include(ws_route)
 
     client = test_client(lhl)
     with client:
@@ -156,7 +156,7 @@ async def test_ws_close_on_exc(test_client):
     ws_route.ws_handler(ws_handler)
 
     lhl = Lihil()
-    lhl.include_routes(ws_route)
+    lhl.include(ws_route)
 
     client = test_client(lhl)
     with client:
@@ -171,6 +171,6 @@ async def test_ws_with_include_subs():
 
     root_ws = WebSocketRoute("/api/v0")
 
-    root_ws.include_subroutes(paretn_ws)
+    root_ws.merge(paretn_ws)
     assert root_ws.subroutes[0].path == root_ws.path + "/parent"
     assert root_ws.subroutes[0].subroutes[0].path == root_ws.path + "/parent" + "/sub"

@@ -91,6 +91,26 @@ data: {"text":"!"}
 event: close
 ```
 
+### Deprecation notice (routing API)
+
+- Prefer `Route.merge(...)` (was `include_subroutes`) and `Lihil.include(...)` (was `include_routes`). The legacy names are deprecated and will be removed in `0.3.0`.
+
+### HTTP vs WebSocket routing (do not mix)
+
+- Keep HTTP `Route` trees and `WebSocketRoute` trees separate; merge only like with like, then pass both top-level routes to `Lihil`.
+
+```python
+api = Route("api")
+v1 = api.sub("v1")
+users = v1.sub("users")
+
+ws = WebSocketRoute("ws")
+ws_v1 = ws.sub("v1")
+ws_notify = ws_v1.sub("notification")
+
+app = Lihil(api, ws)  # do NOT merge Route into WebSocketRoute or vice versa
+```
+
 ## Features
 
 - **Param Parsing & Validation**

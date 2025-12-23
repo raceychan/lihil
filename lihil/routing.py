@@ -3,6 +3,7 @@ from functools import partial
 from inspect import isasyncgen, isgenerator
 from types import MappingProxyType
 from typing import Any, Awaitable, Callable, Generic, Pattern, cast, overload
+import warnings
 
 from ididi import Graph
 from ididi.graph import Resolver
@@ -346,6 +347,15 @@ class Route(RouteBase):
         self._is_setup = True
 
     def include_subroutes(self, *subs: Self, parent_prefix: str | None = None) -> None:
+        warnings.warn(
+            "Route.include_subroutes is deprecated and will be removed in 0.3.0; "
+            "use Route.merge instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.merge(*subs, parent_prefix=parent_prefix)
+
+    def merge(self, *subs: Self, parent_prefix: str | None = None) -> None:
         """
         Merge other routes into current route as sub routes,
         a new route would be created based on the merged subroute
@@ -369,7 +379,7 @@ class Route(RouteBase):
             for method, ep in sub._endpoints.items():
                 new_sub.add_endpoint(method, func=ep.unwrapped_func, **ep.props)
             for sub_sub in sub_subs:
-                new_sub.include_subroutes(sub_sub, parent_prefix=sub._path)
+                new_sub.merge(sub_sub, parent_prefix=sub._path)
             self._subroutes.append(new_sub)
 
     def get_endpoint(

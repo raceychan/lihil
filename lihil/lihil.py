@@ -1,6 +1,7 @@
 import inspect
 import sys
 import traceback
+import warnings
 from concurrent.futures.thread import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from inspect import isasyncgenfunction
@@ -119,16 +120,16 @@ class Lihil(ASGIBase):
 
         if not has_root:
             self._root = Route(graph=self._graph)
-            self.include_routes(self._root)
+            self.include(self._root)
             self._routes.insert(0, self._root)
 
         for route in routes:
             if route.path == "/":
                 self._root = route
-                self.include_routes(self._root)
+                self.include(self._root)
                 self._routes.insert(0, self._root)
 
-        self.include_routes(*routes)
+        self.include(*routes)
 
     def __repr__(self) -> str:
         config = lhl_get_config()
@@ -236,7 +237,7 @@ class Lihil(ASGIBase):
             app_version=config.VERSION,
         )
 
-    def include_routes(self, *routes: RouteBase) -> None:
+    def include(self, *routes: RouteBase) -> None:
         for route in routes:
             if route in self._routes:
                 continue
@@ -251,7 +252,16 @@ class Lihil(ASGIBase):
                 self._routes.append(route)
 
             for sub in route.subroutes:
-                self.include_routes(sub)
+                self.include(sub)
+
+    def include_routes(self, *routes: RouteBase) -> None:
+        warnings.warn(
+            "Lihil.include_routes is deprecated and will be removed in 0.3.0; "
+            "use Lihil.include instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.include(*routes)
 
     def static(
         self,

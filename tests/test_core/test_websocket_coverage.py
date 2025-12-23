@@ -66,8 +66,8 @@ class TestWSRouteCoverage:
             route.endpoint_parser = mock_parser
             route._setup(graph=Graph())
 
-    def test_ws_route_include_subroutes_with_endpoint(self):
-        """Test WebSocketRoute.include_subroutes when subroute has endpoint."""
+    def test_ws_route_merge_with_endpoint(self):
+        """Test WebSocketRoute.merge when subroute has endpoint."""
         parent_route = WebSocketRoute("/ws")
 
         # Create subroute with endpoint
@@ -78,19 +78,19 @@ class TestWSRouteCoverage:
 
         sub_route.ws_handler(sub_handler)
 
-        # Test include_subroutes
-        parent_route.include_subroutes(sub_route)
+        # Test include/merge
+        parent_route.merge(sub_route)
 
         assert len(parent_route._subroutes) == 1
         new_sub = parent_route._subroutes[0]
         assert new_sub.endpoint is not None
 
-    def test_ws_route_include_subroutes_without_endpoint(self):
-        """Test WebSocketRoute.include_subroutes when subroute has no endpoint."""
+    def test_ws_route_merge_without_endpoint(self):
+        """Test WebSocketRoute.merge when subroute has no endpoint."""
         parent_route = WebSocketRoute("/ws")
         sub_route = WebSocketRoute("/sub")  # No endpoint set
 
-        parent_route.include_subroutes(sub_route)
+        parent_route.merge(sub_route)
 
         assert len(parent_route._subroutes) == 1
         new_sub = parent_route._subroutes[0]

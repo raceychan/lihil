@@ -104,7 +104,7 @@ async def test_lihil_basic_routing():
     assert not_found_response.status_code == 404
 
 
-async def test_lihil_include_routes():
+async def test_lihil_include():
     app = Lihil()
 
     # Create separate routes
@@ -123,7 +123,7 @@ async def test_lihil_include_routes():
     posts_route.get(get_posts)
 
     # Include routes in the app
-    app.include_routes(users_route, posts_route)
+    app.include(users_route, posts_route)
 
     # Initialize app lifespan
 
@@ -139,7 +139,7 @@ async def test_lihil_include_routes():
     assert (await posts_response.json())["message"] == "Posts route"
 
 
-async def test_lihil_include_routes_with_subroutes():
+async def test_lihil_include_with_subroutes():
     app = Lihil()
 
     # Create a route with subroutes
@@ -158,7 +158,7 @@ async def test_lihil_include_routes_with_subroutes():
     users_route.get(users_handler)
 
     # Include the parent route
-    app.include_routes(api_route)
+    app.include(api_route)
 
     # Initialize app lifespan
 
@@ -193,7 +193,7 @@ async def test_lihil_duplicated_route_error():
 
     # Including the duplicate root should raise an error
     with pytest.raises(DuplicatedRouteError):
-        app.include_routes(root_route)
+        app.include(root_route)
 
 
 async def test_lihil_static_route():
@@ -316,9 +316,9 @@ async def test_route_cannot_include_websocket():
 
     ws_route.ws_handler(ws_handler)
 
-    # Route.include_subroutes assumes HTTP endpoints; mixing WebSocketRoute should fail
+    # Route.merge assumes HTTP endpoints; mixing WebSocketRoute should fail
     with pytest.raises(AttributeError):
-        api_route.include_subroutes(ws_route)
+        api_route.merge(ws_route)
 
 
 async def test_websocket_cannot_include_route():
@@ -333,9 +333,58 @@ async def test_websocket_cannot_include_route():
 
     api_route = Route("api")
 
-    # WebSocketRoute.include_subroutes assumes websocket endpoints; mixing Route should fail
+    # WebSocketRoute.merge assumes websocket endpoints; mixing Route should fail
     with pytest.raises(AttributeError):
-        ws_route.include_subroutes(api_route)
+        ws_route.merge(api_route)
+
+
+async def test_merge_separate_trees_then_include_in_app(test_client):
+    api = Route("/api")
+    v1 = Route("/api/v1")
+    users = Route("/api/v1/users")
+
+    async def get_users():
+        return {"message": "Users route via merge"}
+
+    users.get(get_users)
+    v1.merge(users, parent_prefix="/api/v1")
+    api.merge(v1, parent_prefix="/api")
+
+    ws = WebSocketRoute("/ws")
+    ws_v1 = WebSocketRoute("/ws/v1")
+    ws_notify = WebSocketRoute("/ws/v1/notification")
+
+    async def ws_root(ws_conn: WebSocket):
+        await ws_conn.accept()
+        await ws_conn.send_text("root ok")
+        await ws_conn.close()
+
+    async def ws_v1_handler(ws_conn: WebSocket):
+        await ws_conn.accept()
+        await ws_conn.send_text("v1 ok")
+        await ws_conn.close()
+
+    async def notify(ws_conn: WebSocket):
+        await ws_conn.accept()
+        await ws_conn.send_text("notify ok")
+        await ws_conn.close()
+
+    ws.ws_handler(ws_root)
+    ws_v1.ws_handler(ws_v1_handler)
+    ws_notify.ws_handler(notify)
+    ws_v1.merge(ws_notify, parent_prefix="/ws/v1")
+    ws.merge(ws_v1, parent_prefix="/ws")
+
+    app = Lihil(api, ws)
+
+    client = LocalClient()
+    resp = await client.call_app(app, "GET", "/api/v1/users")
+    assert (await resp.json())["message"] == "Users route via merge"
+
+    wsc = test_client(app)
+    with wsc:
+        with wsc.websocket_connect("/ws/v1/notification") as websocket:
+            assert websocket.receive_text() == "notify ok"
 
 
 async def test_lihil_middleware():
@@ -619,7 +668,7 @@ async def test_include_same_route():
 
     # with pytest.raises(DuplicatedRouteError):
     # app.include_routes(users_route)
-    app.include_routes(users_route)
+    app.include(users_route)
 
 
 async def test_include_root_route_fail():
@@ -636,7 +685,7 @@ async def test_include_root_route_fail():
 
     # Include the root route
     with pytest.raises(DuplicatedRouteError):
-        app.include_routes(root_route)
+        app.include(root_route)
 
     # Initialize app lifespan
 
@@ -655,7 +704,7 @@ async def test_include_root_route_ok():
     root_route = Route("/")
 
     # Include the root route
-    app.include_routes(root_route)
+    app.include(root_route)
 
     async def root_handler():
         return {"message": "Root route"}
@@ -834,7 +883,7 @@ async def test_http_method_decorators():
     assert len(app.root.endpoints) == 7
 
 
-async def test_include_routes_with_duplicate_root():
+async def test_include_with_duplicate_root():
     """Test for DuplicatedRouteError when including routes with duplicate root"""
     app = Lihil()
 
@@ -847,7 +896,7 @@ async def test_include_routes_with_duplicate_root():
 
     # This should raise DuplicatedRouteError
     with pytest.raises(DuplicatedRouteError):
-        app.include_routes(new_root)
+        app.include(new_root)
 
 
 async def test_a_problem_endpoint():
@@ -994,7 +1043,7 @@ async def test_lhl_add_sub_route_before_route():
 
     lhl = Lihil()
 
-    lhl.include_routes(sub_route, parent_route)
+    lhl.include(sub_route, parent_route)
 
 
 async def test_lhl_rerpr():
@@ -1012,7 +1061,7 @@ async def test_lhl_add_seen_subroute():
 
     lhl = Lihil()
 
-    lhl.include_routes(parent_route, sub_route, ssub)
+    lhl.include(parent_route, sub_route, ssub)
 
     assert lhl.get_route("/sub") is sub_route
 
