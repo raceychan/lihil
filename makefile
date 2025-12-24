@@ -2,6 +2,7 @@
 demo:
 	uv run uvicorn demo.main:app --interface asgi3 --http httptools --no-access-log --log-level "warning" --reload
 
+
 .PHONY: test
 test:
 	uv run python -m pytest -vx --capture=sys tests/

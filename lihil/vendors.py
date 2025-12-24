@@ -15,6 +15,8 @@ from starlette.responses import StreamingResponse as StreamingResponse
 from starlette.routing import compile_path as compile_path
 from starlette.types import Lifespan as Lifespan
 from starlette.websockets import WebSocket as WebSocket
+from starlette.websockets import WebSocketDisconnect as WebSocketDisconnect
+from starlette.websockets import WebSocketState as WebSocketState
 
 P = ParamSpec("P")
 T = TypeVar("T")

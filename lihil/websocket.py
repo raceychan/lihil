@@ -11,7 +11,7 @@ from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
 from lihil.routing import EndpointInfo, EndpointProps, IEndpointProps, RouteBase
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.utils.string import merge_path
-from lihil.vendors import Response, WebSocket
+from lihil.vendors import Response, WebSocket, WebSocketDisconnect, WebSocketState
 
 
 class WebSocketEndpoint:
@@ -70,8 +70,12 @@ class WebSocketEndpoint:
         try:
             parsed = await self._injector.validate_websocket(ws, resolver)
             await self._func(**parsed.params)
+        except WebSocketDisconnect:
+            # we should not end close message when client is disconnected already
+            return
         except Exception as exc:
-            await ws.close(reason=str(exc))
+            if ws.client_state != WebSocketState.DISCONNECTED:
+                await ws.close(reason=str(exc))
             raise
 
     async def __call__(

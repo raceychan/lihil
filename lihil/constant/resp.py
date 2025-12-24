@@ -29,10 +29,25 @@ INTERNAL_ERROR_BODY = {
     "more_body": False,
 }
 
+INTERNAL_WS_ERROR_HEADER = INTERNAL_ERROR_HEADER | {
+    "type": "websocket.http.response.start"
+}
+INTERNAL_WS_ERROR_BODY = INTERNAL_ERROR_BODY | {"type": "websocket.http.response.body"}
 
-async def InternalErrorResp(_: IScope, __: IReceive, send: ISend) -> None:
-    await send(INTERNAL_ERROR_HEADER)
-    await send(INTERNAL_ERROR_BODY)
+INTERNAL_WS_CLOSE_MSG = {
+    "type": "websocket.close",
+    "code": 1011,
+    "reason": "Internal Server Error",
+}
+
+
+async def InternalErrorResp(scope: IScope, __: IReceive, send: ISend) -> None:
+    if scope.get("type") == "websocket":
+        await send(INTERNAL_WS_ERROR_HEADER)
+        await send(INTERNAL_WS_ERROR_BODY)
+    else:  # http
+        await send(INTERNAL_ERROR_HEADER)
+        await send(INTERNAL_ERROR_BODY)
 
 
 SERVICE_UNAVAILABLE_HEADER = {
