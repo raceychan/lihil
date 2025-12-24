@@ -73,9 +73,9 @@ class WebSocketEndpoint:
         except WebSocketDisconnect:
             # we should not end close message when client is disconnected already
             return
-        except Exception as exc:
-            if ws.client_state != WebSocketState.DISCONNECTED:
-                await ws.close(reason=str(exc))
+        except Exception:
+            if ws.client_state == WebSocketState.CONNECTED:
+                await ws.close(code=1011, reason="Internal Server Error")
             raise
 
     async def __call__(
