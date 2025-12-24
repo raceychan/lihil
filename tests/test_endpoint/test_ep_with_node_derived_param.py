@@ -27,6 +27,6 @@ def test_parsing_derived_param():
     route = Route()
 
     route.get(get_order)
-    route._setup()
+    route.setup()
     ep = route.get_endpoint(get_order)
     assert "token" in ep.sig.header_params

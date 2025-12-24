@@ -281,7 +281,7 @@ async def test_route_build_stack():
     # Initially call_stacks should be empty
     assert not route._is_setup
 
-    route._setup()
+    route.setup()
     # Now call_stacks should have the GET method
     assert route.get_endpoint("GET")
 
@@ -537,7 +537,7 @@ async def test_route_on_lifespan():
     async def get(): ...
 
     route.get(get)
-    route._setup()
+    route.setup()
     assert route.get_endpoint("GET")
 
 
@@ -652,7 +652,7 @@ async def test_route_with_literal_resp():
     async def post_empty() -> Literal[None]: ...
 
     route.post(post_empty)
-    route._setup()
+    route.setup()
 
     route.endpoints["POST"].sig.return_params[200]
 
@@ -735,7 +735,7 @@ async def test_route_with_deps_as_props():
     @route.get
     async def get_user(service: UserService, names: bytes): ...
 
-    route._setup()
+    route.setup()
 
     ep = route.get_endpoint("GET")
 

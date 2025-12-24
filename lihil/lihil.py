@@ -201,7 +201,7 @@ class Lihil(ASGIBase):
 
         for route in self._routes:
             try:
-                route._setup(graph=self._graph, workers=self._workers)  # type: ignore
+                route.setup(graph=self._graph, workers=self._workers)  # type: ignore
             except LihilError as le:
                 raise RouteSetupError(route) from le
 

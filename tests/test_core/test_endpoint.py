@@ -428,7 +428,7 @@ async def test_ep_requiring_form_invalid_type(rusers: Route, lc: LocalClient):
 
     rusers.get(get)
     with pytest.raises(InvalidEndpointError):
-        rusers._setup()
+        rusers.setup()
 
 
 async def test_ep_requiring_form_sequence_type(rusers: Route, lc: LocalClient):

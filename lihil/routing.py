@@ -1,9 +1,9 @@
+import warnings
 from concurrent.futures.thread import ThreadPoolExecutor
 from functools import partial
 from inspect import isasyncgen, isgenerator
 from types import MappingProxyType
 from typing import Any, Awaitable, Callable, Generic, Pattern, cast, overload
-import warnings
 
 from ididi import Graph
 from ididi.graph import Resolver
@@ -276,7 +276,7 @@ class RouteBase(ASGIBase):
     def factory(self, node: Callable[..., R], *, ignore: NodeIgnoreConfig = ()):
         return self._graph.node(node, ignore=ignore)
 
-    def _setup(
+    def setup(
         self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
     ) -> None:
         self._graph = graph or self._graph
@@ -329,10 +329,10 @@ class Route(RouteBase):
         endpoint = self._call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
         await endpoint(scope, receive, send)
 
-    def _setup(
+    def setup(
         self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
     ) -> None:
-        super()._setup(workers=workers, graph=graph)
+        super().setup(workers=workers, graph=graph)
         self.endpoint_parser = EndpointParser(self._graph, self._path)
 
         for method, ep in self._endpoints.items():
@@ -386,7 +386,7 @@ class Route(RouteBase):
         self, method_func: HTTP_METHODS | Callable[..., Any]
     ) -> Endpoint[Any]:
         if not self._is_setup:
-            self._setup()
+            self.setup()
 
         if isinstance(method_func, str):
             methodname = cast(HTTP_METHODS, method_func.upper())

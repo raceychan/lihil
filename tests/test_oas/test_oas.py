@@ -118,7 +118,7 @@ async def test_complex_route(complex_route: Route):
     complex_route.add_endpoint(
         "GET", func=get_user, problems=[UserNotFoundError, UserNotHappyError]
     )
-    complex_route._setup()
+    complex_route.setup()
 
     oas = generate_oas([complex_route], oas_config, "0.1.0")
     assert oas
@@ -227,8 +227,8 @@ def test_generate_oas_collects_schema_errors_structure():
     async def ok_admin_endpoint() -> dict[str, str]:
         return {"status": "ok"}
 
-    api_route._setup()
-    admin_route._setup()
+    api_route.setup()
+    admin_route.setup()
 
     with pytest.raises(SchemaGenerationAggregateError) as exc_info:
         generate_oas([api_route, admin_route], oas_config, "test")
@@ -276,7 +276,7 @@ def test_collects_multiple_param_errors_same_endpoint():
     async def bad_params(x: Unknown, y: Unknown) -> None:
         return None
 
-    route._setup()
+    route.setup()
 
     with pytest.raises(SchemaGenerationAggregateError) as exc_info:
         generate_oas([route], oas_config, "test")
@@ -306,7 +306,7 @@ def test_route_with_multiple_endpoints_have_errors():
     async def bad_post() -> Unknown:
         return Unknown()
 
-    route._setup()
+    route.setup()
 
     with pytest.raises(SchemaGenerationAggregateError) as exc_info:
         generate_oas([route], oas_config, "test")

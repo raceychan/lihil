@@ -39,14 +39,14 @@ class TestWSRouteCoverage:
     """Test WebSocketRoute error cases and edge scenarios."""
 
     def test_ws_route_setup_empty_endpoint_error(self):
-        """Test WebSocketRoute._setup raises error when endpoint is None."""
+        """Test WebSocketRoute.setup raises error when endpoint is None."""
         route = WebSocketRoute("/ws")
 
         with pytest.raises(RuntimeError, match="Empty websocket route"):
-            route._setup()
+            route.setup()
 
     def test_ws_route_setup_body_param_error(self):
-        """Test WebSocketRoute._setup raises error for body params in websocket."""
+        """Test WebSocketRoute.setup raises error for body params in websocket."""
         route = WebSocketRoute("/ws")
 
         # Mock endpoint
@@ -64,7 +64,7 @@ class TestWSRouteCoverage:
 
         with pytest.raises(NotSupportedError, match="Websocket does not support body param"):
             route.endpoint_parser = mock_parser
-            route._setup(graph=Graph())
+            route.setup(graph=Graph())
 
     def test_ws_route_merge_with_endpoint(self):
         """Test WebSocketRoute.merge when subroute has endpoint."""

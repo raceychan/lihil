@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from inspect import iscoroutinefunction
 from time import perf_counter
 from typing import (
@@ -14,6 +15,8 @@ from uuid import uuid4
 
 from msgspec.json import decode as json_decode
 from typing_extensions import Unpack
+
+from ididi import Graph
 
 from lihil.errors import LihilError
 from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload, R
@@ -133,6 +136,8 @@ class LocalClient:
         *,
         client_type: Literal["http"] = "http",
         headers: dict[str, str] | None = None,
+        graph: Graph | None = None,
+        max_thread_workers: int | None = None,
     ):
         self.client_type = client_type
         self.base_headers: dict[str, str] = {
@@ -140,6 +145,8 @@ class LocalClient:
         }
         if headers:
             self.base_headers.update(headers)
+        self._graph = graph or Graph(self_inject=False)
+        self._workers = ThreadPoolExecutor(max_workers=max_thread_workers)
 
     def update_headers(self, headers: dict[str, str]):
         self.base_headers.update(headers)
@@ -365,9 +372,6 @@ class LocalClient:
         4. reset ep.graph to old graph
         """
 
-        if not ep.is_setup:
-            ep.setup()
-
         resp = await self.request(
             app=ep,
             method=ep.method,
@@ -396,12 +400,12 @@ class LocalClient:
         4. reset route.graph to old graph
         """
 
-        route._setup()
+        route.setup(graph=self._graph, workers=self._workers)
 
         resp = await self.request(
             app=route,
             method=method,
-            path=route._path,
+            path=route.path,
             path_params=path_params,
             query_params=query_params,
             headers=headers,
@@ -451,7 +455,7 @@ class LocalClient:
         sent_messages: list[dict[str, str]] = []
 
         async def send(message: dict[str, str]) -> None:
-            prefix, type_, result = message["type"].split(".")
+            _, _, result = message["type"].split(".")
             if result == "failed":
                 raise LihilError(message["message"])
             sent_messages.append(message)
@@ -509,6 +513,8 @@ class LocalClient:
         path: str = "",
         **props: Unpack[IEndpointProps],
     ) -> Endpoint[R]:
-        route = Route(path)
+        route = Route(path, graph=self._graph)
+        route._workers = self._workers
         route.add_endpoint(method, func=f, **props)
+        route.setup(graph=self._graph, workers=self._workers)
         return route.get_endpoint(method)

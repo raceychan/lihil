@@ -1,7 +1,7 @@
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from inspect import iscoroutinefunction
 from typing import Any, Awaitable, Callable
-import warnings
 
 from ididi import Graph, Resolver
 from typing_extensions import Self, Unpack
@@ -99,13 +99,13 @@ class WebSocketRoute(RouteBase):
     def __repr__(self):
         return f"{self.__class__.__name__}({self._path!r}, {self.endpoint})"
 
-    def _setup(
+    def setup(
         self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
     ):
         if self.endpoint is None:
             raise RuntimeError(f"Empty websocket route")
 
-        super()._setup(graph=graph, workers=workers)
+        super().setup(graph=graph, workers=workers)
         self.endpoint_parser = EndpointParser(self._graph, self._path)
         sig = self.endpoint_parser.parse(self.endpoint.unwrapped_func)
         if sig.body_param is not None:
@@ -155,30 +155,4 @@ class WebSocketRoute(RouteBase):
                 new_sub.ws_handler(sub.endpoint.unwrapped_func, **sub.endpoint.props)
             for sub_sub in sub_subs:
                 new_sub.merge(sub_sub, parent_prefix=sub._path)
-            self._subroutes.append(new_sub)
-
-    def include_subroutes(self, *subs: Self, parent_prefix: str | None = None) -> None:
-        """
-        Merge other routes into current route as sub routes,
-        a new route would be created based on the merged subroute
-
-        NOTE: This method is NOT idempotent
-        """
-        for sub in subs:
-            self._graph.merge(sub._graph)
-            if parent_prefix:
-                sub_path = sub._path.removeprefix(parent_prefix)
-            else:
-                sub_path = sub._path
-            merged_path = merge_path(self._path, sub_path)
-            sub_subs = sub._subroutes
-            new_sub = self.__class__(
-                path=merged_path,
-                graph=self._graph,
-                middlewares=sub.middle_factories,
-            )
-            if sub.endpoint is not None:
-                new_sub.ws_handler(sub.endpoint.unwrapped_func, **sub.endpoint.props)
-            for sub_sub in sub_subs:
-                new_sub.include_subroutes(sub_sub, parent_prefix=sub._path)
             self._subroutes.append(new_sub)
