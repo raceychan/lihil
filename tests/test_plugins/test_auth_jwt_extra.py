@@ -1,6 +1,11 @@
+import pytest
+from pytest import importorskip
+
+importorskip("jwt")
+pytestmark = pytest.mark.requires_auth
+
 from types import SimpleNamespace
 
-import pytest
 from jwt.exceptions import InvalidTokenError
 
 from lihil.plugins.auth import jwt as jwt_module

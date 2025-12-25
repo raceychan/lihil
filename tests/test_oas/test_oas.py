@@ -1,6 +1,11 @@
+import pytest
+from pytest import importorskip
+
+importorskip("jwt")
+importorskip("pydantic")
+pytestmark = [pytest.mark.requires_auth, pytest.mark.requires_pydantic]
 from typing import Annotated, Union
 
-import pytest
 from msgspec import Struct
 
 from lihil import Empty, HTTPException, Lihil, Param, Payload, Route, Text, status
