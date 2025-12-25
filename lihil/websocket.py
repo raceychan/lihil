@@ -7,7 +7,7 @@ from ididi import Graph, Resolver
 from typing_extensions import Self, Unpack
 
 from lihil.errors import NotSupportedError
-from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend
+from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend, MiddlewareFactory
 from lihil.routing import EndpointInfo, EndpointProps, IEndpointProps, RouteBase
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.utils.string import merge_path
@@ -92,8 +92,17 @@ class WebSocketEndpoint:
 
 
 class WebSocketRoute(RouteBase):
-    endpoint: WebSocketEndpoint | None = None
     call_stack: ASGIApp | None = None
+
+    def __init__(
+        self,
+        path: str = "",
+        *,
+        graph: Graph | None = None,
+        middlewares: list[MiddlewareFactory[Any]] | None = None,
+    ):
+        super().__init__(path, graph=graph, middlewares=middlewares)
+        self._ws_ep: WebSocketEndpoint | None = None
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         if not self.call_stack:
@@ -101,29 +110,30 @@ class WebSocketRoute(RouteBase):
         await self.call_stack(scope, receive, send)
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self._path!r}, {self.endpoint})"
+        return f"{self.__class__.__name__}({self._path!r}, {self._ws_ep})"
 
     def setup(
         self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
     ):
-        if self.endpoint is None:
-            raise RuntimeError(f"Empty websocket route")
+        if self._ws_ep is None:
+            raise RuntimeError(f"Empty {self} without any registered endpoint")
 
         super().setup(graph=graph, workers=workers)
         self.endpoint_parser = EndpointParser(self._graph, self._path)
-        sig = self.endpoint_parser.parse(self.endpoint.unwrapped_func)
+        sig = self.endpoint_parser.parse(self._ws_ep.unwrapped_func)
         if sig.body_param is not None:
             raise NotSupportedError(
                 f"Websocket does not support body param, got {sig.body_param}"
             )
-        self.endpoint.setup(sig, self._graph)
-        self.call_stack = self.chainup_middlewares(self.endpoint)
+        self._ws_ep.setup(sig, self._graph)
+        self.call_stack = self.chainup_middlewares(self._ws_ep)
+        self._is_setup = True
 
-    def ws_handler(self, func: Any = None, **iprops: Unpack[IEndpointProps]) -> Any:
+    def endpoint(self, func: Any = None, **iprops: Unpack[IEndpointProps]) -> Any:
         props = EndpointProps.from_unpack(**iprops)
-        endpoint = WebSocketEndpoint(self._path, func=func, props=props)
+        ws_ep = WebSocketEndpoint(self._path, func=func, props=props)
 
-        self.endpoint = endpoint
+        self._ws_ep = ws_ep
         return func
 
     def include_subroutes(self, *subs: Self, parent_prefix: str | None = None) -> None:
@@ -155,8 +165,8 @@ class WebSocketRoute(RouteBase):
                 graph=self._graph,
                 middlewares=sub.middle_factories,
             )
-            if sub.endpoint is not None:
-                new_sub.ws_handler(sub.endpoint.unwrapped_func, **sub.endpoint.props)
+            if sub._ws_ep is not None:
+                new_sub.endpoint(sub._ws_ep.unwrapped_func, **sub._ws_ep.props)
             for sub_sub in sub_subs:
                 new_sub.merge(sub_sub, parent_prefix=sub._path)
             self._subroutes.append(new_sub)

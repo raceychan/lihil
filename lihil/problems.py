@@ -31,9 +31,6 @@ If they want to do other things, do it with message bus
 Exc = TypeVar("Exc")
 
 ExceptionHandler = Callable[[Request, Exc], Response]
-ErrorRegistry = MappingProxyType[
-    "type[DetailBase[Any]] | http_status.Status", ExceptionHandler[Any]
-]
 
 
 def parse_exception(

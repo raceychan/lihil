@@ -571,7 +571,9 @@ def get_err_resp_schemas(ep: Endpoint[Any], schemas: SchemasDict, problem_path: 
                 # Create a schema with title that references the actual schema
                 schema_with_title = oasmodel.OASSchema(
                     title=err_name,
-                    allOf=[oasmodel.OASReference(ref=f"#/components/schemas/{err_name}")],
+                    allOf=[
+                        oasmodel.OASReference(ref=f"#/components/schemas/{err_name}")
+                    ],
                 )
 
                 # Add the schema with title to the oneOf list
@@ -673,7 +675,9 @@ def get_ep_security(
     auth_scheme = ep.props.auth_scheme
     if auth_scheme:
         scheme_name = auth_scheme.scheme_name
-        security_schemas[scheme_name] = cast(oasmodel.OASSecurityScheme, auth_scheme.model)
+        security_schemas[scheme_name] = cast(
+            oasmodel.OASSecurityScheme, auth_scheme.model
+        )
         security: dict[str, list[str]] = {scheme_name: []}
         if auth_scopes := auth_scheme.scopes:
             for name, scope in auth_scopes.items():

@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import is_dataclass
+from functools import lru_cache
 from types import GenericAlias, UnionType
 from typing import (
     Annotated,
@@ -14,7 +15,6 @@ from typing import (
 )
 from typing import get_origin as ty_get_origin
 from typing import overload
-from functools import lru_cache
 
 from msgspec import UNSET, Struct, UnsetType
 from typing_extensions import TypeAliasType, TypeGuard, is_typeddict
@@ -207,12 +207,6 @@ def deannotate(
         else:
             flattened_metadata.append(item)
     return (atype, flattened_metadata)
-
-
-def homogeneous_sequence(val: Any, t: type[T]) -> TypeGuard[Sequence[T]]:
-    if lenient_issubclass(val, Sequence):
-        return all(lenient_issubclass(c, t) for c in get_args(val))
-    return False
 
 
 def get_origin_pro(

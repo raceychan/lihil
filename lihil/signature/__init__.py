@@ -7,5 +7,3 @@ from .parser import EndpointParser as EndpointParser
 from .signature import EndpointSignature as EndpointSignature
 from .signature import Injector as Injector
 from .signature import ParseResult as ParseResult
-from .tool_parser import Tool as Tool
-from .tool_parser import tool as tool

@@ -24,7 +24,7 @@ async def test_ws(test_client):
         await ws.send_text("Hello, world!")
         await ws.close()
 
-    ws_route.ws_handler(test_ws)
+    ws_route.endpoint(test_ws)
 
     lhl = Lihil()
     lhl.include(ws_route)
@@ -48,7 +48,7 @@ async def test_ws_with_body_fail(test_client):
         await ws.send_text("Hello, world!")
         await ws.close()
 
-    ws_route.ws_handler(test_ws)
+    ws_route.endpoint(test_ws)
 
     lhl = Lihil()
     lhl.include(ws_route)
@@ -75,7 +75,7 @@ async def test_ws_full_fledge(test_client):
         assert session_id == "session123" and max_users == 5
         await ws.send_text("Hello, world!")
 
-    ws_route.ws_handler(ws_handler)
+    ws_route.endpoint(ws_handler)
 
     lhl = Lihil()
     lhl.include(ws_route)
@@ -101,7 +101,7 @@ async def test_ws_repr(test_client):
         assert session_id == "session123" and max_users == 5
         await ws.send_text("Hello, world!")
 
-    ws_route.ws_handler(ws_handler)
+    ws_route.endpoint(ws_handler)
 
     repr(ws_route)
     repr(ws_route.endpoint)
@@ -130,7 +130,7 @@ async def test_ws_plugins(test_client):
         await ws.close()
 
     plugin = BusPlugin(busterm=BusTerminal())
-    ws_route.ws_handler(ws_handler, plugins=[plugin.decorate])
+    ws_route.endpoint(ws_handler, plugins=[plugin.decorate])
 
     lhl = Lihil()
     lhl.include(ws_route)
@@ -153,7 +153,7 @@ async def test_ws_close_on_exc(test_client):
     ):
         raise Exception
 
-    ws_route.ws_handler(ws_handler)
+    ws_route.endpoint(ws_handler)
 
     lhl = Lihil()
     lhl.include(ws_route)

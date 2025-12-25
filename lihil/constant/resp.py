@@ -34,12 +34,6 @@ INTERNAL_WS_ERROR_HEADER = INTERNAL_ERROR_HEADER | {
 }
 INTERNAL_WS_ERROR_BODY = INTERNAL_ERROR_BODY | {"type": "websocket.http.response.body"}
 
-INTERNAL_WS_CLOSE_MSG = {
-    "type": "websocket.close",
-    "code": 1011,
-    "reason": "Internal Server Error",
-}
-
 
 async def InternalErrorResp(scope: IScope, __: IReceive, send: ISend) -> None:
     if scope.get("type") == "websocket":

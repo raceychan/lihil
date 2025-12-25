@@ -220,6 +220,7 @@ class RouteBase(ASGIBase):
         self._graph = graph or Graph(self_inject=False)
         self._workers = None
         self._subroutes: list[Self] = []
+        self._is_setup = False
 
     @property
     def graph(self) -> Graph:
@@ -281,6 +282,11 @@ class RouteBase(ASGIBase):
     ) -> None:
         self._graph = graph or self._graph
         self._workers = workers
+        self._is_setup = True
+
+    @property
+    def is_setup(self) -> bool:
+        return self._is_setup
 
 
 class Route(RouteBase):

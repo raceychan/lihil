@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 
+from lihil import WebSocket, WebSocketRoute
 from lihil.config import AppConfig, ServerConfig, lhl_get_config
 from lihil.constant.resp import ServiceUnavailableResp, lhlserver_static_resp
 from lihil.errors import (
@@ -10,13 +11,11 @@ from lihil.errors import (
     InvalidLifeSpanError,
     LihilError,
     NotSupportedError,
-    RouteSetupError,
 )
 from lihil.interface import ASGIApp, Base
 from lihil.lihil import Lihil, lhl_set_config, lifespan_wrapper
 from lihil.local_client import LocalClient
 from lihil.routing import Route
-from lihil import WebSocket, WebSocketRoute
 
 
 class CustomAppState(Base):
@@ -290,9 +289,9 @@ async def test_lihil_include_nested_http_and_ws_routes(test_client):
         await ws.send_text("ws ok")
         await ws.close()
 
-    ws_route.ws_handler(ws_root)
-    ws_v1.ws_handler(ws_v1_handler)
-    ws_notification.ws_handler(notify)
+    ws_route.endpoint(ws_root)
+    ws_v1.endpoint(ws_v1_handler)
+    ws_notification.endpoint(notify)
 
     app = Lihil(api_route, ws_route)
 
@@ -314,7 +313,7 @@ async def test_route_cannot_include_websocket():
         await ws.accept()
         await ws.close()
 
-    ws_route.ws_handler(ws_handler)
+    ws_route.endpoint(ws_handler)
 
     # Route.merge assumes HTTP endpoints; mixing WebSocketRoute should fail
     with pytest.raises(AttributeError):
@@ -329,7 +328,7 @@ async def test_websocket_cannot_include_route():
         await ws.send_text("root ws")
         await ws.close()
 
-    ws_route.ws_handler(ws_handler)
+    ws_route.endpoint(ws_handler)
 
     api_route = Route("api")
 
@@ -369,9 +368,9 @@ async def test_merge_separate_trees_then_include_in_app(test_client):
         await ws_conn.send_text("notify ok")
         await ws_conn.close()
 
-    ws.ws_handler(ws_root)
-    ws_v1.ws_handler(ws_v1_handler)
-    ws_notify.ws_handler(notify)
+    ws.endpoint(ws_root)
+    ws_v1.endpoint(ws_v1_handler)
+    ws_notify.endpoint(notify)
     ws_v1.merge(ws_notify, parent_prefix="/ws/v1")
     ws.merge(ws_v1, parent_prefix="/ws")
 

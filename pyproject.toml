@@ -21,7 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "ididi>=1.7.9",
+  "ididi==1.8.3",
   "msgspec>=0.20.0",
   "python-multipart>=0.0.20",
   "starlette>=0.50.0",

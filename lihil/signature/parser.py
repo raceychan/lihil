@@ -20,8 +20,7 @@ from typing import (
 )
 from warnings import warn
 
-from ididi import DependentNode, Graph, Resolver
-from ididi.config import USE_FACTORY_MARK
+from ididi import DependentNode, Graph, NodeMeta, Resolver
 from ididi.errors import UnsolvableNodeError
 from ididi.interfaces import IDependent
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
@@ -343,7 +342,6 @@ class EndpointParser:
     def _parse_node(
         self, node_type: IDependent[Any], reuse: Maybe[bool] = LIHIL_MISSING
     ) -> list["ParsedParam[Any]"]:
-
         if is_present(reuse):
             node = self.graph.analyze(node_type, reuse=reuse)
         else:
@@ -684,15 +682,14 @@ class EndpointParser:
         param_meta: ParamMeta | None = None
 
         if parsed_metas:
-            for idx, meta in enumerate(parsed_metas):
+            for _, meta in enumerate(parsed_metas):
                 if isinstance(meta, (ParamMeta, BodyMeta)):
                     if param_meta is None:
                         param_meta = meta
                     else:
                         param_meta = param_meta.merge(meta)  # type: ignore
-                elif meta == USE_FACTORY_MARK:
-                    factory, reuse = parsed_metas[idx + 1], parsed_metas[idx + 2]
-                    return self._parse_node(factory, reuse)
+                elif isinstance(meta, NodeMeta):
+                    return self._parse_node(meta.factory, meta.reuse)
 
         if source is not None:
             if param_meta is None:

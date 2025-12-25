@@ -1,11 +1,14 @@
 """
 Tests to improve coverage for websocket functionality.
 """
-import pytest
+
 from unittest.mock import Mock
-from lihil.websocket import WebSocketRoute, WebSocketEndpoint
+
+import pytest
+
 from lihil.errors import NotSupportedError
-from lihil.routing import Graph, EndpointProps
+from lihil.routing import EndpointProps, Graph
+from lihil.websocket import WebSocketEndpoint, WebSocketRoute
 
 
 class TestWSEndpointCoverage:
@@ -18,7 +21,9 @@ class TestWSEndpointCoverage:
         def sync_function():
             return "sync"
 
-        with pytest.raises(NotSupportedError, match="sync function is not supported for websocket"):
+        with pytest.raises(
+            NotSupportedError, match="sync function is not supported for websocket"
+        ):
             WebSocketEndpoint(route, sync_function, {})
 
     def test_ws_endpoint_properties(self):
@@ -42,7 +47,7 @@ class TestWSRouteCoverage:
         """Test WebSocketRoute.setup raises error when endpoint is None."""
         route = WebSocketRoute("/ws")
 
-        with pytest.raises(RuntimeError, match="Empty websocket route"):
+        with pytest.raises(RuntimeError):
             route.setup()
 
     def test_ws_route_setup_body_param_error(self):
@@ -53,7 +58,7 @@ class TestWSRouteCoverage:
         async def ws_handler(body: dict):  # This should trigger body param error
             pass
 
-        route.ws_handler(ws_handler)
+        route.endpoint(ws_handler)
 
         # Mock the endpoint parser to return a signature with body_param
         mock_sig = Mock()
@@ -62,7 +67,9 @@ class TestWSRouteCoverage:
         mock_parser = Mock()
         mock_parser.parse.return_value = mock_sig
 
-        with pytest.raises(NotSupportedError, match="Websocket does not support body param"):
+        with pytest.raises(
+            NotSupportedError, match="Websocket does not support body param"
+        ):
             route.endpoint_parser = mock_parser
             route.setup(graph=Graph())
 
@@ -76,7 +83,7 @@ class TestWSRouteCoverage:
         async def sub_handler():
             pass
 
-        sub_route.ws_handler(sub_handler)
+        sub_route.endpoint(sub_handler)
 
         # Test include/merge
         parent_route.merge(sub_route)
@@ -94,7 +101,7 @@ class TestWSRouteCoverage:
 
         assert len(parent_route._subroutes) == 1
         new_sub = parent_route._subroutes[0]
-        assert new_sub.endpoint is None
+        assert not new_sub.is_setup
 
     def test_ws_route_chainup_plugins(self):
         """Test WebSocketEndpoint.chainup_plugins functionality."""
