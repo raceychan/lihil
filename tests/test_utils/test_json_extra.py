@@ -1,8 +1,14 @@
+import pytest
+from pytest import importorskip
+
+importorskip("pydantic")
+pytestmark = pytest.mark.requires_pydantic
+
 import math
 
 from pydantic import BaseModel
 
-from lihil.utils.json import json_schema, is_json_compatible
+from lihil.utils.json import is_json_compatible, json_schema
 
 
 def test_json_schema_uses_schema_generator_when_present():
