@@ -2,8 +2,15 @@ from typing import Any, get_origin
 
 import pytest
 
+pytestmark = pytest.mark.anyio("asyncio")
+
+
+@pytest.fixture(scope="session")
+def anyio_backend():
+    return "asyncio"
+
 from lihil import Annotated, Route, status, use
-from lihil.ds.event import Event
+from msgspec import Struct
 from lihil.local_client import LocalClient
 from lihil.plugins.bus import (
     BusPlugin,
@@ -12,6 +19,10 @@ from lihil.plugins.bus import (
     MessageRegistry,
     PEventBus,
 )
+
+
+class Event(Struct):
+    pass
 
 
 class TodoCreated(Event):

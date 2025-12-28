@@ -1,13 +1,21 @@
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from inspect import iscoroutinefunction
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from ididi import Graph, Resolver
 from typing_extensions import Self, Unpack
 
 from lihil.errors import NotSupportedError
-from lihil.interface import ASGIApp, Func, IReceive, IScope, ISend, MiddlewareFactory
+from lihil.interface import (
+    ASGIApp,
+    Func,
+    IAsyncFunc,
+    IReceive,
+    IScope,
+    ISend,
+    MiddlewareFactory,
+)
 from lihil.routing import EndpointInfo, EndpointProps, IEndpointProps, RouteBase
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.utils.string import merge_path
@@ -15,12 +23,21 @@ from lihil.vendors import Response, WebSocket, WebSocketDisconnect, WebSocketSta
 
 
 class WebSocketEndpoint:
-    def __init__(self, path: str, func: Func[..., None], props: EndpointProps):
+    def __init__(
+        self,
+        path: str,
+        func: Func[..., None],
+        props: EndpointProps,
+        on_connect: Func[..., None] | None = None,
+        on_disconnect: Func[..., None] | None = None,
+    ):
         self._path = path
         self._unwrapped_func = func
         if not iscoroutinefunction(func):
             raise NotSupportedError("sync function is not supported for websocket")
         self._func = func
+        self._on_connect = on_connect
+        self._on_disconnect = on_disconnect
         self._name = func.__name__
         self._props = props
 
@@ -34,10 +51,10 @@ class WebSocketEndpoint:
 
     def chainup_plugins(
         self,
-        func: Callable[..., Awaitable[None]],
+        func: IAsyncFunc[..., None],
         sig: EndpointSignature[None],
         graph: Graph,
-    ) -> Callable[..., Awaitable[None]]:
+    ) -> IAsyncFunc[..., None]:
         seen: set[int] = set()
         for decor in self._props.plugins:
             if (decor_id := id(decor)) in seen:
@@ -69,9 +86,11 @@ class WebSocketEndpoint:
 
         try:
             parsed = await self._injector.validate_websocket(ws, resolver)
+            # if self._on_connect:
+            #    await ws.accept()
             await self._func(**parsed.params)
         except WebSocketDisconnect:
-            # we should not end close message when client is disconnected already
+            # we should not send close message when client is disconnected already
             return
         except Exception:
             if ws.client_state == WebSocketState.CONNECTED:
@@ -132,7 +151,6 @@ class WebSocketRoute(RouteBase):
     def endpoint(self, func: Any = None, **iprops: Unpack[IEndpointProps]) -> Any:
         props = EndpointProps.from_unpack(**iprops)
         ws_ep = WebSocketEndpoint(self._path, func=func, props=props)
-
         self._ws_ep = ws_ep
         return func
 
@@ -170,3 +188,45 @@ class WebSocketRoute(RouteBase):
             for sub_sub in sub_subs:
                 new_sub.merge(sub_sub, parent_prefix=sub._path)
             self._subroutes.append(new_sub)
+
+
+class Channel:
+    """
+    user_ch = Channel("user:{user_id})
+    ws.include_channel(user_ch)
+    or
+    user_ch = ws.channel("user:{user_id}") # by default, equal to user:*, use "user:{user_id}" for specific
+
+    @user_ch.on_message
+    async def handle_message(): ...
+
+
+    @user_ch.on_leave
+    async def leave_topic(): ...
+    """
+
+    def __init__(self, topic: str):
+        "Instantiate prior to join"
+        ...
+
+    # we have four callbacks method
+    def on_join(self, func: IAsyncFunc[..., Any]):
+        "called once client joins, might do verification here"
+
+    def on_receive(self, msg_key: str, body: dict):
+        "called once msg is received"
+
+    def on_publish(self, anything: object):
+        """if we publish in on_receive, this will be called, we might implement filter logic here"""
+
+    def on_exit(self, func):
+        "on user leave topic"
+
+    async def reply(self, msg):
+        "reply to requesting client"
+
+    async def emit(self, msg):
+        "fire and forget to client"
+
+    async def publish(self, key, msg):
+        "publish to all joined clients"
