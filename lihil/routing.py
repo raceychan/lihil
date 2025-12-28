@@ -332,7 +332,7 @@ class Route(RouteBase):
         return f"{self.__class__.__name__}({self._path!r}{endpoints_repr})"
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
-        endpoint = self._call_stacks.get(scope["method"]) or METHOD_NOT_ALLOWED_RESP
+        endpoint = self._call_stacks.get(scope["method"], METHOD_NOT_ALLOWED_RESP)
         await endpoint(scope, receive, send)
 
     def setup(
