@@ -15,6 +15,7 @@ from lihil.constant.resp import METHOD_NOT_ALLOWED_RESP
 from lihil.errors import InvalidEndpointError, LihilError, UnserializableResponseError
 from lihil.interface import (
     HTTP_METHODS,
+    MISSING,
     ASGIApp,
     Func,
     IAsyncFunc,
@@ -26,7 +27,7 @@ from lihil.interface import (
     R,
     Record,
 )
-from lihil.problems import get_solver
+from lihil.problems import InvalidFormError, InvalidRequestErrors, get_solver
 from lihil.props import EndpointProps, IEndpointProps
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.signature.returns import agen_encode_wrapper, syncgen_encode_wrapper
@@ -37,7 +38,57 @@ from lihil.utils.string import (
     trim_path,
 )
 from lihil.utils.threading import async_wrapper
-from lihil.vendors import Request, Response, StreamingResponse
+from lihil.vendors import MultiPartException, Request, Response, StreamingResponse
+
+
+class HTTPInjector(Injector[R]):
+    async def validate_request(self, req: Request, resolver: Resolver):
+        parsed = self._validate_conn(req)
+        params, errors = parsed.params, parsed.errors
+
+        if self.body_param:
+            name, param = self.body_param
+
+            if form_meta := self.form_meta:
+                try:
+                    body = await req.form(
+                        max_files=form_meta.max_files,
+                        max_fields=form_meta.max_fields,
+                        max_part_size=form_meta.max_part_size,
+                    )
+                except MultiPartException:
+                    body = b""
+                    errors.append(InvalidFormError("body", name))
+                else:
+                    parsed.callbacks.append(body.close)
+            else:
+                body = await req.body()
+
+            val, error = param.extract(body)
+            if val is not MISSING:
+                params[name] = val
+            else:
+                errors.append(error)  # type: ignore
+
+        if errors:
+            raise InvalidRequestErrors(detail=errors)
+
+        for name, p in self.state_params:
+            ptype = p.type_
+            if not isinstance(ptype, type):
+                continue
+            if issubclass(ptype, Request):
+                params[name] = req
+            elif issubclass(ptype, Resolver):
+                params[name] = resolver
+
+        for name, dep in self.deps:
+            params[name] = await resolver.aresolve(dep.dependent, **params)
+
+        for p in self.transitive_params:
+            params.pop(p)
+
+        return parsed
 
 
 class EndpointInfo(Record, Generic[P, R]):
@@ -122,7 +173,7 @@ class Endpoint(Generic[R]):
         self._sig = sig
         self._graph = graph
         self._func = self._chainup_plugins(self._func, self._sig, graph)
-        self._injector = Injector(self._sig)
+        self._injector = HTTPInjector(self._sig)
 
         self._static = sig.static
         self._status_code = sig.status_code

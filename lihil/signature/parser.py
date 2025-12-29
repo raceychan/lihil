@@ -24,11 +24,13 @@ from ididi import DependentNode, Graph, NodeMeta, Resolver
 from ididi.errors import UnsolvableNodeError
 from ididi.interfaces import IDependent
 from ididi.utils.param_utils import MISSING as IDIDI_MISSING
+from ididi.utils.param_utils import is_provided
 from msgspec import Struct, convert
 from msgspec.structs import NODEFAULT, FieldInfo
 from msgspec.structs import fields as get_fields
 from typing_extensions import NotRequired, TypeAliasType, is_typeddict
 
+from lihil.channel import ISocket
 from lihil.errors import InvalidParamError, InvalidParamPackError, NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, R, T, is_present
@@ -66,7 +68,7 @@ from .returns import parse_returns
 from .signature import EndpointSignature
 
 STARLETTE_TYPES: tuple[type, ...] = (Request, WebSocket)
-LIHIL_TYPES: tuple[type, ...] = (Resolver,)
+LIHIL_TYPES: tuple[type, ...] = (Resolver, ISocket)
 LIHIL_PRIMITIVES: tuple[type, ...] = STARLETTE_TYPES + LIHIL_TYPES
 
 
@@ -372,7 +374,7 @@ class EndpointParser:
 
         Priority order (highest to lowest):
         1. Path parameters (if name matches route path keys)
-        2. Lihil primitives (Request, WebSocket, Resolver)
+        2. Lihil primitives (Request, ISocket, Resolver)
         3. **Dependency injection** (types registered in dependency graph)
         4. Body parameters (structured types like Payload, Struct, dataclass)
         5. Query parameters (default fallback)
@@ -397,6 +399,12 @@ class EndpointParser:
                 source="path",
             )
         elif is_lhl_primitive(param_type):
+            if lenient_issubclass(param_type, WebSocket):
+                warn(
+                    "WebSocket param is deprecated; prefer ISocket",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
             type_ = Request if param_type is IRequest else param_type
             plugins: PluginParam = PluginParam(
                 type_=type_, annotation=annotation, name=name, default=default
@@ -689,6 +697,11 @@ class EndpointParser:
                     else:
                         param_meta = param_meta.merge(meta)  # type: ignore
                 elif isinstance(meta, NodeMeta):
+                    if meta.ignore:
+                        continue
+
+                    if not is_provided(meta.factory):
+                        raise RuntimeError("node without factory")
                     return self._parse_node(meta.factory, meta.reuse)
 
         if source is not None:

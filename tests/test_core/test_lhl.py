@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 
-from lihil import WebSocket, WebSocketRoute
+from lihil import ISocket, WebSocketRoute
 from lihil.config import AppConfig, ServerConfig, lhl_get_config
 from lihil.constant.resp import ServiceUnavailableResp, lhlserver_static_resp
 from lihil.errors import (
@@ -274,17 +274,17 @@ async def test_lihil_include_nested_http_and_ws_routes(test_client):
     ws_v1 = ws_route.sub("v1")
     ws_notification = ws_v1.sub("notification")
 
-    async def ws_root(ws: WebSocket):
+    async def ws_root(ws: ISocket):
         await ws.accept()
         await ws.send_text("ws root")
         await ws.close()
 
-    async def ws_v1_handler(ws: WebSocket):
+    async def ws_v1_handler(ws: ISocket):
         await ws.accept()
         await ws.send_text("ws v1")
         await ws.close()
 
-    async def notify(ws: WebSocket):
+    async def notify(ws: ISocket):
         await ws.accept()
         await ws.send_text("ws ok")
         await ws.close()
@@ -309,7 +309,7 @@ async def test_route_cannot_include_websocket():
     api_route = Route("api")
     ws_route = WebSocketRoute("ws")
 
-    async def ws_handler(ws: WebSocket):
+    async def ws_handler(ws: ISocket):
         await ws.accept()
         await ws.close()
 
@@ -323,7 +323,7 @@ async def test_route_cannot_include_websocket():
 async def test_websocket_cannot_include_route():
     ws_route = WebSocketRoute("ws")
 
-    async def ws_handler(ws: WebSocket):
+    async def ws_handler(ws: ISocket):
         await ws.accept()
         await ws.send_text("root ws")
         await ws.close()
@@ -353,17 +353,17 @@ async def test_merge_separate_trees_then_include_in_app(test_client):
     ws_v1 = WebSocketRoute("/ws/v1")
     ws_notify = WebSocketRoute("/ws/v1/notification")
 
-    async def ws_root(ws_conn: WebSocket):
+    async def ws_root(ws_conn: ISocket):
         await ws_conn.accept()
         await ws_conn.send_text("root ok")
         await ws_conn.close()
 
-    async def ws_v1_handler(ws_conn: WebSocket):
+    async def ws_v1_handler(ws_conn: ISocket):
         await ws_conn.accept()
         await ws_conn.send_text("v1 ok")
         await ws_conn.close()
 
-    async def notify(ws_conn: WebSocket):
+    async def notify(ws_conn: ISocket):
         await ws_conn.accept()
         await ws_conn.send_text("notify ok")
         await ws_conn.close()

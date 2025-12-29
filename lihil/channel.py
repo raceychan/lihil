@@ -1,12 +1,22 @@
 import re
-from typing import Any, Awaitable, Callable, TypeAlias
+from typing import Any, Awaitable, Callable, Protocol
 
-from lihil.interface import Record
-from lihil.vendors import WebSocket
-
+from lihil.interface import IReceive, IScope, ISend, Record, field
+from lihil.vendors import WebSocket, WebSocketState
 
 PublishFunc = Callable[[str, str, Any], Awaitable[None]]
-ChannelHook: TypeAlias = Callable[[dict[str, Any], "ISocket"], Awaitable[Any]]
+
+
+class OnJoinCallback(Protocol):
+    async def __call__(self, params: dict[str, Any], sock: "ISocket") -> Any: ...
+
+
+class OnExitCallback(Protocol):
+    async def __call__(self, sock: "ISocket") -> Any: ...
+
+
+class OnReceiveCallback(Protocol):
+    async def __call__(self, payload: Any, sock: "ISocket") -> Any: ...
 
 
 class RejectError(Exception):
@@ -17,7 +27,7 @@ class MessageEnvelope(Record):
     topic: str
     event: str
     payload: Any = None
-    topic_params: dict[str, str] | None = None
+    topic_params: dict[str, str] = field(default_factory=dict[str, str])
 
     @classmethod
     def from_raw(cls, raw: dict[str, Any]) -> "MessageEnvelope":
@@ -38,17 +48,31 @@ class ISocket:
 
     def __init__(
         self,
-        websocket: WebSocket,
+        scope: IScope,
+        receive: IReceive,
+        send: ISend,
         *,
         topic: str | None = None,
         params: dict[str, Any] | None = None,
         assigns: dict[str, Any] | None = None,
     ):
-        self._ws = websocket
+        self._ws = WebSocket(scope, receive, send)
         self.topic = topic
         self.params = params or {}
         self.assigns = assigns or {}
         self._publish: PublishFunc | None = None
+
+    @property
+    def websocket(self) -> WebSocket:
+        return self._ws
+
+    @property
+    def application_state(self) -> WebSocketState:
+        return self._ws.application_state
+
+    @property
+    def client_state(self) -> WebSocketState:
+        return self._ws.client_state
 
     # Explicitly expose only the supported WebSocket/HTTPConnection API surface
     @property
@@ -100,23 +124,38 @@ class ISocket:
         return await self._ws.receive_bytes()
 
     async def reply(self, payload: Any, event: str = "reply") -> None:
-        await self._ws.send_json({"topic": self.topic, "event": event, "payload": payload})
+        await self._ws.send_json(
+            {"topic": self.topic, "event": event, "payload": payload}
+        )
 
     async def emit(self, payload: Any, event: str = "emit") -> None:
-        await self._ws.send_json({"topic": self.topic, "event": event, "payload": payload})
+        await self._ws.send_json(
+            {"topic": self.topic, "event": event, "payload": payload}
+        )
 
     async def publish(self, payload: Any, event: str = "broadcast") -> None:
         if not self._publish or not self.topic:
             raise RuntimeError("publish backend or topic not set")
         await self._publish(self.topic, event, payload)
 
-    async def allow_if(self, condition: bool, code: int = 4403, reason: str = "Forbidden"):
+    async def allow_if(
+        self, condition: bool, code: int = 4403, reason: str = "Forbidden"
+    ):
         if not condition:
             await self._ws.close(code=code, reason=reason)
             raise RejectError("connection rejected")
 
+
 TOPIC_NOT_FOUND = {"code": 4404, "reason": "Topic not found"}
 EVENT_NOT_FOUND = {"code": 4404, "reason": "Event not found"}
+
+
+async def _default_on_join(params: dict[str, Any], sock: ISocket) -> None:
+    return None
+
+
+async def _default_on_exit(sock: ISocket) -> None:
+    return None
 
 
 class Channel:
@@ -127,41 +166,38 @@ class Channel:
     def __init__(self, topic_pattern: str):
         self.topic_pattern = topic_pattern
         self._regex = self._compile_topic_pattern(topic_pattern)
-        async def _default_on_join(params: dict[str, Any] | None, sock: ISocket) -> None:
-            return None
 
-        async def _default_on_exit(sock: ISocket) -> None:
-            return None
+        self._on_join: OnJoinCallback = _default_on_join
+        self._on_exit: OnExitCallback = _default_on_exit
+        self._on_receive: dict[str, OnReceiveCallback] = {}
 
-        self._on_join: ChannelHook = _default_on_join
-        self._on_exit: Callable[[ISocket], Awaitable[Any]] = _default_on_exit
-        self._on_receive: dict[str, Callable[[Any, ISocket], Awaitable[Any]]] = {}
-
-    def on_join(self, func: ChannelHook) -> ChannelHook:
+    def on_join(self, func: OnJoinCallback) -> OnJoinCallback:
         self._on_join = func
         return func
 
-    def on_exit(self, func: Callable[[ISocket], Awaitable[Any]]) -> Callable[[ISocket], Awaitable[Any]]:
+    def on_exit(self, func: OnExitCallback) -> OnExitCallback:
         self._on_exit = func
         return func
 
     def on_receive(self, event: str):
-        def decorator(func: Callable[[Any, ISocket], Awaitable[Any]]):
+        def decorator(func: OnReceiveCallback):
             self._on_receive[event] = func
             return func
 
         return decorator
 
     @property
-    def join_handler(self) -> ChannelHook | None:
+    def on_join_callback(self) -> OnJoinCallback:
         return self._on_join
 
     @property
-    def exit_handler(self) -> Callable[[ISocket], Awaitable[Any]] | None:
+    def on_exit_callback(self) -> OnExitCallback:
         return self._on_exit
 
     @property
-    def receive_handlers(self) -> dict[str, Callable[[Any, ISocket], Awaitable[Any]]]:
+    def on_receive_callbacks(
+        self,
+    ) -> dict[str, OnReceiveCallback]:
         return self._on_receive
 
     def _compile_topic_pattern(self, pattern: str) -> re.Pattern[str]:
@@ -185,35 +221,9 @@ class Channel:
             return m.groupdict()
         return None
 
-    async def dispatch(
-        self, env: MessageEnvelope, sock: ISocket, joined: set["Channel"]
-    ) -> None:
-        if env.event == "join":
-            await self._on_join(env.topic_params or {}, sock)
-            joined.add(self)
-            return
-
-        if env.event == "leave":
-            await self._on_exit(sock)
-            return
-
-        if self not in joined:
-            await sock.send_json(TOPIC_NOT_FOUND)
-            return
-
-        if handler := self._on_receive.get(env.event):
+    async def dispatch(self, env: MessageEnvelope, sock: ISocket) -> None:
+        handler = self._on_receive.get(env.event)
+        if handler:
             await handler(env.payload, sock)
-            return
-
-        await sock.send_json(EVENT_NOT_FOUND)
-
-
-__all__ = [
-    "ISocket",
-    "MessageEnvelope",
-    "Channel",
-    "RejectError",
-    "ChannelHook",
-    "TOPIC_NOT_FOUND",
-    "EVENT_NOT_FOUND",
-]
+        else:
+            await sock.send_json(EVENT_NOT_FOUND)

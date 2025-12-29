@@ -22,11 +22,42 @@ from lihil.interface import (
     IScope,
     ISend,
     MiddlewareFactory,
+    P,
+    R,
 )
+from lihil.problems import InvalidRequestErrors
 from lihil.routing import EndpointInfo, EndpointProps, IEndpointProps, RouteBase
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.utils.string import merge_path
 from lihil.vendors import Response, WebSocket, WebSocketDisconnect, WebSocketState
+
+
+class WebSocketInjector(Injector[R]):
+    async def validate_websocket(self, sock: ISocket, resolver: Resolver):
+        parsed_result = self._validate_conn(sock.websocket)
+
+        if errors := parsed_result.errors:
+            raise InvalidRequestErrors(detail=errors)
+
+        params = parsed_result.params
+        for name, p in self.state_params:
+            ptype = p.type_
+            if not isinstance(ptype, type):
+                continue
+            if issubclass(ptype, ISocket):
+                params[name] = sock
+            elif issubclass(ptype, WebSocket):
+                params[name] = sock.websocket
+            elif issubclass(ptype, Resolver):
+                params[name] = resolver
+
+        for name, dep in self.deps:
+            params[name] = await resolver.aresolve(dep.dependent, **params)
+
+        for p in self.transitive_params:
+            params.pop(p)
+
+        return parsed_result
 
 
 class PendingManaged(TypedDict, total=False):
@@ -78,7 +109,7 @@ class WebSocketEndpoint:
         self._graph = graph
         self._sig = sig
         self._func = self.chainup_plugins(self._func, sig, graph)
-        self._injector = Injector(self._sig)
+        self._injector = WebSocketInjector(self._sig)
         self._scoped: bool = self._sig.scoped
 
     def __repr__(self) -> str:
@@ -91,17 +122,17 @@ class WebSocketEndpoint:
         send: ISend,
         resolver: Resolver,
     ) -> None | ParseResult | Response:
-        ws = WebSocket(scope, receive, send)
+        sock = ISocket(scope, receive, send)
 
         try:
-            parsed = await self._injector.validate_websocket(ws, resolver)
+            parsed = await self._injector.validate_websocket(sock, resolver)
             await self._func(**parsed.params)
         except WebSocketDisconnect:
             # we should not send close message when client is disconnected already
             return
         except Exception:
-            if ws.client_state == WebSocketState.CONNECTED:
-                await ws.close(code=1011, reason="Internal Server Error")
+            if sock.client_state == WebSocketState.CONNECTED:
+                await sock.close(code=1011, reason="Internal Server Error")
             raise
 
     async def __call__(
@@ -173,49 +204,61 @@ class WSManagedEndpoint(WebSocketEndpoint):
         send: ISend,
         resolver: Resolver,
     ) -> None | ParseResult | Response:
-        ws = WebSocket(scope, receive, send)
-        sock = ISocket(ws)
+        sock = ISocket(scope, receive, send)
         joined: set[Channel] = set()
 
-        parsed_params: dict[str, Any] | None = None
+        parsed_params = None
 
         try:
-            parsed = await self._injector.validate_websocket(ws, resolver)
-            parsed_params = dict(parsed.params)
+            parsed = await self._injector.validate_websocket(sock, resolver)
+            parsed_params = parsed.params
             if self._on_connect:
                 await self._on_connect(sock, **parsed_params)
-            await ws.accept()
+            await sock.accept()
 
             while True:
-                env_raw = await ws.receive_json()
+                env_raw = await sock.receive_json()
                 env = MessageEnvelope.from_raw(env_raw)
                 ch, match = self.match_channel(env.topic)
-                sock.topic = env.topic
-                sock.params = match or {}
-                env.topic_params = match or {}
-
-                if not ch:
-                    await ws.send_json(TOPIC_NOT_FOUND)
+                if not ch or not match:
+                    await sock.send_json(TOPIC_NOT_FOUND)
                     return
+                sock.topic = env.topic
+                sock.params = match
+                env.topic_params.update(match)
+                if env.event == "join":
+                    await ch.on_join_callback(env.topic_params or {}, sock)
+                    joined.add(ch)
+                    continue
 
-                await ch.dispatch(env, sock, joined)
+                if env.event == "leave":
+                    await ch.on_exit_callback(sock)
+                    continue
 
+                if ch not in joined:
+                    await sock.send_json(TOPIC_NOT_FOUND)
+                    continue
+
+                await ch.dispatch(env, sock)
         except WebSocketDisconnect:
-            pass
+            return
         except RejectError:
             return
         except Exception:
-            if ws.client_state == WebSocketState.CONNECTED:
-                await ws.close(code=1011, reason="Internal Server Error")
+            if sock.client_state == WebSocketState.CONNECTED:
+                await sock.close(code=1011, reason="Internal Server Error")
             raise
         finally:
             for ch in joined:
-                if ch.exit_handler:
-                    await ch.exit_handler(sock)
+                if ch.on_exit_callback:
+                    await ch.on_exit_callback(sock)
             if self._on_disconnect and parsed_params is not None:
                 await self._on_disconnect(sock, **parsed_params)
-            if ws.client_state == WebSocketState.CONNECTED:
-                await ws.close()
+            if (
+                sock.application_state == WebSocketState.CONNECTED
+                and sock.client_state == WebSocketState.CONNECTED
+            ):
+                await sock.close()
 
 
 class WebSocketRoute(RouteBase):
@@ -264,8 +307,8 @@ class WebSocketRoute(RouteBase):
         return func
 
     def handler(
-        self, func: Func[..., None], **iprops: Unpack[IEndpointProps]
-    ) -> Func[..., None]:
+        self, func: Func[P, None], **iprops: Unpack[IEndpointProps]
+    ) -> Func[P, None]:
         props = EndpointProps.from_unpack(**iprops)
         if self._ws_ep is not None:
             raise RuntimeError("Managed handler cannot be mixed with existing endpoint")

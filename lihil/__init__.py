@@ -21,6 +21,7 @@ from .interface import Json as Json
 from .interface import Payload as Payload
 from .interface import Stream as Stream
 from .interface import Text as Text
+from .channel import ISocket as ISocket
 from .lihil import Lihil as Lihil
 from .local_client import LocalClient as LocalClient
 from .problems import HTTPException as HTTPException

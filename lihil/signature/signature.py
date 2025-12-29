@@ -1,16 +1,13 @@
 from typing import Any, Awaitable, Callable, Generic
 
-from ididi import DependentNode, Resolver
+from ididi import DependentNode
 from msgspec import Struct
 
 from lihil.interface import MISSING, Base, R, Record
-from lihil.problems import InvalidFormError, InvalidRequestErrors, ValidationProblem
+from lihil.problems import ValidationProblem
 from lihil.vendors import (
     FormData,
     HTTPConnection,
-    MultiPartException,
-    Request,
-    WebSocket,
     cookie_parser,
 )
 
@@ -140,75 +137,3 @@ class Injector(Generic[R]):
 
         parsed_result = ParseResult(params, verrors, [])
         return parsed_result
-
-    async def validate_websocket(self, ws: WebSocket, resolver: Resolver):
-        parsed_result = self._validate_conn(ws)
-
-        if errors := parsed_result.errors:
-            raise InvalidRequestErrors(detail=errors)
-
-        params = parsed_result.params
-        for name, p in self.state_params:
-            ptype = p.type_
-            if not isinstance(ptype, type):
-                continue
-            if issubclass(ptype, WebSocket):
-                params[name] = ws
-            elif issubclass(ptype, Resolver):
-                params[name] = resolver
-
-        for name, dep in self.deps:
-            params[name] = await resolver.aresolve(dep.dependent, **params)
-
-        for p in self.transitive_params:
-            params.pop(p)
-
-        return parsed_result
-
-    async def validate_request(self, req: Request, resolver: Resolver):
-        parsed = self._validate_conn(req)
-        params, errors = parsed.params, parsed.errors
-
-        if self.body_param:
-            name, param = self.body_param
-
-            if form_meta := self.form_meta:
-                try:
-                    body = await req.form(
-                        max_files=form_meta.max_files,
-                        max_fields=form_meta.max_fields,
-                        max_part_size=form_meta.max_part_size,
-                    )
-                except MultiPartException:
-                    body = b""
-                    errors.append(InvalidFormError("body", name))
-                else:
-                    parsed.callbacks.append(body.close)
-            else:
-                body = await req.body()
-
-            val, error = param.extract(body)
-            if val is not MISSING:
-                params[name] = val
-            else:
-                errors.append(error)  # type: ignore
-
-        if errors:
-            raise InvalidRequestErrors(detail=errors)
-
-        for name, p in self.state_params:
-            ptype = p.type_
-            if not isinstance(ptype, type):
-                continue
-            if issubclass(ptype, Request):
-                params[name] = req
-            elif issubclass(ptype, Resolver):
-                params[name] = resolver
-
-        for name, dep in self.deps:
-            params[name] = await resolver.aresolve(dep.dependent, **params)
-
-        for p in self.transitive_params:
-            params.pop(p)
-
-        return parsed
