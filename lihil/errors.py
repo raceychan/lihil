@@ -73,3 +73,11 @@ class RouteSetupError(LihilError):
     def __init__(self, route: Any):
         msg = f"Failed to setup route {route}"
         super().__init__(msg)
+
+
+class LhilWSError(LihilError):
+    "all websocket related error"
+
+
+class SockRejectedError(LhilWSError):
+    """Raised when a socket is rejected before accept."""

@@ -30,7 +30,7 @@ from msgspec.structs import NODEFAULT, FieldInfo
 from msgspec.structs import fields as get_fields
 from typing_extensions import NotRequired, TypeAliasType, is_typeddict
 
-from lihil.channel import ISocket
+from lihil.ds import ISocket
 from lihil.errors import InvalidParamError, InvalidParamPackError, NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, R, T, is_present

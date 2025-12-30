@@ -2,7 +2,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from lihil import Lihil, WebSocketRoute
-from lihil.channel import EVENT_NOT_FOUND, ISocket, TOPIC_NOT_FOUND
+from lihil.hub import EVENT_NOT_FOUND, ISocket, TOPIC_NOT_FOUND
 from lihil.websocket import WSManagedEndpoint
 
 

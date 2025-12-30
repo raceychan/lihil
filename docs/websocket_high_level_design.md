@@ -111,14 +111,17 @@ class PubSubMessage(Protocol):
 
 
 class SocketBus(Protocol):
-    async def subscribe(self, topic: str, sock: ISocket) -> None: ...
-    async def unsubscribe(self, topic: str, sock: ISocket) -> None: ...
+    """
+    Bus works with generic callbacks, not sockets. A callback just needs to accept a message and return awaitable.
+    """
+    async def subscribe(self, topic: str, callback: Callable[[PubSubMessage], Awaitable[None]]) -> None: ...
+    async def unsubscribe(self, topic: str, callback: Callable[[PubSubMessage], Awaitable[None]]) -> None: ...
     async def publish(self, topic: str, event: str, payload: Any) -> None: ...
 
 
 class InMemorySocketBus(SocketBus):
     """
-    - topic -> set[weakref[ISocket]]
+    - topic -> set[weakref[callback]]
     - best-effort fanout; drop dead refs
     - sequential send (simple, predictable); can add limited parallelism later
     """
@@ -126,8 +129,8 @@ class InMemorySocketBus(SocketBus):
 
 ### Hub wiring
 - `SocketHub` holds a `bus: SocketBus`; default to `InMemorySocketBus()`, allow override via ctor for custom backends.
-- During `join`, after `on_join` succeeds, call `bus.subscribe(env.topic, sock)` and set `sock._publish` so `sock.publish` delegates to the bus.
-- During `leave` or disconnect cleanup, call `bus.unsubscribe(env.topic, sock)` (ignore errors if already gone).
+- During `join`, after `on_join` succeeds, create a per-socket callback (e.g., `cb = partial(sock.send_json, {"topic": topic, "event": ..., "payload": ...})` or a thin wrapper) and call `bus.subscribe(env.topic, cb)`. Also set `sock._publish` so `sock.publish` delegates to the bus using the resolved topic.
+- During `leave` or disconnect cleanup, call `bus.unsubscribe(env.topic, cb)` (ignore errors if already gone).
 - `sock.publish(payload, event="broadcast")` simply calls `bus.publish(sock.topic, event, payload)`; `sock.emit/reply` remain direct-to-sender helpers.
 
 ### Fanout semantics

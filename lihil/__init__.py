@@ -21,7 +21,6 @@ from .interface import Json as Json
 from .interface import Payload as Payload
 from .interface import Stream as Stream
 from .interface import Text as Text
-from .channel import ISocket as ISocket
 from .lihil import Lihil as Lihil
 from .local_client import LocalClient as LocalClient
 from .problems import HTTPException as HTTPException
@@ -32,6 +31,12 @@ from .vendors import Request as Request
 from .vendors import Response as Response
 from .vendors import UploadFile as UploadFile
 from .vendors import WebSocket as WebSocket
+from .hub import Channel as Channel
+from .hub import InMemorySocketBus as InMemorySocketBus
+from .hub import ISocket as ISocket
+from .hub import MessageEnvelope as MessageEnvelope
+from .hub import SocketBus as SocketBus
+from .hub import SocketHub as SocketHub
 from .vendors import use as use
 from .websocket import WebSocketRoute as WebSocketRoute
 

@@ -6,14 +6,8 @@ from typing import Any, TypedDict
 from ididi import Graph, Resolver
 from typing_extensions import Self, Unpack
 
-from lihil.channel import (
-    TOPIC_NOT_FOUND,
-    Channel,
-    ISocket,
-    MessageEnvelope,
-    RejectError,
-)
-from lihil.errors import NotSupportedError
+from lihil.errors import NotSupportedError, SockRejectedError
+from lihil.hub import TOPIC_NOT_FOUND, Channel, ISocket, MessageEnvelope
 from lihil.interface import (
     ASGIApp,
     Func,
@@ -227,12 +221,14 @@ class WSManagedEndpoint(WebSocketEndpoint):
                 sock.params = match
                 env.topic_params.update(match)
                 if env.event == "join":
-                    await ch.on_join_callback(env.topic_params or {}, sock)
+                    if ch.on_join_callback:
+                        await ch.on_join_callback(env.topic_params or {}, sock)
                     joined.add(ch)
                     continue
 
                 if env.event == "leave":
-                    await ch.on_exit_callback(sock)
+                    if ch.on_exit_callback:
+                        await ch.on_exit_callback(sock)
                     continue
 
                 if ch not in joined:
@@ -242,7 +238,7 @@ class WSManagedEndpoint(WebSocketEndpoint):
                 await ch.dispatch(env, sock)
         except WebSocketDisconnect:
             return
-        except RejectError:
+        except SockRejectedError:
             return
         except Exception:
             if sock.client_state == WebSocketState.CONNECTED:
