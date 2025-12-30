@@ -31,11 +31,10 @@ from .vendors import Request as Request
 from .vendors import Response as Response
 from .vendors import UploadFile as UploadFile
 from .vendors import WebSocket as WebSocket
-from .hub import Channel as Channel
-from .hub import InMemorySocketBus as InMemorySocketBus
+from .hub import ChannelBase as ChannelBase
 from .hub import ISocket as ISocket
 from .hub import MessageEnvelope as MessageEnvelope
-from .hub import SocketBus as SocketBus
+from .hub import Topic as Topic
 from .hub import SocketHub as SocketHub
 from .vendors import use as use
 from .websocket import WebSocketRoute as WebSocketRoute

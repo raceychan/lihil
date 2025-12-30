@@ -30,7 +30,6 @@ from msgspec.structs import NODEFAULT, FieldInfo
 from msgspec.structs import fields as get_fields
 from typing_extensions import NotRequired, TypeAliasType, is_typeddict
 
-from lihil.ds import ISocket
 from lihil.errors import InvalidParamError, InvalidParamPackError, NotSupportedError
 from lihil.interface import MISSING as LIHIL_MISSING
 from lihil.interface import IRequest, Maybe, R, T, is_present
@@ -68,7 +67,7 @@ from .returns import parse_returns
 from .signature import EndpointSignature
 
 STARLETTE_TYPES: tuple[type, ...] = (Request, WebSocket)
-LIHIL_TYPES: tuple[type, ...] = (Resolver, ISocket)
+LIHIL_TYPES: tuple[type, ...] = (Resolver,)
 LIHIL_PRIMITIVES: tuple[type, ...] = STARLETTE_TYPES + LIHIL_TYPES
 
 
@@ -399,12 +398,6 @@ class EndpointParser:
                 source="path",
             )
         elif is_lhl_primitive(param_type):
-            if lenient_issubclass(param_type, WebSocket):
-                warn(
-                    "WebSocket param is deprecated; prefer ISocket",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
             type_ = Request if param_type is IRequest else param_type
             plugins: PluginParam = PluginParam(
                 type_=type_, annotation=annotation, name=name, default=default

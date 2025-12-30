@@ -7,7 +7,6 @@ from lihil import (
     Ignore,
     Lihil,
     Payload,
-    ISocket,
     WebSocket,
     WebSocketRoute,
     use,
@@ -20,7 +19,7 @@ async def test_ws(test_client):
 
     ws_route = WebSocketRoute("web_socket")
 
-    async def test_ws(ws: ISocket):
+    async def test_ws(ws: WebSocket):
         await ws.accept()
         await ws.send_text("Hello, world!")
         await ws.close()
@@ -64,7 +63,7 @@ async def test_ws_with_body_fail(test_client):
     class WebPayload(Payload):
         name: str
 
-    async def test_ws(ws: ISocket, pld: WebPayload):
+    async def test_ws(ws: WebSocket, pld: WebPayload):
         await ws.accept()
         await ws.send_text("Hello, world!")
         await ws.close()
@@ -83,13 +82,13 @@ async def test_ws_with_body_fail(test_client):
 async def test_ws_full_fledge(test_client):
     ws_route = WebSocketRoute("web_socket/{session_id}")
 
-    async def ws_factory(ws: ISocket) -> Ignore[AsyncResource[ISocket]]:
+    async def ws_factory(ws: WebSocket) -> Ignore[AsyncResource[WebSocket]]:
         await ws.accept()
         yield ws
         await ws.close()
 
     async def ws_handler(
-        ws: Annotated[ISocket, use(ws_factory, reuse=False)],
+        ws: Annotated[WebSocket, use(ws_factory, reuse=False)],
         session_id: str,
         max_users: int,
     ):
@@ -115,7 +114,7 @@ async def test_ws_repr(test_client):
     ws_route = WebSocketRoute("web_socket/{session_id}")
 
     async def ws_handler(
-        ws: ISocket,
+        ws: WebSocket,
         session_id: str,
         max_users: int,
     ):
@@ -140,7 +139,7 @@ async def test_ws_plugins(test_client):
     ws_route = WebSocketRoute("test/{session_id}")
 
     async def ws_handler(
-        ws: ISocket,
+        ws: WebSocket,
         bus: PEventBus,
         dg: Graph,
         session_id: str,
@@ -166,7 +165,7 @@ async def test_ws_close_on_exc(test_client):
     ws_route = WebSocketRoute("error/{session_id}")
 
     async def ws_handler(
-        ws: ISocket,
+        ws: WebSocket,
         bus: PEventBus,
         dg: Graph,
         session_id: str,

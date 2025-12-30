@@ -1,11 +1,13 @@
+import asyncio
 import re
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Protocol
+from typing import Any, Awaitable, Callable, Protocol
 
 from ididi import Graph
+from ididi.interfaces import IDependent
+from msgspec.json import Decoder
 
-from lihil.ds import ISocket, SockRejectedError, SubscriberCallback
+from lihil.errors import SockRejectedError
 from lihil.interface import (
     ASGIApp,
     IAsyncFunc,
@@ -14,136 +16,188 @@ from lihil.interface import (
     ISend,
     MiddlewareFactory,
     Record,
-    field,
 )
 from lihil.routing import RouteBase
-from lihil.vendors import WebSocketDisconnect, WebSocketState
+from lihil.vendors import WebSocket, WebSocketDisconnect, WebSocketState
+
+TOPIC_NOT_FOUND = {"code": 4404, "reason": "Topic not found"}
+EVENT_NOT_FOUND = {"code": 4404, "reason": "Event not found"}
 
 
-class OnJoinCallback(Protocol):
-    async def __call__(self, params: dict[str, Any], sock: "ISocket") -> Any: ...
-
-
-class OnExitCallback(Protocol):
-    async def __call__(self, sock: "ISocket") -> Any: ...
-
-
-class OnReceiveCallback(Protocol):
-    async def __call__(self, payload: Any, sock: "ISocket") -> Any: ...
+def Topic(pattern: str) -> re.Pattern[str]:
+    """
+    Factory: compile topic pattern into a regex with named groups.
+    """
+    parts: list[str] = []
+    i = 0
+    while i < len(pattern):
+        if pattern[i] == "{":
+            end = pattern.find("}", i)
+            if end == -1:
+                raise ValueError(f"Invalid topic pattern: {pattern}")
+            name = pattern[i + 1 : end]
+            parts.append(rf"(?P<{name}>[^/]+)")
+            i = end + 1
+        else:
+            parts.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("^" + "".join(parts) + "$")
 
 
 class MessageEnvelope(Record):
     topic: str
     event: str
     payload: Any = None
-    topic_params: dict[str, str] = field(default_factory=dict[str, str])
-
-    @classmethod
-    def from_raw(cls, raw: dict[str, Any]) -> "MessageEnvelope":
-        try:
-            topic = raw["topic"]
-            event = raw["event"]
-            payload = raw.get("payload")
-        except Exception as exc:
-            raise ValueError(f"Invalid message envelope: {raw}") from exc
-        return cls(topic=topic, event=event, payload=payload)
 
 
-TOPIC_NOT_FOUND = {"code": 4404, "reason": "Topic not found"}
-EVENT_NOT_FOUND = {"code": 4404, "reason": "Event not found"}
-
-
-class Channel:
+class ISocket:
     """
-    Topic-scoped callbacks. Matching/dispatch will live in managed websocket.
+    Composition wrapper around starlette's WebSocket.
+    Exposes a curated API surface plus channel helpers.
     """
 
-    def __init__(self, topic_pattern: str):
-        self.topic_pattern = topic_pattern
-        self._regex = self._compile_topic_pattern(topic_pattern)
+    _msg_decoder = Decoder(type=MessageEnvelope)
 
-        self._on_join: OnJoinCallback | None = None
-        self._on_exit: OnExitCallback | None = None
-        self._on_receive: dict[str, OnReceiveCallback] = {}
-
-    def on_join(self, func: OnJoinCallback) -> OnJoinCallback:
-        self._on_join = func
-        return func
-
-    def on_exit(self, func: OnExitCallback) -> OnExitCallback:
-        self._on_exit = func
-        return func
-
-    def on_receive(self, event: str):
-        def decorator(func: OnReceiveCallback):
-            self._on_receive[event] = func
-            return func
-
-        return decorator
-
-    @property
-    def on_join_callback(self) -> OnJoinCallback | None:
-        return self._on_join
-
-    @property
-    def on_exit_callback(self) -> OnExitCallback | None:
-        return self._on_exit
-
-    @property
-    def on_receive_callbacks(
+    def __init__(
         self,
-    ) -> dict[str, OnReceiveCallback]:
-        return self._on_receive
+        websocket: WebSocket,
+        *,
+        topic: str | None = None,
+        params: dict[str, Any] | None = None,
+        assigns: dict[str, Any] | None = None,
+    ):
+        self._ws = websocket
+        self.topic = topic
+        self.params = params or {}
+        self.assigns = assigns or {}
 
-    def _compile_topic_pattern(self, pattern: str) -> re.Pattern[str]:
-        parts: list[str] = []
-        i = 0
-        while i < len(pattern):
-            if pattern[i] == "{":
-                end = pattern.find("}", i)
-                if end == -1:
-                    raise ValueError(f"Invalid topic pattern: {pattern}")
-                name = pattern[i + 1 : end]
-                parts.append(rf"(?P<{name}>[^/]+)")
-                i = end + 1
-            else:
-                parts.append(re.escape(pattern[i]))
-                i += 1
-        return re.compile("^" + "".join(parts) + "$")
+    @property
+    def websocket(self) -> WebSocket:
+        return self._ws
 
-    def match(self, topic: str) -> dict[str, str] | None:
-        if m := self._regex.match(topic):
-            return m.groupdict()
-        return None
+    @property
+    def application_state(self) -> WebSocketState:
+        return self._ws.application_state
 
-    async def dispatch(self, env: MessageEnvelope, sock: ISocket) -> None:
-        handler = self._on_receive.get(env.event)
-        if handler:
-            await handler(env.payload, sock)
-        else:
-            await sock.send_json(EVENT_NOT_FOUND)
+    @property
+    def client_state(self) -> WebSocketState:
+        return self._ws.client_state
+
+    # Explicitly expose only the supported WebSocket/HTTPConnection API surface
+    @property
+    def scope(self) -> Any:
+        return self._ws.scope
+
+    @property
+    def state(self) -> Any:
+        return self._ws.state
+
+    @property
+    def headers(self) -> Any:
+        return self._ws.headers
+
+    @property
+    def query_params(self) -> Any:
+        return self._ws.query_params
+
+    @property
+    def path_params(self) -> Any:
+        return self._ws.path_params
+
+    @property
+    def url(self) -> Any:
+        return self._ws.url
+
+    async def accept(self, subprotocol: str | None = None) -> None:
+        await self._ws.accept(subprotocol=subprotocol)
+
+    async def close(self, code: int = 1000, reason: str | None = None) -> None:
+        await self._ws.close(code=code, reason=reason or "")
+
+    async def send_json(self, data: Any) -> None:
+        await self._ws.send_json(data)
+
+    async def send_text(self, data: str) -> None:
+        await self._ws.send_text(data)
+
+    async def send_bytes(self, data: bytes) -> None:
+        await self._ws.send_bytes(data)
+
+    async def receive_json(self) -> Any:
+        return await self._ws.receive_json()
+
+    async def receive_text(self) -> str:
+        return await self._ws.receive_text()
+
+    async def receive_bytes(self) -> bytes:
+        return await self._ws.receive_bytes()
+
+    async def receive_message(self) -> MessageEnvelope:
+        content = await self._ws.receive_bytes()
+        return self._msg_decoder.decode(content)
+
+    async def reply(self, payload: Any, event: str = "reply") -> None:
+        await self._ws.send_json(
+            {"topic": self.topic, "event": event, "payload": payload}
+        )
+
+    async def emit(self, payload: Any, event: str = "emit") -> None:
+        await self._ws.send_json(
+            {"topic": self.topic, "event": event, "payload": payload}
+        )
+
+    async def allow_if(
+        self, condition: bool, code: int = 4403, reason: str = "Forbidden"
+    ):
+        if not condition:
+            await self._ws.close(code=code, reason=reason)
+            raise SockRejectedError("connection rejected")
 
 
 class SocketBus(Protocol):
+    async def subscribe(
+        self,
+        topic: str,
+        callback: Callable[[MessageEnvelope], Awaitable[None]],
+    ) -> None: ...
+
+    async def unsubscribe(
+        self,
+        topic: str,
+        callback: Callable[[MessageEnvelope], Awaitable[None]],
+    ) -> None: ...
+
+    async def publish(self, topic: str, event: str, payload: Any) -> None:
+        """
+        Blocking fanout: await delivery to subscribers.
+        """
+
+    async def emit(self, topic: str, event: str, payload: Any) -> None:
+        """
+        Fire-and-forget fanout.
+        """
+
+
+class InMemorySocketBus:
     """
-    Callback-based pubsub for websockets.
+    Simple in-memory bus for topic fanout.
     """
 
-    async def subscribe(self, topic: str, callback: SubscriberCallback) -> None: ...
+    def __init__(self) -> None:
+        self._subs: dict[str, set[Callable[[MessageEnvelope], Awaitable[None]]]] = {}
 
-    async def unsubscribe(self, topic: str, callback: SubscriberCallback) -> None: ...
+    async def subscribe(
+        self,
+        topic: str,
+        callback: Callable[[MessageEnvelope], Awaitable[None]],
+    ) -> None:
+        self._subs.setdefault(topic, set()).add(callback)
 
-    async def publish(self, topic: str, event: str, payload: Any) -> None: ...
-
-
-class InMemorySocketBus(SocketBus):
-    def __init__(self):
-        self._subs: dict[str, set[SubscriberCallback]] = defaultdict(set)
-
-    async def subscribe(self, topic: str, callback: SubscriberCallback) -> None:
-        self._subs[topic].add(callback)
-
-    async def unsubscribe(self, topic: str, callback: SubscriberCallback) -> None:
+    async def unsubscribe(
+        self,
+        topic: str,
+        callback: Callable[[MessageEnvelope], Awaitable[None]],
+    ) -> None:
         callbacks = self._subs.get(topic)
         if not callbacks:
             return
@@ -152,21 +206,109 @@ class InMemorySocketBus(SocketBus):
             self._subs.pop(topic, None)
 
     async def publish(self, topic: str, event: str, payload: Any) -> None:
-        callbacks = self._subs.get(topic)
-        if not callbacks:
-            return
-
-        message = MessageEnvelope(topic=topic, event=event, payload=payload)
-        stale: set[SubscriberCallback] = set()
-        for cb in list(callbacks):
+        envelope = MessageEnvelope(topic=topic, event=event, payload=payload)
+        callbacks = list(self._subs.get(topic, set()))
+        dead: list[Callable[[MessageEnvelope], Awaitable[None]]] = []
+        for cb in callbacks:
             try:
-                await cb(message)
+                await cb(envelope)
             except Exception:
-                stale.add(cb)
-        if stale:
-            callbacks.difference_update(stale)
-        if not callbacks:
-            self._subs.pop(topic, None)
+                dead.append(cb)
+        if dead:
+            callbacks_set = self._subs.get(topic)
+            if callbacks_set:
+                for cb in dead:
+                    callbacks_set.discard(cb)
+                if not callbacks_set:
+                    self._subs.pop(topic, None)
+
+    async def emit(self, topic: str, event: str, payload: Any) -> None:
+        asyncio.create_task(self.publish(topic, event, payload))
+
+
+class ChannelBase:
+    """
+    Class-based channel. Subclasses define `topic = Topic("...")` and override hooks.
+    """
+
+    topic: re.Pattern[str]
+
+    def __init__(
+        self,
+        socket: ISocket,
+        *,
+        topic: str,
+        params: dict[str, str] | None = None,
+        bus: SocketBus,
+    ):
+        self.socket = socket
+        self.bus = bus
+        self._resolved_topic = topic
+        self.params = params or {}
+
+    @property
+    def resolved_topic(self) -> str:
+        return self._resolved_topic
+
+    @classmethod
+    def match(cls, topic: str) -> dict[str, str] | None:
+        if m := cls.topic.match(topic):
+            return m.groupdict()
+        return None
+
+    async def publish(self, payload: Any, *, event: str = "broadcast") -> None:
+        await self.bus.publish(self._resolved_topic, event, payload)
+
+    async def broadcast(self, payload: Any, *, event: str = "broadcast") -> None:
+        # Alias for publish to keep terminology consistent.
+        await self.publish(payload, event=event)
+
+    async def on_update(self, env: MessageEnvelope) -> None:
+        """
+        Default bus subscriber callback: echoes envelope to the socket.
+        """
+        await self.socket.send_json(
+            {"topic": env.topic, "event": env.event, "payload": env.payload}
+        )
+
+    async def on_join(self) -> None:  # pragma: no cover - to be overridden
+        await self.bus.subscribe(self.resolved_topic, self.on_update)
+
+    async def on_message(self, env: MessageEnvelope) -> None:  # pragma: no cover
+        ...
+
+    async def on_leave(self) -> None:  # pragma: no cover - to be overridden
+        await self.bus.unsubscribe(self.resolved_topic, self.on_update)
+
+
+class ChannelRegistry:
+    """
+    Register channel classes and produce instances for a matched topic.
+    """
+
+    def __init__(self) -> None:
+        self._channels: list[type[ChannelBase]] = []
+
+    def add_channel(self, channel_cls: type[ChannelBase]) -> type[ChannelBase]:
+        self._channels.append(channel_cls)
+        self._channels.sort(key=lambda cls: len(cls.topic.groupindex), reverse=True)
+        return channel_cls
+
+    def create(
+        self,
+        topic: str,
+        *,
+        socket: ISocket,
+        bus: SocketBus,
+    ) -> ChannelBase | None:
+        """
+        Return a channel instance directly when a pattern matches.
+        The caller (hub) supplies socket/bus; params are resolved here.
+        """
+        for ch_cls in self._channels:
+            if params := ch_cls.match(topic):
+                return ch_cls(socket, topic=topic, params=params, bus=bus)
+        return None
 
 
 class SocketHub(RouteBase):
@@ -178,13 +320,14 @@ class SocketHub(RouteBase):
         *,
         graph: Graph | None = None,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
-        bus: SocketBus | None = None,
+        bus_factory: IDependent[SocketBus] = InMemorySocketBus,
     ):
         super().__init__(path, graph=graph, middlewares=middlewares)
         self._on_connect: IAsyncFunc[..., None] | None = None
         self._on_disconnect: IAsyncFunc[..., None] | None = None
-        self._channels: list[Channel] = []
-        self._bus: SocketBus = bus or InMemorySocketBus()
+        self._registry = ChannelRegistry()
+        self._bus_factory = bus_factory
+        self.graph.node(bus_factory)
         self.call_stack: ASGIApp | None = None
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
@@ -192,11 +335,11 @@ class SocketHub(RouteBase):
             raise RuntimeError(f"{self.__class__.__name__}({self._path}) not setup")
         await self.call_stack(scope, receive, send)
 
-    def channel(self, pattern: str) -> Channel:
-        ch = Channel(pattern)
-        self._channels.append(ch)
-        self._channels.sort(key=lambda c: c.topic_pattern.count("{"), reverse=True)
-        return ch
+    def channel(self, channel_cls: type[ChannelBase]) -> type[ChannelBase]:
+        """
+        Register a channel class. Acts as a decorator-friendly helper.
+        """
+        return self._registry.add_channel(channel_cls)
 
     def on_connect(self, func: IAsyncFunc[..., None]) -> IAsyncFunc[..., None]:
         self._on_connect = func
@@ -210,17 +353,68 @@ class SocketHub(RouteBase):
         self, graph: Graph | None = None, workers: ThreadPoolExecutor | None = None
     ):
         super().setup(graph=graph, workers=workers)
-        self.call_stack = self.chainup_middlewares(self._dispatch)
+        self.call_stack = self.chainup_middlewares(self.connect)
         self._is_setup = True
 
-    async def _dispatch(self, scope: IScope, receive: IReceive, send: ISend) -> None:
+    async def _handle_join(
+        self,
+        msg_env: MessageEnvelope,
+        subscriptions: dict[str, ChannelBase],
+        sock: ISocket,
+        bus: SocketBus,
+    ) -> None:
+        if msg_env.topic in subscriptions:
+            return
+
+        channel = self._registry.create(msg_env.topic, socket=sock, bus=bus)
+        if not channel:
+            await sock.send_json(TOPIC_NOT_FOUND)
+            return
+
+        sock.topic = msg_env.topic
+        sock.params = channel.params
+        await channel.on_join()
+        subscriptions[msg_env.topic] = channel
+
+    async def _handle_leave(
+        self,
+        msg_env: MessageEnvelope,
+        subscriptions: dict[str, ChannelBase],
+        sock: ISocket,
+    ) -> None:
+        channel = subscriptions.pop(msg_env.topic, None)
+        if not channel:
+            await sock.send_json(TOPIC_NOT_FOUND)
+            return
+
+        sock.topic = msg_env.topic
+        sock.params = channel.params
+        await channel.on_leave()
+
+    async def _dispatch_message(
+        self,
+        msg_env: MessageEnvelope,
+        subscriptions: dict[str, ChannelBase],
+        sock: ISocket,
+    ) -> None:
+        channel = subscriptions.get(msg_env.topic)
+        if not channel:
+            await sock.send_json(TOPIC_NOT_FOUND)
+            return
+
+        sock.topic = msg_env.topic
+        sock.params = channel.params
+        await channel.on_message(msg_env)
+
+    async def connect(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         if scope["type"] != "websocket":
-            raise RuntimeError("SocketHub only handles websocket scope")
+            raise RuntimeError(
+                f"Non-websocket request sent to websocket route {self.path}"
+            )
 
-        sock = ISocket(scope, receive, send)
-        sock._publish = self._bus.publish  # type: ignore[attr-defined]
-
-        subscriptions: dict[str, tuple[Channel, SubscriberCallback]] = {}
+        sock = ISocket(WebSocket(scope, receive, send))
+        subscriptions: dict[str, ChannelBase] = {}
+        bus = await self.graph.aresolve(self._bus_factory)
 
         try:
             if self._on_connect:
@@ -229,39 +423,14 @@ class SocketHub(RouteBase):
             await sock.accept()
 
             while True:
-                env = MessageEnvelope.from_raw(await sock.receive_json())
-                channel, params = self._match_channel(env.topic)
-                if not channel or params is None:
-                    await sock.send_json(TOPIC_NOT_FOUND)
+                msg_env = await sock.receive_message()
+                if msg_env.event == "join":
+                    await self._handle_join(msg_env, subscriptions, sock, bus)
                     continue
-
-                sock.topic, sock.params = env.topic, params
-                env.topic_params.update(params)
-
-                if env.event == "join":
-                    if env.topic not in subscriptions:
-                        if channel.on_join_callback:
-                            await channel.on_join_callback(env.topic_params, sock)
-                        await self._bus.subscribe(env.topic, sock.on_message)
-                        subscriptions[env.topic] = (channel, sock.on_message)
+                if msg_env.event == "leave":
+                    await self._handle_leave(msg_env, subscriptions, sock)
                     continue
-
-                if env.event == "leave":
-                    subscribed = subscriptions.pop(env.topic, None)
-                    if not subscribed:
-                        await sock.send_json(TOPIC_NOT_FOUND)
-                        continue
-                    sub_channel, cb = subscribed
-                    await self._bus.unsubscribe(env.topic, cb)
-                    if sub_channel.on_exit_callback:
-                        await sub_channel.on_exit_callback(sock)
-                    continue
-
-                if env.topic not in subscriptions:
-                    await sock.send_json(TOPIC_NOT_FOUND)
-                    continue
-
-                await channel.dispatch(env, sock)
+                await self._dispatch_message(msg_env, subscriptions, sock)
         except WebSocketDisconnect:
             pass
         except SockRejectedError:
@@ -271,12 +440,13 @@ class SocketHub(RouteBase):
                 await sock.close(code=1011, reason="Internal Server Error")
             raise
         finally:
-            for topic, (channel, cb) in subscriptions.items():
+            for topic, channel in list(subscriptions.items()):
+                sock.topic = topic
+                sock.params = channel.params
                 try:
-                    await self._bus.unsubscribe(topic, cb)
+                    await channel.on_leave()
                 finally:
-                    if channel.on_exit_callback:
-                        await channel.on_exit_callback(sock)
+                    pass
 
             if self._on_disconnect:
                 await self._on_disconnect(sock)
@@ -285,11 +455,3 @@ class SocketHub(RouteBase):
                 and sock.client_state == WebSocketState.CONNECTED
             ):
                 await sock.close()
-
-    def _match_channel(
-        self, topic: str
-    ) -> tuple[Channel | None, dict[str, str] | None]:
-        for ch in self._channels:
-            if params := ch.match(topic):
-                return ch, params
-        return None, None

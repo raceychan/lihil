@@ -1,21 +1,16 @@
-from collections import defaultdict
 from pathlib import Path
-from typing import Any, DefaultDict
+from typing import Any
 
 from msgspec import Struct
 
-from lihil import ISocket, Lihil, Route, WebSocketRoute
+from lihil import ChannelBase, ISocket, Lihil, MessageEnvelope, Route, SocketHub, Topic
 from lihil.vendors import Response
 
 BASE_DIR = Path(__file__).resolve().parent
 CHAT_HTML = BASE_DIR / "chat.html"
 
 page = Route("/")
-ws_route = WebSocketRoute("/ws/chat")
-room_channel = ws_route.channel("room:{room_id}")
-
-# Naive in-memory pubsub for demo: room_id -> sockets
-rooms: DefaultDict[str, set[ISocket]] = defaultdict(set)
+chat_hub = SocketHub("/ws/chat")
 
 
 class Message(Struct, kw_only=True):
@@ -27,67 +22,50 @@ class Message(Struct, kw_only=True):
         return {"name": self.name, "text": self.text, "sentAt": self.sentAt}
 
 
-async def broadcast(room_id: str, payload: dict[str, Any]) -> None:
-    peers = rooms.get(room_id)
-    if not peers:
-        return
-    dead: set[ISocket] = set()
-    for peer in list(peers):
-        try:
-            await peer.send_json(
-                {"topic": f"room:{room_id}", "event": "chat", "payload": payload}
-            )
-        except Exception:
-            dead.add(peer)
-    peers.difference_update(dead)
-
-
 @page.get
 async def serve_chat() -> Response:
     return Response(CHAT_HTML.read_bytes(), media_type="text/html")
 
 
-@ws_route.on_connect
+@chat_hub.on_connect
 async def on_connect(sock: ISocket) -> None:
-    # placeholder for auth/assigns; accept handled by framework after this hook
+    # Simple per-socket bookkeeping example; not required by the hub.
     sock.assigns.setdefault("rooms", set())
 
 
-@ws_route.on_disconnect
+@chat_hub.on_disconnect
 async def on_disconnect(sock: ISocket) -> None:
-    # ensure socket is removed from any rooms on disconnect
-    for room_id in list(rooms.keys()):
-        rooms[room_id].discard(sock)
+    sock.assigns.get("rooms", set()).clear()
 
 
-@room_channel.on_join
-async def on_join(params: dict[str, Any], sock: ISocket) -> None:
-    room_id = params.get("room_id", "lobby")
-    rooms[room_id].add(sock)
-    sock.assigns.setdefault("rooms", set()).add(room_id)
+class RoomChannel(ChannelBase):
+    topic = Topic("room:{room_id}")
+
+    async def on_join(self) -> None:
+        await super().on_join()
+        room_id = self.params.get("room_id", "lobby")
+        self.socket.assigns.setdefault("rooms", set()).add(room_id)
+        await self.socket.emit({"room": room_id, "event": "joined"}, event="system")
+
+    async def on_leave(self) -> None:
+        await super().on_leave()
+        room_id = self.params.get("room_id", "lobby")
+        self.socket.assigns.get("rooms", set()).discard(room_id)
+        await self.socket.emit({"room": room_id, "event": "left"}, event="system")
+
+    async def on_message(self, env: MessageEnvelope) -> None:
+        if env.event != "chat":
+            await self.socket.send_json({"code": 4404, "reason": "Event not found"})
+            return
+        message = Message(**env.payload)
+        # Broadcast to everyone in the room via the bus.
+        await self.publish(message.to_payload(), event="chat")
 
 
-@room_channel.on_exit
-async def on_exit(sock: ISocket) -> None:
-    for room_id in list(sock.assigns.get("rooms", set())):
-        rooms[room_id].discard(sock)
-    sock.assigns["rooms"] = set()
+chat_hub.channel(RoomChannel)
 
 
-@room_channel.on_receive("chat")
-async def on_chat(payload: dict[str, Any], sock: ISocket) -> None:
-    room_id = sock.params.get("room_id") or "lobby"
-    message = Message(**payload)
-    await broadcast(room_id, message.to_payload())
-
-
-@ws_route.handler
-async def handle_ws() -> None:
-    # managed websocket handler marker; logic lives in hooks above
-    return None
-
-
-app = Lihil(page, ws_route)
+app = Lihil(page, chat_hub)
 
 
 if __name__ == "__main__":

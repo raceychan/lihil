@@ -1,13 +1,12 @@
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from inspect import iscoroutinefunction
-from typing import Any, TypedDict
+from typing import Any
 
 from ididi import Graph, Resolver
 from typing_extensions import Self, Unpack
 
-from lihil.errors import NotSupportedError, SockRejectedError
-from lihil.hub import TOPIC_NOT_FOUND, Channel, ISocket, MessageEnvelope
+from lihil.errors import NotSupportedError
 from lihil.interface import (
     ASGIApp,
     Func,
@@ -16,7 +15,6 @@ from lihil.interface import (
     IScope,
     ISend,
     MiddlewareFactory,
-    P,
     R,
 )
 from lihil.problems import InvalidRequestErrors
@@ -27,8 +25,8 @@ from lihil.vendors import Response, WebSocket, WebSocketDisconnect, WebSocketSta
 
 
 class WebSocketInjector(Injector[R]):
-    async def validate_websocket(self, sock: ISocket, resolver: Resolver):
-        parsed_result = self._validate_conn(sock.websocket)
+    async def validate_websocket(self, socket: WebSocket, resolver: Resolver):
+        parsed_result = self._validate_conn(socket)
 
         if errors := parsed_result.errors:
             raise InvalidRequestErrors(detail=errors)
@@ -38,10 +36,8 @@ class WebSocketInjector(Injector[R]):
             ptype = p.type_
             if not isinstance(ptype, type):
                 continue
-            if issubclass(ptype, ISocket):
-                params[name] = sock
             elif issubclass(ptype, WebSocket):
-                params[name] = sock.websocket
+                params[name] = socket
             elif issubclass(ptype, Resolver):
                 params[name] = resolver
 
@@ -50,14 +46,7 @@ class WebSocketInjector(Injector[R]):
 
         for p in self.transitive_params:
             params.pop(p)
-
         return parsed_result
-
-
-class PendingManaged(TypedDict, total=False):
-    on_connect: IAsyncFunc[..., None]
-    on_disconnect: IAsyncFunc[..., None]
-    channels: list[Channel]
 
 
 class WebSocketEndpoint:
@@ -116,7 +105,7 @@ class WebSocketEndpoint:
         send: ISend,
         resolver: Resolver,
     ) -> None | ParseResult | Response:
-        sock = ISocket(scope, receive, send)
+        sock = WebSocket(scope, receive, send)
 
         try:
             parsed = await self._injector.validate_websocket(sock, resolver)
@@ -142,121 +131,6 @@ class WebSocketEndpoint:
             await self.make_call(scope, receive, send, self._graph)
 
 
-class WSManagedEndpoint(WebSocketEndpoint):
-    """Managed websocket endpoint with channel dispatch."""
-
-    def __init__(
-        self,
-        path: str,
-        func: Func[..., None],
-        props: EndpointProps,
-        *,
-        on_connect: IAsyncFunc[..., None] | None = None,
-        on_disconnect: IAsyncFunc[..., None] | None = None,
-        channels: list[Channel] | None = None,
-    ):
-        super().__init__(path=path, func=func, props=props)
-        self._channels: list[Channel] = list(channels) if channels else []
-        self._on_connect: IAsyncFunc[..., None] | None = on_connect
-        self._on_disconnect: IAsyncFunc[..., None] | None = on_disconnect
-
-    @property
-    def on_connect(self) -> IAsyncFunc[..., None] | None:
-        return self._on_connect
-
-    @on_connect.setter
-    def on_connect(self, func: IAsyncFunc[..., None] | None) -> None:
-        self._on_connect = func
-
-    @property
-    def on_disconnect(self) -> IAsyncFunc[..., None] | None:
-        return self._on_disconnect
-
-    @on_disconnect.setter
-    def on_disconnect(self, func: IAsyncFunc[..., None] | None) -> None:
-        self._on_disconnect = func
-
-    @property
-    def channels(self):
-        return self._channels
-
-    def add_channel(self, channel: Channel) -> Channel:
-        self._channels.append(channel)
-        self._channels.sort(key=lambda c: c.topic_pattern.count("{"), reverse=True)
-        return channel
-
-    def match_channel(self, topic: str) -> tuple[Channel | None, dict[str, str] | None]:
-        for ch in self._channels:
-            if params := ch.match(topic):
-                return ch, params
-        return None, None
-
-    async def make_call(
-        self,
-        scope: IScope,
-        receive: IReceive,
-        send: ISend,
-        resolver: Resolver,
-    ) -> None | ParseResult | Response:
-        sock = ISocket(scope, receive, send)
-        joined: set[Channel] = set()
-
-        parsed_params = None
-
-        try:
-            parsed = await self._injector.validate_websocket(sock, resolver)
-            parsed_params = parsed.params
-            if self._on_connect:
-                await self._on_connect(sock, **parsed_params)
-            await sock.accept()
-
-            while True:
-                env_raw = await sock.receive_json()
-                env = MessageEnvelope.from_raw(env_raw)
-                ch, match = self.match_channel(env.topic)
-                if not ch or not match:
-                    await sock.send_json(TOPIC_NOT_FOUND)
-                    return
-                sock.topic = env.topic
-                sock.params = match
-                env.topic_params.update(match)
-                if env.event == "join":
-                    if ch.on_join_callback:
-                        await ch.on_join_callback(env.topic_params or {}, sock)
-                    joined.add(ch)
-                    continue
-
-                if env.event == "leave":
-                    if ch.on_exit_callback:
-                        await ch.on_exit_callback(sock)
-                    continue
-
-                if ch not in joined:
-                    await sock.send_json(TOPIC_NOT_FOUND)
-                    continue
-
-                await ch.dispatch(env, sock)
-        except WebSocketDisconnect:
-            return
-        except SockRejectedError:
-            return
-        except Exception:
-            if sock.client_state == WebSocketState.CONNECTED:
-                await sock.close(code=1011, reason="Internal Server Error")
-            raise
-        finally:
-            for ch in joined:
-                if ch.on_exit_callback:
-                    await ch.on_exit_callback(sock)
-            if self._on_disconnect and parsed_params is not None:
-                await self._on_disconnect(sock, **parsed_params)
-            if (
-                sock.application_state == WebSocketState.CONNECTED
-                and sock.client_state == WebSocketState.CONNECTED
-            ):
-                await sock.close()
-
-
 class WebSocketRoute(RouteBase):
     call_stack: ASGIApp | None = None
 
@@ -269,7 +143,6 @@ class WebSocketRoute(RouteBase):
     ):
         super().__init__(path, graph=graph, middlewares=middlewares)
         self._ws_ep: WebSocketEndpoint | None = None
-        self._pending: PendingManaged = {}
 
     async def __call__(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         if not self.call_stack:
@@ -302,53 +175,6 @@ class WebSocketRoute(RouteBase):
         self._ws_ep = ws_ep
         return func
 
-    def handler(
-        self, func: Func[P, None], **iprops: Unpack[IEndpointProps]
-    ) -> Func[P, None]:
-        props = EndpointProps.from_unpack(**iprops)
-        if self._ws_ep is not None:
-            raise RuntimeError("Managed handler cannot be mixed with existing endpoint")
-        self._ws_ep = WSManagedEndpoint(
-            self._path, func=func, props=props, **self._pending
-        )
-        self._pending = {}
-        return func
-
-    def on_connect(self, func: IAsyncFunc[..., None]) -> IAsyncFunc[..., None]:
-        if self._ws_ep is None:
-            self._pending["on_connect"] = func
-            return func
-        if not isinstance(self._ws_ep, WSManagedEndpoint):
-            raise RuntimeError(
-                "Managed on_connect cannot be mixed with low-level endpoint"
-            )
-        self._ws_ep.on_connect = func
-        return func
-
-    def on_disconnect(self, func: IAsyncFunc[..., None]) -> IAsyncFunc[..., None]:
-        if self._ws_ep is None:
-            self._pending["on_disconnect"] = func
-            return func
-        if not isinstance(self._ws_ep, WSManagedEndpoint):
-            raise RuntimeError(
-                "Managed on_disconnect cannot be mixed with low-level endpoint"
-            )
-        self._ws_ep.on_disconnect = func
-        return func
-
-    def channel(self, pattern: str) -> Channel:
-        ch = Channel(pattern)
-        if self._ws_ep is None:
-            channels = self._pending.setdefault("channels", [])
-            channels.append(ch)
-        elif isinstance(self._ws_ep, WSManagedEndpoint):
-            self._ws_ep.add_channel(ch)
-        else:
-            raise RuntimeError(
-                "Managed channel cannot be mixed with low-level endpoint"
-            )
-        return ch
-
     def include_subroutes(self, *subs: Self, parent_prefix: str | None = None) -> None:
         warnings.warn(
             "WebSocketRoute.include_subroutes is deprecated and will be removed in 0.3.0; "
@@ -379,17 +205,7 @@ class WebSocketRoute(RouteBase):
                 middlewares=sub.middle_factories,
             )
             if sub._ws_ep is not None:
-                if isinstance(sub._ws_ep, WSManagedEndpoint):
-                    new_sub._ws_ep = WSManagedEndpoint(
-                        new_sub._path,
-                        func=sub._ws_ep.unwrapped_func,
-                        props=sub._ws_ep.props,
-                        on_connect=sub._ws_ep.on_connect,
-                        on_disconnect=sub._ws_ep.on_disconnect,
-                        channels=list(sub._ws_ep.channels),
-                    )
-                else:
-                    new_sub.endpoint(sub._ws_ep.unwrapped_func, **sub._ws_ep.props)
+                new_sub.endpoint(sub._ws_ep.unwrapped_func, **sub._ws_ep.props)
             for sub_sub in sub_subs:
                 new_sub.merge(sub_sub, parent_prefix=sub._path)
             self._subroutes.append(new_sub)
