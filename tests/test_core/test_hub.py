@@ -1,5 +1,8 @@
+from typing import Any
+
 import msgspec
 import pytest
+
 from lihil import Annotated, ChannelBase, Lihil, MessageEnvelope, SocketHub, Topic, use
 from lihil.errors import SockRejectedError
 from lihil.hub import InMemorySocketBus, ISocket
@@ -186,3 +189,25 @@ def test_hub_bus_factory_with_dependency(test_client):
     bus = ProbeChannel.seen_buses[0]
     assert isinstance(bus, InMemorySocketBus)
     assert hasattr(bus, "kafka") and isinstance(bus.kafka, FakeKafka)
+
+
+def test_hub_unknown_event_rejected(test_client):
+    class GuardedChannel(ChannelBase):
+        topic = Topic("room:{room_id}")
+
+        async def on_message(self, env: MessageEnvelope) -> dict[str, Any] | None:
+            if env.event != "chat":
+                return {"code": 4404, "reason": "Event not found"}
+            await self.publish(env.payload, event=env.event)
+
+    hub = SocketHub("/ws/chat")
+    hub.channel(GuardedChannel)
+    app = Lihil(hub)
+
+    client = test_client(app)
+    with client:
+        with client.websocket_connect("/ws/chat") as ws:
+            ws.send_bytes(encode_env("room:lobby", "join"))
+            ws.send_bytes(encode_env("room:lobby", "unknown", {"x": 1}))
+            data = msgspec.json.decode(ws.receive_bytes())
+            assert data == {"code": 4404, "reason": "Event not found"}

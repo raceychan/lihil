@@ -53,13 +53,12 @@ class RoomChannel(ChannelBase):
         self.socket.assigns.get("rooms", set()).discard(room_id)
         await self.socket.emit({"room": room_id, "event": "left"}, event="system")
 
-    async def on_message(self, env: MessageEnvelope) -> None:
+    async def on_message(self, env: MessageEnvelope) -> dict[str, Any] | None:
         if env.event != "chat":
-            await self.socket.send_json({"code": 4404, "reason": "Event not found"})
-            return
+            return {"code": 4404, "reason": "Event not found"}
         message = Message(**env.payload)
-        # Broadcast to everyone in the room via the bus.
-        await self.publish(message.to_payload(), event="chat")
+        # Broadcast to everyone in the room via the bus; uses incoming event verbatim.
+        await self.publish(message.to_payload(), event=env.event)
 
 
 chat_hub.channel(RoomChannel)

@@ -1,12 +1,12 @@
 import asyncio
 import re
+from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Awaitable, Callable, Protocol
+from typing import Any, Awaitable, Callable
 
 from ididi import Graph
 from ididi.interfaces import IDependent
-from abc import ABC, abstractmethod
-from msgspec.json import Decoder
+from msgspec.json import Decoder, encode
 
 from lihil.errors import SockRejectedError
 from lihil.interface import (
@@ -161,16 +161,14 @@ class SocketBus(ABC):
         self,
         topic: str,
         callback: Callable[[MessageEnvelope], Awaitable[None]],
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @abstractmethod
     async def unsubscribe(
         self,
         topic: str,
         callback: Callable[[MessageEnvelope], Awaitable[None]],
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @abstractmethod
     async def publish(self, topic: str, event: str, payload: Any) -> None:
@@ -247,9 +245,11 @@ class ChannelBase(ABC):
         topic: str,
         params: dict[str, str] | None = None,
         bus: SocketBus,
+        graph: Graph,
     ):
         self.socket = socket
         self.bus = bus
+        self.graph = graph
         self._resolved_topic = topic
         self.params = params or {}
 
@@ -282,7 +282,7 @@ class ChannelBase(ABC):
         await self.bus.subscribe(self.resolved_topic, self.on_update)
 
     @abstractmethod
-    async def on_message(self, env: MessageEnvelope) -> None:  # pragma: no cover
+    async def on_message(self, env: MessageEnvelope) -> Any:  # pragma: no cover
         raise NotImplementedError
 
     async def on_leave(self) -> None:  # pragma: no cover - to be overridden
@@ -308,6 +308,7 @@ class ChannelRegistry:
         *,
         socket: ISocket,
         bus: SocketBus,
+        graph: Graph,
     ) -> ChannelBase | None:
         """
         Return a channel instance directly when a pattern matches.
@@ -315,7 +316,7 @@ class ChannelRegistry:
         """
         for ch_cls in self._channels:
             if params := ch_cls.match(topic):
-                return ch_cls(socket, topic=topic, params=params, bus=bus)
+                return ch_cls(socket, topic=topic, params=params, bus=bus, graph=graph)
         return None
 
 
@@ -364,56 +365,6 @@ class SocketHub(RouteBase):
         self.call_stack = self.chainup_middlewares(self.connect)
         self._is_setup = True
 
-    async def _handle_join(
-        self,
-        msg_env: MessageEnvelope,
-        subscriptions: dict[str, ChannelBase],
-        sock: ISocket,
-        bus: SocketBus,
-    ) -> None:
-        if msg_env.topic in subscriptions:
-            return
-
-        channel = self._registry.create(msg_env.topic, socket=sock, bus=bus)
-        if not channel:
-            await sock.send_json(TOPIC_NOT_FOUND)
-            return
-
-        sock.topic = msg_env.topic
-        sock.params = channel.params
-        await channel.on_join()
-        subscriptions[msg_env.topic] = channel
-
-    async def _handle_leave(
-        self,
-        msg_env: MessageEnvelope,
-        subscriptions: dict[str, ChannelBase],
-        sock: ISocket,
-    ) -> None:
-        channel = subscriptions.pop(msg_env.topic, None)
-        if not channel:
-            await sock.send_json(TOPIC_NOT_FOUND)
-            return
-
-        sock.topic = msg_env.topic
-        sock.params = channel.params
-        await channel.on_leave()
-
-    async def _dispatch_message(
-        self,
-        msg_env: MessageEnvelope,
-        subscriptions: dict[str, ChannelBase],
-        sock: ISocket,
-    ) -> None:
-        channel = subscriptions.get(msg_env.topic)
-        if not channel:
-            await sock.send_json(TOPIC_NOT_FOUND)
-            return
-
-        sock.topic = msg_env.topic
-        sock.params = channel.params
-        await channel.on_message(msg_env)
-
     async def connect(self, scope: IScope, receive: IReceive, send: ISend) -> None:
         if scope["type"] != "websocket":
             raise RuntimeError(
@@ -429,16 +380,39 @@ class SocketHub(RouteBase):
                 await self._on_connect(sock)
 
             await sock.accept()
-
             while True:
                 msg_env = await sock.receive_message()
                 if msg_env.event == "join":
-                    await self._handle_join(msg_env, subscriptions, sock, bus)
+                    if msg_env.topic in subscriptions:
+                        continue
+
+                    channel = self._registry.create(
+                        msg_env.topic, socket=sock, bus=bus, graph=self.graph
+                    )
+                    if not channel:
+                        await sock.send_json(TOPIC_NOT_FOUND)
+                        continue
+
+                    await channel.on_join()
+                    subscriptions[msg_env.topic] = channel
                     continue
-                if msg_env.event == "leave":
-                    await self._handle_leave(msg_env, subscriptions, sock)
+                elif msg_env.event == "leave":
+                    channel = subscriptions.pop(msg_env.topic, None)
+                    if not channel:
+                        await sock.send_json(TOPIC_NOT_FOUND)
+                        continue
+
+                    await channel.on_leave()
                     continue
-                await self._dispatch_message(msg_env, subscriptions, sock)
+                else:
+                    channel = subscriptions.get(msg_env.topic)
+                    if not channel:
+                        await sock.send_json(TOPIC_NOT_FOUND)
+                        continue
+
+                    if (reply := await channel.on_message(msg_env)) is not None:
+                        data = encode(reply)
+                        await sock.send_bytes(data)
         except WebSocketDisconnect:
             pass
         except SockRejectedError:
@@ -448,13 +422,8 @@ class SocketHub(RouteBase):
                 await sock.close(code=1011, reason="Internal Server Error")
             raise
         finally:
-            for topic, channel in list(subscriptions.items()):
-                sock.topic = topic
-                sock.params = channel.params
-                try:
-                    await channel.on_leave()
-                finally:
-                    pass
+            for _, channel in list(subscriptions.items()):
+                await channel.on_leave()
 
             if self._on_disconnect:
                 await self._on_disconnect(sock)
