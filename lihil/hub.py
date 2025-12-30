@@ -64,13 +64,9 @@ class ISocket:
         websocket: WebSocket,
         *,
         topic: str | None = None,
-        params: dict[str, Any] | None = None,
-        assigns: dict[str, Any] | None = None,
     ):
         self._ws = websocket
         self.topic = topic
-        self.params = params or {}
-        self.assigns = assigns or {}
 
     @property
     def websocket(self) -> WebSocket:

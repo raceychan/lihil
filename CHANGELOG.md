@@ -2,16 +2,6 @@
 
 ## version 0.2.38
 
-GOAL: give user ultimate control over oas
-
-t1:
-    support content-type in `Param`
-t2:
-    support Annotated[T, Resp("")]
-
-
-## Unreleased
-
 ### Added
 - Managed WebSocket hub: `SocketHub` now drives class-based channels (`ChannelBase`) with regex topic patterns via `Topic("room:{id}")`, lifecycle hooks (`on_join/on_message/on_leave`), and bus fanout (`publish/broadcast`).
 - Bus factories: `SocketHub(bus_factory=...)` resolves a per-connection `SocketBus` through the DI graph (supports nested factories), enabling custom backends while keeping the default in-memory bus.
