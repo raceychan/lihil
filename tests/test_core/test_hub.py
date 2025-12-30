@@ -132,6 +132,14 @@ def test_isocket_allow_if_rejects():
     assert sock._ws.closed == (4403, "Forbidden")
 
 
+def test_channelbase_requires_on_message():
+    class IncompleteChannel(ChannelBase):
+        topic = Topic("room:{room_id}")
+
+    with pytest.raises(TypeError):
+        IncompleteChannel(None, topic="room:lobby", params={}, bus=InMemorySocketBus())  # type: ignore[arg-type]
+
+
 def test_hub_bus_factory_with_dependency(test_client):
     class FakeKafka:
         pass

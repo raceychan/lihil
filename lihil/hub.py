@@ -5,6 +5,7 @@ from typing import Any, Awaitable, Callable, Protocol
 
 from ididi import Graph
 from ididi.interfaces import IDependent
+from abc import ABC, abstractmethod
 from msgspec.json import Decoder
 
 from lihil.errors import SockRejectedError
@@ -154,31 +155,37 @@ class ISocket:
             raise SockRejectedError("connection rejected")
 
 
-class SocketBus(Protocol):
+class SocketBus(ABC):
+    @abstractmethod
     async def subscribe(
         self,
         topic: str,
         callback: Callable[[MessageEnvelope], Awaitable[None]],
-    ) -> None: ...
+    ) -> None:
+        ...
 
+    @abstractmethod
     async def unsubscribe(
         self,
         topic: str,
         callback: Callable[[MessageEnvelope], Awaitable[None]],
-    ) -> None: ...
+    ) -> None:
+        ...
 
+    @abstractmethod
     async def publish(self, topic: str, event: str, payload: Any) -> None:
         """
         Blocking fanout: await delivery to subscribers.
         """
 
+    @abstractmethod
     async def emit(self, topic: str, event: str, payload: Any) -> None:
         """
         Fire-and-forget fanout.
         """
 
 
-class InMemorySocketBus:
+class InMemorySocketBus(SocketBus):
     """
     Simple in-memory bus for topic fanout.
     """
@@ -226,7 +233,7 @@ class InMemorySocketBus:
         asyncio.create_task(self.publish(topic, event, payload))
 
 
-class ChannelBase:
+class ChannelBase(ABC):
     """
     Class-based channel. Subclasses define `topic = Topic("...")` and override hooks.
     """
@@ -274,8 +281,9 @@ class ChannelBase:
     async def on_join(self) -> None:  # pragma: no cover - to be overridden
         await self.bus.subscribe(self.resolved_topic, self.on_update)
 
+    @abstractmethod
     async def on_message(self, env: MessageEnvelope) -> None:  # pragma: no cover
-        ...
+        raise NotImplementedError
 
     async def on_leave(self) -> None:  # pragma: no cover - to be overridden
         await self.bus.unsubscribe(self.resolved_topic, self.on_update)
@@ -414,7 +422,7 @@ class SocketHub(RouteBase):
 
         sock = ISocket(WebSocket(scope, receive, send))
         subscriptions: dict[str, ChannelBase] = {}
-        bus = await self.graph.aresolve(self._bus_factory)
+        bus = await self.graph.aresolve(SocketBus)
 
         try:
             if self._on_connect:

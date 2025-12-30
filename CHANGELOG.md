@@ -10,6 +10,14 @@ t2:
     support Annotated[T, Resp("")]
 
 
+## Unreleased
+
+### Added
+- Managed WebSocket hub: `SocketHub` now drives class-based channels (`ChannelBase`) with regex topic patterns via `Topic("room:{id}")`, lifecycle hooks (`on_join/on_message/on_leave`), and bus fanout (`publish/broadcast`).
+- Bus factories: `SocketHub(bus_factory=...)` resolves a per-connection `SocketBus` through the DI graph (supports nested factories), enabling custom backends while keeping the default in-memory bus.
+- Tests & demo: new hub tests cover join/leave/chat, bus failure cleanup, and DI-resolved bus factories; `demo/ws.py`/`demo/chat.html` updated to show room switching and broadcasts.
+
+
 
 ## version 0.2.37
 

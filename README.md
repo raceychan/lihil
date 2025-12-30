@@ -28,6 +28,12 @@
 - **AI Agent Friendly**: Designed to work seamlessly with AI coding assistants - see [LIHIL_COPILOT.md](LIHIL_COPILOT.md) for comprehensive guidance on using Lihil with AI agents
 - **Productive**: Provides extensive typing information for superior developer experience, complemented by detailed error messages and docstrings for effortless debugging
 
+## What’s New: Managed WebSocket Hub
+- **SocketHub**: High-level WebSocket route with class-based channels. Subclass `ChannelBase`, declare `topic = Topic("room:{room_id}")`, and implement `on_join`, `on_message`, `on_leave`.
+- **Bus fanout**: Call `await self.publish(payload, event="chat")` inside channels to broadcast to all subscribers of the resolved topic. Bus instances are resolved per connection via `bus_factory` (supports DI, nested factories).
+- **Registration**: Register channels with `hub.channel(MyChannel)` and mount the hub like any other route: `app = Lihil(hub)`.
+- **Demo**: `demo/ws.py` and `demo/chat.html` now show room join/leave and broadcast chat across rooms using the new hub API.
+
 ## Lihil is not
 
 - **Not a microframework**: Lihil has an ever-growing and prosperous ecosystem that provides industrial, enterprise-ready features such as throttler, timeout, auth, and more
