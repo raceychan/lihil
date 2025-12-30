@@ -114,7 +114,10 @@ class WebSocketEndpoint:
             # we should not send close message when client is disconnected already
             return
         except Exception:
-            if sock.client_state == WebSocketState.CONNECTED:
+            if (
+                sock.application_state == WebSocketState.CONNECTED
+                and sock.client_state == WebSocketState.CONNECTED
+            ):
                 await sock.close(code=1011, reason="Internal Server Error")
             raise
 

@@ -80,6 +80,13 @@ class ISocket:
     def client_state(self) -> WebSocketState:
         return self._ws.client_state
 
+    @property
+    def dual_connected(self) -> bool:
+        return (
+            self._ws.client_state == WebSocketState.CONNECTED
+            and self._ws.application_state == WebSocketState.CONNECTED
+        )
+
     # Explicitly expose only the supported WebSocket/HTTPConnection API surface
     @property
     def scope(self) -> Any:
@@ -414,7 +421,7 @@ class SocketHub(RouteBase):
         except SockRejectedError:
             pass
         except Exception:
-            if sock.client_state == WebSocketState.CONNECTED:
+            if sock.dual_connected:
                 await sock.close(code=1011, reason="Internal Server Error")
             raise
         finally:
@@ -423,8 +430,5 @@ class SocketHub(RouteBase):
 
             if self._on_disconnect:
                 await self._on_disconnect(sock)
-            if (
-                sock.application_state == WebSocketState.CONNECTED
-                and sock.client_state == WebSocketState.CONNECTED
-            ):
+            if sock.dual_connected:
                 await sock.close()
