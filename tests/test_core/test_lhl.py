@@ -15,7 +15,7 @@ from lihil.errors import (
 from lihil.interface import ASGIApp, Base
 from lihil.lihil import Lihil, lhl_set_config, lifespan_wrapper
 from lihil.local_client import LocalClient
-from lihil.routing import Route
+from lihil.http import Route
 
 
 class CustomAppState(Base):
@@ -1066,7 +1066,7 @@ async def test_lhl_add_seen_subroute():
 
 
 def test_genereate_oas_from_lhl():
-    from lihil.oas import OASOpenAPI
+    from lihil.oas.model import OASOpenAPI
 
     lhl = Lihil()
     oas = lhl.genereate_oas()

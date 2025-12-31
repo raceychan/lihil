@@ -2,12 +2,14 @@ import asyncio
 import re
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import AsyncExitStack
 from typing import Any, Awaitable, Callable
 
 from ididi import Graph
 from ididi.interfaces import IDependent
 from msgspec.json import Decoder, encode
 
+from lihil.asgi import ASGIRoute
 from lihil.errors import SockRejectedError
 from lihil.interface import (
     ASGIApp,
@@ -18,7 +20,6 @@ from lihil.interface import (
     MiddlewareFactory,
     Record,
 )
-from lihil.routing import RouteBase
 from lihil.vendors import WebSocket, WebSocketDisconnect, WebSocketState
 
 TOPIC_NOT_FOUND = {"code": 4404, "reason": "Topic not found"}
@@ -246,7 +247,7 @@ class ChannelBase(ABC):
         socket: ISocket,
         *,
         topic: str,
-        params: dict[str, str] | None = None,
+        params: dict[str, str],
         bus: SocketBus,
         graph: Graph,
     ):
@@ -254,7 +255,7 @@ class ChannelBase(ABC):
         self.bus = bus
         self.graph = graph
         self._resolved_topic = topic
-        self.params = params or {}
+        self.params = params
 
     @property
     def resolved_topic(self) -> str:
@@ -267,11 +268,11 @@ class ChannelBase(ABC):
         return None
 
     async def publish(self, payload: Any, *, event: str = "broadcast") -> None:
-        await self.bus.publish(self._resolved_topic, event, payload)
+        await self.bus.publish(self._resolved_topic, event=event, payload=payload)
 
-    async def broadcast(self, payload: Any, *, event: str = "broadcast") -> None:
+    async def emit(self, payload: Any, *, event: str = "broadcast") -> None:
         # Alias for publish to keep terminology consistent.
-        await self.publish(payload, event=event)
+        await self.bus.emit(self._resolved_topic, event=event, payload=payload)
 
     async def on_update(self, env: MessageEnvelope) -> None:
         """
@@ -281,14 +282,14 @@ class ChannelBase(ABC):
             {"topic": env.topic, "event": env.event, "payload": env.payload}
         )
 
-    async def on_join(self) -> None:  # pragma: no cover - to be overridden
+    async def on_join(self) -> None:
         await self.bus.subscribe(self.resolved_topic, self.on_update)
 
     @abstractmethod
-    async def on_message(self, env: MessageEnvelope) -> Any:  # pragma: no cover
+    async def on_message(self, env: MessageEnvelope) -> Any:
         raise NotImplementedError
 
-    async def on_leave(self) -> None:  # pragma: no cover - to be overridden
+    async def on_leave(self) -> None:
         await self.bus.unsubscribe(self.resolved_topic, self.on_update)
 
 
@@ -318,12 +319,16 @@ class ChannelRegistry:
         The caller (hub) supplies socket/bus; params are resolved here.
         """
         for ch_cls in self._channels:
-            if params := ch_cls.match(topic):
+            if (params := ch_cls.match(topic)) is not None:
                 return ch_cls(socket, topic=topic, params=params, bus=bus, graph=graph)
         return None
 
 
-class SocketHub(RouteBase):
+# class SocketSession:
+#    def __init__(self)
+
+
+class SocketHub(ASGIRoute):
     call_stack: ASGIApp | None = None
 
     def __init__(
@@ -377,6 +382,40 @@ class SocketHub(RouteBase):
         sock = ISocket(WebSocket(scope, receive, send))
         subscriptions: dict[str, ChannelBase] = {}
         bus = await self.graph.aresolve(SocketBus)
+        channel_stack = AsyncExitStack()
+
+        async def handle_message(msg: MessageEnvelope):
+            if msg.event == "join":
+                if msg.topic in subscriptions:
+                    return
+
+                channel = self._registry.create(
+                    msg.topic, socket=sock, bus=bus, graph=self.graph
+                )
+                if not channel:
+                    await sock.send_json(TOPIC_NOT_FOUND)
+                    return
+
+                await channel.on_join()
+                subscriptions[msg.topic] = channel
+                return
+            elif msg.event == "leave":
+                channel = subscriptions.pop(msg.topic, None)
+                if not channel:
+                    await sock.send_json(TOPIC_NOT_FOUND)
+                    return
+
+                await channel.on_leave()
+                return
+            else:
+                channel = subscriptions.get(msg.topic)
+                if not channel:
+                    await sock.send_json(TOPIC_NOT_FOUND)
+                    return
+
+                if (reply := await channel.on_message(msg)) is not None:
+                    data = encode(reply)
+                    await sock.send_bytes(data)
 
         try:
             if self._on_connect:
@@ -385,37 +424,8 @@ class SocketHub(RouteBase):
             await sock.accept()
             while True:
                 msg_env = await sock.receive_message()
-                if msg_env.event == "join":
-                    if msg_env.topic in subscriptions:
-                        continue
+                await handle_message(msg_env)
 
-                    channel = self._registry.create(
-                        msg_env.topic, socket=sock, bus=bus, graph=self.graph
-                    )
-                    if not channel:
-                        await sock.send_json(TOPIC_NOT_FOUND)
-                        continue
-
-                    await channel.on_join()
-                    subscriptions[msg_env.topic] = channel
-                    continue
-                elif msg_env.event == "leave":
-                    channel = subscriptions.pop(msg_env.topic, None)
-                    if not channel:
-                        await sock.send_json(TOPIC_NOT_FOUND)
-                        continue
-
-                    await channel.on_leave()
-                    continue
-                else:
-                    channel = subscriptions.get(msg_env.topic)
-                    if not channel:
-                        await sock.send_json(TOPIC_NOT_FOUND)
-                        continue
-
-                    if (reply := await channel.on_message(msg_env)) is not None:
-                        data = encode(reply)
-                        await sock.send_bytes(data)
         except WebSocketDisconnect:
             pass
         except SockRejectedError:

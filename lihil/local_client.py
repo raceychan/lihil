@@ -9,18 +9,18 @@ from typing import (
     MutableMapping,
     Optional,
     Union,
+    cast,
 )
 from urllib.parse import urlencode
 from uuid import uuid4
 
+from ididi import Graph
 from msgspec.json import decode as json_decode
 from typing_extensions import Unpack
 
-from ididi import Graph
-
 from lihil.errors import LihilError
+from lihil.http import Endpoint, IEndpointProps, Route
 from lihil.interface import HTTP_METHODS, ASGIApp, Base, Payload, R
-from lihil.routing import Endpoint, IEndpointProps, Route
 from lihil.utils.json import encoder_factory
 
 
@@ -193,6 +193,8 @@ class LocalClient:
 
             elif isinstance(field_value, tuple):
                 # File upload: (filename, file_bytes, content_type)
+                field_value = cast(tuple[Any, ...], field_value)
+
                 filename, file_bytes, file_content_type = field_value + (None,) * (
                     3 - len(field_value)
                 )
@@ -513,8 +515,7 @@ class LocalClient:
         path: str = "",
         **props: Unpack[IEndpointProps],
     ) -> Endpoint[R]:
-        route = Route(path, graph=self._graph)
-        route._workers = self._workers
+        route = Route(path, graph=self._graph, workers=self._workers)
         route.add_endpoint(method, func=f, **props)
         route.setup(graph=self._graph, workers=self._workers)
         return route.get_endpoint(method)

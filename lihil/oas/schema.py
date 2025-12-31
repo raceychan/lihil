@@ -3,9 +3,11 @@ from typing import Any, Sequence, cast, get_args
 
 from msgspec import Struct
 
+from lihil.asgi import ASGIRoute
 from lihil.config.app_config import IOASConfig
 from lihil.constant.status import phrase
 from lihil.errors import LihilError
+from lihil.http.routing import Endpoint, Route
 from lihil.interface import RegularTypes, is_present, is_set
 from lihil.oas import model as oasmodel
 from lihil.problems import (
@@ -14,7 +16,6 @@ from lihil.problems import (
     InvalidRequestErrors,
     ProblemDetail,
 )
-from lihil.routing import Endpoint, Route, RouteBase
 from lihil.signature import EndpointSignature, RequestParam
 from lihil.signature.parser import BodyParam, is_file_body
 from lihil.utils.json import SchemaHook, json_schema
@@ -768,7 +769,7 @@ class ValidationErrors(Struct):
 
 
 def generate_oas(
-    routes: Sequence[RouteBase],
+    routes: Sequence[ASGIRoute],
     oas_config: IOASConfig,
     app_version: str,
 ) -> oasmodel.OASOpenAPI:

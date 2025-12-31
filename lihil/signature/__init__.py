@@ -1,5 +1,6 @@
 from lihil.interface.struct import CustomEncoder as CustomEncoder
 
+from .params import Form as Form
 from .params import Param as Param
 from .params import ParamMeta as ParamMeta
 from .params import RequestParam as RequestParam

@@ -13,6 +13,7 @@ from lihil import (
 )
 from lihil.errors import RouteSetupError
 from lihil.plugins.bus import BusPlugin, BusTerminal, PEventBus
+from lihil.vendors import WebSocketDisconnect
 
 
 async def test_ws(test_client):
@@ -194,3 +195,46 @@ async def test_ws_with_include_subs():
     root_ws.merge(paretn_ws)
     assert root_ws.subroutes[0].path == root_ws.path + "/parent"
     assert root_ws.subroutes[0].subroutes[0].path == root_ws.path + "/parent" + "/sub"
+
+
+def test_ws_include_subroutes_warns():
+    parent = WebSocketRoute("/parent")
+    child = WebSocketRoute("/child")
+
+    with pytest.warns(DeprecationWarning):
+        parent.include_subroutes(child)
+
+    assert parent.subroutes[0].path.endswith("/child")
+
+
+async def test_ws_handler_disconnect_is_swallowed(test_client):
+    ws_route = WebSocketRoute("ws_disconnect")
+
+    async def handler(ws: WebSocket):
+        await ws.accept()
+        await ws.receive_text()
+
+    ws_route.endpoint(handler)
+
+    lhl = Lihil(ws_route)
+    client = test_client(lhl)
+    with client:
+        with client.websocket_connect("/ws_disconnect") as websocket:
+            websocket.close()
+
+
+async def test_ws_handler_exception_closes_socket(test_client):
+    ws_route = WebSocketRoute("ws_error")
+
+    async def handler(ws: WebSocket):
+        await ws.accept()
+        raise RuntimeError("boom")
+
+    ws_route.endpoint(handler)
+
+    lhl = Lihil(ws_route)
+    client = test_client(lhl)
+    with client:
+        with pytest.raises(RuntimeError, match="boom"):
+            with client.websocket_connect("/ws_error"):
+                pass

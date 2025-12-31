@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## version 0.2.39
+
+1. channel deps
+2. channel scope, ( add async exit stack to hub)
+3. channel event dispatch
+
+
 ## version 0.2.38
 
 ### Added

@@ -10,7 +10,7 @@ from lihil import Graph, Param, Text, status
 # from lihil.errors import InvalidParamTypeError
 from lihil.interface import ASGIApp, Empty, IReceive, IScope, ISend
 from lihil.local_client import LocalClient
-from lihil.routing import Route
+from lihil.http import Route
 from lihil.signature import EndpointParser
 
 

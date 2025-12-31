@@ -12,7 +12,7 @@ from lihil import Empty, HTTPException, Lihil, Param, Payload, Route, Text, stat
 from lihil.config import OASConfig
 from lihil.interface import is_set
 from lihil.local_client import LocalClient
-from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
+from lihil.lihil import get_doc_route, get_openapi_route, get_problem_route
 from lihil.oas.model import OASResponse
 from lihil.oas.doc_ui import get_problem_ui_html
 from lihil.oas.schema import (

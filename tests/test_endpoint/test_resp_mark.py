@@ -4,7 +4,7 @@ import pytest
 
 from lihil import Payload
 from lihil.interface.marks import resp_mark
-from lihil.routing import Route
+from lihil.http import Route
 
 
 class User(Payload):

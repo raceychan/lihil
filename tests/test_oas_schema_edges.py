@@ -126,7 +126,7 @@ def test_generate_oas_includes_security_schemes(monkeypatch):
 
     monkeypatch.setattr(oas_schema, "get_path_item_from_route", fake_get_path_item)
 
-    from lihil.routing import Route
+    from lihil.http import Route
 
     class DummyConfig:
         PROBLEM_PATH = "/problems"

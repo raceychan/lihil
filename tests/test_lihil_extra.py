@@ -2,7 +2,7 @@ import pytest
 
 from lihil.errors import AppConfiguringError
 from lihil.lihil import Lihil
-from lihil.routing import Route
+from lihil.http import Route
 
 
 def test_config_setter_rejects_none():

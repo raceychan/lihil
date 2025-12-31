@@ -20,7 +20,9 @@ from typing import (
 from ididi import Graph
 from typing_extensions import Unpack
 
+from lihil.asgi import ASGIBase, ASGIRoute
 from lihil.config import IAppConfig, lhl_get_config, lhl_read_config, lhl_set_config
+from lihil.config.app_config import IOASConfig
 from lihil.constant.resp import NOT_FOUND_RESP, InternalErrorResp, uvicorn_static_resp
 from lihil.errors import (
     AppConfiguringError,
@@ -30,22 +32,26 @@ from lihil.errors import (
     NotSupportedError,
     RouteSetupError,
 )
-from lihil.interface import ASGIApp, IReceive, IScope, ISend, MiddlewareFactory, P, R
-from lihil.oas import get_doc_route, get_openapi_route, get_problem_route
+from lihil.http import EndpointProps, IEndpointProps, Route
+from lihil.interface import (
+    ASGIApp,
+    Func,
+    IReceive,
+    IScope,
+    ISend,
+    MiddlewareFactory,
+    P,
+    R,
+)
+from lihil.interface.problem import DetailBase
+from lihil.oas.doc_ui import get_problem_ui_html, get_swagger_ui_html
 from lihil.oas.model import OASOpenAPI
 from lihil.oas.schema import generate_oas
 from lihil.problems import LIHIL_ERRESP_REGISTRY, collect_problems
-from lihil.routing import (
-    ASGIBase,
-    EndpointProps,
-    Func,
-    IEndpointProps,
-    Route,
-    RouteBase,
-)
 from lihil.signature.parser import LIHIL_PRIMITIVES
 from lihil.utils.json import encoder_factory
 from lihil.utils.string import is_plain_path
+from lihil.vendors import Response
 
 LifeSpan = Callable[["Lihil"], AsyncContextManager[None] | AsyncGenerator[None, None]]
 WrappedLifeSpan = Callable[["Lihil"], AsyncContextManager[None]]
@@ -65,7 +71,7 @@ def lifespan_wrapper(ls: LifeSpan | None) -> WrappedLifeSpan | None:
 StaticCache = dict[str, tuple[dict[str, Any], dict[str, Any]]]
 
 
-class StaticRoute(RouteBase):
+class StaticRoute(ASGIRoute):
     def __init__(self):
         # TODO: make this a response instead of a route, cancel static route
         # as route gets more complicated this is hard to maintain.
@@ -85,13 +91,55 @@ class StaticRoute(RouteBase):
         self.static_cache[sys.intern(path)] = content
 
 
+def get_openapi_route(
+    routes: list[ASGIRoute], oas_config: IOASConfig, app_version: str
+) -> ASGIRoute:
+    oas: OASOpenAPI | None = None
+    encoder = encoder_factory(t=OASOpenAPI)
+
+    async def openapi():
+        nonlocal oas
+        if oas is None:
+            oas = generate_oas(routes, oas_config, app_version)
+        return Response(encoder(oas), media_type="application/json")
+
+    openapi_route = Route(oas_config.OAS_PATH, in_schema=False)
+    openapi_route.get(openapi)
+    return openapi_route
+
+
+def get_doc_route(oas_config: IOASConfig) -> ASGIRoute:
+    oas_path = oas_config.OAS_PATH
+    docs_path = oas_config.DOC_PATH
+
+    async def swagger():
+        return get_swagger_ui_html(openapi_url=oas_path, title=oas_config.TITLE)
+
+    doc_route = Route(docs_path, in_schema=False)
+    doc_route.get(swagger)
+    return doc_route
+
+
+def get_problem_route(
+    oas_config: IOASConfig, problems: list[type[DetailBase[Any]]]
+) -> ASGIRoute:
+    problem_path = oas_config.PROBLEM_PATH
+
+    async def problem_detail():
+        return get_problem_ui_html(title=oas_config.PROBLEM_TITLE, problems=problems)
+
+    problem_route = Route(problem_path, in_schema=False)
+    problem_route.get(problem_detail)
+    return problem_route
+
+
 @final
 class Lihil(ASGIBase):
     _userls: WrappedLifeSpan | None
 
     def __init__(
         self,
-        *routes: RouteBase,
+        *routes: ASGIRoute,
         middlewares: list[MiddlewareFactory[Any]] | None = None,
         app_config: IAppConfig | None = None,
         max_thread_workers: int | None = None,
@@ -107,7 +155,7 @@ class Lihil(ASGIBase):
         )
         self._graph.register_singleton(self.config, IAppConfig)
         # =========== keep above order ============
-        self._routes: list[RouteBase] = []
+        self._routes: list[ASGIRoute] = []
         self._init_routes(routes)
         self._userls = lifespan_wrapper(lifespan)
         self._static_route: StaticRoute | None = None
@@ -115,7 +163,7 @@ class Lihil(ASGIBase):
         self._err_registry = LIHIL_ERRESP_REGISTRY
         self._is_setup: bool = False
 
-    def _init_routes(self, routes: tuple[RouteBase, ...]) -> None:
+    def _init_routes(self, routes: tuple[ASGIRoute, ...]) -> None:
         has_root = any(route.path == "/" for route in routes)
 
         if not has_root:
@@ -139,7 +187,7 @@ class Lihil(ASGIBase):
         return lhl_repr + routes_repr + "\n]"
 
     @property
-    def root(self) -> RouteBase:
+    def root(self) -> ASGIRoute:
         return self._root
 
     @property
@@ -147,7 +195,7 @@ class Lihil(ASGIBase):
         return self._graph
 
     @property
-    def routes(self) -> list[RouteBase]:
+    def routes(self) -> list[ASGIRoute]:
         return self._routes
 
     @property
@@ -207,7 +255,7 @@ class Lihil(ASGIBase):
 
         self._is_setup = True
 
-    def _generate_builtin_routes(self) -> tuple[RouteBase, ...]:
+    def _generate_builtin_routes(self) -> tuple[ASGIRoute, ...]:
         app_config = lhl_get_config()
         oas_config = app_config.oas
 
@@ -221,7 +269,7 @@ class Lihil(ASGIBase):
 
         return (openapi_route, doc_route, problem_route)
 
-    def get_route(self, path: str) -> RouteBase | None:
+    def get_route(self, path: str) -> ASGIRoute | None:
         for route in self._routes:
             if route.path == path:
                 return route
@@ -237,7 +285,7 @@ class Lihil(ASGIBase):
             app_version=config.VERSION,
         )
 
-    def include(self, *routes: RouteBase) -> None:
+    def include(self, *routes: ASGIRoute) -> None:
         for route in routes:
             if route in self._routes:
                 continue
@@ -254,7 +302,7 @@ class Lihil(ASGIBase):
             for sub in route.subroutes:
                 self.include(sub)
 
-    def include_routes(self, *routes: RouteBase) -> None:
+    def include_routes(self, *routes: ASGIRoute) -> None:
         warnings.warn(
             "Lihil.include_routes is deprecated and will be removed in 0.3.0; "
             "use Lihil.include instead.",
@@ -318,7 +366,7 @@ class Lihil(ASGIBase):
                 await InternalErrorResp(scope, receive, send)
             raise
 
-    def sub(self, path: str) -> "RouteBase":
+    def sub(self, path: str) -> "ASGIRoute":
         route = self._root.sub(path)
         if route not in self._routes:
             self._routes.append(route)

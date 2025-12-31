@@ -6,9 +6,10 @@ from unittest.mock import Mock
 
 import pytest
 
+from lihil.http.endpoint import EndpointProps
 from lihil.errors import NotSupportedError
-from lihil.routing import EndpointProps, Graph
-from lihil.websocket import WebSocketEndpoint, WebSocketRoute
+from lihil import Graph
+from lihil.socket.websocket import WebSocketEndpoint, WebSocketRoute
 
 
 class TestWSEndpointCoverage:
@@ -105,7 +106,7 @@ class TestWSRouteCoverage:
 
     def test_ws_route_chainup_plugins(self):
         """Test WebSocketEndpoint.chainup_plugins functionality."""
-        from lihil.routing import EndpointProps
+        from lihil.http.endpoint import EndpointProps
 
         route = "/ws"
 
@@ -133,7 +134,7 @@ class TestWSRouteCoverage:
 
     def test_ws_route_chainup_plugins_duplicate_plugins(self):
         """Test WebSocketEndpoint.chainup_plugins with duplicate plugins."""
-        from lihil.routing import EndpointProps
+        from lihil.http.endpoint import EndpointProps
 
         route = "/ws"
 

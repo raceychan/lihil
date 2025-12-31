@@ -1,5 +1,5 @@
+from lihil.http.endpoint import EndpointProps
 from lihil.problems import InvalidAuthError, InvalidRequestErrors
-from lihil.routing import EndpointProps
 
 
 def test_props_merge():

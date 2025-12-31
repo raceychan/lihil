@@ -44,14 +44,14 @@ class RoomChannel(ChannelBase):
     async def on_join(self) -> None:
         await super().on_join()
         room_id = self.params.get("room_id", "lobby")
-        self.socket.assigns.setdefault("rooms", set()).add(room_id)
-        await self.socket.emit({"room": room_id, "event": "joined"}, event="system")
+        self.socket.state.setdefault("rooms", set()).add(room_id)
+        await self.emit({"room": room_id, "event": "joined"}, event="system")
 
     async def on_leave(self) -> None:
         await super().on_leave()
         room_id = self.params.get("room_id", "lobby")
-        self.socket.assigns.get("rooms", set()).discard(room_id)
-        await self.socket.emit({"room": room_id, "event": "left"}, event="system")
+        self.socket.state.get("rooms", set()).discard(room_id)
+        await self.emit({"room": room_id, "event": "left"}, event="system")
 
     async def on_message(self, env: MessageEnvelope) -> dict[str, Any] | None:
         if env.event != "chat":

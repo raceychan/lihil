@@ -10,6 +10,7 @@ from lihil.errors import InvalidParamSourceError, NotSupportedError
 from lihil.interface import (
     MISSING,
     BodyContentType,
+    MissedType,
     ParamBase,
     ParamSource,
     T,
@@ -359,7 +360,7 @@ RequestParam = Union[PathParam[T], QueryParam[T], HeaderParam[T], CookieParam[T]
 ParsedParam = (
     RequestParam[T] | BodyParam[bytes, T] | FormParam[T] | DependentNode | PluginParam
 )
-ParamResult = tuple[T, MISSING] | tuple[MISSING, ValidationProblem]
+ParamResult = tuple[T, MissedType] | tuple[MissedType, ValidationProblem]
 ParamMap = dict[str, T]
 
 

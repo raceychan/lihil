@@ -2,13 +2,8 @@ from typing import Annotated, ClassVar, Literal
 
 from msgspec import field
 
-from lihil.interface import UNSET, Base, Payload, UnsetType, Unset
-from lihil.oas.model import (
-    OASAuthModel,
-    OASOAuth2,
-    OASOAuthFlowPassword,
-    OASOAuthFlows,
-)
+from lihil.interface import UNSET, Base, Payload, Unset, UnsetType
+from lihil.oas.model import OASAuthModel, OASOAuth2, OASOAuthFlowPassword, OASOAuthFlows
 from lihil.signature.params import Form
 
 

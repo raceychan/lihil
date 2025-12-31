@@ -63,17 +63,6 @@ StrDict = dict[str, Any]
 RegularTypes = type | UnionType | GenericAlias
 
 
-def get_maybe_vars(m: T | "_Missed") -> T | None:
-    exclude_maybe = tuple(m for m in get_args(m) if m is not _Missed)
-    if exclude_maybe:
-        return Union[exclude_maybe]
-    return None
-
-
-def is_present(t: T | "_Missed") -> TypeGuard[T]:
-    return t is not MISSING
-
-
 @dataclass(frozen=True, repr=False)
 class _Missed:
 
@@ -89,12 +78,24 @@ class _Missed:
 
 
 MISSING = _Missed()
+MissedType = _Missed
 
 Maybe = _Missed | T
 Unset = UnsetType | T
 
 
-def is_set(val: UnsetType | T) -> TypeGuard[T]:
+def get_maybe_vars(m: Maybe[T]) -> T | None:
+    exclude_maybe = tuple(m for m in get_args(m) if m is not _Missed)
+    if exclude_maybe:
+        return Union[exclude_maybe]  # type: ignore
+    return None
+
+
+def is_present(t: Maybe[T]) -> TypeGuard[T]:
+    return t is not MISSING
+
+
+def is_set(val: Unset[T]) -> TypeGuard[T]:
     return val is not UNSET
 
 

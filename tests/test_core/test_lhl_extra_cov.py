@@ -2,7 +2,7 @@ import importlib
 import sys
 
 from lihil.lihil import Lihil
-from lihil.routing import Route
+from lihil.http import Route
 
 
 async def test_lihil_init_with_root_route():

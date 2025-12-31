@@ -6,7 +6,9 @@ from typing import Any
 from ididi import Graph, Resolver
 from typing_extensions import Self, Unpack
 
+from lihil.asgi import ASGIRoute
 from lihil.errors import NotSupportedError
+from lihil.http.endpoint import EndpointInfo, EndpointProps, IEndpointProps
 from lihil.interface import (
     ASGIApp,
     Func,
@@ -18,7 +20,6 @@ from lihil.interface import (
     R,
 )
 from lihil.problems import InvalidRequestErrors
-from lihil.routing import EndpointInfo, EndpointProps, IEndpointProps, RouteBase
 from lihil.signature import EndpointParser, EndpointSignature, Injector, ParseResult
 from lihil.utils.string import merge_path
 from lihil.vendors import Response, WebSocket, WebSocketDisconnect, WebSocketState
@@ -134,7 +135,7 @@ class WebSocketEndpoint:
             await self.make_call(scope, receive, send, self._graph)
 
 
-class WebSocketRoute(RouteBase):
+class WebSocketRoute(ASGIRoute):
     call_stack: ASGIApp | None = None
 
     def __init__(
