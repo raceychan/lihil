@@ -37,7 +37,4 @@ def test_client() -> Generator[Callable[[Lihil], TestClient], None, None]:
         yield _factory
     finally:
         for c in clients:
-            try:
-                c.close()
-            except Exception:
-                pass
+            c.close()

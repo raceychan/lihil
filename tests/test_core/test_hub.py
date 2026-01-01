@@ -3,9 +3,19 @@ from typing import Any
 import msgspec
 import pytest
 
-from lihil import Annotated, ChannelBase, Graph, ISocket, Lihil, MessageEnvelope, SocketHub, Topic, use
+from lihil import (
+    Annotated,
+    ChannelBase,
+    Graph,
+    ISocket,
+    Lihil,
+    MessageEnvelope,
+    SocketHub,
+    Topic,
+    use,
+)
 from lihil.errors import SockRejectedError
-from lihil.socket.hub import ChannelRegistry, InMemorySocketBus, TOPIC_NOT_FOUND
+from lihil.socket.hub import ChannelFactory, InMemorySocketBus, SocketSession, TOPIC_NOT_FOUND
 from lihil.vendors import WebSocketDisconnect, WebSocketState
 
 
@@ -121,8 +131,9 @@ def test_bus_drops_bad_subscriber():
 
 
 def test_bus_unsubscribe_cleanup_and_emit(monkeypatch):
-    import anyio
     import asyncio
+
+    import anyio
 
     bus = InMemorySocketBus()
 
@@ -167,8 +178,8 @@ def test_isocket_allow_if_rejects():
 
 
 def test_isocket_proxies_and_messages():
-    from msgspec.json import encode
     import anyio
+    from msgspec.json import encode
 
     class FakeWS:
         def __init__(self):
@@ -206,11 +217,13 @@ def test_isocket_proxies_and_messages():
             return "text"
 
         async def receive_bytes(self):
-            return encode(MessageEnvelope(topic="room:lobby", event="chat", payload={"x": 1}))
+            return encode(
+                MessageEnvelope(topic="room:lobby", event="chat", payload={"x": 1})
+            )
 
     async def runner():
         fake = FakeWS()
-        sock = ISocket(fake, topic="room:lobby")
+        sock = ISocket(fake)
 
         assert sock.websocket is fake
         assert sock.application_state == WebSocketState.CONNECTED
@@ -230,15 +243,25 @@ def test_isocket_proxies_and_messages():
         assert await sock.receive_text() == "text"
 
         env = await sock.receive_message()
-        assert env.topic == "room:lobby" and env.event == "chat" and env.payload == {"x": 1}
+        assert (
+            env.topic == "room:lobby"
+            and env.event == "chat"
+            and env.payload == {"x": 1}
+        )
 
-        await sock.reply({"ok": True})
-        await sock.emit({"ok": False}, event="broadcast")
+        await sock.reply(env.topic, {"ok": True})
+        await sock.emit(env.topic, {"ok": False}, event="broadcast")
         await sock.close(1001, "bye")
 
         assert fake.accepted == "proto1"
-        assert ("json", {"topic": "room:lobby", "event": "reply", "payload": {"ok": True}}) in fake.sent
-        assert ("json", {"topic": "room:lobby", "event": "broadcast", "payload": {"ok": False}}) in fake.sent
+        assert (
+            "json",
+            {"topic": "room:lobby", "event": "reply", "payload": {"ok": True}},
+        ) in fake.sent
+        assert (
+            "json",
+            {"topic": "room:lobby", "event": "broadcast", "payload": {"ok": False}},
+        ) in fake.sent
         assert ("bytes", b"bin") in fake.sent
         assert ("text", "hi") in fake.sent
         assert fake.closed[-1] == (1001, "bye")
@@ -254,18 +277,8 @@ def test_channelbase_requires_on_message():
         IncompleteChannel(None, topic="room:lobby", params={}, bus=InMemorySocketBus())  # type: ignore[arg-type]
 
 
-def test_channel_registry_no_match_and_emit():
+def test_socket_session_no_match_and_emit():
     import anyio
-
-    class DummyBus:
-        def __init__(self):
-            self.calls: list[tuple[str, str, str, Any]] = []
-
-        async def publish(self, topic: str, event: str, payload: Any):
-            self.calls.append(("publish", topic, event, payload))
-
-        async def emit(self, topic: str, event: str, payload: Any):
-            self.calls.append(("emit", topic, event, payload))
 
     class DummySocket:
         def __init__(self):
@@ -280,24 +293,43 @@ def test_channel_registry_no_match_and_emit():
         async def on_message(self, env: MessageEnvelope) -> Any:
             await self.publish({"echo": env.payload})
 
-    bus = DummyBus()
+    bus = InMemorySocketBus()
     socket = DummySocket()
-    channel = EchoChannel(socket, topic="room:lobby", params={"room_id": "lobby"}, bus=bus, graph=Graph())
+    faq = ChannelFactory(
+        topic_pattern=EchoChannel.topic,
+        channel_type=EchoChannel,
+        channel_factory=EchoChannel,
+    )
+    session = SocketSession(
+        socket=socket,
+        bus=bus,
+        graph=Graph(),
+        channel_fractories=[faq],
+        connect_cb=None,
+        disconnect_cb=None,
+    )
 
-    assert EchoChannel.match("nope") is None
-
-    registry = ChannelRegistry()
-    registry.add_channel(EchoChannel)
-    result = registry.create("unknown", socket=socket, bus=bus, graph=Graph())
-    assert result is None
+    assert faq.extra_topic_params("nope") is None
+    assert faq.extra_topic_params("room:lobby") == {"room_id": "lobby"}
 
     async def runner():
-        await channel.emit({"ping": 1})
-        await channel.on_update(MessageEnvelope(topic="room:lobby", event="chat", payload={"x": 2}))
+        await session.handle_message(
+            MessageEnvelope(topic="nope", event="chat", payload={"x": 0})
+        )
+        await session.handle_message(
+            MessageEnvelope(topic="room:lobby", event="join", payload=None)
+        )
+        await session.handle_message(
+            MessageEnvelope(topic="room:lobby", event="chat", payload={"x": 2})
+        )
+        await session.handle_message(
+            MessageEnvelope(topic="room:lobby", event="leave", payload=None)
+        )
 
     anyio.run(runner)
-    assert ("emit", "room:lobby", "broadcast", {"ping": 1}) in bus.calls
-    assert socket.sent[-1]["payload"] == {"x": 2}
+    assert socket.sent[0] == TOPIC_NOT_FOUND
+    assert socket.sent[-1]["payload"] == {"echo": {"x": 2}}
+    assert "room:lobby" not in bus._subs
 
 
 def test_hub_bus_factory_with_dependency(test_client):
@@ -400,7 +432,7 @@ def test_sockethub_connect_non_websocket_scope():
 
     scope = {"type": "http", "path": "/ws/connect"}
     with pytest.raises(RuntimeError):
-        anyio.run(hub.connect, scope, receive, send)
+        anyio.run(hub, scope, receive, send)
 
 
 def test_sockethub_unknown_topic_and_leave(test_client):
@@ -459,6 +491,7 @@ def test_sockethub_reject_on_connect(test_client):
 def test_sockethub_closes_on_handler_exception(monkeypatch):
     import anyio
     from msgspec.json import encode
+
     from lihil.socket import hub as hub_module
 
     messages = [
@@ -513,7 +546,7 @@ def test_sockethub_closes_on_handler_exception(monkeypatch):
 
     scope = {"type": "websocket", "path": "/ws/error"}
     with pytest.raises(ValueError):
-        anyio.run(hub.connect, scope, receive, send)
+        anyio.run(hub, scope, receive, send)
 
     fake = FakeWebSocket.instances[-1]
     assert (1011, "Internal Server Error") in fake.closed
@@ -521,6 +554,7 @@ def test_sockethub_closes_on_handler_exception(monkeypatch):
 
 def test_sockethub_close_on_disconnect(monkeypatch):
     import anyio
+
     from lihil.socket import hub as hub_module
 
     class FakeWebSocket:
@@ -559,7 +593,7 @@ def test_sockethub_close_on_disconnect(monkeypatch):
         return None
 
     scope = {"type": "websocket", "path": "/ws/disconnect"}
-    anyio.run(hub.connect, scope, receive, send)
+    anyio.run(hub, scope, receive, send)
 
     fake = FakeWebSocket.instances[-1]
     assert (1000, "") in fake.closed

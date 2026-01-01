@@ -30,12 +30,12 @@ async def serve_chat() -> Response:
 @chat_hub.on_connect
 async def on_connect(sock: ISocket) -> None:
     # Simple per-socket bookkeeping example; not required by the hub.
-    sock.assigns.setdefault("rooms", set())
+    sock.state.setdefault("rooms", set())
 
 
 @chat_hub.on_disconnect
 async def on_disconnect(sock: ISocket) -> None:
-    sock.assigns.get("rooms", set()).clear()
+    sock.state.get("rooms", set()).clear()
 
 
 class RoomChannel(ChannelBase):
