@@ -228,7 +228,7 @@ async def get_profile():
 ```
 
 ## Managed WebSocket Hub (new)
-- Use `SocketHub` for managed websockets (no decorator-based channels). Define channels by subclassing `ChannelBase`, set `topic = Topic("room:{room_id}")`, and implement lifecycle hooks: `on_join`, `on_message`, `on_leave`.
+- Use `SocketHub` for managed websockets (no decorator-based channels). Define channels by subclassing `ChannelBase`, set `topic = Topic("room:{room_id}")`, and implement lifecycle hooks: `on_join`, `on_message`, `on_exit`.
 - Bus fanout: inside a channel, call `await self.publish(payload, event="chat")` to broadcast to all subscribers of the resolved topic. Returning a non-`None` value from `on_message` is auto-encoded via `msgspec.json.encode` and sent via `send_bytes`.
 - Event handlers: optional `async def on_<event>(self, payload): ...` methods are picked up automatically; otherwise `on_message(env)` is called.
 - Bus DI & graph access: pass `bus_factory=...` to `SocketHub`; the hub resolves a `SocketBus` per connection through the DI graph (supports nested factories with `Annotated[..., use(...)]`). Channels receive `self.graph` and can resolve other dependencies inside hooks via `await self.graph.aresolve(...)`.

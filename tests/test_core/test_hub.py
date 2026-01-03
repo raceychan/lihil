@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 import msgspec
 import pytest
@@ -8,76 +8,168 @@ from lihil import (
     ChannelBase,
     Graph,
     ISocket,
-    Lihil,
     MessageEnvelope,
+    Resolver,
     SocketHub,
     Topic,
     use,
 )
 from lihil.errors import SockRejectedError
-from lihil.socket.hub import ChannelFactory, InMemorySocketBus, SocketSession, TOPIC_NOT_FOUND
+from lihil.socket.hub import (
+    ChannelFactory,
+    InMemorySocketBus,
+    SocketBus,
+    SocketSession,
+    TOPIC_NOT_FOUND,
+)
 from lihil.vendors import WebSocketDisconnect, WebSocketState
 
 
-def encode_env(topic: str, event: str, payload=None) -> bytes:
-    return msgspec.json.encode({"topic": topic, "event": event, "payload": payload})
+class RecordingWebSocket:
+    def __init__(self):
+        self.application_state = WebSocketState.CONNECTED
+        self.client_state = WebSocketState.CONNECTED
+        self.headers = {}
+        self.state = {}
+        self.query_params = {}
+        self.path_params = {}
+        self.url = "ws://test/"
+        self.accepted: str | None = None
+        self.closed: list[tuple[int, str]] = []
+        self.sent: list[tuple[str, Any]] = []
+
+    async def accept(self, subprotocol=None):
+        self.accepted = subprotocol
+
+    async def close(self, code: int = 1000, reason: str | None = None):
+        self.closed.append((code, reason or ""))
+
+    async def send_json(self, data: Any):
+        self.sent.append(("json", data))
+
+    async def send_text(self, data: str):
+        self.sent.append(("text", data))
+
+    async def send_bytes(self, data: bytes):
+        self.sent.append(("bytes", data))
+
+
+def make_recording_socket() -> tuple[ISocket, RecordingWebSocket]:
+    ws = RecordingWebSocket()
+    return ISocket(ws), ws
+
+
+async def run_socket_session(
+    hub: SocketHub,
+    fn: Callable[[SocketSession, RecordingWebSocket, Resolver, SocketBus], Awaitable[None]],
+) -> None:
+    socket, raw_ws = make_recording_socket()
+    async with hub.graph.ascope() as conn_scope:
+        bus = await conn_scope.aresolve(SocketBus)
+        session = SocketSession(
+            socket=socket,
+            bus=bus,
+            resolver=conn_scope,
+            channel_fractories=hub._channel_factories,
+            connect_cb=hub._on_connect,
+            disconnect_cb=hub._on_disconnect,
+        )
+        await session.__aenter__()
+        try:
+            await fn(session, raw_ws, conn_scope, bus)
+        finally:
+            await session.__aexit__(None, None, None)
 
 
 class ChatChannel(ChannelBase):
     topic = Topic("room:{room_id}")
+
+    async def on_join(self, room_id: str):
+        self.room_id = room_id
+        await super().on_join()
 
     async def on_message(self, env: MessageEnvelope) -> None:
         # Fan out to the room via the bus.
         await self.publish(env.payload, event=env.event)
 
 
-def test_hub_join_and_chat_roundtrip(test_client):
+def test_hub_join_and_chat_roundtrip():
     hub = SocketHub("/ws/chat")
     hub.channel(ChatChannel)
-    app = Lihil(hub)
+    payload = {"text": "hi"}
 
-    client = test_client(app)
-    with client:
-        with client.websocket_connect("/ws/chat") as ws:
-            ws.send_bytes(encode_env("room:lobby", "join"))
-            payload = {"text": "hi"}
-            ws.send_bytes(encode_env("room:lobby", "chat", payload))
-            data = ws.receive_json()
-            assert data["topic"] == "room:lobby"
-            assert data["event"] == "chat"
-            assert data["payload"] == payload
+    async def scenario(session, raw_ws, conn_scope, bus):
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="join", payload=None),
+                msg_scope,
+            )
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="chat", payload=payload),
+                msg_scope,
+            )
+
+        assert raw_ws.sent[-1] == (
+            "json",
+            {"topic": "room:lobby", "event": "chat", "payload": payload},
+        )
+
+    import anyio
+
+    anyio.run(run_socket_session, hub, scenario)
 
 
-def test_hub_leave_stops_delivery(test_client):
+def test_hub_leave_stops_delivery():
     hub = SocketHub("/ws/chat")
     hub.channel(ChatChannel)
-    app = Lihil(hub)
 
-    client = test_client(app)
-    with client:
-        with client.websocket_connect("/ws/chat") as ws:
-            ws.send_bytes(encode_env("room:lobby", "join"))
-            ws.send_bytes(encode_env("room:lobby", "leave"))
-            ws.send_bytes(encode_env("room:lobby", "chat", {"text": "ignored"}))
-            data = ws.receive_json()
-            assert data["code"] == 4404
-            assert data["reason"] == "Topic not found"
+    async def scenario(session, raw_ws, conn_scope, bus):
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="join", payload=None),
+                msg_scope,
+            )
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="exit", payload=None),
+                msg_scope,
+            )
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(
+                    topic="room:lobby", event="chat", payload={"text": "ignored"}
+                ),
+                msg_scope,
+            )
+
+        assert not session._subscriptions
+        assert not bus._subs
+        assert raw_ws.sent[-1] == ("json", TOPIC_NOT_FOUND)
+
+    import anyio
+
+    anyio.run(run_socket_session, hub, scenario)
 
 
-def test_hub_chat_without_join_returns_404(test_client):
+def test_hub_chat_without_join_returns_404():
     hub = SocketHub("/ws/chat")
     hub.channel(ChatChannel)
-    app = Lihil(hub)
 
-    client = test_client(app)
-    with client:
-        with client.websocket_connect("/ws/chat") as ws:
-            ws.send_bytes(encode_env("room:lobby", "chat", {"text": "hi"}))
-            data = ws.receive_json()
-            assert data == {"code": 4404, "reason": "Topic not found"}
+    async def scenario(session, raw_ws, conn_scope, bus):
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="chat", payload={"text": "hi"}),
+                msg_scope,
+            )
+        assert raw_ws.sent[-1] == ("json", TOPIC_NOT_FOUND)
+
+    import anyio
+
+    anyio.run(run_socket_session, hub, scenario)
 
 
-def test_hub_hooks_run(test_client):
+def test_hub_hooks_run():
     hub = SocketHub("/ws/chat")
     hub.channel(ChatChannel)
     flags: dict[str, bool] = {"connect": False, "disconnect": False}
@@ -90,13 +182,12 @@ def test_hub_hooks_run(test_client):
     async def _on_disconnect(sock):
         flags["disconnect"] = True
 
-    app = Lihil(hub)
-    client = test_client(app)
-    with client:
-        with client.websocket_connect("/ws/chat") as ws:
-            ws.send_bytes(encode_env("room:lobby", "join"))
-            ws.close()
-    assert flags["connect"] is True
+    import anyio
+
+    async def scenario(session, raw_ws, conn_scope, bus):
+        assert flags["connect"] is True
+
+    anyio.run(run_socket_session, hub, scenario)
     assert flags["disconnect"] is True
 
 
@@ -274,7 +365,10 @@ def test_channelbase_requires_on_message():
         topic = Topic("room:{room_id}")
 
     with pytest.raises(TypeError):
-        IncompleteChannel(None, topic="room:lobby", params={}, bus=InMemorySocketBus())  # type: ignore[arg-type]
+        sock, _ = make_recording_socket()
+        IncompleteChannel(  # type: ignore[arg-type]
+            sock, topic="room:lobby", bus=InMemorySocketBus(), resolver=Graph()
+        )
 
 
 def test_socket_session_no_match_and_emit():
@@ -290,11 +384,15 @@ def test_socket_session_no_match_and_emit():
     class EchoChannel(ChannelBase):
         topic = Topic("room:{room_id}")
 
+        async def on_join(self, **kwargs):
+            await super().on_join()
+
         async def on_message(self, env: MessageEnvelope) -> Any:
             await self.publish({"echo": env.payload})
 
     bus = InMemorySocketBus()
     socket = DummySocket()
+    resolver = Graph()
     faq = ChannelFactory(
         topic_pattern=EchoChannel.topic,
         channel_type=EchoChannel,
@@ -303,28 +401,36 @@ def test_socket_session_no_match_and_emit():
     session = SocketSession(
         socket=socket,
         bus=bus,
-        graph=Graph(),
+        resolver=resolver,
         channel_fractories=[faq],
         connect_cb=None,
         disconnect_cb=None,
     )
 
-    assert faq.extra_topic_params("nope") is None
-    assert faq.extra_topic_params("room:lobby") == {"room_id": "lobby"}
+    assert faq.extract_topic_params("nope") is None
+    assert faq.extract_topic_params("room:lobby") == {"room_id": "lobby"}
 
     async def runner():
-        await session.handle_message(
-            MessageEnvelope(topic="nope", event="chat", payload={"x": 0})
-        )
-        await session.handle_message(
-            MessageEnvelope(topic="room:lobby", event="join", payload=None)
-        )
-        await session.handle_message(
-            MessageEnvelope(topic="room:lobby", event="chat", payload={"x": 2})
-        )
-        await session.handle_message(
-            MessageEnvelope(topic="room:lobby", event="leave", payload=None)
-        )
+        async with resolver.ascope() as scope:
+            await session.handle_message(
+                MessageEnvelope(topic="nope", event="chat", payload={"x": 0}),
+                scope,
+            )
+        async with resolver.ascope() as scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="join", payload=None),
+                scope,
+            )
+        async with resolver.ascope() as scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="chat", payload={"x": 2}),
+                scope,
+            )
+        async with resolver.ascope() as scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="exit", payload=None),
+                scope,
+            )
 
     anyio.run(runner)
     assert socket.sent[0] == TOPIC_NOT_FOUND
@@ -332,7 +438,7 @@ def test_socket_session_no_match_and_emit():
     assert "room:lobby" not in bus._subs
 
 
-def test_hub_bus_factory_with_dependency(test_client):
+def test_hub_bus_factory_with_dependency():
     class FakeKafka:
         pass
 
@@ -352,7 +458,7 @@ def test_hub_bus_factory_with_dependency(test_client):
         topic = Topic("room:{room_id}")
         seen_buses: list[InMemorySocketBus] = []
 
-        async def on_join(self) -> None:
+        async def on_join(self, room_id: str) -> None:
             ProbeChannel.seen_buses.append(self.bus)  # type: ignore[arg-type]
             await super().on_join()
 
@@ -364,14 +470,24 @@ def test_hub_bus_factory_with_dependency(test_client):
     hub.channel(ProbeChannel)
     ProbeChannel.seen_buses.clear()
 
-    app = Lihil(hub)
-    client = test_client(app)
-    with client:
-        with client.websocket_connect("/ws/chat") as ws:
-            ws.send_bytes(encode_env("room:lobby", "join"))
-            ws.send_bytes(encode_env("room:lobby", "chat", {"text": "hi"}))
-            data = ws.receive_json()
-            assert data["payload"] == {"text": "hi"}
+    import anyio
+
+    async def scenario(session, raw_ws, conn_scope, bus):
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="join", payload=None),
+                msg_scope,
+            )
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(
+                    topic="room:lobby", event="chat", payload={"text": "hi"}
+                ),
+                msg_scope,
+            )
+        assert raw_ws.sent[-1][1]["payload"] == {"text": "hi"}
+
+    anyio.run(run_socket_session, hub, scenario)
 
     assert build_calls == {"kafka": 1, "bus": 1}
     assert len(ProbeChannel.seen_buses) == 1
@@ -380,9 +496,12 @@ def test_hub_bus_factory_with_dependency(test_client):
     assert hasattr(bus, "kafka") and isinstance(bus.kafka, FakeKafka)
 
 
-def test_hub_unknown_event_rejected(test_client):
+def test_hub_unknown_event_rejected():
     class GuardedChannel(ChannelBase):
         topic = Topic("room:{room_id}")
+
+        async def on_join(self, **kwargs):
+            await super().on_join()
 
         async def on_message(self, env: MessageEnvelope) -> dict[str, Any] | None:
             if env.event != "chat":
@@ -391,15 +510,24 @@ def test_hub_unknown_event_rejected(test_client):
 
     hub = SocketHub("/ws/chat")
     hub.channel(GuardedChannel)
-    app = Lihil(hub)
 
-    client = test_client(app)
-    with client:
-        with client.websocket_connect("/ws/chat") as ws:
-            ws.send_bytes(encode_env("room:lobby", "join"))
-            ws.send_bytes(encode_env("room:lobby", "unknown", {"x": 1}))
-            data = msgspec.json.decode(ws.receive_bytes())
-            assert data == {"code": 4404, "reason": "Event not found"}
+    import anyio
+
+    async def scenario(session, raw_ws, conn_scope, bus):
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="join", payload=None),
+                msg_scope,
+            )
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="unknown", payload={"x": 1}),
+                msg_scope,
+            )
+        decoded = msgspec.json.decode(raw_ws.sent[-1][1])
+        assert decoded == {"code": 4404, "reason": "Event not found"}
+
+    anyio.run(run_socket_session, hub, scenario)
 
 
 def test_sockethub_call_without_setup():
@@ -435,165 +563,145 @@ def test_sockethub_connect_non_websocket_scope():
         anyio.run(hub, scope, receive, send)
 
 
-def test_sockethub_unknown_topic_and_leave(test_client):
+def test_sockethub_unknown_topic_and_leave():
     hub = SocketHub("/ws/chat")
-    app = Lihil(hub)
 
-    client = test_client(app)
-    with client:
-        with client.websocket_connect("/ws/chat") as ws:
-            ws.send_bytes(encode_env("room:missing", "join"))
-            assert ws.receive_json() == TOPIC_NOT_FOUND
-            ws.send_bytes(encode_env("room:missing", "leave"))
-            assert ws.receive_json() == TOPIC_NOT_FOUND
+    import anyio
+
+    async def scenario(session, raw_ws, conn_scope, bus):
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:missing", event="join", payload=None),
+                msg_scope,
+            )
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:missing", event="exit", payload=None),
+                msg_scope,
+            )
+        assert raw_ws.sent[0] == ("json", TOPIC_NOT_FOUND)
+        assert raw_ws.sent[-1] == ("json", TOPIC_NOT_FOUND)
+
+    anyio.run(run_socket_session, hub, scenario)
 
 
-def test_sockethub_duplicate_join_avoids_double_subscription(test_client):
-    bus_holder: dict[str, InMemorySocketBus] = {}
-
+def test_sockethub_duplicate_join_avoids_double_subscription():
     def bus_factory() -> InMemorySocketBus:
-        bus = InMemorySocketBus()
-        bus_holder["bus"] = bus
-        return bus
+        return InMemorySocketBus()
 
     hub = SocketHub("/ws/chat", bus_factory=bus_factory)
     hub.channel(ChatChannel)
-    app = Lihil(hub)
+    import anyio
 
-    client = test_client(app)
-    with client:
-        with client.websocket_connect("/ws/chat") as ws:
-            ws.send_bytes(encode_env("room:lobby", "join"))
-            ws.send_bytes(encode_env("room:lobby", "join"))
-            ws.send_bytes(encode_env("room:lobby", "chat", {"text": "hi"}))
-            data = ws.receive_json()
-            assert data["payload"] == {"text": "hi"}
-            bus = bus_holder["bus"]
-            assert len(bus._subs["room:lobby"]) == 1
+    async def scenario(session, raw_ws, conn_scope, bus):
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="join", payload=None),
+                msg_scope,
+            )
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="join", payload=None),
+                msg_scope,
+            )
+        async with conn_scope.ascope() as msg_scope:
+            await session.handle_message(
+                MessageEnvelope(topic="room:lobby", event="chat", payload={"text": "hi"}),
+                msg_scope,
+            )
+        assert raw_ws.sent[-1][1]["payload"] == {"text": "hi"}
+        assert len(bus._subs["room:lobby"]) == 1
+
+    anyio.run(run_socket_session, hub, scenario)
 
 
-def test_sockethub_reject_on_connect(test_client):
+def test_sockethub_reject_on_connect():
     hub = SocketHub("/ws/reject")
 
     @hub.on_connect
     async def reject(sock: ISocket):
         await sock.allow_if(False)
 
-    app = Lihil(hub)
-    client = test_client(app)
-    with client:
-        with pytest.raises(WebSocketDisconnect) as exc:
-            with client.websocket_connect("/ws/reject"):
-                pass
-        assert exc.value.code == 4403
+    socket, raw_ws = make_recording_socket()
+    session = SocketSession(
+        socket=socket,
+        bus=InMemorySocketBus(),
+        resolver=Graph(),
+        channel_fractories=hub._channel_factories,
+        connect_cb=hub._on_connect,
+        disconnect_cb=hub._on_disconnect,
+    )
 
-
-def test_sockethub_closes_on_handler_exception(monkeypatch):
     import anyio
-    from msgspec.json import encode
 
-    from lihil.socket import hub as hub_module
+    with pytest.raises(SockRejectedError):
+        anyio.run(session.__aenter__)
+    assert raw_ws.closed[-1][0] == 4403
 
-    messages = [
-        encode(MessageEnvelope(topic="boom:lobby", event="join", payload=None)),
-        encode(MessageEnvelope(topic="boom:lobby", event="chat", payload="hi")),
-    ]
 
-    class FakeWebSocket:
-        instances: list["FakeWebSocket"] = []
-
-        def __init__(self, scope, receive, send):
-            FakeWebSocket.instances.append(self)
-            self.application_state = WebSocketState.CONNECTED
-            self.client_state = WebSocketState.CONNECTED
-            self.closed: list[tuple[int, str]] = []
-
-        async def accept(self, subprotocol=None):
-            return None
-
-        async def receive_bytes(self):
-            if not messages:
-                raise WebSocketDisconnect()
-            return messages.pop(0)
-
-        async def send_bytes(self, data: bytes):
-            return None
-
-        async def send_json(self, data: Any):
-            return None
-
-        async def close(self, code: int = 1000, reason: str = ""):
-            self.closed.append((code, reason))
-
-    monkeypatch.setattr(hub_module, "WebSocket", FakeWebSocket)
-
+def test_sockethub_closes_on_handler_exception():
     hub = SocketHub("/ws/error")
 
     class BoomChannel(ChannelBase):
         topic = Topic("boom:{room_id}")
 
+        async def on_join(self, **kwargs):
+            await super().on_join()
+
         async def on_message(self, env: MessageEnvelope):
             raise ValueError("boom")
 
     hub.channel(BoomChannel)
-    hub.setup()
 
-    async def receive():
-        return {}
+    socket, raw_ws = make_recording_socket()
+    resolver = Graph()
+    session = SocketSession(
+        socket=socket,
+        bus=InMemorySocketBus(),
+        resolver=resolver,
+        channel_fractories=hub._channel_factories,
+        connect_cb=None,
+        disconnect_cb=None,
+    )
 
-    async def send(msg):
-        return None
-
-    scope = {"type": "websocket", "path": "/ws/error"}
-    with pytest.raises(ValueError):
-        anyio.run(hub, scope, receive, send)
-
-    fake = FakeWebSocket.instances[-1]
-    assert (1011, "Internal Server Error") in fake.closed
-
-
-def test_sockethub_close_on_disconnect(monkeypatch):
     import anyio
 
-    from lihil.socket import hub as hub_module
+    async def runner():
+        await session.__aenter__()
+        async with resolver.ascope() as scope:
+            await session.handle_message(
+                MessageEnvelope(topic="boom:lobby", event="join", payload=None),
+                scope,
+            )
+        with pytest.raises(ValueError) as excinfo:
+            async with resolver.ascope() as scope:
+                await session.handle_message(
+                    MessageEnvelope(topic="boom:lobby", event="chat", payload="hi"),
+                    scope,
+                )
+        await session.__aexit__(ValueError, excinfo.value, excinfo.value.__traceback__)
+        assert (1011, "Internal Server Error") in raw_ws.closed
 
-    class FakeWebSocket:
-        instances: list["FakeWebSocket"] = []
+    anyio.run(runner)
 
-        def __init__(self, scope, receive, send):
-            FakeWebSocket.instances.append(self)
-            self.application_state = WebSocketState.CONNECTED
-            self.client_state = WebSocketState.CONNECTED
-            self.closed: list[tuple[int, str]] = []
 
-        async def accept(self, subprotocol=None):
-            return None
+def test_sockethub_close_on_disconnect():
+    socket, raw_ws = make_recording_socket()
+    session = SocketSession(
+        socket=socket,
+        bus=InMemorySocketBus(),
+        resolver=Graph(),
+        channel_fractories=[],
+        connect_cb=None,
+        disconnect_cb=None,
+    )
 
-        async def receive_bytes(self):
-            raise WebSocketDisconnect()
+    import anyio
 
-        async def send_bytes(self, data: bytes):
-            return None
+    async def runner():
+        await session.__aenter__()
+        exc = WebSocketDisconnect()
+        await session.__aexit__(WebSocketDisconnect, exc, exc.__traceback__)
+        assert (1000, "") in raw_ws.closed
 
-        async def send_json(self, data: Any):
-            return None
-
-        async def close(self, code: int = 1000, reason: str = ""):
-            self.closed.append((code, reason))
-
-    monkeypatch.setattr(hub_module, "WebSocket", FakeWebSocket)
-
-    hub = SocketHub("/ws/disconnect")
-    hub.setup()
-
-    async def receive():
-        return {}
-
-    async def send(msg):
-        return None
-
-    scope = {"type": "websocket", "path": "/ws/disconnect"}
-    anyio.run(hub, scope, receive, send)
-
-    fake = FakeWebSocket.instances[-1]
-    assert (1000, "") in fake.closed
+    anyio.run(runner)

@@ -2,12 +2,12 @@ import asyncio
 import re
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
 from re import Pattern
 from types import TracebackType
 from typing import Any, Awaitable, Callable, Generic, TypeVar, cast
 
-from ididi import Graph
+from ididi import Graph, Resolver
 from ididi.interfaces import IDependent
 from msgspec.json import Decoder, encode
 
@@ -235,19 +235,12 @@ class ChannelBase(ABC):
     topic: re.Pattern[str]
 
     def __init__(
-        self,
-        socket: ISocket,
-        *,
-        topic: str,
-        params: dict[str, str],
-        bus: SocketBus,
-        graph: Graph,
+        self, socket: ISocket, *, topic: str, bus: SocketBus, resolver: Resolver
     ):
         self.socket = socket
         self.bus = bus
-        self.graph = graph
+        self._resolver = resolver
         self._resolved_topic = topic
-        self.params = params
 
     @property
     def resolved_topic(self) -> str:
@@ -281,7 +274,7 @@ class ChannelBase(ABC):
     async def on_message(self, env: MessageEnvelope) -> Any:
         raise NotImplementedError
 
-    async def on_leave(self) -> None:
+    async def on_exit(self) -> None:
         await self.bus.unsubscribe(self.resolved_topic, self.on_update)
 
 
@@ -293,7 +286,7 @@ class ChannelFactory(Record, Generic[CFactory]):
     channel_type: type[CFactory]
     channel_factory: Callable[..., CFactory]
 
-    def extra_topic_params(self, raw_topic: str) -> dict[str, Any] | None:
+    def extract_topic_params(self, raw_topic: str) -> dict[str, Any] | None:
         if not (res := self.topic_pattern.match(raw_topic)):
             return None
 
@@ -307,14 +300,14 @@ class SocketSession:
         self,
         socket: ISocket,
         bus: SocketBus,
-        graph: Graph,
+        resolver: Resolver,
         channel_fractories: list[ChannelFactory[ChannelBase]],
         connect_cb: IAsyncFunc[..., None] | None,
         disconnect_cb: IAsyncFunc[..., None] | None,
     ):
         self._socket = socket
         self._bus = bus
-        self._graph = graph
+        self._resolver = resolver
         self._channel_factories = channel_fractories
 
         self._connect_cb = connect_cb
@@ -330,7 +323,7 @@ class SocketSession:
 
     async def __aexit__(
         self,
-        exc_type: type[BaseException] | None,
+        exc_type: type[BaseException] | type[None],
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> bool:
@@ -340,7 +333,7 @@ class SocketSession:
             return False
 
         for channel in list(self._subscriptions.values()):
-            await channel.on_leave()
+            await channel.on_exit()
 
         if self._disconnect_cb:
             await self._disconnect_cb(self._socket)
@@ -352,49 +345,62 @@ class SocketSession:
     async def message_loop(self):
         while True:
             msg_env = await self._socket.receive_message()
-            await self.handle_message(msg_env)
+            async with self._resolver.ascope() as asc:
+                await self.handle_message(msg_env, asc)
 
     def create_channel(
         self,
         topic: str,
-        params: dict[str, Any],
         channel_faq: ChannelFactory[ChannelBase],
+        resolver: Resolver,
     ) -> ChannelBase:
         channel = channel_faq.channel_type(
             topic=topic,
-            params=params,
             socket=self._socket,
             bus=self._bus,
-            graph=self._graph,
+            resolver=resolver,
         )
         return channel
 
-    async def handle_message(self, msg: MessageEnvelope):
-        if msg.topic not in self._subscriptions:
-            if msg.event != "join":
-                await self._socket.send_json(TOPIC_NOT_FOUND)
-                return
+    async def _handle_join_event(self, msg: MessageEnvelope, resolver: Resolver):
+        if msg.topic in self._subscriptions:
+            return
 
-            for faq in self._channel_factories:
-                if (params := faq.extra_topic_params(msg.topic)) is None:
-                    continue
-                channel = self.create_channel(msg.topic, params, faq)
-                await channel.on_join() # inject topic params here
-                self._subscriptions[msg.topic] = channel
-                return
-            else:
-                await self._socket.send_json(TOPIC_NOT_FOUND)
-                return
-        elif msg.event == "join":
-            pass  # topic in subscrition, joined already
-        elif msg.event == "leave":
-            channel = self._subscriptions.pop(msg.topic)
-            await channel.on_leave()
+        for faq in self._channel_factories:
+            if (params := faq.extract_topic_params(msg.topic)) is None:
+                continue
+            channel = self.create_channel(msg.topic, faq, resolver)
+            await channel.on_join(**params)  # inject topic params here
+            self._subscriptions[msg.topic] = channel
         else:
-            channel = self._subscriptions[msg.topic]
-            if (reply := await channel.on_message(msg)) is not None:
-                data = encode(reply)
-                await self._socket.send_bytes(data)
+            await self._socket.send_json(TOPIC_NOT_FOUND)
+
+    async def _handle_exit_event(self, msg: MessageEnvelope, resolver: Resolver):
+        if msg.topic not in self._subscriptions:
+            await self._socket.send_json(TOPIC_NOT_FOUND)
+            return
+
+        channel = self._subscriptions.pop(msg.topic)
+        await channel.on_exit()
+
+    async def _handle_user_event(self, msg: MessageEnvelope, resolver: Resolver):
+        if msg.topic not in self._subscriptions:
+            await self._socket.send_json(TOPIC_NOT_FOUND)
+            return
+
+        channel = self._subscriptions[msg.topic]
+        if (reply := await channel.on_message(msg)) is not None:
+            data = encode(reply)
+            await self._socket.send_bytes(data)
+
+    async def handle_message(self, msg: MessageEnvelope, resolver: Resolver):
+        match msg.event:
+            case "join":
+                await self._handle_join_event(msg, resolver)
+            case "exit":
+                await self._handle_exit_event(msg, resolver)
+            case _:
+                await self._handle_user_event(msg, resolver)
 
 
 class SocketHub(ASGIRoute):
@@ -460,15 +466,34 @@ class SocketHub(ASGIRoute):
         self.call_stack = self.chainup_middlewares(self.handle_connection)
         self._is_setup = True
 
-    def create_socket_session(self, socket: ISocket, bus: SocketBus):
-        return SocketSession(
-            socket,
-            bus,
-            self._graph,
-            self._channel_factories,
-            self._on_connect,
-            self._on_disconnect,
-        )
+    @asynccontextmanager
+    async def create_socket_session(
+        self, scope: IScope, receive: IReceive, send: ISend
+    ):
+        async with self._graph.ascope() as asc:
+            socket = ISocket(WebSocket(scope, receive, send))
+            bus = await asc.aresolve(SocketBus)
+            ss = SocketSession(
+                socket,
+                bus,
+                asc,
+                self._channel_factories,
+                self._on_connect,
+                self._on_disconnect,
+            )
+            exc: Exception | None = None
+            exc_cls = type(exc)
+
+            try:
+                await ss.__aenter__()
+                yield ss
+            except SockRejectedError:
+                pass
+            except Exception as exc:
+                raise
+            finally:
+                tb = None if not isinstance(exc, Exception) else exc.__traceback__
+                await ss.__aexit__(exc_cls, exc, tb)
 
     async def handle_connection(
         self, scope: IScope, receive: IReceive, send: ISend
@@ -478,13 +503,5 @@ class SocketHub(ASGIRoute):
                 f"Non-websocket request sent to websocket route {self.path}"
             )
 
-        socket = ISocket(WebSocket(scope, receive, send))
-        bus = await self.graph.aresolve(SocketBus)
-        socket_session = self.create_socket_session(socket, bus)
-
-        try:
-            async with socket_session:
-                await socket_session.message_loop()
-        except SockRejectedError:
-            # Connection rejected during on_connect; socket already closed.
-            return
+        async with self.create_socket_session(scope, receive, send) as ss:
+            await ss.message_loop()

@@ -29,11 +29,11 @@
 - **Productive**: Provides extensive typing information for superior developer experience, complemented by detailed error messages and docstrings for effortless debugging
 
 ## What’s New: Managed WebSocket Hub
-- **SocketHub**: High-level WebSocket route with class-based channels. Subclass `ChannelBase`, declare `topic = Topic("room:{room_id}")`, and implement `on_join`, `on_message`, `on_leave`.
+- **SocketHub**: High-level WebSocket route with class-based channels. Subclass `ChannelBase`, declare `topic = Topic("room:{room_id}")`, and implement `on_join`, `on_message`, `on_exit`.
 - **Bus fanout**: Call `await self.publish(payload, event="chat")` inside channels to broadcast to all subscribers of the resolved topic. Bus instances are resolved per connection via `bus_factory` (supports DI, nested factories).
 - **Registration**: Register channels with `hub.channel(MyChannel)` and mount the hub like any other route: `app = Lihil(hub)`.
-- **Demo**: `demo/ws.py` and `demo/chat.html` now show room join/leave and broadcast chat across rooms using the new hub API.
-- **DI in channels**: Channels receive the hub’s `Graph`; use `self.graph.aresolve(...)` to pull dependencies (e.g., custom bus backends, services) inside `on_join/on_message/on_leave`.
+- **Demo**: `demo/ws.py` and `demo/chat.html` now show room join/exit and broadcast chat across rooms using the new hub API.
+- **DI in channels**: Channels receive the hub’s `Graph`; use `self.graph.aresolve(...)` to pull dependencies (e.g., custom bus backends, services) inside `on_join/on_message/on_exit`.
 
 ## Lihil is not
 

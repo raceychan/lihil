@@ -47,8 +47,8 @@ class RoomChannel(ChannelBase):
         self.socket.state.setdefault("rooms", set()).add(room_id)
         await self.emit({"room": room_id, "event": "joined"}, event="system")
 
-    async def on_leave(self) -> None:
-        await super().on_leave()
+    async def on_exit(self) -> None:
+        await super().on_exit()
         room_id = self.params.get("room_id", "lobby")
         self.socket.state.get("rooms", set()).discard(room_id)
         await self.emit({"room": room_id, "event": "left"}, event="system")
