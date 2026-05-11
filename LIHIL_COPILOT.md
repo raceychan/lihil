@@ -228,12 +228,16 @@ async def get_profile():
 ```
 
 ## Managed WebSocket Hub (new)
-- Use `SocketHub` for managed websockets (no decorator-based channels). Define channels by subclassing `ChannelBase`, set `topic = Topic("room:{room_id}")`, and implement lifecycle hooks: `on_join`, `on_message`, `on_leave`.
-- Bus fanout: inside a channel, call `await self.publish(payload, event="chat")` to broadcast to all subscribers of the resolved topic. Returning a non-`None` value from `on_message` is auto-encoded via `msgspec.json.encode` and sent via `send_bytes`.
-- Event handlers: optional `async def on_<event>(self, payload): ...` methods are picked up automatically; otherwise `on_message(env)` is called.
-- Bus DI & graph access: pass `bus_factory=...` to `SocketHub`; the hub resolves a `SocketBus` per connection through the DI graph (supports nested factories with `Annotated[..., use(...)]`). Channels receive `self.graph` and can resolve other dependencies inside hooks via `await self.graph.aresolve(...)`.
+- Use `SocketHub` for managed websockets (no decorator-based channels). Define channels by subclassing `ChannelBase`, set `topic = Topic("room:{room_id}")`, and implement lifecycle hooks such as `on_join` and `on_exit`.
+- Topic params can be declared directly on `on_join`, for example `async def on_join(self, room_id: str) -> None`; only declared topic params are injected, and unknown names fail during channel registration.
+- Bus fanout: inside a channel, call `await self.publish(payload, event="chat")` to broadcast to all subscribers of the resolved topic. Outbound messages use a stable envelope containing `topic`, `event`, `payload`, `ref`, `join_ref`, `event_id`, and connection-local `seq`.
+- Event handlers: optional `async def on_<event>(self, payload): ...` or `async def on_<event>(self, payload, env): ...` methods are picked up automatically; otherwise `on_message(env)` is called. Returning a non-`None` value sends a standard `reply` envelope.
+- Join and exit send standard ack replies. Unknown topics, unjoined topics, unknown events, invalid payloads, and handler failures send standard error replies.
+- Long-running channel work should use `self.start_task(name, coro)`. Exit, disconnect, and session cleanup cancel named tasks automatically. Task failures default to sending an error event; set `task_exception_policy = "close"` or `"ignore"` on a channel class to close the socket or only log the failure.
+- Bus DI & resolver access: pass `bus_factory=...` to `SocketHub`; the hub resolves a `SocketBus` per connection through the DI graph (supports nested factories with `Annotated[..., use(...)]`). Channels receive `self.resolver` and can resolve other dependencies inside hooks via `await self.resolver.aresolve(...)`.
 - Registration: `hub.channel(MyChannel)` registers the channel class. Include the hub in `Lihil` like any route: `app = Lihil(hub)`.
-- Demo: see `demo/ws.py`/`demo/chat.html` for room join/leave, broadcasts, and multi-room selection using the new hub API.
+- Demo: see `demo/ws.py`/`demo/chat.html` for room join/exit, broadcasts, and multi-room selection using the new hub API.
+- Protocol example: client sends `join` with `ref`; server replies with `event="reply"`, matching `ref`, a topic `join_ref`, and connection-local `seq`; command handlers can reply through the same envelope; `publish()` broadcasts topic events; `exit` returns an ok reply and cleans subscriptions/tasks.
 
 ### Mistake 3: Not Understanding Route Structure
 ```python

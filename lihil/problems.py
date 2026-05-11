@@ -46,14 +46,14 @@ def parse_exception(
     if exc_origin is None:
         if lenient_issubclass(exc, HTTPException):
             return exc
-        elif http_status.is_status(exc):
+        elif http_status.is_status(exc):  # pragma: no cover - kept for alias runtimes
             return http_status.code(exc)
         elif lenient_issubclass(exc, Exception):
             return exc
         else:
             raise TypeError(f"Invalid exception type {exc}")
     elif exc_origin is Literal:
-        while isinstance(exc, TypeAliasType):
+        while isinstance(exc, TypeAliasType):  # pragma: no cover - alias runtime shim
             exc = exc.__value__
         return get_args(exc)[0]
     elif is_union_type(exc):
@@ -137,7 +137,7 @@ def __erresp_factory_registry():
 
         if isinstance(exc, int):
             return status_handlers.get(exc)
-        elif isinstance(exc, TypeAliasType):
+        elif isinstance(exc, TypeAliasType):  # pragma: no cover - kept for alias runtimes
             return status_handlers.get(http_status.code(exc))
         elif get_origin(exc) is Literal:
             scode: int = get_args(exc)[0]

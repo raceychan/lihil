@@ -26,11 +26,20 @@ from .problems import HTTPException as HTTPException
 from .signature import Form as Form
 from .signature import Param as Param
 from .socket import ChannelBase as ChannelBase
+from .socket import EVENT_NOT_FOUND as EVENT_NOT_FOUND
+from .socket import ErrorPayload as ErrorPayload
+from .socket import InMemorySocketBus as InMemorySocketBus
 from .socket import ISocket as ISocket
 from .socket import MessageEnvelope as MessageEnvelope
+from .socket import ReplyPayload as ReplyPayload
+from .socket import SocketBus as SocketBus
 from .socket import SocketHub as SocketHub
+from .socket import SocketError as SocketError
+from .socket import TOPIC_NOT_FOUND as TOPIC_NOT_FOUND
 from .socket import Topic as Topic
 from .socket import WebSocketRoute as WebSocketRoute
+from .socket import error_payload as error_payload
+from .socket import reply_payload as reply_payload
 from .vendors import Request as Request
 from .vendors import Response as Response
 from .vendors import UploadFile as UploadFile
@@ -39,5 +48,5 @@ from .vendors import use as use
 
 # from .server.runner import run as run
 
-VERSION = "0.2.39"
+VERSION = "0.2.40"
 __version__ = VERSION

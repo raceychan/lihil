@@ -6,13 +6,16 @@ from lihil import (
     Graph,
     Ignore,
     Lihil,
+    Param,
     Payload,
     WebSocket,
     WebSocketRoute,
     use,
 )
 from lihil.errors import RouteSetupError
+from lihil.problems import InvalidRequestErrors
 from lihil.plugins.bus import BusPlugin, BusTerminal, PEventBus
+from lihil.vendors import Headers, QueryParams
 from lihil.vendors import WebSocketDisconnect
 
 
@@ -238,3 +241,60 @@ async def test_ws_handler_exception_closes_socket(test_client):
         with pytest.raises(RuntimeError, match="boom"):
             with client.websocket_connect("/ws_error"):
                 pass
+
+
+async def test_websocket_injector_raises_on_invalid_connection_param():
+    ws_route = WebSocketRoute("ws_invalid")
+
+    async def handler(limit: int):
+        return None
+
+    ws_route.endpoint(handler)
+    ws_route.setup(Graph())
+    endpoint = ws_route._ws_ep
+    assert endpoint is not None
+
+    socket = type(
+        "Socket",
+        (),
+        {
+            "headers": Headers({}),
+            "path_params": {},
+            "query_params": QueryParams("limit=bad"),
+        },
+    )()
+
+    with pytest.raises(InvalidRequestErrors):
+        await endpoint._injector.validate_websocket(socket, Graph())
+
+
+async def test_websocket_injector_removes_transitive_params():
+    ws_route = WebSocketRoute("ws_transitive")
+
+    async def load_token(raw: Annotated[str, Param("query")]) -> Ignore[str]:
+        return raw
+
+    async def handler(token: Annotated[str, use(load_token)]):
+        return token
+
+    ws_route.endpoint(handler)
+    graph = Graph()
+    ws_route.setup(graph)
+    endpoint = ws_route._ws_ep
+    assert endpoint is not None
+
+    socket = type(
+        "Socket",
+        (),
+        {
+            "headers": Headers({}),
+            "path_params": {},
+            "query_params": QueryParams("raw=abc"),
+        },
+    )()
+
+    async with graph.ascope() as resolver:
+        parsed = await endpoint._injector.validate_websocket(socket, resolver)
+
+    assert parsed.params["token"] == "abc"
+    assert "raw" not in parsed.params

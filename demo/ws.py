@@ -3,7 +3,7 @@ from typing import Any
 
 from msgspec import Struct
 
-from lihil import ChannelBase, ISocket, Lihil, MessageEnvelope, Route, SocketHub, Topic
+from lihil import ChannelBase, ISocket, Lihil, Route, SocketHub, Topic
 from lihil.vendors import Response
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -41,24 +41,20 @@ async def on_disconnect(sock: ISocket) -> None:
 class RoomChannel(ChannelBase):
     topic = Topic("room:{room_id}")
 
-    async def on_join(self) -> None:
+    async def on_join(self, room_id: str = "lobby") -> None:
         await super().on_join()
-        room_id = self.params.get("room_id", "lobby")
         self.socket.state.setdefault("rooms", set()).add(room_id)
         await self.emit({"room": room_id, "event": "joined"}, event="system")
 
-    async def on_leave(self) -> None:
-        await super().on_leave()
-        room_id = self.params.get("room_id", "lobby")
+    async def on_exit(self) -> None:
+        await super().on_exit()
+        room_id = self.resolved_topic.removeprefix("room:")
         self.socket.state.get("rooms", set()).discard(room_id)
         await self.emit({"room": room_id, "event": "left"}, event="system")
 
-    async def on_message(self, env: MessageEnvelope) -> dict[str, Any] | None:
-        if env.event != "chat":
-            return {"code": 4404, "reason": "Event not found"}
-        message = Message(**env.payload)
-        # Broadcast to everyone in the room via the bus; uses incoming event verbatim.
-        await self.publish(message.to_payload(), event=env.event)
+    async def on_chat(self, payload: dict[str, Any]) -> None:
+        message = Message(**payload)
+        await self.publish(message.to_payload(), event="chat")
 
 
 chat_hub.channel(RoomChannel)

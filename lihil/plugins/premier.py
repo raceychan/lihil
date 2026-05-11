@@ -13,7 +13,7 @@ try:
     from premier.throttler.interface import AsyncThrottleHandler as AsyncThrottleHandler
     from premier.timer.interface import ILogger
     from premier.timer.timer import timeout
-except ImportError:
+except ImportError:  # pragma: no cover - depends on optional premier install state
     raise MissingDependencyError("premier")
 
 

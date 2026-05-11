@@ -124,6 +124,7 @@ def test_premier_plugin_with_stubbed_dependencies(monkeypatch):
         ep_info = types.SimpleNamespace(func=handler)
 
         assert await plugin.fixed_window(1, 1)(ep_info)() == "ok"
+        assert await plugin.fix_window(1, 1)(ep_info)() == "ok"
         assert await plugin.sliding_window(2, 3)(ep_info)() == "ok"
         assert await plugin.leaky_bucket(1, 1, 1)(ep_info)() == "ok"
         assert await plugin.token_bucket(1, 1)(ep_info)() == "ok"

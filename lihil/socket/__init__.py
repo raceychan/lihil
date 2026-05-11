@@ -1,6 +1,15 @@
-from .hub import ChannelBase as ChannelBase
+from .bus import InMemorySocketBus as InMemorySocketBus
+from .bus import SocketBus as SocketBus
+from .channel import ChannelBase as ChannelBase
 from .hub import ISocket as ISocket
-from .hub import MessageEnvelope as MessageEnvelope
 from .hub import SocketHub as SocketHub
 from .hub import Topic as Topic
+from .protocol import EVENT_NOT_FOUND as EVENT_NOT_FOUND
+from .protocol import TOPIC_NOT_FOUND as TOPIC_NOT_FOUND
+from .protocol import ErrorPayload as ErrorPayload
+from .protocol import MessageEnvelope as MessageEnvelope
+from .protocol import ReplyPayload as ReplyPayload
+from .protocol import SocketError as SocketError
+from .protocol import error_payload as error_payload
+from .protocol import reply_payload as reply_payload
 from .websocket import WebSocketRoute as WebSocketRoute

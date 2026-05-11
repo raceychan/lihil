@@ -29,11 +29,26 @@
 - **Productive**: Provides extensive typing information for superior developer experience, complemented by detailed error messages and docstrings for effortless debugging
 
 ## What’s New: Managed WebSocket Hub
-- **SocketHub**: High-level WebSocket route with class-based channels. Subclass `ChannelBase`, declare `topic = Topic("room:{room_id}")`, and implement `on_join`, `on_message`, `on_leave`.
+- **SocketHub**: High-level WebSocket route with class-based channels. Subclass `ChannelBase`, declare `topic = Topic("room:{room_id}")`, and implement lifecycle hooks or event handlers such as `on_chat`.
+- **Typed topic params**: Declare topic params directly on `on_join`, such as `async def on_join(self, room_id: str) -> None`; Lihil injects declared params and rejects unknown names at registration.
+- **Protocol replies**: Join, exit, handler responses, and errors use a stable envelope with `ref`, `join_ref`, and connection-local `seq` fields so clients can pair requests with replies.
 - **Bus fanout**: Call `await self.publish(payload, event="chat")` inside channels to broadcast to all subscribers of the resolved topic. Bus instances are resolved per connection via `bus_factory` (supports DI, nested factories).
+- **Task lifecycle**: Use `self.start_task(name, coro)` for long-running channel work. Exit and disconnect cancel named tasks; task failures can send an error event, close the socket, or be logged and ignored.
 - **Registration**: Register channels with `hub.channel(MyChannel)` and mount the hub like any other route: `app = Lihil(hub)`.
-- **Demo**: `demo/ws.py` and `demo/chat.html` now show room join/leave and broadcast chat across rooms using the new hub API.
-- **DI in channels**: Channels receive the hub’s `Graph`; use `self.graph.aresolve(...)` to pull dependencies (e.g., custom bus backends, services) inside `on_join/on_message/on_leave`.
+- **Demo**: `demo/ws.py` and `demo/chat.html` show room join/exit and broadcast chat across rooms using the hub API.
+- **DI in channels**: Channels receive a scoped resolver; use `self.resolver.aresolve(...)` to pull dependencies (e.g., custom bus backends, services) inside hooks.
+
+Protocol flow:
+
+```json
+> {"topic":"room:lobby","event":"join","payload":{},"ref":"1"}
+< {"topic":"room:lobby","event":"reply","payload":{"status":"ok","response":{"topic":"room:lobby","already_joined":false,"replay_supported":false}},"ref":"1","join_ref":"1","event_id":null,"seq":1}
+> {"topic":"room:lobby","event":"chat","payload":{"text":"hi"},"ref":"2","join_ref":"1"}
+< {"topic":"room:lobby","event":"reply","payload":{"status":"ok","response":{}},"ref":"2","join_ref":"1","event_id":null,"seq":2}
+< {"topic":"room:lobby","event":"chat","payload":{"text":"hi"},"ref":null,"join_ref":"1","event_id":null,"seq":3}
+> {"topic":"room:lobby","event":"exit","payload":{},"ref":"3","join_ref":"1"}
+< {"topic":"room:lobby","event":"reply","payload":{"status":"ok","response":{"topic":"room:lobby"}},"ref":"3","join_ref":"1","event_id":null,"seq":4}
+```
 
 ## Lihil is not
 
