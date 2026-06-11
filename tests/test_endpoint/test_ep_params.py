@@ -1,7 +1,7 @@
-import sys
-from typing import Annotated
-from unittest import mock
 from enum import Enum
+import sys
+from typing import Annotated, Literal
+from unittest import mock
 
 import msgspec
 import pytest
@@ -160,6 +160,30 @@ def test_analyze_param_query(ep_parser: EndpointParser):
     assert param.name == "q"
     assert isinstance(param, QueryParam)
     assert param.source == "query"
+
+
+def test_analyze_param_literal_query(ep_parser: EndpointParser):
+    result = ep_parser.parse_param("source", Literal["session"], MISSING)
+    assert len(result) == 1
+    param = result[0]
+    assert param.name == "source"
+    assert isinstance(param, QueryParam)
+    assert param.source == "query"
+    assert param.decode("session") == "session"
+    with pytest.raises(msgspec.ValidationError):
+        param.decode("idea")
+
+
+def test_analyze_param_literal_path(ep_parser: EndpointParser):
+    ep_parser.path_keys = ("source",)
+    result = ep_parser.parse_param("source", Literal["session"], MISSING)
+    assert len(result) == 1
+    param = result[0]
+    assert isinstance(param, PathParam)
+    assert param.source == "path"
+    assert param.decode("session") == "session"
+    with pytest.raises(msgspec.ValidationError):
+        param.decode("idea")
 
 
 # Test analyze_param for dependencies

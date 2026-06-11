@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from typing import Literal
 
 import pytest
+import msgspec
 from msgspec import Struct
 
 from ididi.errors import UnsolvableNodeError
@@ -62,6 +64,21 @@ def test_req_param_factory_prefers_explicit_decoder():
     )
 
     assert param.decoder is dec
+
+
+def test_req_param_factory_accepts_literal_query_param():
+    param = req_param_factory(
+        name="source",
+        alias="source",
+        param_type=Literal["session"],
+        annotation=Literal["session"],
+        default=MISSING,
+        source="query",
+    )
+
+    assert param.decode("session") == "session"
+    with pytest.raises(msgspec.ValidationError):
+        param.decode("memory")
 
 
 def test_parse_body_rejects_uploadfile_list():

@@ -48,5 +48,5 @@ from .vendors import use as use
 
 # from .server.runner import run as run
 
-VERSION = "0.2.40"
+VERSION = "0.2.41"
 __version__ = VERSION

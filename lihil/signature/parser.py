@@ -117,6 +117,17 @@ def textdecoder_factory(
     return converter
 
 
+def is_valid_request_param_type(
+    param_type: type[Any] | UnionType | GenericAlias,
+) -> bool:
+    param_origin, _ = get_origin_pro(param_type)
+    return (
+        is_union_type(param_origin)
+        or isinstance(param_origin, (type, GenericAlias))
+        or get_origin(param_origin) is Literal
+    )
+
+
 def filedeocder_factory(filename: str):
     def file_decoder(form_data: FormData) -> UploadFile:
         file = form_data[filename]
@@ -262,12 +273,9 @@ def req_param_factory(
     else:
         decoder_ = textdecoder_factory(param_type=param_type)
 
-    param_origin, _ = get_origin_pro(param_type)
     # Python 3.12: builtin generics expose their typing info via types.GenericAlias,
     # which should be treated as a valid "type" for request params.
-    if not is_union_type(param_origin) and not isinstance(
-        param_origin, (type, GenericAlias)
-    ):
+    if not is_valid_request_param_type(param_type):
         raise InvalidParamError(f"Invalid param type {param_type} for {source} param")
 
     match source:

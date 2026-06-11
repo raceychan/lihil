@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## version 0.2.41
+
+### Fixes
+
+1. Allow `typing.Literal[...]` as a request parameter type for query and path
+   parameters, preserving msgspec validation and OpenAPI enum generation.
+
 ## version 0.2.39
 
 1. channel deps

@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 import pytest
 from ididi import AsyncScope, Graph, Ignore, use
@@ -749,6 +749,26 @@ async def test_endpoint_with_tuple_query():
 
     res = await res.text()
     assert called
+
+
+async def test_endpoint_with_literal_query():
+    called = False
+
+    async def search(source: Literal["session"] = "session") -> dict[str, str]:
+        nonlocal called
+        called = True
+        return {"source": source}
+
+    lc = LocalClient()
+    ep = await lc.make_endpoint(search)
+    resp = await lc(ep, query_params={"source": "session"})
+    assert await resp.json() == {"source": "session"}
+    assert called
+
+    called = False
+    invalid = await lc(ep, query_params={"source": "memory"})
+    assert invalid.status_code == 422
+    assert not called
 
 
 def test_set_1d_iterable():

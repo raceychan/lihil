@@ -1,5 +1,6 @@
 import types
 from types import SimpleNamespace
+from typing import Literal
 
 import pytest
 from msgspec import Struct, UNSET
@@ -62,6 +63,21 @@ def test_single_field_schema_adds_reference_component():
     assert "Wrapper" in schemas
     assert isinstance(param_schema, oasmodel.OASParameter)
     assert param_schema.schema_ == {"$ref": "#/components/schemas/Wrapper"}
+
+
+def test_literal_query_param_generates_enum_schema():
+    from lihil import Lihil, Route
+
+    route = Route("/search")
+
+    @route.get
+    async def search(source: Literal["session"] = "session") -> dict[str, str]:
+        return {"source": source}
+
+    oas = Lihil(route).genereate_oas()
+
+    params = oas.paths["/search"].get.parameters
+    assert params[0].schema_ == {"enum": ["session"]}
 
 
 def test_body_schema_collects_schema_errors():
